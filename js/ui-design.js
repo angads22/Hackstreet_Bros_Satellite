@@ -36,6 +36,10 @@
     debrief:  "Change the one thing that limited you, then fly the same design again."
   };
 
+  // This file's screen names -> the screen names getHints uses.
+  var HINT_KEYS = { briefing: "briefing", orbit: "orbit", build: "build", launcher: "launch",
+                    review: "readiness", mission: "mission", debrief: "debrief" };
+
   // Where each readiness check is fixed (SPEC: "Where each check is fixed").
   var FIX_SCREEN = {
     "no-objective": "briefing",
@@ -311,6 +315,14 @@
     if (!box || !btn) return;
     var mode = tier() ? tier().hints : "on";
     var text = HINTS[screen] || "";
+    // Story's hints come from getHints (data/hints.js): the tutorial line, then the first tip.
+    var key = HINT_KEYS[screen];
+    if (key && typeof getHints === "function" && state.design) {
+      var h = getHints(key, state.design);
+      mode = h.mode || mode;
+      var lines = [h.tutorial].concat(list(h.tips).slice(0, 1)).filter(Boolean);
+      if (lines.length) text = lines.join(" ");
+    }
     btn.hidden = !(mode === "request" && text);
     btn.setAttribute("aria-expanded", state.hintOpen ? "true" : "false");
     box.hidden = !text || mode === "off" || (mode === "request" && !state.hintOpen);
@@ -1053,16 +1065,18 @@
     refs.objective.textContent = GO_TEXT[next];
 
     var here = byId(PLACES, state.player);
-    var text, canEnter = false;
+    var openHere = !!here && placeOpen(here.id);
+    var canEnter = openHere && !state.walking;
+    var text;
     if (state.mapNote) text = state.mapNote;
     else if (state.walking) text = "Walking...";
-    else if (here && placeOpen(here.id)) { text = here.name + ": " + here.does + "."; canEnter = true; }
+    else if (openHere) text = here.name + ": " + here.does + ".";
     else if (here) text = here.name + " is locked. " + lockedReason(here.id);
     else text = "Follow the gold route. " + GO_TEXT[next];
     refs.promptText.textContent = text;
     refs.enter.textContent = canEnter ? "ENTER [E]" : "FOLLOW ROUTE [E]";
     // Never disabled while walking: that would drop keyboard focus to the page.
-    refs.enter.disabled = !!here && !canEnter && here.id === next;
+    refs.enter.disabled = !!here && !openHere && here.id === next;
     setStep("map");
   }
 

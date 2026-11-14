@@ -230,6 +230,7 @@
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
       d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
         el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text })]) : null,
+      closestLine(d),
       d.real_mission ? el("p", { class: "bar-note", text: "Real-world cousin: " + d.real_mission }) : null,
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
@@ -246,6 +247,16 @@
       el("div", { class: "ledger" }, [paper, side])
     ]));
     run = null;
+  }
+
+  // "Closest real mission: Explorer 1 (1958, NASA / JPL). ... Like yours: same orbit; battery power."
+  function closestLine(d) {
+    var c = d.closest_mission;
+    if (!c || !c.name) return null;
+    var shared = UI.list(c.shared).join("; ");
+    return el("p", { class: "nasa-line", text: "Closest real mission: " + c.name +
+      " (" + [c.year, c.agency].filter(Boolean).join(", ") + "). " + (c.blurb || "") +
+      (shared ? " Like yours: " + shared + "." : "") });
   }
 
   function tierLabel(id) {
