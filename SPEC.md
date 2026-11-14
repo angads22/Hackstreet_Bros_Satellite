@@ -293,7 +293,7 @@ knowledge(S) = 1 - exp(-S / knowledge_scale)
 payout       = max(value_musd * (knowledge(S_after) - knowledge(S_before)), repeat_floor_musd)
 ```
 
-**Ends:** a win when `win.topics_known` topics reach `win.knowledge`; a time-out at `end_year`. The game never soft-locks: if the treasury cannot afford the cheapest launchable design for any open topic, an emergency grant tops it up and the debrief says so.
+**Ends:** a win when `win.topics_known` topics (or every topic, if fewer exist) reach `win.knowledge`; a time-out at `end_year`. The game never soft-locks: if the treasury cannot afford the cheapest launchable design for any open topic, an emergency grant tops it up and the debrief says so.
 
 ### Debrief
 
@@ -490,6 +490,8 @@ resetProgress()
 
 // js/mission.js (Simulation): campaign and saves. Without a campaign, nothing above changes.
 newCampaign(tierId)             // starts and saves a campaign; treasury = tier.budget_musd; replaces any save
+newCampaignDesign()             // an empty design that belongs to the campaign (budget = treasury, cost paid at launch);
+                                // null if there is no campaign or it has finished. newDesign() stays a standalone mission.
 getCampaign()                   // the saved state, or null
 resetCampaign()
 getHubInfo()                    // { year, treasury_musd, topics: [{ id, name, available, knowledge, science_so_far,
@@ -509,7 +511,8 @@ Changes in a campaign:
 - `startMission` returns null if there are blockers, takes a copy of the design (later edits never change a flown mission), and deducts the cost from the treasury.
 - `stepMonth`'s `event` carries each choice's real odds: `choices[i].fail_chance_now`, which includes the thin-margin penalty.
 - `recordResult` rejects an unfinished mission and pays only once. It also returns `{ payout_musd, knowledge_before, knowledge_after, novelty, treasury_musd, year, bailout, campaign_over, won }`.
-- `getDebrief` adds `payout_musd`, `knowledge_before`, `knowledge_after`, `novelty` and `best_next_topic`, and `breakdown` has `efficiency` and `novelty` instead of `budget`.
+- `getDebrief` adds `payout_musd`, `knowledge_before`, `knowledge_after`, `novelty`, `best_next_topic` and `knowledge_paragraph` (the `saturated` or `breakthrough` text, or empty), and `breakdown` has `efficiency` and `novelty` instead of `budget`.
+- Campaign rules apply only to designs from `newCampaignDesign()`. A design from `newDesign()` is always a standalone mission, even while a campaign is saved.
 - The seed: without a campaign, the same design replays the same mission exactly. In a campaign, the mission number is added, so each flight has fresh luck.
 
 All of these are live on `main` with real maths. Every one can be tried in the browser console (F12) before any screen exists.
@@ -543,7 +546,7 @@ Tier select -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readine
 | Year and treasury | `getHubInfo()`: `year`, `treasury_musd` | Always visible. |
 | One card per topic | `topics[]`: `name`, `knowledge` as a bar, `next_payout_estimate_musd` | Locked topics show `locked_reason` ("Needs Radar laboratory"). |
 | Research list | `research[]`: `name`, `cost_musd`, `blurb`, `owned`, `affordable` | A Buy button calls `buyResearch(id)`, then the hub refreshes. |
-| Start a mission | `design = newDesign(campaign.tier)` | Opens Briefing. |
+| Start a mission | `design = newCampaignDesign()` | Opens Briefing. |
 | Save codes | `exportSave()`, `importSave(code)` | An "Export" box to copy from; an "Import" box with an error line on failure. |
 | Ending | `finished`, `won` | A win or time-out summary instead of the start button. |
 
