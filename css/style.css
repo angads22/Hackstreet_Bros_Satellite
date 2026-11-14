@@ -283,7 +283,7 @@ button:disabled { cursor: not-allowed; }
 .bin[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--text); }
 .bin svg { flex: none; width: 32px; height: 32px; }
 .bin-text { display: flex; flex-direction: column; min-width: 0; }
-.bin-name { font-size: 22px; line-height: 1; overflow-wrap: anywhere; }
+.bin-name { font-size: 20px; line-height: 1; }
 .bin-sub { font-size: 18px; line-height: 1; color: var(--text-dim); }
 .bin[aria-pressed="true"] .bin-sub { color: var(--on-accent); }
 .bin-sub.need { color: var(--bad); }

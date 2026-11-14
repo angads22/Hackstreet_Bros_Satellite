@@ -15,13 +15,19 @@
   // ---------------------------------------------------------------- setup
   var DESIGN_STEPS = ["briefing", "orbit", "build", "launcher", "review"];
 
-  var CATEGORIES = [
+  // The Build screen's bins, in display order, come from the back end: getCategories().
+  // This list is only the fallback if that function is missing.
+  var FALLBACK_CATEGORIES = [
     { id: "instrument", name: "INSTRUMENTS", sub: "What the mission sees", required: true },
     { id: "power",      name: "POWER",       sub: "Panels and batteries",  required: true },
     { id: "comms",      name: "RADIO",       sub: "Send data home",        required: true },
     { id: "computer",   name: "COMPUTER",    sub: "Runs the spacecraft",   required: true },
     { id: "propulsion", name: "PROPULSION",  sub: "Speed change, optional", required: false }
   ];
+  function categories() {
+    var c = typeof getCategories === "function" ? list(getCategories()) : [];
+    return c.length ? c : FALLBACK_CATEGORIES;
+  }
 
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
@@ -97,7 +103,7 @@
     mapNote: "",         // one-off message on the map ("Locked: ...")
     map: null,           // live map elements, while the map is showing
     reached: 0,          // furthest design step visited, as an index into DESIGN_STEPS
-    bin: "instrument",   // which parts bin is open on Build
+    bin: null,           // which parts bin is open on Build (null = the first one)
     hover: null,         // part id being previewed on Build
     hintOpen: false,
     touch: false,        // last press on a part card was a finger
@@ -234,7 +240,7 @@
     }
     if (has.propulsion) r.push([10, 9, 1, 2, PAL.muted], [13, 9, 1, 2, PAL.muted], [10, 11, 4, 1, PAL.line]);
     var label = "Pixel drawing of your satellite: " +
-      CATEGORIES.map(function (c) { return (has[c.id] ? "" : "no ") + c.name.toLowerCase(); }).join(", ");
+      categories().map(function (c) { return (has[c.id] ? "" : "no ") + c.name.toLowerCase(); }).join(", ");
     return art("0 0 24 13", r, label, "sat");
   }
   // SAT-END
@@ -277,7 +283,11 @@
     power:      [[0, 1, 8, 6, PAL.blue], [2, 1, 1, 6, PAL.sky], [5, 1, 1, 6, PAL.sky], [0, 4, 8, 1, PAL.sky]],
     comms:      [[3, 4, 2, 4, PAL.muted], [3, 2, 2, 2, PAL.gold], [0, 1, 1, 3, PAL.cyan], [7, 1, 1, 3, PAL.cyan], [1, 0, 1, 1, PAL.cyan], [6, 0, 1, 1, PAL.cyan]],
     computer:   [[1, 1, 6, 6, PAL.sky], [2, 2, 4, 4, PAL.ink], [3, 3, 2, 2, PAL.sky], [0, 2, 1, 1, PAL.muted], [7, 5, 1, 1, PAL.muted]],
-    propulsion: [[3, 0, 2, 5, PAL.ink], [2, 4, 1, 2, PAL.red], [5, 4, 1, 2, PAL.red], [3, 6, 2, 2, PAL.gold]]
+    propulsion: [[3, 0, 2, 5, PAL.ink], [2, 4, 1, 2, PAL.red], [5, 4, 1, 2, PAL.red], [3, 6, 2, 2, PAL.gold]],
+    structure:  [[1, 1, 6, 6, PAL.muted], [2, 2, 4, 4, PAL.sky], [1, 1, 6, 1, PAL.ink], [1, 6, 6, 1, PAL.line]],
+    attitude:   [[3, 3, 2, 2, PAL.ink], [1, 1, 2, 1, PAL.cyan], [1, 1, 1, 2, PAL.cyan], [5, 6, 2, 1, PAL.cyan], [6, 5, 1, 2, PAL.cyan],
+                 [5, 1, 1, 1, PAL.gold], [2, 6, 1, 1, PAL.gold]],
+    fallback:   [[2, 2, 4, 4, PAL.muted]]
   };
 
   // ---------------------------------------------------------------- shell: header, objective line, minimap, hints
@@ -680,31 +690,51 @@
     ]);
   }
 
+  // The satellite's body: what it can carry (payload) against what is fitted. All numbers from getTotals().body.
+  function bodyCard(body) {
+    if (!body) return null;
+    var over = body.payload_used_kg > body.payload_kg;
+    return el("div", { class: "body-card" }, [
+      el("h2", { class: "divided", text: "BODY: " + String(body.name || "").toUpperCase() }),
+      bar("PAYLOAD", num(body.payload_used_kg) + " / " + num(body.payload_kg, 0) + " KG",
+          body.payload_kg > 0 ? body.payload_used_kg / body.payload_kg : 0, over ? " bad" : "")
+    ]);
+  }
+
   function drawBuild() {
     var d = state.design;
     var parts = data("PARTS");
     var count = {};
     list(d.parts).forEach(function (id) { var p = byId(parts, id); if (p) count[p.category] = (count[p.category] || 0) + 1; });
 
-    var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(CATEGORIES.map(function (c) {
+    var cats = categories();
+    var cat = byId(cats, state.bin) || cats[0];   // the open bin
+    var body = getTotals(d).body || null;   // { name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null
+    var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(cats.map(function (c) {
       var n = count[c.id] || 0;
       var need = c.required && !n;
+      // With a body fitted, each bin shows how many of its slots are used ("2 / 3").
+      var slot = body && body.slots ? body.slots[c.id] : null;
+      var noRoom = !!body && !slot && c.id !== "structure";
+      var over = !!slot && slot.used > slot.max;
+      var sub = need ? "Needed" : slot ? slot.used + " / " + slot.max + " slots" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
+        : n ? n + " on board" : c.sub;
       return el("button", {
-        type: "button", class: "bin", "aria-pressed": state.bin === c.id ? "true" : "false", "data-key": "bin-" + c.id,
+        type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
         onclick: function () { state.bin = c.id; state.hover = null; redraw(); }
       }, [
-        art("0 0 8 8", BIN_ICONS[c.id] || [], null),
+        art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
         el("span", { class: "bin-text" }, [
           el("span", { class: "bin-name", text: c.name }),
-          el("span", { class: "bin-sub" + (need ? " need" : ""), text: need ? "Needed" : n ? n + " on board" : c.sub })
+          el("span", { class: "bin-sub" + (need || over || (noRoom && n) ? " need" : ""), text: sub })
         ])
       ]);
     })));
 
-    var built = CATEGORIES.filter(function (c) { return count[c.id]; }).length;
+    var built = cats.filter(function (c) { return count[c.id]; }).length;
     var bench = el("div", { class: "bench" }, [
       el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
-        el("span", { text: list(d.parts).length + " parts · " + built + " of " + CATEGORIES.length + " systems" })]),
+        el("span", { text: list(d.parts).length + " parts · " + built + " of " + cats.length + " systems" })]),
       satelliteArt(d),
       drawPreview()
     ]);
@@ -712,11 +742,11 @@
     var overview = el("div", { class: "panel" }, [
       el("h2", { text: "MISSION OVERVIEW" }),
       resourceBars(d),
+      bodyCard(body),
       el("h2", { class: "divided", text: "PROBLEMS" }),
       checkList(d, { short: true, skip: ["no-launcher"] })
     ]);
 
-    var cat = byId(CATEGORIES, state.bin) || CATEGORIES[0];
     var shelfParts = parts.filter(function (p) { return p.category === cat.id; });
     var shelf = el("div", { class: "panel" }, [
       el("h2", { text: "AVAILABLE " + cat.name }),
@@ -833,7 +863,7 @@
   function hasRequiredParts(d) {
     var have = {};
     list(d.parts).forEach(function (id) { var p = byId(data("PARTS"), id); if (p) have[p.category] = true; });
-    return CATEGORIES.every(function (c) { return !c.required || have[c.id]; });
+    return categories().every(function (c) { return !c.required || have[c.id]; });
   }
 
   // Where a NO GO line is fixed. Mass and budget belong to the rocket once one is chosen,
