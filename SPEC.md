@@ -482,7 +482,7 @@ Two rules keep the layers apart:
 
 ### Functions the front end may call
 
-The front end holds one `design` object while the player builds, and one `mission` object after launch. It changes them only through these functions, and reads the data globals (`PARTS`, `ORBITS`, `LAUNCHERS`, `OBJECTIVES`, `TIERS`, `EVENTS`, `DEBRIEF`) only to show names, blurbs and plain field values.
+The front end holds one `design` object while the player builds, and one `mission` object after launch. It changes them only through these functions, and reads the data globals (`PARTS`, `ORBITS`, `LAUNCHERS`, `OBJECTIVES`, `TIERS`, `EVENTS`, `DEBRIEF`, `CAMPAIGN`, `RESEARCH`, `EARTH`) only to show names, blurbs and plain field values. Every mission function returns `null`, never an error, when given `null` (for example after `startMission` refused a launch). `node tests/api.js` checks this whole block against the code.
 
 ```javascript
 // js/game.js (Rules)
@@ -513,12 +513,13 @@ runChecks(design)               // { blockers: [{ id, text }], warnings: [{ id, 
 
 // js/mission.js (Simulation)
 startMission(design)            // returns a mission; readable fields: month, lifetime_months, science
-stepMonth(mission)              // { month, science, event or null, ended, calendar_month (0-11), month_name,
-                                //   real: { fires, year } or { ice_extent_mkm2, ice_average_mkm2, daylight_share, year } }
+stepMonth(mission)              // { month, science, event or null, ended, calendar_month (0-11), month_name, year,
+                                //   real: { fires, year } or { ice_extent_mkm2, ice_average_mkm2, daylight_share, year }
+                                //   or { sunspots, year } or null }
                                 // While an event waits for a choice it returns the same state and does not advance.
 chooseEvent(mission, choice)    // choice = index into event.choices. Returns { id, title, label, protected,
                                 //   failed_part (part id or null), ended, ended_early }
-getDebrief(mission)             // { score, stars, limiting, suggestion, breakdown: { science, budget, margins, events },
+getDebrief(mission)             // { score, stars, limiting, suggestion, breakdown: { science, efficiency, margins, events, novelty },
                                 //   science, science_target, paragraph, real_mission, events, ended_early,
                                 //   real_world: { text, ...numbers } comparing the mission with NASA data, or null }
 recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null) }
@@ -552,7 +553,7 @@ Changes in a campaign:
 - `startMission` returns null if there are blockers, takes a copy of the design (later edits never change a flown mission), and deducts the cost from the treasury.
 - `stepMonth`'s `event` carries each choice's real odds: `choices[i].fail_chance_now`, which includes the thin-margin penalty.
 - `recordResult` rejects an unfinished mission and pays only once. It also returns `{ payout_musd, knowledge_before, knowledge_after, novelty, treasury_musd, year, bailout, campaign_over, won, lessons_new }` (`lessons_new`: lesson ids first earned on this mission).
-- `getDebrief` adds `payout_musd`, `knowledge_before`, `knowledge_after`, `novelty`, `best_next_topic` and `knowledge_paragraph` (the `saturated` or `breakthrough` text, or empty), and `breakdown` has `efficiency` and `novelty` instead of `budget`.
+- `getDebrief` always returns `payout_musd`, `knowledge_before`, `knowledge_after`, `novelty`, `best_next_topic` and `knowledge_paragraph` (without a campaign they describe a first mission on the topic, and `best_next_topic` is null); in a campaign `knowledge_paragraph` holds the `saturated` or `breakthrough` text when it applies.
 - Campaign rules apply only to designs from `newCampaignDesign()`. A design from `newDesign()` is always a standalone mission, even while a campaign is saved.
 - The seed: without a campaign, the same design replays the same mission exactly. In a campaign, the mission number is added, so each flight has fresh luck.
 
@@ -755,7 +756,7 @@ Yareem holds all three back-end roles. The full ordered plan, with the timeline 
 4. **Phase E.** Research and unlocks, once the seven screens and the hub play end to end.
 5. **Phase F.** New topics chosen by available NASA data, plus era events.
 
-**Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the tests are on `main` as validity evidence: `node tests/formulas.js` (the eight formulas), `node tests/campaign.js` (the economy), `node tests/balance.js` (balance guarantees), plus the red-team harness in `tests/redteam/`.
+**Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the tests are on `main` as validity evidence: `node tests/formulas.js` (the eight formulas), `node tests/campaign.js` (the economy and research tree), `node tests/balance.js` (balance guarantees), `node tests/api.js` (the contract with the screens), `node tests/speed.js` (nothing freezes a browser), plus the red-team harness in `tests/redteam/`.
 
 **Status (Saturday night):** Phases A to F are on `main`. The 1957 campaign plays end to end in text (`node tests/play.js --campaign` on the working branch): 3 era topics plus 2 modern ones, 27 parts, 7 rockets and a 15-node research tree from 1958 solar cells to reusable rockets. A greedy campaign bot wins Training around 1963 and Standard around 1969, and times out on Expert, so a thoughtful player has room to do better. Known gaps, reported by `tests/balance.js` rather than hidden: the 1957 era flies low orbit only, as in history (polar orbits need thrusters from modern research); geostationary never wins, because fast fire detection is not scored yet (red team N5).
 
