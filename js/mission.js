@@ -171,6 +171,7 @@ function eventWithOdds(mission, event) {
 }
 
 function stepMonth(mission) {
+  if (!mission) return null;
   if (mission.ended || mission.pending_event) {
     return { month: mission.month, science: round(mission.science, 1),
              event: eventWithOdds(mission, mission.pending_event), ended: mission.ended };
@@ -315,6 +316,7 @@ function realWorldSummary(mission) {
 // Returns what happened: { id, title, choice, label, protected, failed_part,
 // ended, ended_early }. failed_part is a part id or null.
 function chooseEvent(mission, choice) {
+  if (!mission) return null;
   var event = mission.pending_event;
   if (!event) return null;
   // An index outside the list counts as the first choice, and is recorded as such.
@@ -373,6 +375,7 @@ function chooseEvent(mission, choice) {
 var EVENT_PENALTY = { part: 4, month: 1, per_musd: 2 };   // points off the 10 event points
 
 function getDebrief(mission) {
+  if (!mission) return null;
   var design = mission.design;
   var objective = getObjective(design.objective);
   var totals = mission.launch_totals || getTotals(design);
@@ -696,38 +699,50 @@ function grantFor(c) {
   return typeof CAMPAIGN !== "undefined" ? CAMPAIGN.grant_musd : 0;
 }
 
-// The cheapest design that can launch for any open topic, found by trying the
-// cheapest combinations (never a hard-coded number). Used to prevent soft locks.
+// The cheapest design that can launch for any open topic, found by search (never a
+// hard-coded number). Used to prevent soft locks. Parts are tried in price order and a
+// branch stops as soon as it cannot beat the best design found, so it stays fast
+// (a few milliseconds) even with every part unlocked. Battery-only designs count.
 function cheapestLaunchCost(c) {
   var key = c.research.slice().sort().join(",");
   if (cheapestCache[key] !== undefined) return cheapestCache[key];
-  function avail(cat) { return PARTS.filter(function (p) { return p.category === cat && isPartAvailable(p.id); }); }
+  function byCost(list) { return list.slice().sort(function (a, b) { return a.cost_musd - b.cost_musd; }); }
+  function avail(cat) { return byCost(PARTS.filter(function (p) { return p.category === cat && isPartAvailable(p.id); })); }
+  var power = avail("power"), comms = avail("comms"), comp = avail("computer"), prop = [null].concat(avail("propulsion"));
+  var launchers = byCost(LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id); }));
   var best = Infinity;
   OBJECTIVES.forEach(function (o) {
     if (!isObjectiveAvailable(o.id)) return;
+    var ins = avail("instrument").filter(function (p) {
+      return p.tags.some(function (t) { return o.wants.indexOf(t) !== -1; });
+    });
     ORBITS.forEach(function (orb) {
       if (o.orbit_fit && !o.orbit_fit[orb.id]) return;
-      avail("instrument").forEach(function (ins) {
-        avail("power").filter(function (p) { return solarPowerW(p) > 0; }).forEach(function (pw) {
-          avail("comms").forEach(function (cm) {
-            avail("computer").forEach(function (cp) {
-              [null].concat(avail("propulsion")).forEach(function (pr) {
-                LAUNCHERS.forEach(function (l) {
-                  if (!isLauncherAvailable(l.id)) return;
-                  var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: l.id,
-                            parts: [ins.id, pw.id, cm.id, cp.id].concat(pr ? [pr.id] : []) };
-                  var cost = getTotals(d).cost_musd;
-                  if (cost >= best) return;
-                  var blockers = runChecks(d).blockers.filter(function (b) { return b.id !== "budget"; });
-                  if (!blockers.length && scienceRate(d, []).per_month > 0) best = cost;
-                });
-              });
-            });
-          });
-        });
-      });
+      for (var a = 0; a < ins.length; a++) {
+        var c1 = ins[a].cost_musd; if (c1 >= best) break;
+        for (var b = 0; b < power.length; b++) {
+          var c2 = c1 + power[b].cost_musd; if (c2 >= best) break;
+          for (var e = 0; e < comms.length; e++) {
+            var c3 = c2 + comms[e].cost_musd; if (c3 >= best) break;
+            for (var f = 0; f < comp.length; f++) {
+              var c4 = c3 + comp[f].cost_musd; if (c4 >= best) break;
+              for (var g = 0; g < prop.length; g++) {
+                var c5 = c4 + (prop[g] ? prop[g].cost_musd : 0); if (c5 >= best) continue;
+                for (var h = 0; h < launchers.length; h++) {
+                  var cost = c5 + launchers[h].cost_musd; if (cost >= best) break;
+                  var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: launchers[h].id,
+                            parts: [ins[a].id, power[b].id, comms[e].id, comp[f].id].concat(prop[g] ? [prop[g].id] : []) };
+                  var blockers = runChecks(d).blockers.filter(function (x) { return x.id !== "budget"; });
+                  if (!blockers.length && scienceRate(d, []).per_month > 0) { best = cost; break; }
+                }
+              }
+            }
+          }
+        }
+      }
     });
   });
+  best = round(best, 3);
   cheapestCache[key] = best;
   return best;
 }
