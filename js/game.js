@@ -318,3 +318,28 @@ function runChecks(design) {
 
   return { blockers: blockers, warnings: warnings };
 }
+
+// ------------------------------------------------------------------ science preview
+// What the Build screen shows before launch: expected science over the whole
+// mission if nothing goes wrong. Function name to be confirmed with Design screens.
+function previewScience(design) {
+  var orbit = getOrbit(design.orbit);
+  var objective = getObjective(design.objective);
+  var rate = scienceRate(design, []);
+  var months = orbit ? orbit.lifetime_months : 0;
+  var target = objective ? objective.science_target : 0;
+  var total = rate.per_month * months;
+  return {
+    per_month: round(rate.per_month, 2),
+    months: months,
+    total: round(total, 1),
+    target: target,
+    share: target ? round(Math.min(1, total / target), 3) : 0,
+    data_share: round(rate.data_share, 3),     // share of data that reaches the ground
+    power_share: round(rate.power_share, 3),   // share of time instruments stay on
+    instruments: rate.instruments.map(function (i) {
+      return { id: i.id, name: getPart(i.id).name, per_month: round(i.points * rate.data_share * rate.power_share, 2),
+               counts: i.match > 0, sharp_enough: i.sharp_enough };
+    })
+  };
+}

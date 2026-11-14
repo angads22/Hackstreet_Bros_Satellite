@@ -29,6 +29,16 @@ function makeRandom(seed) {                 // mulberry32
   };
 }
 
+// Index of a random event, weighted by its orbit_weight for this orbit.
+function pickWeighted(pool, orbitId, rand) {
+  var weights = pool.map(function (e) {
+    return (e.orbit_weight && orbitId && e.orbit_weight[orbitId] !== undefined) ? e.orbit_weight[orbitId] : 1;
+  });
+  var total = weights.reduce(function (a, b) { return a + b; }, 0), r = rand() * total;
+  for (var i = 0; i < weights.length; i++) { r -= weights[i]; if (r < 0) return i; }
+  return weights.length - 1;
+}
+
 // ------------------------------------------------------------------ mission
 function startMission(design) {
   var orbit = getOrbit(design.orbit);
@@ -42,7 +52,7 @@ function startMission(design) {
   var schedule = [];
   var usedMonths = {};
   for (var i = 0; i < count; i++) {
-    var ev = pool.splice(Math.floor(rand() * pool.length), 1)[0];
+    var ev = pool.splice(pickWeighted(pool, orbit ? orbit.id : null, rand), 1)[0];
     var month;
     do { month = 2 + Math.floor(rand() * (lifetime - 2)); } while (usedMonths[month]);
     usedMonths[month] = true;
@@ -247,9 +257,67 @@ function limitingFactor(mission, totals, scienceShare) {
     }
     var rate = scienceRate(design, []);
     var weak = rate.instruments.filter(function (i) { return i.match === 0 || !i.sharp_enough; });
-    return { key: "none", suggestion: weak.length
-      ? "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it."
+    if (weak.length) {
+      return { key: "design", suggestion: "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it." };
+    }
+    // A wanted instrument type nobody carries is the cheapest way to more science.
+    var objective = getObjective(design.objective);
+    var carried = designParts(design).filter(function (p) { return p.category === "instrument"; })
+      .reduce(function (tags, p) { return tags.concat(p.tags); }, []);
+    var missingTag = objective ? objective.wants.filter(function (t) { return carried.indexOf(t) === -1; })[0] : null;
+    var extra = missingTag ? PARTS.filter(function (p) { return p.category === "instrument" && p.tags.indexOf(missingTag) !== -1; })[0] : null;
+    return { key: "design", suggestion: extra
+      ? "Nothing ran short, but one instrument was not enough. Add the " + extra.name.toLowerCase() + " as well; this objective counts it too."
       : "Nothing ran short, but the science fell below target. Try an orbit that suits the objective better." };
   }
   return { key: "none", suggestion: "Target reached. Try the next tier, or reach it on a smaller budget." };
 }
+
+// ------------------------------------------------------------------ progress
+// Two stars on a tier unlocks the next one (SPEC.md, "Difficulty tiers").
+// Saved in localStorage when the browser allows it; otherwise kept in memory
+// for this visit only, so the game still runs in a private window or in Node.
+var PROGRESS_KEY = "smdg-progress-v1";
+var memoryProgress = null;
+
+function emptyProgress() { return { best_stars: {}, best_score: {} }; }
+
+function getProgress() {
+  try {
+    if (typeof localStorage !== "undefined") {
+      var raw = localStorage.getItem(PROGRESS_KEY);
+      if (raw) return JSON.parse(raw);
+    }
+  } catch (e) { /* storage blocked: fall through to memory */ }
+  return memoryProgress || emptyProgress();
+}
+
+function saveProgress(p) {
+  memoryProgress = p;
+  try { if (typeof localStorage !== "undefined") localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }
+  catch (e) { /* storage blocked: memory copy still works */ }
+}
+
+function isTierUnlocked(tierId) {
+  var i = TIERS.map(function (t) { return t.id; }).indexOf(tierId);
+  if (i <= 0) return i === 0;
+  return (getProgress().best_stars[TIERS[i - 1].id] || 0) >= 2;
+}
+
+// Call once when a mission ends. Returns { stars, best_stars, unlocked }
+// where `unlocked` is the id of a tier this result just opened, or null.
+function recordResult(mission) {
+  var tierId = mission.design.tier;
+  var d = getDebrief(mission);
+  var p = getProgress();
+  var i = TIERS.map(function (t) { return t.id; }).indexOf(tierId);
+  var nextId = TIERS[i + 1] ? TIERS[i + 1].id : null;
+  var wasLocked = nextId ? !isTierUnlocked(nextId) : false;
+  p.best_stars[tierId] = Math.max(p.best_stars[tierId] || 0, d.stars);
+  p.best_score[tierId] = Math.max(p.best_score[tierId] || 0, d.score);
+  saveProgress(p);
+  return { stars: d.stars, best_stars: p.best_stars[tierId],
+           unlocked: nextId && wasLocked && isTierUnlocked(nextId) ? nextId : null };
+}
+
+function resetProgress() { saveProgress(emptyProgress()); }
