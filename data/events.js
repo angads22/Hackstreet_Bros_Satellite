@@ -4,8 +4,41 @@
 // A part whose `protects` list names an event cancels the riskiest choice's penalty.
 // orbit_weight: how likely the event is in each orbit, relative to 1 (GAME VALUES).
 // A missing orbit_weight counts as 1 everywhere.
+// objectives: optional list of topic ids; the event then fires only on those missions.
 
 const EVENTS = [
+  // ------------------------------------------------ era events, tied to one topic each
+  {
+    id: "counter-silence",
+    objectives: ["radiation"],
+    title: "The counter goes silent",
+    text: "High over the Earth your Geiger counter suddenly reads zero, then starts again lower down. Is it broken, or is something up there so intense it swamps the counter?",
+    choices: [
+      { label: "Assume it is broken and discard those passes", effect: { science_mult: 0.6 } },
+      { label: "Trust the instrument: the silence is data",   effect: {} }
+    ]
+  },
+  {
+    id: "spin-wobble",
+    objectives: ["weather"],
+    title: "A wobbling satellite",
+    text: "The spent rocket stage bumped your satellite as it separated, and now it wobbles as it spins. Your cloud pictures are smeared.",
+    choices: [
+      { label: "Live with the smeared data",           effect: { science_mult: 0.6 } },
+      { label: "Try to damp the wobble by command",    effect: { fail_chance: 0.3, fails: "instrument" } }
+    ]
+  },
+  {
+    id: "xray-flare",
+    objectives: ["solar"],
+    title: "A great solar flare",
+    text: "The Sun has erupted in one of the largest flares ever seen. Your photometer could catch it, but the burst of particles that follows may damage it.",
+    choices: [
+      { label: "Keep watching through the flare",  effect: { science_mult: 1.3, fail_chance: 0.25, fails: "instrument" } },
+      { label: "Protect the instrument and wait",  effect: { lose_months: 1 } }
+    ]
+  },
+
   {
     id: "solar-storm",
     orbit_weight: { leo: 1, sso: 1.5, geo: 2 },   // poles and GEO are less shielded by Earth's magnetic field
