@@ -359,6 +359,10 @@ getPartFacts(design, partId)    // { power_gen_w, resolution_m, sharp_enough, co
 previewScience(design)          // { per_month, months, total, target, share, data_share, power_share,
                                 //   instruments: [{ id, name, per_month, counts, sharp_enough }] }
                                 // Expected science if nothing goes wrong.
+previewToggle(design, partId)   // { adding, before, after, delta, fixes: [{ id, text }], causes: [{ id, text }] }
+                                // Hover preview: what clicking this part would change. Does not change the design.
+                                // before/after/delta hold mass_kg, power_draw_w, power_gen_w, cost_musd, data_gb_day,
+                                // data_returned_gb_day, delta_v_ms, battery_wh, science_total.
 runChecks(design)               // { blockers: [{ id, text }], warnings: [{ id, text }] }
 
 // js/mission.js (Simulation)
@@ -425,14 +429,55 @@ Tier select -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readine
 
 ### 3. Build
 
+Building is a chain of trade-offs: each part fixes one problem and creates the next, and the bars make that chain visible. The player clicks part cards to add or remove them.
+
+**Rules of building**
+
+- **Click to toggle.** Clicking a card adds the part; clicking it again removes it. No drag and drop.
+- **Several parts per category, one of each part.** Two instruments, or a spare computer, are allowed and useful. The same part cannot be added twice.
+- **Four categories are required:** instrument, power, comms and computer. Propulsion is optional, but polar and geostationary orbits need its speed change.
+- **Bad choices are allowed.** Nothing is disabled on this screen. A part that does not suit the objective or orbit is greyed out with its reason, but stays clickable; the player learns from the result.
+- **Problems show up here, live.** Under the bars, list `runChecks(design)` blockers and warnings as they change, so the player does not discover them only at the Readiness review.
+- **Orbit comes first.** Resolution, ground contact and the speed change needed all depend on the orbit, so part cards show different numbers in different orbits. The launcher comes after, so the mass bar shows "pick a rocket" until then.
+
+**How the categories depend on each other**
+
+| Category | Gives | Costs elsewhere |
+| --- | --- | --- |
+| Instrument | Science, if its type suits the objective and it is sharp enough from this orbit | Power, data, mass, the most money |
+| Power: solar panels | Power in sunlight | Mass |
+| Power: battery | Keeps instruments on in Earth's shadow; without one, science drops by roughly a third | Mass |
+| Comms | Sends data home. The radio's rate is cut to the orbit's contact time (2.5% of the day in low orbit, 7% polar, 100% geostationary), and science counts only for data that arrives | Power, mass |
+| Computer | Runs the spacecraft. The radiation-tolerant one survives solar storms; a second computer is a spare | Power |
+| Propulsion | Speed change: 0 m/s needed in low orbit, 80 polar, 260 geostationary. Any thruster also dodges debris | Mass and power. The heavier the spacecraft, the less speed change the same fuel gives |
+
+**Screen elements**
+
 | Element | Source | Behaviour |
 | --- | --- | --- |
-| Five columns | `PARTS` grouped by `category`: instrument, power, comms, computer, propulsion | Instrument, power, comms and computer are required; show a marker until each has a part. Propulsion is optional. |
-| Part card | Data fields: `name`, `blurb`, `mass_kg`, `power_draw_w`, `cost_musd`, `data_gb_day`, `downlink_gb_day`, `battery_wh` | Show only the fields that are not 0. |
-| Computed card numbers | `getPartFacts(design, part.id)` | Solar panels: `power_gen_w`. Instruments: `science_per_month`, `resolution_m`; grey the card out with "does not count" when `counts` is false, and "too blurry from this orbit" when `sharp_enough` is false. |
-| Toggle a part | `addPart` / `removePart` | Several parts per category are allowed, one of each part. |
-| Four bars | `getTotals(design)` | **Mass**: `mass_kg` against `capacity_kg` (shows "pick a rocket" while 0). **Power**: `power_draw_w` against `power_gen_w`. **Budget**: `cost_musd` against `budget_musd`. **Data**: `data_returned_gb_day` against `data_gb_day`; for data a full bar is good. Amber when a margin is under 10%, red when over the limit. |
-| Science preview | `previewScience(design)` | "About `total` of `target` over `months` months", plus a small row per instrument. Shown as an estimate, not a promise. |
+| Five columns | `PARTS` grouped by `category`: instrument, power, comms, computer, propulsion | Mark each required column until it has a part. |
+| Part card | Data fields: `name`, `blurb`, `mass_kg`, `power_draw_w`, `cost_musd`, `data_gb_day`, `downlink_gb_day`, `battery_wh` | Show only fields that are not 0. Selected cards are highlighted. |
+| Computed card numbers | `getPartFacts(design, part.id)` | Solar panels: `power_gen_w`. Instruments: `science_per_month` and `resolution_m`. Grey out with "does not count for this objective" when `counts` is false, or "too blurry from this orbit" when `sharp_enough` is false. |
+| Hover preview | `previewToggle(design, part.id)` on hover (on touch screens, a first tap shows it and a second tap toggles) | Show the change before clicking: each non-zero `delta` as "+0.8 kg, +15 W, +$0.15M, data home +5.45 GB/day, science +188", and one line each for `fixes` (green, "Fixes: ...") and `causes` (red, "Causes: ..."). If `adding` is false, title it "Remove". The design does not change until the click. |
+| Click | `addPart` / `removePart`, then refresh bars, preview and checks | |
+| Four bars | `getTotals(design)` | **Mass**: `mass_kg` against `capacity_kg` ("pick a rocket" while 0). **Power**: `power_draw_w` against `power_gen_w`. **Budget**: `cost_musd` against `budget_musd`. **Data**: `data_returned_gb_day` against `data_gb_day`; for data a full bar is good. Amber when a margin is under 10%, red when over the limit. |
+| Live problems | `runChecks(design)` | Blockers in red and warnings in amber, under the bars. Ignore `no-launcher` here; it belongs to the next screen. |
+| Science preview | `previewScience(design)` | "About `total` of `target` over `months` months", with a small row per instrument. An estimate, not a promise. |
+
+**Example: sea ice in polar orbit, Standard tier.** These are the real numbers the back end returns after each click; the screen should make this story readable.
+
+| Player does | Mass kg | Power W (draw / made) | Budget $M | Data GB/day (home / made) | Science (preview / 200) | Still blocking |
+| --- | --- | --- | --- | --- | --- | --- |
+| Adds the radar | 45 | 200 / 0 | 6 | 0 / 10 | 0 | no power, comms, computer |
+| Adds the large solar panel | 53 | 200 / 365 | 6.8 | 0 / 10 | 0 | no comms, computer |
+| Adds the S-band radio | 53 | 210 / 365 | 6.8 | 4.55 / 10 | 101 | no computer; data warning |
+| Adds the basic computer | 53 | 210 / 365 | 6.8 | 4.55 / 10 | 101 | not enough speed change |
+| Adds the battery | 59 | 210 / 365 | 7.0 | 4.55 / 10 | 157 | not enough speed change |
+| Swaps S-band for X-band | 59 | 215 / 365 | 7.1 | 10 / 10 | 346 | not enough speed change |
+| Adds the small green thruster | 64 | 230 / 365 | 7.6 | 10 / 10 | 346 | 52 of 80 m/s, still short |
+| Swaps to the large thruster | 74 | 265 / 365 | 8.6 | 10 / 10 | 346 | needs a launcher (next screen) |
+| On Launch vehicle, picks the rideshare | 74 / 50 | | 9.0 | | | too heavy |
+| Picks the small launcher instead | 74 / 200 | | 16.1 / 20 | | | ready to launch |
 
 ### 4. Launch vehicle
 
