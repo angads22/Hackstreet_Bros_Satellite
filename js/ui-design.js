@@ -106,6 +106,7 @@
     bin: null,           // which parts bin is open on Build (null = the first one)
     hover: null,         // part id being previewed on Build
     hintOpen: false,
+    avail: null,         // getAvailability(design) for the screen being drawn
     touch: false,        // last press on a part card was a finger
     armed: false,        // that part was already previewed when the finger went down
     locked: false        // true from launch until the debrief buttons
@@ -302,7 +303,7 @@
     var t = tier();
     if (!t) return "Space Mission Design Game";
     var totals = getTotals(state.design);
-    return t.name.toUpperCase() + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
+    return t.name.toUpperCase() + (state.design.year ? " · " + state.design.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
   }
 
   // The header shows the current objective and a minimap (instead of a step bar).
@@ -473,39 +474,80 @@
   }
 
   // ---------------------------------------------------------------- tier select (title)
+  // What a design may use in its era: { parts, launchers, objectives }, each id -> { available, year, reason }.
+  // One call per screen refresh. Without eras everything is available.
+  function availability(d) {
+    var a = typeof getAvailability === "function" && d ? getAvailability(d) : null;
+    return a || { parts: {}, launchers: {}, objectives: {} };
+  }
+  function lockReason(map, id) {
+    var x = map ? map[id] : null;
+    return x && x.available === false ? (x.reason || "Not available yet") : null;
+  }
+
+  function startMissionDesign(tierId, eraId) {
+    state.design = newDesign(tierId);
+    if (eraId && typeof setEra === "function") setEra(state.design, eraId);
+    state.reached = 0;
+    state.player = "gate";
+    go("map");
+  }
+
+  function tierButton(t, i, tiers, era, eraOpen, eraLockText) {
+    var tierOpen = typeof isTierUnlocked === "function" ? isTierUnlocked(t.id) : true;
+    var open = tierOpen && eraOpen;
+    var why = !eraOpen ? "Locked" : !tierOpen ? "Earn 2 stars on " + (tiers[i - 1] ? tiers[i - 1].name : "the previous tier") : null;
+    return el("button", {
+      type: "button", class: "tier-btn" + (open ? "" : " locked"), disabled: !open,
+      "data-key": era ? "start-" + era.id + "-" + t.id : "tier-" + t.id,
+      "aria-label": (era ? era.name + " " + era.year + ", " : "") + t.name + (why ? ". Locked: " + (eraOpen ? why : eraLockText) : ""),
+      onclick: function () { startMissionDesign(t.id, era ? era.id : null); }
+    }, [
+      el("span", { class: "tier-name", text: t.name.toUpperCase() }),
+      el("span", { class: "tier-facts", text: why ? why : money(t.budget_musd) + " · " + num(t.events, 0) + (t.events === 1 ? " event" : " events") })
+    ]);
+  }
+
+  // Tier select: eras across, tiers (maturity levels) down. All numbers come from getEras(), TIERS and getProgress().
   function drawTitle() {
     setStatus("Space Mission Design Game");
     state.locked = false;
     var tiers = data("TIERS");
+    var eras = typeof getEras === "function" ? list(getEras()) : [];
     var progress = typeof getProgress === "function" ? getProgress() : { best_stars: {} };
-    var cards = tiers.map(function (t) {
-      var open = typeof isTierUnlocked === "function" ? isTierUnlocked(t.id) : true;
-      var best = (progress.best_stars || {})[t.id] || 0;
-      return el("button", {
-        type: "button", class: "card" + (open ? "" : " locked"), disabled: !open, "data-key": "tier-" + t.id,
-        onclick: function () {
-          state.design = newDesign(t.id);
-          state.reached = 0;
-          state.player = "gate";
-          go("map");
-        }
-      }, [
-        el("div", { class: "card-title" }, [el("h3", { text: t.name.toUpperCase() }),
-          el("span", { class: "stars", text: starsText(best), "aria-label": best + " of 3 stars" })]),
-        facts([
-          ["Budget", money(t.budget_musd)],
-          ["Events per mission", num(t.events, 0)],
-          ["Hints", t.hints === "on" ? "On" : t.hints === "request" ? "On request" : "Off"]
-        ]),
-        open ? null : el("p", { class: "card-blurb", text: "Earn 2 stars on the previous tier." })
-      ]);
-    });
+    var missions = typeof MISSIONS !== "undefined" ? list(MISSIONS) : [];
+
+    var grid;
+    if (eras.length) {
+      grid = el("div", { class: "eras" }, eras.map(function (e, i) {
+        var lockText = e.unlocked ? null : "Earn 2 stars in " + (eras[i - 1] ? eras[i - 1].name : "the previous era");
+        var real = list(e.real_missions).map(function (id) { var m = byId(missions, id); return m ? m.name : null; }).filter(Boolean);
+        return el("div", { class: "era" + (e.unlocked ? "" : " locked"), "data-key": "era-" + e.id }, [
+          el("div", { class: "era-year", text: String(e.year) }),
+          el("div", { class: "card-title" }, [el("h3", { text: String(e.name).toUpperCase() }),
+            el("span", { class: "stars", text: starsText(e.best_stars), "aria-label": (e.best_stars || 0) + " of 3 stars" })]),
+          el("p", { class: "card-blurb", text: e.unlocked ? e.blurb : lockText }),
+          real.length ? el("p", { class: "bar-note", text: "Real missions: " + real.join(", ") }) : null,
+          el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, e, e.unlocked, lockText); }))
+        ]);
+      }));
+    } else {
+      // No eras in the data: the three tiers alone, everything available.
+      grid = el("div", { class: "eras" }, [el("div", { class: "era" }, [
+        el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, null, true, null); }))])]);
+    }
+
+    var best = el("p", { class: "bar-note", text: tiers.map(function (t) {
+      return t.name + " " + starsText((progress.best_stars || {})[t.id] || 0);
+    }).join("   ") });
+
     return el("section", { class: "title" }, [
       el("div", { class: "kicker", text: "A SPACE MISSION DESIGN GAME" }),
       el("h1", { class: "big-title", text: "STARLINE" }),
       el("p", { class: "tagline", text: "Pick a job for a satellite. Build it under hard limits. Launch it, and learn why it worked or failed." }),
-      el("h2", { class: "subhead", text: "CHOOSE A TIER" }),
-      tiers.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No tiers in the data yet." }),
+      el("h2", { class: "subhead", text: eras.length ? "CHOOSE AN ERA AND A LEVEL" : "CHOOSE A LEVEL" }),
+      tiers.length ? grid : el("p", { class: "empty", text: "No tiers in the data yet." }),
+      tiers.length ? best : null,
       el("div", null, [button("RESET PROGRESS", function () {
         if (typeof resetProgress === "function" && window.confirm("Forget every star you have earned?")) { resetProgress(); draw("title"); }
       })])
@@ -526,7 +568,14 @@
     var d = state.design;
     var objectives = data("OBJECTIVES");
     var chosen = byId(objectives, d.objective);
+    var avail = availability(d);
     var cards = objectives.map(function (o) {
+      var locked = lockReason(avail.objectives, o.id);
+      if (locked) {
+        return el("button", { type: "button", class: "card locked", disabled: true, "data-key": "obj-" + o.id }, [
+          el("div", { class: "card-title" }, [el("h3", { text: o.name.toUpperCase() }), el("span", { class: "tag bad", text: locked.toUpperCase() })])
+        ]);
+      }
       return el("button", {
         type: "button", class: "card", "aria-pressed": d.objective === o.id ? "true" : "false", "data-key": "obj-" + o.id,
         onclick: function () { setObjective(d, o.id); redraw(); }
@@ -612,6 +661,13 @@
   function partCard(p) {
     var d = state.design;
     var on = list(d.parts).indexOf(p.id) !== -1;
+    var locked = lockReason(state.avail ? state.avail.parts : null, p.id);
+    if (locked && !on) {
+      return el("button", { type: "button", class: "part locked", disabled: true, "data-key": "part-" + p.id }, [
+        el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name })]),
+        el("span", { class: "part-note", text: locked })
+      ]);
+    }
     var f = getPartFacts(d, p.id) || {};
     var extra = [];
     if (f.power_gen_w) extra.push("Makes " + num(f.power_gen_w, 0) + " W in sunlight");
@@ -707,6 +763,7 @@
     var count = {};
     list(d.parts).forEach(function (id) { var p = byId(parts, id); if (p) count[p.category] = (count[p.category] || 0) + 1; });
 
+    state.avail = availability(d);   // one call per screen refresh; partCard reads it
     var cats = categories();
     var cat = byId(cats, state.bin) || cats[0];   // the open bin
     var body = getTotals(d).body || null;   // { name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null
@@ -715,6 +772,7 @@
       var need = c.required && !n;
       // With a body fitted, each bin shows how many of its slots are used ("2 / 3").
       var slot = body && body.slots ? body.slots[c.id] : null;
+      if (slot && !slot.max && !slot.used) slot = null;   // no slots at all on this body
       var noRoom = !!body && !slot && c.id !== "structure";
       var over = !!slot && slot.used > slot.max;
       var sub = need ? "Needed" : slot ? slot.used + " / " + slot.max + " slots" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
@@ -748,6 +806,9 @@
     ]);
 
     var shelfParts = parts.filter(function (p) { return p.category === cat.id; });
+    // What exists in this era first; what arrives later after it, greyed out.
+    shelfParts = shelfParts.filter(function (p) { return !lockReason(state.avail.parts, p.id); })
+      .concat(shelfParts.filter(function (p) { return !!lockReason(state.avail.parts, p.id); }));
     var shelf = el("div", { class: "panel" }, [
       el("h2", { text: "AVAILABLE " + cat.name }),
       shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
@@ -767,7 +828,14 @@
     var d = state.design;
     var totals = getTotals(d);
     var orbit = byId(data("ORBITS"), d.orbit);
+    var avail = availability(d);
     var cards = data("LAUNCHERS").map(function (l) {
+      var locked = lockReason(avail.launchers, l.id);
+      if (locked && d.launcher !== l.id) {
+        return el("button", { type: "button", class: "card locked", disabled: true, "data-key": "rocket-" + l.id }, [
+          el("div", { class: "card-title" }, [el("h3", { text: l.name.toUpperCase() }), el("span", { class: "tag bad", text: locked.toUpperCase() })])
+        ]);
+      }
       var cap = orbit && l.capacity_kg ? l.capacity_kg[orbit.id] : null;
       var reach = isNum(cap) && cap > 0;
       var fits = reach && cap >= totals.mass_kg;

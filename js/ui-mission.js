@@ -229,6 +229,7 @@
 
     var side = el("div", { class: "panel limit" }, [
       result && result.unlocked ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
+      result && result.era_unlocked ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
       el("h2", { text: limitingHeading(d) }),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
@@ -241,7 +242,7 @@
       events.length ? el("ul", { class: "log" }, events) : null,
       el("div", { class: "choices" }, [
         UI.button(["REDESIGN", " >"], function () { window.showDesignScreen("build", done.design); }, { primary: true }),
-        UI.button("NEW MISSION", function () { window.showDesignScreen("map", newDesign(done.design.tier)); }),
+        UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
         UI.button("CHANGE TIER", function () { window.showDesignScreen("title"); })
       ])
     ]);
@@ -278,6 +279,19 @@
     return el("p", { class: "nasa-line", text: "Closest real mission: " + c.name +
       " (" + [c.year, c.agency].filter(Boolean).join(", ") + "). " + (c.blurb || "") +
       (shared ? " Like yours: " + shared + "." : "") });
+  }
+
+  // A new design on the same tier and in the same era as the one just flown.
+  function freshDesign(old) {
+    var d = newDesign(old.tier);
+    if (old.era && typeof setEra === "function") setEra(d, old.era);
+    return d;
+  }
+
+  function eraLabel(id) {
+    var eras = typeof getEras === "function" ? UI.list(getEras()) : [];
+    var e = UI.byId(eras, id);
+    return e ? String(e.name).toUpperCase() + " (" + e.year + ")" : String(id).toUpperCase();
   }
 
   function tierLabel(id) {

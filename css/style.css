@@ -232,6 +232,7 @@ button:disabled { cursor: not-allowed; }
 .facts dd { margin: 0; text-align: right; }
 .facts.wide div { flex-direction: column; gap: 0; }       /* a name above a full sentence */
 .facts.wide dd { text-align: left; }
+.segments h2, .body-card h2 { font-size: 22px; margin-bottom: 4px; }
 
 .tag {
   flex: none;
@@ -400,6 +401,34 @@ button:disabled { cursor: not-allowed; }
 .tagline { font-size: 30px; max-width: 640px; }
 
 .empty { color: var(--text-dim); font-style: italic; }
+
+/* ---------------------------------------------------------------- tier select: eras across, tiers down */
+.eras { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); align-items: start; }
+.era { display: flex; flex-direction: column; gap: 8px; padding: 14px; background: var(--surface); border: 4px solid var(--border); min-width: 0; }
+.era.locked { border-style: dashed; }
+.era.locked h3, .era.locked .era-year { color: var(--text-dim); }
+.era-year { font-family: var(--pixel); font-weight: 700; font-size: 44px; line-height: 1; color: var(--accent-ink); }
+.era h3 { font-size: 22px; }
+.tier-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.tier-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px 12px;
+  background: var(--bg);
+  color: var(--text);
+  border: 4px solid var(--border);
+  box-shadow: 4px 4px 0 var(--shadow);
+  text-align: left;
+  cursor: pointer;
+}
+.tier-btn:not(:disabled):hover { border-color: var(--accent); }
+.tier-btn.locked { border-style: dashed; box-shadow: none; color: var(--text-dim); cursor: not-allowed; }
+.tier-name { font-size: 24px; line-height: 1; }
+.tier-facts { font-size: 18px; line-height: 1.1; color: var(--text-dim); }
+.part.locked { border-style: dashed; cursor: not-allowed; }
+.part.locked .part-name { color: var(--text-dim); }
 .foot { margin-top: 28px; color: var(--text-dim); font-size: 18px; text-align: right; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 

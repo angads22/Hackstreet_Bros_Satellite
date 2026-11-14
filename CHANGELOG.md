@@ -16,10 +16,11 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Satellite bodies** with a payload limit and slots per part type: Explorer-style cylinder, TIROS-style drum, Nimbus-class bus, modern smallsat bus, 12U CubeSat frame. Readiness checks for too heavy, too many parts of a kind, and more than one body. `getTotals` returns `body`.
 - **`getResearchTree()`**: nodes and edges for a research-tree screen.
 - **Build screen.** Seven parts bins, in the back end's order: the satellite's body (structure) and how it points (attitude) join the five that were there. With a body fitted, each bin shows how many of its slots are used ("2 / 3 slots"), and a body card shows the payload carried against what the body can hold. The two new bins stay optional until the switch-over.
+- **Tier select: eras.** A grid with the four eras across (1958, 1964, 1999, 2026) and the three levels down. The first era is open; two stars in an era opens the next. A mission is set in its era: topics, parts and rockets that did not exist yet are greyed out with when they arrive ("Arrives in 1964"), the header shows the year, and the debrief announces a newly opened era.
 
 ### Not in this version yet
 
-- Eras and the research tree have no screens yet (see `HANDOFF.md`). Bodies show on the Build screen.
+- The campaign hub and the research tree have no screens yet (see `HANDOFF.md`). Eras are on tier select, and bodies show on the Build screen.
 - Structure and attitude are still optional. The Build screen now has their two bins, but turning on `NEW_CATEGORIES_REQUIRED` in `js/game.js` makes the tests that load the game without the option fail (their sample satellites have no body), so the switch waits for `tests/load.js` to set the flag from its option.
 
 ### Changed
