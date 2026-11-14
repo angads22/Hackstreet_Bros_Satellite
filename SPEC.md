@@ -22,7 +22,7 @@ Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026).
 | **Impact** | A significant problem, a large audience, inspiring | Teaches mission design to anyone with a browser; wildfire and sea ice are real, current problems | The debrief ties each result to the real problem ("your satellite would have reported X of last year's fires") |
 | **Creativity** | Original, improves on existing ideas | Adds what the NASA telescope game lacks: hard limits, random events and a debrief explaining *why* | Play the mission against real NASA observations of last year's Earth, which no comparable game does |
 | **Validity** | Scientifically sound, feasible, usable | Eight real formulas with hand-worked tests; parts from NASA's Small Spacecraft State of the Art report | Put the formula tests on `main` and cite them on the project page; one sourcing pass before submission (Data task 3) |
-| **Relevance** | NASA data is a **core component**, not an add-on | **Weakest.** NASA documents shape the part numbers, but no NASA *data set* drives the game | Add real NASA Earth data that drives the simulation month by month (below) |
+| **Relevance** | NASA data is a **core component**, not an add-on | Was the weakest; now NASA FIRMS and NSIDC data drive the simulation | Done: see "NASA data in the game" below |
 | **Presentation** | Clear, engaging story; the demo and the whole project are judged | No QA owner yet, so no one owns the demo | Assign the demo now; script it around the core loop: build, fail, read the debrief, fix, succeed |
 
 **Hard requirements for global judging** (from the same guide):
@@ -41,7 +41,11 @@ To move Relevance from add-on to core, two small real data sets drive the missio
 - **Wildfire: NASA FIRMS** (Fire Information for Resource Management System) active-fire detections from VIIRS, by month and by latitude band, for the last full year. Each mission month earns science in proportion to real fire activity that month, and the boreal share shows why low orbit misses northern fires. The debrief reports how many real detections the player's design would have caught.
 - **Sea ice: NSIDC Sea Ice Index** (a NASA DAAC), Arctic extent by month, plus polar-night months. The optical camera earns nothing in the dark months while radar keeps working, so the player sees *why* sea-ice missions fly radar.
 
-This needs the data owner's approval for one new data file, and the build environment needs access to the FIRMS and NSIDC download sites.
+**Built and on `main`.** `data/earth.js` holds the real numbers, `tools/earth_data.py` rebuilds them from the original downloads, and both sources are in `SOURCES.md`. What the data showed:
+
+- NASA MODIS detected **3,693,555 fires in 2025**; August was the peak month (15%), 75% burned in the tropics and 7.9% north or south of 50 degrees.
+- A low orbit sees 92% of them, a polar orbit all of them, and one geostationary satellite only one side of Earth: 69% from Meteosat's slot over Africa and Europe, just 24% from GOES-East over the Americas. The game places geostationary at 0 degrees.
+- Arctic ice fell to **4.75 million km2 in September 2025, 26% below the 1981-2010 average**. At 75 degrees north the Sun never rises in November, December and January, so a camera maps nothing for three months a year; radar keeps working.
 
 ## Game progression
 
@@ -150,7 +154,8 @@ These field names are fixed. Nobody renames or adds a field without the data per
   wants: ["thermal", "imaging"],  // instrument tags that count; the first counts fully, later ones half
   science_target: 180,
   needs_resolution_m: 2000,       // optional: instruments blurrier than this earn nothing
-  orbit_fit: { leo: 0.5, sso: 0.5, geo: 1.0 },  // multiplies science by orbit; 0 = cannot see the target
+  orbit_fit: { leo: 0.55, sso: 0.5, geo: 1.0 }, // how often each orbit looks; 0 = cannot see the target.
+                                  // For wildfire, what each orbit can see at all comes from data/earth.js.
   real_mission: "One line naming a real mission with a similar design."
 }
 ```
@@ -173,6 +178,8 @@ These field names are fixed. Nobody renames or adds a field without the data per
 Allowed effect keys are `lose_months`, `science_mult`, `cost_musd`, `fail_chance` and `fails`. A part whose `protects` list names the event cancels the worst choice's penalty.
 
 **Tiers** in `data/tiers.js`: `{ id, name, budget_musd, events, hints }`. `hints` is `"on"` (hints plus a short tutorial), `"request"` (a hint button) or `"off"`.
+
+**Earth data** in `data/earth.js`: one global, `EARTH`, keyed by objective id, plus `start_month` (missions start in January). Wildfire: `detections`, `monthly_share` (12 values), `orbit_view` ({ leo, sso, geo }, share of real fires each orbit can see). Sea ice: `extent_mkm2` and `extent_1981_2010_mkm2` (12 values each), `daylight_share` (12 values, 0 = polar night). Each entry names its `source` and `year`. The game multiplies an instrument's science by `orbit_view`, by the month's share of fires (averaging 1 over the year), and, for cameras on sea ice, by `daylight_share`.
 
 **Debrief text** in `data/debrief.js`: one short paragraph per limiting factor, keyed `mass`, `power`, `budget`, `data`, `event`, `design` and `none`. `design` means nothing ran short but the instruments or orbit did not suit the objective; `none` means the target was reached.
 
@@ -382,7 +389,8 @@ getTotals(design)               // { mass_kg, power_draw_w, power_gen_w, cost_mu
                                 //   data_returned_gb_day, battery_wh, capacity_kg, budget_musd }
                                 // A margin is null until its limit exists (no launcher, no panels).
 getOrbitFacts(design)           // { period_min, laps_per_day, eclipse_fraction, eclipse_min, speed_kms,
-                                //   resolution_m: { partId: metres or null }, battery_needed_wh }
+                                //   resolution_m: { partId: metres or null }, battery_needed_wh,
+                                //   target_in_view (share of the objective's real targets in view, or null) }
                                 // All null until an orbit is chosen.
 getPartFacts(design, partId)    // { power_gen_w, resolution_m, sharp_enough, counts, science_per_month }
                                 // Computed numbers for one part card, added or not. null fields = not applicable yet.
@@ -397,12 +405,14 @@ runChecks(design)               // { blockers: [{ id, text }], warnings: [{ id, 
 
 // js/mission.js (Simulation)
 startMission(design)            // returns a mission; readable fields: month, lifetime_months, science
-stepMonth(mission)              // { month, science, event or null, ended }
+stepMonth(mission)              // { month, science, event or null, ended, calendar_month (0-11), month_name,
+                                //   real: { fires, year } or { ice_extent_mkm2, ice_average_mkm2, daylight_share, year } }
                                 // While an event waits for a choice it returns the same state and does not advance.
 chooseEvent(mission, choice)    // choice = index into event.choices. Returns { id, title, label, protected,
                                 //   failed_part (part id or null), ended, ended_early }
 getDebrief(mission)             // { score, stars, limiting, suggestion, breakdown: { science, budget, margins, events },
-                                //   science, science_target, paragraph, real_mission, events, ended_early }
+                                //   science, science_target, paragraph, real_mission, events, ended_early,
+                                //   real_world: { text, ...numbers } comparing the mission with NASA data, or null }
 recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null) }
 getProgress()                   // { best_stars: { tierId: n }, best_score: { tierId: n } }
 isTierUnlocked(tierId)          // true for Training, and for any tier after one with 2+ stars
@@ -454,6 +464,7 @@ Tier select -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readine
 | --- | --- | --- |
 | One card per orbit | `ORBITS`: `name`, `altitude_km`, `blurb`, `lifetime_months` | Click to select. |
 | Card facts | `getOrbitFacts(probe)`, where `probe` is a fresh `newDesign` with `setOrbit(probe, orbit.id)` | Show `period_min`, `laps_per_day`, `eclipse_min`. |
+| Real targets in view | `getOrbitFacts(probe).target_in_view` | Wildfire: "Sees 69% of the world's fires (NASA FIRMS 2025)". Hidden when null. |
 | Suits the objective? | `objective.orbit_fit[orbit.id]` | 0 shows a red "cannot see the target" badge; under 1 shows "partial view". The card stays clickable: choosing badly is allowed and teaches. |
 | Select | `setOrbit(design, id)` | Next is enabled once an orbit is chosen. |
 
@@ -540,6 +551,7 @@ Where each check is fixed:
 | --- | --- | --- |
 | Month ticker | `s = stepMonth(mission)` on a timer, about 300 ms per month | Show "Month `s.month` of `mission.lifetime_months`". A pause button stops the timer; a fast-forward button shortens it. |
 | Science bar | `s.science` against the objective's `science_target` | Fills toward the target; it may pass it. |
+| The real Earth this month | `s.month_name`, `s.real` | Wildfire: "August: 557,357 fires burned (NASA FIRMS 2025)". Sea ice: "January: 13.1 million km2 of ice, polar night". This is where the player sees NASA data at work. |
 | Event | `s.event` is not null | Stop the timer. Show `event.title`, `event.text` and one button per `event.choices[i].label`. |
 | Player's choice | `out = chooseEvent(mission, i)` | Show one outcome line: "A part on board protected you" if `out.protected`; "`PARTS` name FAILED" if `out.failed_part`; "Mission over" if `out.ended_early`. Then resume the timer. |
 | End | `s.ended` or `out.ended` | Go to Debrief. |
@@ -554,6 +566,7 @@ Where each check is fixed:
 | Science | `d.science` against `d.science_target` | |
 | What limited you | `d.limiting` as the heading, then `d.paragraph` | The heading names one factor: mass, power, budget, data, event, design or none. |
 | Try this | `d.suggestion` | One concrete change. This is the most important line on the screen. |
+| Against the real Earth | `d.real_world.text` | The paragraph comparing the mission with NASA data, for example how many of 2025's real fires the design would have reported. Show it prominently: it is our strongest link to NASA data. |
 | Real-world cousin | `d.real_mission` | One line. |
 | Events log | `d.events`: `title`, `label`, `failed_part` | What happened and what the player chose. |
 | Buttons | | **Redesign**: back to Build with the same `design`. **New mission**: Briefing with a fresh `newDesign(tier)`. **Change tier**: tier select. |
@@ -604,10 +617,10 @@ Balancing will change most numbers, so the current estimates stand until then. N
 
 **Judging (all roles)**
 
-1. **NASA data in the game** (see "How we are judged"): Data adds the FIRMS and Sea Ice Index file; Simulation weights each month by it; the debrief reports the real-world comparison. Highest priority after integration, because Relevance is our weakest criterion.
+1. ~~NASA data in the game~~ Done on `main`. **Design screens:** please add `<script src="data/earth.js"></script>` to `index.html` right after `data/debrief.js`. Until then the game runs without the real data.
 2. **Demo owner:** someone takes QA now. The demo is a 30-second video or at most 7 slides, scripted around build, fail, debrief, fix, succeed.
 3. **References:** `SOURCES.md` lists every external resource and the AI tools used, ready to paste into the submission form.
-4. **Validity evidence:** the formula tests go on `main`, and the project page says how the numbers were sourced and which are game values.
+4. **Validity evidence:** the formula tests are on `main` (`node tests/formulas.js`); the project page says how the numbers were sourced and which are game values.
 
 **Integration with Design screens**
 
