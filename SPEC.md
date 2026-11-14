@@ -77,17 +77,51 @@ Open, in order of weight in the challenge text:
 3. **Structure and attitude control** are named components but are not parts yet. Proposed: two new part categories with one or two simple parts each. Changes the data format: data owner to approve.
 4. **"No single perfect solution."** Checked by `tests/balance.js`: at least two different designs earn three stars for every objective.
 
-### Progression proposal (awaiting the data owner's approval)
+### Progression: eras, bodies and the research tree (approved)
 
-Today every part can be fitted from the first mission, because the screens play standalone missions and research only locks parts inside a campaign. Proposed progression, in three layers that share one data set:
+One rule drives progression in both modes: **every part, body, rocket and topic has the year it really arrived**, taken from the research record that unlocks it (anything no research unlocks dates from 1957).
 
-1. **Satellite bodies.** The `structure` category becomes a ladder of real bodies, each with a payload limit and a number of slots per category, so a body decides what can fit: Explorer 1's cylinder (1958, a few kilograms, one instrument, spin only); Vanguard's sphere; TIROS-1's drum (1960, about 100 kg, two cameras, solar cells and batteries); a Nimbus-class three-axis bus (1964, room for propulsion); a modern smallsat bus (about 150 kg, every slot); a 12U CubeSat frame (cheap, tiny). A 45 kg radar simply will not fit a 1958 body. **Needs two new part fields on bodies: `payload_kg` and `slots` ({ instrument: n, ... }).**
-2. **Mission year for standalone play.** A standalone mission picks a year (for example 1958, 1964, 1978, 1999, 2026). Only parts, bodies, rockets and topics whose research `year` has arrived are offered, so tier select becomes "pick an era and a maturity level", and each era is a different puzzle with the same screens. Uses the research `year` field that already exists; the design gains a `year`. **Needs approval for the design's `year`.**
-3. **Campaign research tree.** Unchanged in shape: research unlocks bodies as well as parts, so buying a body is the big milestone of each era. `getResearchTree()` returns nodes (with `year`, `depth`, owned or missing) and edges (prerequisites) so a reusable tree component can draw it without knowing the rules.
+**1. Eras (standalone play).** A standalone mission is set in an era, and only what existed by that year is offered. Eras live in `data/eras.js`: one global, `ERAS`.
 
-Replayability comes from: different eras with different constraints; the campaign's research paths gated by lessons; fresh luck per flight; the real solar cycle by year; and the CML tiers changing the budget and events. "Beat history" (match Explorer 1's year and mass) is the first challenge mode to add.
+```js
+{ id: "igy", name: "International Geophysical Year", year: 1958,
+  blurb: "One line for the era card.", real_missions: ["explorer-1", "vanguard-1"] }
+```
 
-### NASA data in the game
+| Era | Year | What it offers | Topics |
+| --- | --- | --- | --- |
+| International Geophysical Year | 1958 | Explorer's cylinder, Geiger counter, batteries, first silicon cells, beacon; Juno and Vanguard rockets | Radiation |
+| Nimbus | 1964 | Adds TV cameras, the TIROS drum, three-axis control, the Nimbus bus, Thor rockets | Radiation, solar, weather |
+| Earth Observing System | 1999 | Adds modern power, radios, computers, thrusters, radar and thermal imaging (still launched on Thor-Agena) | All five |
+| New Space | 2026 | Everything, including rideshares, small launchers, reusable rockets and the 12U CubeSat | All five |
+
+The first era is open; **two stars in an era opens the next** (on any tier). Tiers stay as they are (Concept Maturity Levels), so tier select becomes a grid: era across, maturity down. A design with no era (`year` null) offers everything, so the current screens keep working. The solar topic uses the real sunspot numbers for the era's year: 1958 is the strongest maximum on record, 1964 nearly quiet.
+
+**2. Bodies.** Structure parts (bodies) gain two approved fields: `payload_kg`, the most the body can carry, and `slots`, how many parts of each category fit (`{ instrument: 1, power: 2, ... }`; a missing category means none). One body per satellite. The ladder, each modelled on a real spacecraft:
+
+| Body | Year | Payload | Instruments | Propulsion | Model |
+| --- | --- | --- | --- | --- | --- |
+| Explorer-style cylinder | 1957 | 10 kg | 1 | none | Explorer 1 |
+| TIROS-style drum | 1960 | 100 kg | 2 | none | TIROS-1 |
+| Nimbus-class bus | 1964 | 300 kg | 3 | 1 | Nimbus 1 |
+| Modern smallsat bus | 1995 | 150 kg | 2 | 1 | ESPA-class buses |
+| 12U CubeSat frame | 2018 | 22 kg | 1 | 1 | CubeSat 101 |
+
+Readiness checks (only when a body is fitted, which becomes always once the switch-over is on): `body-count` (more than one body), `body-payload` (parts heavier than the body carries), `body-slots` (more parts of a category than it has slots).
+
+**3. Campaign research tree.** Research unlocks bodies as well as parts. `getResearchTree()` returns `{ nodes, edges }` so a reusable tree component can draw it without knowing the rules: nodes carry `id, name, year, depth, cost_musd, blurb, unlocks_names, owned, can_buy, missing`; edges are `{ from, to }` prerequisites.
+
+### Why these choices (against the judging criteria)
+
+| Criterion | What the progression adds | Risk and answer |
+| --- | --- | --- |
+| **Impact** | The same five-minute loop teaches something new in each era: how a 10 kg battery satellite became a 150 kg radar platform. Replay is the lesson. | Too much content for one sitting: the first era has one topic and a handful of parts, so a newcomer is never swamped. |
+| **Creativity** | Progression is history: the era grid, bodies from real spacecraft, research gated by best practice, and the real solar cycle. No comparable game ties its tech tree to dates. | — |
+| **Validity** | Every era item is dated by the real mission that introduced it; bodies are modelled on real spacecraft; `tests/balance.js` checks each era can be won. | Some dates are simplified (old rockets stay available later): the eras say "what existed by", not "what was in use". |
+| **Relevance** | The challenge asks for "different difficulty levels, mission types, or scenarios" and "simple and advanced components depending on the difficulty level". Eras are both, and they rest on NASA's own mission history (NSSDCA). | — |
+| **Presentation** | A 30-second demo can open in 1958 with Explorer 1 and close in 2026, which is a story in itself. The screens need only an era picker and slot counts on the body. | The research-tree screen is the biggest new screen; it is only needed for the campaign, so eras come first. |
+
+### NASA data in the game### NASA data in the game
 
 To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else (no `fetch`).
 
@@ -557,8 +591,13 @@ removePart(design, partId)
 setLauncher(design, id)
 getTotals(design)               // { mass_kg, power_draw_w, power_gen_w, cost_musd, data_gb_day,
                                 //   downlink_gb_day, delta_v_ms, margins: { mass, power, budget },
-                                //   data_returned_gb_day, battery_wh, capacity_kg, budget_musd, dev_months }
+                                //   data_returned_gb_day, battery_wh, capacity_kg, budget_musd, dev_months,
+                                //   body: { id, name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null }
 getCategories()                 // [{ id, name, sub, required }] in display order: the Build screen's bins
+getEras()                       // [{ id, name, year, blurb, unlocked, best_stars, topics: [objective ids open in that era] }]
+setEra(design, eraId)           // sets design.era and design.year; only what existed by then is offered
+getResearchTree()               // { nodes: [{ id, name, year, depth, cost_musd, blurb, unlocks_names, owned, can_buy,
+                                //   missing }], edges: [{ from, to }] }; owned and can_buy are false outside a campaign
                                 // A margin is null until its limit exists (no launcher, no panels).
 getOrbitFacts(design)           // { period_min, laps_per_day, eclipse_fraction, eclipse_min, speed_kms,
                                 //   resolution_m: { partId: metres or null }, battery_needed_wh,
@@ -607,7 +646,8 @@ getHubInfo()                    // { year, treasury_musd, lessons: [ids earned],
                                 //   missions, finished, won }
                                 // depth = longest chain of prerequisites, so a tree screen can place each node in a column.
 buyResearch(id)                 // { ok, reason }
-isPartAvailable(id), isLauncherAvailable(id), isObjectiveAvailable(id)   // false only when locked by research
+isPartAvailable(id, design), isLauncherAvailable(id, design), isObjectiveAvailable(id, design)
+                                // false when locked by research (campaign) or not yet invented in the design's era
 previewPayout(design)           // { expected_payout_musd, knowledge_before, knowledge_after, novelty, cost_musd, net_musd }
 getHints(screen, design)        // { mode: "on" | "request" | "off", tutorial, tips: [...] }  screen = "hub", "briefing",
                                 // "orbit", "build", "launch", "readiness", "mission" or "debrief". tips lead with advice
