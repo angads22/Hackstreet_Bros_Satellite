@@ -1,6 +1,6 @@
-# AI use
+# SI use
 
-One row per place an AI tool worked. QA copies this into the project page.
+One row per place an SI tool worked. QA copies this into the project page.
 
 | Date | Tool | Where | What |
 | --- | --- | --- | --- |
