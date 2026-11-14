@@ -544,11 +544,11 @@
   }
 
   // ---------------------------------------------------------------- 2 Orbit
-  // "In view: 69% of the world's fires (NASA FIRMS 2025)": the share comes from getOrbitFacts.
+  // "In view: 69% of the world's fire detections (NASA FIRMS 2025)": the share comes from getOrbitFacts.
   // (The badge beside it is about how often the orbit looks, which is a different thing.)
   function inViewText(objectiveId, share) {
     var e = typeof EARTH !== "undefined" && EARTH ? EARTH[objectiveId] : null;
-    var what = objectiveId === "wildfire" ? "of the world's fires" : objectiveId === "sea-ice" ? "of the Arctic sea ice" : "of the target";
+    var what = objectiveId === "wildfire" ? "of the world's fire detections" : objectiveId === "sea-ice" ? "of the Arctic sea ice" : "of the target";
     var src = e && e.source ? " (" + (objectiveId === "wildfire" ? "NASA FIRMS" : objectiveId === "sea-ice" ? "NSIDC Sea Ice Index" : "NASA data") + (e.year ? " " + e.year : "") + ")" : "";
     return "In view: " + Math.round(share * 100) + "% " + what + src;
   }
@@ -772,6 +772,7 @@
   // ---------------------------------------------------------------- 5 Readiness review (launch control)
   function drawReview() {
     var d = state.design;
+    var totalsNow = getTotals(d);
     var checks = runChecks(d);
     var blocked = checks.blockers.length > 0;
     var warned = checks.warnings.length > 0;
@@ -791,7 +792,8 @@
         ["Objective", objective ? objective.name : "not chosen"],
         ["Orbit", orbit ? orbit.name : "not chosen"],
         ["Parts", list(d.parts).length ? names(d.parts, data("PARTS")) : "none"],
-        ["Rocket", rocket ? rocket.name : "not chosen"]
+        ["Rocket", rocket ? rocket.name : "not chosen"],
+        isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
       ]),
       button(blocked ? "LAUNCH" : warned ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
       blocked ? el("p", { class: "bar-note", text: "Fix the NO GO lines to unlock launch." }) : null

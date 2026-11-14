@@ -21,6 +21,12 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - Eras, bodies and the research tree have no screens yet (see `HANDOFF.md`).
 - Structure and attitude are optional until the Build screen has their two bins: Design screens turns on `NEW_CATEGORIES_REQUIRED` in `js/game.js` in the same change (`node tests/api.js` already tests the game with it on).
 
+### Changed
+
+- **Wording.** The Mission screen and the orbit cards say "fire detections", not "fires": a satellite detection is one hot pixel on one pass, not one fire.
+- **Debrief.** The heading names the NASA Mission Design Lab discipline that limited the mission ("Communications limited this mission"), and four short lines sum up the launch, space, ground and user segments.
+- **Readiness review.** Shows how many months the satellite takes to build.
+
 ### Fixed
 
 - **Base map.** The GO TO button now follows the gold route in both directions, so it never points past a NO GO that is fixed at an earlier place.

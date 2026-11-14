@@ -94,13 +94,14 @@
   }
 
   // The real Earth this month, from NASA data the back end returns with each step.
-  // Wildfire: "August: 557,357 fires burned (NASA FIRMS 2025)".
+  // Wildfire: "August: 557,357 fire detections worldwide (NASA FIRMS 2025)". A detection is one
+  // hot pixel on one satellite pass, not one fire, so the screens never say "fires burned".
   // Sea ice:  "January: 13.1 million km2 of Arctic ice, polar night (NSIDC 2025)".
   function realEarthText(s) {
     var r = s.real;
     if (!r || !s.month_name) return "";
     if (typeof r.fires === "number") {
-      return s.month_name + ": " + num(r.fires, 0) + " fires burned on Earth (NASA FIRMS " + r.year + ")";
+      return s.month_name + ": " + num(r.fires, 0) + " fire detections worldwide (NASA FIRMS " + r.year + ")";
     }
     if (typeof r.ice_extent_mkm2 === "number") {
       return s.month_name + ": " + num(r.ice_extent_mkm2, 1) + " million km\u00b2 of Arctic ice" +
@@ -228,11 +229,12 @@
 
     var side = el("div", { class: "panel limit" }, [
       result && result.unlocked ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
-      el("h2", { text: "WHAT LIMITED YOU: " + (LIMIT_NAMES[d.limiting] || String(d.limiting || "").toUpperCase()) }),
+      el("h2", { text: limitingHeading(d) }),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
       d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
         el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text })]) : null,
+      segmentRows(d),
       closestLine(d),
       d.real_mission ? el("p", { class: "bar-note", text: "Real-world cousin: " + d.real_mission }) : null,
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
@@ -250,6 +252,22 @@
       el("div", { class: "ledger" }, [paper, side])
     ]));
     run = null;
+  }
+
+  // "POWER LIMITED THIS MISSION": the name is a NASA Mission Design Lab discipline from the back end.
+  function limitingHeading(d) {
+    var name = d.limiting_name || LIMIT_NAMES[d.limiting] || String(d.limiting || "");
+    return (name + " limited this mission").toUpperCase();
+  }
+
+  // The four mission segments (launch, space, ground, user), one short line each.
+  function segmentRows(d) {
+    var rows = UI.list(d.segments).filter(function (s) { return s && s.text; });
+    if (!rows.length) return null;
+    return el("div", { class: "segments" }, [el("h2", { class: "divided", text: "THE FOUR SEGMENTS" }),
+      el("dl", { class: "facts wide" }, rows.map(function (s) {
+        return el("div", null, [el("dt", { text: s.name || s.id }), el("dd", { text: s.text })]);
+      }))]);
   }
 
   // "Closest real mission: Explorer 1 (1958, NASA / JPL). ... Like yours: same orbit; battery power."
