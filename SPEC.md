@@ -121,9 +121,9 @@ Readiness checks (only when a body is fitted, which becomes always once the swit
 | **Relevance** | The challenge asks for "different difficulty levels, mission types, or scenarios" and "simple and advanced components depending on the difficulty level". Eras are both, and they rest on NASA's own mission history (NSSDCA). | — |
 | **Presentation** | A 30-second demo can open in 1958 with Explorer 1 and close in 2026, which is a story in itself. The screens need only an era picker and slot counts on the body. | The research-tree screen is the biggest new screen; it is only needed for the campaign, so eras come first. |
 
-### NASA data in the game### NASA data in the game
+### NASA data in the game
 
-To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else (no `fetch`).
+To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else. That file is the offline snapshot; live calls (below) refresh it when the internet is there.
 
 - **Wildfire: NASA FIRMS** (Fire Information for Resource Management System) active-fire detections from VIIRS, by month and by latitude band, for the last full year. Each mission month earns science in proportion to real fire activity that month, and the boreal share shows why low orbit misses northern fires. The debrief reports how many real detections the player's design would have caught.
 - **Sea ice: NSIDC Sea Ice Index** (a NASA DAAC), Arctic extent by month, plus polar-night months. The optical camera earns nothing in the dark months while radar keeps working, so the player sees *why* sea-ice missions fly radar.
@@ -515,6 +515,23 @@ margin = \frac{capacity - used}{capacity}
 
 The data person needs a checked source for each of these, the same as every other number. `dv_needed_ms` is the hardest to source and can start as a rough placeholder marked as one.
 
+### Live open data (calls made when the game opens)
+
+The snapshot in `data/earth.js` always works, offline and from a file. When the internet is there, `js/live-data.js` calls three free, keyless open-data services that allow browser calls, and the game says which it is using: **LIVE DATA** or **SNAPSHOT**.
+
+| Service | Agency | What it changes |
+| --- | --- | --- |
+| [Solar cycle indices](https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json) (monthly sunspot number, SILSO version 2, 1749 to last month) | NOAA Space Weather Prediction Center | Replaces the sunspot table, so the 1999 and 2026 eras fly under the real Sun of that year, and the current month is in the 2026 era. |
+| [EONET](https://eonet.gsfc.nasa.gov/api/v3/events) (Earth Observatory Natural Event Tracker) | NASA | "Right now" lines in the debrief: open wildfire and sea-ice events, with names and dates. |
+| [CWFIS hotspots, last 24 hours](https://cwfis.cfs.nrcan.gc.ca/) (Canadian Wildland Fire Information System; the hotspots come from NASA MODIS and VIIRS) | Natural Resources Canada | "Right now" line for the wildfire topic: satellite fire detections over North America in the last day. |
+
+Rules:
+
+- **Science never waits for the network.** `game.js` and `mission.js` read `EARTH` as before; `live-data.js` only overwrites the sunspot table and adds `EARTH.live`. A call that fails or takes over 8 seconds is skipped, and the snapshot stays.
+- **The tests never call the network.** `tests/load.js` does not load `live-data.js`, so every seed gives the same mission.
+- **No keys in the code.** Every service above is free and needs no key. A service that needs a key (NASA FIRMS, Meteomatics) stays a rebuild input for `tools/earth_data.py`, never a call from the page.
+- `EARTH.live` = `{ status: "live" | "partial" | "snapshot", fetched_at, sources: [{ id, name, ok }], sunspots_through, wildfire_now, sea_ice_now }`. The front end reads it only through `getLiveData()`.
+
 ## Data sources
 
 The official Resources tab lists eight NASA resources and one CSA resource. They are design references and documents, not raw data sets, so they shape how the game works and where part numbers come from.
@@ -657,6 +674,9 @@ getHints(screen, design)        // { mode: "on" | "request" | "off", tutorial, t
                                 // "orbit", "build", "launch", "readiness", "mission" or "debrief". tips lead with advice
                                 // for the design's current problems (from runChecks), then general tips. mode comes from
                                 // the tier's hints field: "off" returns no tips. design may be null.
+getLiveData()                   // { status: "live" | "partial" | "snapshot", fetched_at, sources: [{ id, name, ok }], sunspots_through,
+                                //   wildfire_now: { text, events, hotspots_24h } or null, sea_ice_now: { text, events } or null }
+                                // For the LIVE DATA / SNAPSHOT badge. The debrief's real_world.now holds the same "right now" text.
 exportSave()                    // the whole save (campaign and tier progress) as one text code; may be long
 importSave(code)                // { ok, reason }; a bad code never crashes and never overwrites a good save
 ```
@@ -914,7 +934,8 @@ The game carries a version number, and `CHANGELOG.md` at the top of the repo rec
 
 Two technical rules for every AI:
 
-- **No `import` and no `fetch`.** Browsers block both when a page is opened straight from a file. Each data file defines one global, such as `const PARTS = [...]`, loaded with a plain script tag.
+- **No `import`.** Browsers block it when a page is opened straight from a file. Each data file defines one global, such as `const PARTS = [...]`, loaded with a plain script tag.
+- **`fetch` only in `js/live-data.js`,** only to services that allow browser calls, and always with the snapshot as the fallback ("Live open data"). The game must still work from a file with no internet.
 - **Check the console before sending.** One missing comma in a data file breaks the whole game. Open the game, press F12, and confirm there is no red text.
 
 ### Before the clock starts
