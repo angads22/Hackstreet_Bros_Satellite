@@ -376,3 +376,37 @@ function getPartFacts(design, partId) {
   }
   return facts;
 }
+
+// ------------------------------------------------------------------ hover preview
+// What toggling one part would change, for the hover preview on a Build card.
+// If the part is in the design this previews removing it, otherwise adding it.
+// The design itself is not changed.
+function previewToggle(design, partId) {
+  if (!getPart(partId)) return null;
+  var adding = design.parts.indexOf(partId) === -1;
+  var after = { tier: design.tier, objective: design.objective, orbit: design.orbit,
+                launcher: design.launcher, parts: design.parts.slice() };
+  if (adding) addPart(after, partId); else removePart(after, partId);
+
+  function snapshot(d) {
+    var t = getTotals(d);
+    return { mass_kg: t.mass_kg, power_draw_w: t.power_draw_w, power_gen_w: t.power_gen_w,
+             cost_musd: t.cost_musd, data_gb_day: t.data_gb_day,
+             data_returned_gb_day: t.data_returned_gb_day, delta_v_ms: t.delta_v_ms,
+             battery_wh: t.battery_wh, science_total: previewScience(d).total };
+  }
+  var b = snapshot(design), a = snapshot(after), delta = {};
+  Object.keys(b).forEach(function (k) { delta[k] = round(a[k] - b[k], 2); });
+
+  function ids(list) { return list.map(function (c) { return c.id; }); }
+  var cb = runChecks(design), ca = runChecks(after);
+  var before = ids(cb.blockers).concat(ids(cb.warnings)), afterIds = ids(ca.blockers).concat(ids(ca.warnings));
+  return {
+    adding: adding,
+    before: b,
+    after: a,
+    delta: delta,                                   // after minus before, per number
+    fixes: cb.blockers.concat(cb.warnings).filter(function (c) { return afterIds.indexOf(c.id) === -1; }),
+    causes: ca.blockers.concat(ca.warnings).filter(function (c) { return before.indexOf(c.id) === -1; })
+  };
+}
