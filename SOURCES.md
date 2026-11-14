@@ -22,7 +22,7 @@ The submission form's References field must list every external resource, includ
 
 | Name | Type | Link | Used for |
 | --- | --- | --- | --- |
-| Claude (Anthropic), via Claude Code | AI assistant | https://claude.ai/code | Drafting data files, game logic (`js/game.js`, `js/mission.js`), tests and spec text; every number was reviewed by a team member |
+| Claude (Anthropic), via Claude Code | AI assistant | https://claude.ai/code | Drafting data files, game logic (`js/game.js`, `js/mission.js`), tests and spec text. Sourced numbers cite their page; the rest are labelled ESTIMATE or GAME VALUE in the data files |
 | NASA Space Apps 2026 Judging & Awards Guide | Rules | https://www.spaceappschallenge.org | Judging criteria and submission requirements (SPEC.md, "How we are judged") |
 | A Learning Game About Telescopes | NASA | https://science.nasa.gov/mission/webb/game-build-it-yourself/ | Design reference only; no code or art reused |
 | Digital Games and Activities | CSA | https://www.asc-csa.gc.ca/eng/youth-educators/digital-games-and-activities.asp | Tone and style reference only |
