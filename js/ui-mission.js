@@ -106,6 +106,9 @@
       return s.month_name + ": " + num(r.ice_extent_mkm2, 1) + " million km\u00b2 of Arctic ice" +
         (r.daylight_share === 0 ? ", polar night" : "") + " (NSIDC " + r.year + ")";
     }
+    if (typeof r.sunspots === "number") {
+      return s.month_name + (s.year ? " " + s.year : "") + ": sunspot number " + num(r.sunspots, 0) + " (SILSO)";
+    }
     return "";
   }
 

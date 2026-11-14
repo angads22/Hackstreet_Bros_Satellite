@@ -830,6 +830,16 @@ Data feeds both logic files, each logic file feeds its own screens, and everythi
 - **Issues are the to-do list.** QA files bugs and tuning requests as GitHub issues labelled by aspect, and owners close them.
 - **Stubs first.** Every owner builds against the stub functions and placeholder data from the start, rather than waiting on anyone.
 
+### Versions and changelog
+
+The game carries a version number, and `CHANGELOG.md` at the top of the repo records what each version holds. Both live in version control, so anyone can see what a given build can and cannot do.
+
+- **Current version: 0.5 beta.** A single mission plays from tier select to Debrief in the browser. The campaign's back end exists, but its hub and research screens do not, so a campaign cannot be played yet. `CHANGELOG.md` lists what is in and what is still missing.
+- **Numbering.** `0.x beta` until we submit; **1.0 is the build we submit** at the code freeze. Raise the second number when a missing piece lands (for example the campaign hub makes 0.6).
+- **Every merge to `main` that changes what a player sees, or what a back-end function returns, adds one line to the "Unreleased" section of `CHANGELOG.md`**, in the same commit or pull request. Write it for a teammate or a judge: what changed, not how. Use the headings Added, Changed, Fixed and "Not in this version yet".
+- **Cutting a version.** Rename "Unreleased" to the version and date, start a new empty "Unreleased", update the version line in the footer of `index.html` (the one place the game shows it), and tag that commit `vX.Y`. Whoever merges the last piece cuts the version, after telling the team.
+- **`SPEC.md` is still the source of truth for what the game should do.** The changelog only records what a version actually does.
+
 ### Getting started on GitHub
 
 1. The data person creates the repo with `SPEC.md`, `CLAUDE.md`, the folder layout, stub `game.js` and `mission.js`, and placeholder data, then turns on GitHub Pages.
