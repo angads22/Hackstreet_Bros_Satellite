@@ -39,6 +39,7 @@ One small commit per item, each with a regression check. No data fields change.
 | A5 | Guards: `startMission` returns null with blockers; unknown tier ids fall back to `training`; `chooseEvent` clamps the index before recording; `recordResult` rejects an unfinished mission and is idempotent (`paid` flag) | both | L4, L5 | Each case has a test |
 | A6 | Debrief advice depends on what is fitted: never suggest a part already on board; name the orbit when `orbit_fit` is 0; "largest battery fitted, cut the draw" when relevant | `mission.js` | L6 | The advice audit (`tests/redteam/advice.js`) finds no impossible advice |
 | A7 | The real-world fire tally is weighted by instrument match | `mission.js` | L8 | A camera-only design reports half the fires per GB |
+| A8 | Say "fire detections", never "fires", wherever MODIS counts appear | `mission.js` | Judging audit | No user-facing text says "fires" for a detection count |
 
 ## 3. Phase B: data and scoring for the campaign
 
@@ -89,6 +90,8 @@ Saves work like a clicker game: one save per browser, plus export and import cod
 - Compute that cheapest design in the back end, once per campaign start.
 - Method: for each topic and orbit, take the cheapest part in each required category, plus propulsion only when the orbit needs Δv, plus the cheapest launcher that fits. Then confirm it with `runChecks`. Never hard-code the number.
 
+**C6. Odds on event choices** (moved here from the extras by the judging audit): `stepMonth`'s event gives each choice a `fail_chance_now`, including the thin-margin penalty, so the screen can show the real risk.
+
 **C5. Seed in campaigns:** the seed (the number that decides all of a mission's "random" luck) also includes the mission number, so flying the same satellite twice faces fresh luck. Outside a campaign, and from an exported code, the same design still replays exactly. This answers the red-team's L9 without breaking single-mission replays.
 
 ## 5. Phase D: prove the balance
@@ -125,19 +128,21 @@ Saves work like a clicker game: one save per browser, plus export and import cod
 
 **Phase F: space-race content** (`story_change.md` Phase 2). Modern parts stay for now (decision 4).
 
-- **New topics:** radiation belts, upper-atmosphere density, a first weather picture, a beacon or time signal. Each gets `value_musd`, `knowledge_scale`, `requires_research`, `orbit_fit` and `real_mission` (Explorer 1, Sputnik, Vanguard 1, TIROS-1).
+- **New topics, chosen by the NASA data we can actually download** (judging audit). For example: NASA Ozone Watch, for the Antarctic ozone hole. Era topics (radiation belts, upper atmosphere, a beacon) only if clean NASA data turns up. Each gets `value_musd`, `knowledge_scale`, `requires_research`, `orbit_fit` and `real_mission` (Explorer 1, Sputnik, Vanguard 1, TIROS-1).
 - **NASA data per topic** in `earth.js`, to keep Relevance high. If no clean data set turns up in time, those numbers are labelled game values.
 - **Era events** (a rival's launch, a pad failure, a budget cut), using the `objectives` field on events.
 
 **Red-team ideas, pulled forward only if time remains, in this order:**
 
-1. Show the odds on event choices. This is cheap, and it fixes "choices barely matter".
-2. Store-and-forward using `storage_gb`. This makes low orbit and the payload computer useful.
-3. Detection latency for geostationary.
+1. Store-and-forward using `storage_gb`. This makes low orbit and the payload computer useful.
+2. Detection latency for geostationary.
 
 The rest (ground-station choice, ageing, mission extension, cloud cover, insurance) stay in `STRETCH.md`.
 
 ## 7. Decisions (answered by the data owner)
+
+**Open: the era.** The judging audit in `SPEC.md` found that a 1957 start contradicts the 2025 NASA data, modern parts and 2025 prices. Recommended: a modern "new space race" start, such as 2027. Until this is decided, the code reads the year only from `CAMPAIGN.start_year` and no text names an era.
+
 
 1. **Seed in campaigns:** include the mission number. In a campaign, each flight gets fresh luck; outside a campaign, exact replays stay.
 2. **Failed missions keep the science they sent home.** That is historically accurate: Explorer 1's data outlived its batteries, while Vanguard TV3, which exploded on the pad, returned nothing.
