@@ -617,7 +617,7 @@ Balancing will change most numbers, so the current estimates stand until then. N
 
 **Judging (all roles)**
 
-1. ~~NASA data in the game~~ Done on `main`. **Design screens:** please add `<script src="data/earth.js"></script>` to `index.html` right after `data/debrief.js`. Until then the game runs without the real data.
+1. ~~NASA data in the game~~ Done on `main`, including the `data/earth.js` script tag in `index.html` (added by the data owner).
 2. **Demo owner:** someone takes QA now. The demo is a 30-second video or at most 7 slides, scripted around build, fail, debrief, fix, succeed.
 3. **References:** `SOURCES.md` lists every external resource and the AI tools used, ready to paste into the submission form.
 4. **Validity evidence:** the formula tests are on `main` (`node tests/formulas.js`); the project page says how the numbers were sourced and which are game values.
