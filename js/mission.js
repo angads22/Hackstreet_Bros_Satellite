@@ -45,19 +45,37 @@ var missionCounter = 0;
 // A copy of the design as it was at launch. Later edits to the player's design
 // never change a mission that has already flown.
 function copyDesign(design) {
-  return { tier: design.tier, objective: design.objective, orbit: design.orbit,
-           launcher: design.launcher, parts: design.parts.slice() };
+  var copy = { tier: design.tier, objective: design.objective, orbit: design.orbit,
+               launcher: design.launcher, parts: design.parts.slice() };
+  if (design.campaign) copy.campaign = true;
+  return copy;
 }
 
 // Returns null if the design still has blockers: nothing launches past the readiness review.
 function startMission(design) {
   if (!design || runChecks(design).blockers.length) return null;
+  var launchTotals = getTotals(design);   // before any money moves
   design = copyDesign(design);
   missionCounter += 1;
+
+  // Campaign: pay at launch, count the flight, and give each flight fresh luck.
+  var flight = 0, scienceBefore = 0;
+  if (design.campaign) {
+    var c = getCampaign();
+    if (!c || c.finished) return null;
+    c.treasury_musd = round(c.treasury_musd - launchTotals.cost_musd, 3);
+    c.flights = (c.flights || 0) + 1;
+    flight = c.flights;
+    scienceBefore = c.knowledge_science[design.objective] || 0;
+    saveCampaign(c);
+  }
+
   var orbit = getOrbit(design.orbit);
   var tier = getTier(design.tier);
   var lifetime = orbit ? orbit.lifetime_months : 12;
-  var rand = makeRandom(designSeed(design));
+  var seed = designSeed(design);
+  if (flight) seed = (seed ^ Math.imul(flight, 2654435761)) >>> 0;
+  var rand = makeRandom(seed);
 
   // Pick distinct events and distinct months (never month 1 or the last month).
   var pool = EVENTS.slice();
@@ -73,13 +91,16 @@ function startMission(design) {
   }
   schedule.sort(function (a, b) { return a.month - b.month; });
 
-  var totals = getTotals(design);
+  var totals = launchTotals;
   var thin = (totals.margins.mass !== null && totals.margins.mass < LOW_MARGIN) ||
              (totals.margins.power !== null && totals.margins.power < LOW_MARGIN);
 
   return {
-    id: "m" + missionCounter + "-" + designSeed(design).toString(36),
+    id: "m" + missionCounter + "-" + seed.toString(36),
     design: design,           // the copy taken at launch
+    launch_totals: launchTotals,
+    campaign_flight: flight,  // 0 = standalone mission
+    science_before: scienceBefore,   // campaign: science already banked on this topic at launch
     rand: rand,
     month: 0,
     lifetime_months: lifetime,
@@ -89,6 +110,7 @@ function startMission(design) {
     events_seen: [],          // { id, title, choice, label, protected, failed_part }
     broken: [],               // ids of parts that have failed
     lost_months: 0,           // months still to skip because of events
+    months_lost_total: 0,     // every month an event cost, for the score
     science_mult: 1,          // product of event science_mult effects
     extra_cost_musd: 0,       // costs added by events
     thin_margins: thin,
@@ -121,10 +143,25 @@ function missingRequired(mission) {
   return null;
 }
 
+// The event as the screen shows it: each choice carries its real odds right now
+// (fail_chance_now), including the thin-margin penalty and any protection on board.
+function eventWithOdds(mission, event) {
+  if (!event) return null;
+  var prot = isProtected(mission.design, event.id);
+  return {
+    id: event.id, title: event.title, text: event.text,
+    choices: event.choices.map(function (c) {
+      var fc = (c.effect && c.effect.fail_chance) || 0;
+      var now = prot ? 0 : Math.min(0.9, fc * (mission.thin_margins ? THIN_MARGIN_RISK : 1));
+      return { label: c.label, effect: c.effect, fail_chance_now: round(now, 2) };
+    })
+  };
+}
+
 function stepMonth(mission) {
   if (mission.ended || mission.pending_event) {
     return { month: mission.month, science: round(mission.science, 1),
-             event: mission.pending_event, ended: mission.ended };
+             event: eventWithOdds(mission, mission.pending_event), ended: mission.ended };
   }
   mission.month += 1;
   var cal = calendarMonth(mission.month);
@@ -150,7 +187,7 @@ function stepMonth(mission) {
   if (event) mission.pending_event = event;
 
   if (!event && mission.month >= mission.lifetime_months) mission.ended = true;
-  return { month: mission.month, science: round(mission.science, 1), event: event, ended: mission.ended,
+  return { month: mission.month, science: round(mission.science, 1), event: eventWithOdds(mission, event), ended: mission.ended,
            calendar_month: cal, month_name: MONTH_NAMES[cal], real: realThisMonth(mission.design.objective, cal) };
 }
 
@@ -259,7 +296,7 @@ function chooseEvent(mission, choice) {
                  protected: riskiest, failed_part: null };   // true only when protection applied
 
   if (!riskiest) {
-    if (effect.lose_months) mission.lost_months += effect.lose_months;
+    if (effect.lose_months) { mission.lost_months += effect.lose_months; mission.months_lost_total += effect.lose_months; }
     if (effect.science_mult) mission.science_mult *= effect.science_mult;
     if (effect.cost_musd) mission.extra_cost_musd += effect.cost_musd;
   }
@@ -296,32 +333,44 @@ function chooseEvent(mission, choice) {
 }
 
 // ------------------------------------------------------------------ debrief
+// Score (SPEC.md "Scoring"): science 50, efficiency 15, margins 15, events 10,
+// novelty 10. Three stars also need the science target. Lost months and event
+// costs count against everything they affect.
+var EVENT_PENALTY = { part: 4, month: 1, per_musd: 2 };   // points off the 10 event points
+
 function getDebrief(mission) {
   var design = mission.design;
   var objective = getObjective(design.objective);
-  var totals = getTotals(design);
-  var tier = getTier(design.tier);
+  var totals = mission.launch_totals || getTotals(design);
   var target = objective ? objective.science_target : 100;
 
-  // Score (SPEC.md "Scoring")
-  var scienceShare = Math.min(1, mission.science / target);
+  var k = knowledgeResult(mission);
   var spent = totals.cost_musd + mission.extra_cost_musd;
-  var budgetShare = tier ? Math.max(0, (tier.budget_musd - spent) / tier.budget_musd) : 0;
+  var scienceShare = Math.min(1, mission.science / target);
+  var efficiency = spent > 0 ? Math.min(1, (k.payout_musd / spent) / 1.5) : 0;
   var massOk = totals.margins.mass !== null && totals.margins.mass >= LOW_MARGIN;
   var powerOk = totals.margins.power !== null && totals.margins.power >= LOW_MARGIN;
-  var events = mission.events_seen.length;
-  var clean = mission.events_seen.filter(function (e) { return !e.failed_part; }).length;
+  var partsLost = mission.events_seen.filter(function (e) { return e.failed_part; }).length;
+  var eventPoints = Math.max(0, 10 - EVENT_PENALTY.part * partsLost - EVENT_PENALTY.month * mission.months_lost_total -
+                                EVENT_PENALTY.per_musd * mission.extra_cost_musd);
 
   var parts = {
-    science: round(60 * scienceShare, 1),
-    budget: round(15 * budgetShare, 1),
+    science: round(50 * scienceShare, 1),
+    efficiency: round(15 * efficiency, 1),
     margins: (massOk ? 7.5 : 0) + (powerOk ? 7.5 : 0),
-    events: round(events ? 10 * clean / events : 10, 1)
+    events: round(eventPoints, 1),
+    novelty: round(10 * k.novelty, 1)
   };
-  var score = Math.round(parts.science + parts.budget + parts.margins + parts.events);
+  var score = Math.round(parts.science + parts.efficiency + parts.margins + parts.events + parts.novelty);
   var stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 50 ? 1 : 0;
+  if (stars === 3 && mission.science < target) stars = 2;   // 3 stars need the target
 
   var lim = limitingFactor(mission, totals, scienceShare);
+  var kp = "";
+  if (mission.campaign_flight) {
+    if (k.novelty < 0.15) kp = DEBRIEF.saturated || "";
+    else if (k.novelty > 0.6 && k.knowledge_before < 0.2) kp = DEBRIEF.breakthrough || "";
+  }
   return {
     score: score,
     stars: stars,
@@ -335,8 +384,57 @@ function getDebrief(mission) {
     real_mission: objective ? objective.real_mission : "",
     real_world: realWorldSummary(mission),
     events: mission.events_seen,
-    ended_early: mission.ended_early
+    ended_early: mission.ended_early,
+    payout_musd: k.payout_musd,
+    knowledge_before: k.knowledge_before,
+    knowledge_after: k.knowledge_after,
+    novelty: k.novelty,
+    spent_musd: round(spent, 3),
+    best_next_topic: mission.campaign_flight ? bestNextTopic(design.objective) : null,
+    knowledge_paragraph: kp
   };
+}
+
+// ------------------------------------------------------------------ knowledge and payout
+// knowledge(S) = 1 - exp(-S / knowledge_scale): the share of a topic the player knows
+// after S science points. A model of diminishing returns, not a measured fact.
+function knowledgeOf(objective, S) {
+  if (!objective || !objective.knowledge_scale) return 0;
+  return 1 - Math.exp(-S / objective.knowledge_scale);
+}
+
+// Payout for sending home `science` points on a topic where `before` points were already known.
+function payoutFor(objective, before, science) {
+  var floor = typeof CAMPAIGN !== "undefined" ? CAMPAIGN.repeat_floor_musd : 0;
+  var kb = knowledgeOf(objective, before), ka = knowledgeOf(objective, before + science);
+  var gain = ka - kb;
+  var first = knowledgeOf(objective, science);         // what a first mission would have gained
+  var value = objective && objective.value_musd ? objective.value_musd : 0;
+  return {
+    payout_musd: round(Math.max(value * gain, science > 0 ? floor : 0), 3),
+    knowledge_before: round(kb, 3),
+    knowledge_after: round(ka, 3),
+    novelty: first > 0 ? round(Math.min(1, gain / first), 3) : 0
+  };
+}
+
+// Without a campaign, a mission is scored as the first one on its topic.
+function knowledgeResult(mission) {
+  var objective = getObjective(mission.design.objective);
+  return payoutFor(objective, mission.campaign_flight ? mission.science_before : 0, mission.science);
+}
+
+// The open topic that would pay the most for a typical mission (its science target).
+function bestNextTopic(currentId) {
+  var c = getCampaign();
+  if (!c) return null;
+  var best = null, bestPay = -1;
+  OBJECTIVES.forEach(function (o) {
+    if (!isObjectiveAvailable(o.id)) return;
+    var pay = payoutFor(o, c.knowledge_science[o.id] || 0, o.science_target).payout_musd;
+    if (pay > bestPay) { bestPay = pay; best = o.id; }
+  });
+  return best;
 }
 
 // The single thing that most limited the mission, and one concrete change.
@@ -482,7 +580,248 @@ function recordResult(mission) {
   saveProgress(p);
   mission.recorded = { stars: d.stars, best_stars: p.best_stars[tierId],
                        unlocked: nextId && wasLocked && isTierUnlocked(nextId) ? nextId : null };
+  if (mission.campaign_flight) settleCampaign(mission, d, mission.recorded);
   return mission.recorded;
 }
 
 function resetProgress() { saveProgress(emptyProgress()); }
+
+// ------------------------------------------------------------------ campaign
+// One saved campaign per browser (SPEC.md, "Scoring" and "Functions"). Saved in
+// localStorage when allowed, otherwise in memory; a save from another version is discarded.
+var CAMPAIGN_KEY = "smdg-campaign";
+var memoryCampaign = null;
+var cheapestCache = {};
+
+function campaignVersion() { return typeof CAMPAIGN !== "undefined" ? CAMPAIGN.save_version : 1; }
+
+function getCampaign() {
+  var c = null;
+  try {
+    if (typeof localStorage !== "undefined") {
+      var raw = localStorage.getItem(CAMPAIGN_KEY);
+      if (raw) c = JSON.parse(raw);
+    }
+  } catch (e) { c = null; }
+  if (!c) c = memoryCampaign;
+  if (!c || c.version !== campaignVersion()) return null;
+  return c;
+}
+
+function saveCampaign(c) {
+  memoryCampaign = c;
+  try { if (typeof localStorage !== "undefined") localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(c)); }
+  catch (e) { /* storage blocked: memory copy still works */ }
+}
+
+function resetCampaign() {
+  memoryCampaign = null;
+  try { if (typeof localStorage !== "undefined") localStorage.removeItem(CAMPAIGN_KEY); } catch (e) {}
+}
+
+function newCampaign(tierId) {
+  var tier = getTier(tierId) || TIERS[0];
+  var knowledge = {};
+  OBJECTIVES.forEach(function (o) { knowledge[o.id] = 0; });
+  var c = {
+    version: campaignVersion(),
+    tier: tier.id,
+    year: typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : 0,
+    treasury_musd: tier.budget_musd,
+    knowledge_science: knowledge,
+    research: [],
+    missions: [],
+    flights: 0,
+    finished: false,
+    won: false
+  };
+  saveCampaign(c);
+  return c;
+}
+
+function newCampaignDesign() {
+  var c = getCampaign();
+  if (!c || c.finished) return null;
+  var d = newDesign(c.tier);
+  d.campaign = true;
+  return d;
+}
+
+function grantFor(c) {
+  var tier = getTier(c.tier);
+  if (tier && tier.grant_musd !== undefined) return tier.grant_musd;
+  return typeof CAMPAIGN !== "undefined" ? CAMPAIGN.grant_musd : 0;
+}
+
+// The cheapest design that can launch for any open topic, found by trying the
+// cheapest combinations (never a hard-coded number). Used to prevent soft locks.
+function cheapestLaunchCost(c) {
+  var key = c.research.slice().sort().join(",");
+  if (cheapestCache[key] !== undefined) return cheapestCache[key];
+  function avail(cat) { return PARTS.filter(function (p) { return p.category === cat && isPartAvailable(p.id); }); }
+  var best = Infinity;
+  OBJECTIVES.forEach(function (o) {
+    if (!isObjectiveAvailable(o.id)) return;
+    ORBITS.forEach(function (orb) {
+      if (o.orbit_fit && !o.orbit_fit[orb.id]) return;
+      avail("instrument").forEach(function (ins) {
+        avail("power").filter(function (p) { return solarPowerW(p) > 0; }).forEach(function (pw) {
+          avail("comms").forEach(function (cm) {
+            avail("computer").forEach(function (cp) {
+              [null].concat(avail("propulsion")).forEach(function (pr) {
+                LAUNCHERS.forEach(function (l) {
+                  if (!isLauncherAvailable(l.id)) return;
+                  var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: l.id,
+                            parts: [ins.id, pw.id, cm.id, cp.id].concat(pr ? [pr.id] : []) };
+                  var cost = getTotals(d).cost_musd;
+                  if (cost >= best) return;
+                  var blockers = runChecks(d).blockers.filter(function (b) { return b.id !== "budget"; });
+                  if (!blockers.length && scienceRate(d, []).per_month > 0) best = cost;
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+  cheapestCache[key] = best;
+  return best;
+}
+
+// Called once from recordResult for a campaign mission.
+function settleCampaign(mission, debrief, result) {
+  var c = getCampaign();
+  if (!c) return;
+  var obj = mission.design.objective;
+  var grant = grantFor(c);
+  c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + mission.science;
+  c.treasury_musd = round(c.treasury_musd + debrief.payout_musd + grant - mission.extra_cost_musd, 3);
+  var yearFlown = c.year;
+  c.year += typeof CAMPAIGN !== "undefined" ? CAMPAIGN.years_per_mission : 1;
+  c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
+                    spent_musd: debrief.spent_musd, science: round(mission.science, 1),
+                    payout_musd: debrief.payout_musd, stars: debrief.stars });
+
+  // Win: enough topics known well enough (every topic, if there are fewer).
+  var win = typeof CAMPAIGN !== "undefined" ? CAMPAIGN.win : { topics_known: 3, knowledge: 0.6 };
+  var needed = Math.min(win.topics_known, OBJECTIVES.length);
+  var known = OBJECTIVES.filter(function (o) { return knowledgeOf(o, c.knowledge_science[o.id] || 0) >= win.knowledge; }).length;
+  if (known >= needed) { c.finished = true; c.won = true; }
+  else if (typeof CAMPAIGN !== "undefined" && c.year >= CAMPAIGN.end_year) { c.finished = true; }
+
+  // Never soft-locked: top the treasury up to the cheapest launchable design.
+  var bailout = 0;
+  if (!c.finished) {
+    var cheapest = cheapestLaunchCost(c);
+    if (isFinite(cheapest) && c.treasury_musd < cheapest) {
+      bailout = round(cheapest - c.treasury_musd, 3);
+      c.treasury_musd = round(cheapest, 3);
+    }
+  }
+  saveCampaign(c);
+
+  result.payout_musd = debrief.payout_musd;
+  result.grant_musd = grant;
+  result.event_costs_musd = round(mission.extra_cost_musd, 3);
+  result.knowledge_before = debrief.knowledge_before;
+  result.knowledge_after = debrief.knowledge_after;
+  result.novelty = debrief.novelty;
+  result.treasury_musd = c.treasury_musd;
+  result.year = c.year;
+  result.bailout = bailout > 0;
+  result.bailout_musd = bailout;
+  result.campaign_over = c.finished;
+  result.won = c.won;
+}
+
+function getHubInfo() {
+  var c = getCampaign();
+  if (!c) return null;
+  return {
+    year: c.year,
+    treasury_musd: c.treasury_musd,
+    topics: OBJECTIVES.map(function (o) {
+      var S = c.knowledge_science[o.id] || 0;
+      var open = isObjectiveAvailable(o.id);
+      return {
+        id: o.id, name: o.name, available: open,
+        knowledge: round(knowledgeOf(o, S), 3),
+        science_so_far: round(S, 1),
+        next_payout_estimate_musd: payoutFor(o, S, o.science_target).payout_musd,
+        locked_reason: open ? null : "Needs " + researchNameFor("objectives", o.id)
+      };
+    }),
+    research: (typeof RESEARCH === "undefined" ? [] : RESEARCH).map(function (r) {
+      var owned = c.research.indexOf(r.id) !== -1;
+      var met = (r.requires || []).every(function (q) { return c.research.indexOf(q) !== -1; });
+      return { id: r.id, name: r.name, cost_musd: r.cost_musd, blurb: r.blurb, owned: owned,
+               requires_met: met, affordable: !owned && met && c.treasury_musd >= r.cost_musd };
+    }),
+    missions: c.missions,
+    finished: c.finished,
+    won: c.won
+  };
+}
+
+function buyResearch(id) {
+  var c = getCampaign();
+  if (!c) return { ok: false, reason: "No campaign is running." };
+  if (c.finished) return { ok: false, reason: "The campaign is over." };
+  var r = typeof RESEARCH === "undefined" ? null : RESEARCH.filter(function (x) { return x.id === id; })[0];
+  if (!r) return { ok: false, reason: "No such research." };
+  if (c.research.indexOf(id) !== -1) return { ok: false, reason: "Already owned." };
+  var missing = (r.requires || []).filter(function (q) { return c.research.indexOf(q) === -1; });
+  if (missing.length) return { ok: false, reason: "Needs " + missing.join(", ") + " first." };
+  if (c.treasury_musd < r.cost_musd) return { ok: false, reason: "Not enough money." };
+  c.treasury_musd = round(c.treasury_musd - r.cost_musd, 3);
+  c.research.push(id);
+  saveCampaign(c);
+  return { ok: true, reason: null };
+}
+
+// What a design would earn if it flies as planned (for the Build screen).
+function previewPayout(design) {
+  var objective = getObjective(design.objective);
+  var c = design.campaign ? getCampaign() : null;
+  var before = c ? (c.knowledge_science[design.objective] || 0) : 0;
+  var cost = getTotals(design).cost_musd;
+  var k = payoutFor(objective, before, previewScience(design).total);
+  return { expected_payout_musd: k.payout_musd, knowledge_before: k.knowledge_before,
+           knowledge_after: k.knowledge_after, novelty: k.novelty,
+           cost_musd: cost, net_musd: round(k.payout_musd - cost, 3) };
+}
+
+// ------------------------------------------------------------------ save codes
+// One save per browser, plus export and import codes (clicker-game style).
+// Code: "SMDG1." + base64(JSON) + "." + checksum. Length does not matter.
+function checksum(text) {
+  var h = 2166136261;
+  for (var i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36);
+}
+function toBase64(text) { return btoa(unescape(encodeURIComponent(text))); }
+function fromBase64(b64) { return decodeURIComponent(escape(atob(b64))); }
+
+function exportSave() {
+  var body = JSON.stringify({ v: campaignVersion(), campaign: getCampaign(), progress: getProgress() });
+  return "SMDG1." + toBase64(body) + "." + checksum(body);
+}
+
+function importSave(code) {
+  try {
+    var parts = String(code || "").trim().split(".");
+    if (parts.length !== 3 || parts[0] !== "SMDG1") return { ok: false, reason: "That is not a save code." };
+    var body = fromBase64(parts[1]);
+    if (checksum(body) !== parts[2]) return { ok: false, reason: "The code is damaged or incomplete." };
+    var data = JSON.parse(body);
+    if (data.v !== campaignVersion()) return { ok: false, reason: "The code is from another version of the game." };
+    if (data.campaign && data.campaign.version !== campaignVersion()) return { ok: false, reason: "The campaign is from another version." };
+    if (!data.progress || typeof data.progress.best_stars !== "object") return { ok: false, reason: "The code has no progress in it." };
+    saveProgress(data.progress);
+    if (data.campaign) { saveCampaign(data.campaign); cheapestCache = {}; } else resetCampaign();
+    return { ok: true, reason: null };
+  } catch (e) {
+    return { ok: false, reason: "The code could not be read." };
+  }
+}

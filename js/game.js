@@ -113,12 +113,58 @@ function margin(capacity, used) {
   return (capacity - used) / capacity;
 }
 
+// ------------------------------------------------------------------ budget and locks
+// A campaign design spends from the treasury; anything else uses the tier's budget.
+function budgetFor(design) {
+  if (design.campaign && typeof getCampaign === "function") {
+    var c = getCampaign();
+    if (c) return c.treasury_musd;
+  }
+  var tier = getTier(design.tier);
+  return tier ? tier.budget_musd : null;
+}
+
+// Research (data/research.js) locks a part, launcher or objective only while a
+// campaign is running and the research that unlocks it has not been bought.
+function researchUnlocking(kind, id) {
+  if (typeof RESEARCH === "undefined") return null;
+  for (var i = 0; i < RESEARCH.length; i++) {
+    var u = RESEARCH[i].unlocks || {};
+    if (u[kind] && u[kind].indexOf(id) !== -1) return RESEARCH[i];
+  }
+  return null;
+}
+function isUnlocked(kind, id) {
+  var r = researchUnlocking(kind, id);
+  if (!r) return true;
+  var c = typeof getCampaign === "function" ? getCampaign() : null;
+  return !c || c.research.indexOf(r.id) !== -1;
+}
+function researchNameFor(kind, id) {
+  var r = researchUnlocking(kind, id);
+  if (!r && kind === "objectives" && typeof RESEARCH !== "undefined") {
+    var o = getObjective(id);
+    if (o && o.requires_research) r = RESEARCH.filter(function (x) { return x.id === o.requires_research; })[0];
+  }
+  return r ? r.name : "";
+}
+function isPartAvailable(id)      { return isUnlocked("parts", id); }
+function isLauncherAvailable(id)  { return isUnlocked("launchers", id); }
+function isObjectiveAvailable(id) {
+  var o = getObjective(id);
+  if (o && o.requires_research) {
+    var c = typeof getCampaign === "function" ? getCampaign() : null;
+    if (c && c.research.indexOf(o.requires_research) === -1) return false;
+  }
+  return isUnlocked("objectives", id);
+}
+
 // ------------------------------------------------------------------ totals
 function getTotals(design) {
   var parts = designParts(design);
   var orbit = getOrbit(design.orbit);
   var launcher = getLauncher(design.launcher);
-  var tier = getTier(design.tier);
+  var budget = budgetFor(design);
 
   var mass = sum(parts, function (p) { return p.mass_kg; });
   var draw = sum(parts, function (p) { return p.power_draw_w; });
@@ -151,13 +197,13 @@ function getTotals(design) {
     margins: {
       mass: capacity ? round(margin(capacity, mass), 3) : null,
       power: gen ? round(margin(gen, draw), 3) : null,
-      budget: tier ? round(margin(tier.budget_musd, cost), 3) : null
+      budget: budget ? round(margin(budget, cost), 3) : null
     },
     // Extra values so the screens never do maths:
     data_returned_gb_day: round(returned, 2),
     battery_wh: batteryWh,
     capacity_kg: capacity,
-    budget_musd: tier ? tier.budget_musd : 0
+    budget_musd: budget
   };
 }
 
@@ -290,6 +336,19 @@ function runChecks(design) {
   function warn(id, text) { warnings.push({ id: id, text: text }); }
 
   if (!objective) block("no-objective", "Pick a science objective on the Briefing screen.");
+
+  // Research locks (campaign only; with no research data nothing is locked).
+  if (design.campaign) {
+    if (objective && !isObjectiveAvailable(objective.id)) {
+      block("objective-locked", objective.name + " needs research first: " + researchNameFor("objectives", objective.id) + ".");
+    }
+    parts.forEach(function (p) {
+      if (!isPartAvailable(p.id)) block("part-locked", p.name + " needs research first: " + researchNameFor("parts", p.id) + ".");
+    });
+    if (launcher && !isLauncherAvailable(launcher.id)) {
+      block("launcher-locked", launcher.name + " needs research first: " + researchNameFor("launchers", launcher.id) + ".");
+    }
+  }
   if (!orbit) block("no-orbit", "Pick an orbit.");
   if (!launcher) block("no-launcher", "Pick a launch vehicle.");
 
@@ -310,8 +369,9 @@ function runChecks(design) {
     }
   }
 
-  if (tier && t.cost_musd > tier.budget_musd) {
-    block("budget", "Cost is $" + round(t.cost_musd, 2) + "M but the budget is $" + tier.budget_musd + "M.");
+  if (t.budget_musd !== null && t.cost_musd > t.budget_musd) {
+    block("budget", "Cost is $" + round(t.cost_musd, 2) + "M but " +
+      (design.campaign ? "the treasury holds $" : "the budget is $") + round(t.budget_musd, 2) + "M.");
   }
 
   if (t.power_draw_w > t.power_gen_w) {
@@ -430,7 +490,7 @@ function previewToggle(design, partId) {
   if (!getPart(partId)) return null;
   var adding = design.parts.indexOf(partId) === -1;
   var after = { tier: design.tier, objective: design.objective, orbit: design.orbit,
-                launcher: design.launcher, parts: design.parts.slice() };
+                launcher: design.launcher, parts: design.parts.slice(), campaign: design.campaign };
   if (adding) addPart(after, partId); else removePart(after, partId);
 
   function snapshot(d) {
