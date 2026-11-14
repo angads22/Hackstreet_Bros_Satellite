@@ -567,18 +567,18 @@ This section tells the screens exactly what the player does on each screen, whic
 ```
 New campaign / Continue -> Campaign hub -> 1 Briefing ... 7 Debrief -> back to the Campaign hub
                            (or, with no campaign:)
-Tier select -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readiness --GO--> 6 Mission -> 7 Debrief
-                  ^____________ back to any earlier screen, any time before launch ____|                        |
+Tier select -> Base map -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readiness --GO--> 6 Mission -> 7 Debrief
+                  ^____ the map is the way between places, any time before launch ____|                         |
                                                    3 Build  <------------- "Redesign" (same design) ------------|
-                                                   1 Briefing <----------- "New mission" (newDesign) ----------|
+                                                   Base map <------------- "New mission" (newDesign) -----------|
 ```
 
 - **One design object.** Create it with `newDesign(tierId)` at tier select. Every screen edits the same object. Going back never clears a choice; if an earlier change breaks a later one (for example a new orbit the chosen rocket cannot reach), the Readiness review reports it.
-- **A step bar** across the top shows the seven screens. Before launch, every earlier screen is clickable. From launch on, the bar is locked until the Debrief.
+- **A base map** is the hub between the five design screens (Design screens owns it, in `js/ui-design.js`). It is a pixel map of a space centre with one numbered place per screen: 1 Mission Control (Briefing), 2 Tracking Station (Orbit), 3 Workshop (Build), 4 Rocket Yard (Launch vehicle), 5 Launch Pad (Readiness). The player walks between places with the arrow keys or WASD and presses E to go in, or clicks a place and walks there. Each place is marked next, done, open or locked; a place opens once the one before it has been visited and its choice made, and every place already visited stays open before launch. A gold route and an "OBJECTIVE" line point to the next place with work left, judged from `runChecks` (for example back to the Workshop while a NO GO there remains). Inside a place, the header shows the objective and a minimap; M, Esc or a click on the minimap opens the map, and "GO TO <place>" walks to the next place. From launch on, the map is locked until the Debrief.
 - **The four resource bars** (mass, power, budget, data) appear from Build onward, on Build, Launch vehicle and Readiness. Refresh them after every change with `getTotals(design)`.
 - **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Story writes the hint text.
 
-### Campaign hub (campaign only, outside the step bar)
+### Campaign hub (campaign only, outside the base map)
 
 | Element | Source | Behaviour |
 | --- | --- | --- |
@@ -603,7 +603,7 @@ Tier select -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readine
 | One card per tier | `TIERS`: `name`, `budget_musd`, `events` | Locked cards are greyed out with "Earn 2 stars on the previous tier". |
 | Lock state | `isTierUnlocked(tier.id)` | Only unlocked cards can be clicked. |
 | Best result | `getProgress().best_stars[tier.id]` | Show 0 to 3 stars on the card. |
-| Click a card | `design = newDesign(tier.id)` | Go to Briefing. |
+| Click a card | `design = newDesign(tier.id)` | Go to the base map, standing at the main gate, with Mission Control (Briefing) next. |
 
 ### 1. Briefing
 
@@ -724,7 +724,7 @@ Where each check is fixed:
 | Against the real Earth | `d.real_world.text` | The paragraph comparing the mission with NASA data, for example how many of 2025's real fires the design would have reported. Show it prominently: it is our strongest link to NASA data. |
 | Real-world cousin | `d.real_mission` | One line. |
 | Events log | `d.events`: `title`, `label`, `failed_part` | What happened and what the player chose. |
-| Buttons | | **Redesign**: back to Build with the same `design`. **New mission**: Briefing with a fresh `newDesign(tier)`. **Change tier**: tier select. |
+| Buttons | | **Redesign**: back to Build with the same `design`. **New mission**: the base map with a fresh `newDesign(tier)`, Mission Control next. **Change tier**: tier select. |
 
 Without a campaign, the same design always replays the same mission (the seed comes from the design), so the player can see exactly what their change did. In a campaign each flight has fresh luck.
 
