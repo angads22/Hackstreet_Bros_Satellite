@@ -263,6 +263,30 @@ function tallyRealWorld(mission, rate, cal, observing) {
 }
 
 // One-paragraph comparison with the real Earth for the Debrief screen.
+// Live open data (js/live-data.js): the status for the LIVE DATA / SNAPSHOT badge.
+function getLiveData() {
+  var l = (typeof EARTH !== "undefined" && EARTH.live) ? EARTH.live : null;
+  if (!l) return { status: "snapshot", fetched_at: null, sources: [], sunspots_through: null, wildfire_now: null, sea_ice_now: null };
+  return JSON.parse(JSON.stringify(l));
+}
+
+// Adds a "right now" line from live data to the debrief's real-world summary, when there is one.
+function withLiveNow(summary, objectiveId) {
+  var l = (typeof EARTH !== "undefined" && EARTH.live) ? EARTH.live : null;
+  var now = null;
+  if (l && objectiveId === "wildfire" && l.wildfire_now) now = l.wildfire_now.text;
+  if (l && objectiveId === "sea-ice" && l.sea_ice_now) now = l.sea_ice_now.text;
+  if (l && objectiveId === "solar" && l.sunspots_through) {
+    var y = parseInt(l.sunspots_through.slice(0, 4), 10), m = parseInt(l.sunspots_through.slice(5, 7), 10) - 1;
+    var sn = sunspots(y, m);
+    if (sn !== null) now = "The latest monthly sunspot number, for " + l.sunspots_through + ", is " + Math.round(sn) +
+      " (SILSO, via NOAA's Space Weather Prediction Center).";
+  }
+  if (!summary) return now ? { now: now, text: now } : null;
+  summary.now = now;
+  return summary;
+}
+
 function realWorldSummary(mission) {
   var e = earthFor(mission.design.objective);
   if (!e) return null;
@@ -422,7 +446,7 @@ function getDebrief(mission) {
     science_target: target,
     paragraph: DEBRIEF[lim.key] || "",
     real_mission: objective ? objective.real_mission : "",
-    real_world: realWorldSummary(mission),
+    real_world: withLiveNow(realWorldSummary(mission), mission.design.objective),
     closest_mission: closestMission(design),
     limiting_name: disciplineName(lim),
     segments: segmentLines(mission, totals, k),

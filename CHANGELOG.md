@@ -6,6 +6,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Added
 
+- **Live open data.** When the internet is there, the game calls NOAA's sunspot record, NASA EONET and Canada's CWFIS fire hotspots (`js/live-data.js`), and the debrief adds a "right now" line (`real_world.now`). `getLiveData()` gives the LIVE DATA / SNAPSHOT status for a badge. Offline, everything plays from the snapshot as before. The built-in sunspot table now runs 1957-2025, so the 1999 and 2026 eras fly under the real Sun.
 - **Time as a resource.** Every part has a build time, and a satellite's development time (the longest part plus integration) comes back from `getTotals` as `dev_months`. In a campaign, long builds cost years on the calendar, and a satellite that could not be ready before the programme ends is blocked.
 - **Structure and attitude control** as part categories: an Explorer-style cylinder, a TIROS-style drum and a modern smallsat bus; spin stabilisation and reaction wheels. A spinning satellite smears cameras, thermal imagers and radar (60% of their science), so the debrief can now say "Attitude control limited this mission". A new 1964 research node, three-axis control (Nimbus 1), unlocks reaction wheels.
 - **`getCategories()`** returns the Build screen's part bins in order, with display names and which are required.
