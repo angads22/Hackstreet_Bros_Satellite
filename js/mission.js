@@ -421,6 +421,7 @@ function getDebrief(mission) {
     paragraph: DEBRIEF[lim.key] || "",
     real_mission: objective ? objective.real_mission : "",
     real_world: realWorldSummary(mission),
+    closest_mission: closestMission(design),
     events: mission.events_seen,
     ended_early: mission.ended_early,
     payout_musd: k.payout_musd,
@@ -962,4 +963,35 @@ function unlockNames(r) {
   (u.objectives || []).forEach(function (id) { var o = getObjective(id); out.push(o ? "Topic: " + o.name : id); });
   OBJECTIVES.forEach(function (o) { if (o.requires_research === r.id) out.push("Topic: " + o.name); });
   return out;
+}
+
+// ------------------------------------------------------------------ real twin
+function lcFirst(text) { return text ? text.charAt(0).toLowerCase() + text.slice(1) : ""; }
+// The real satellite most like the player's design (data/missions.js): same topic
+// first, then orbit, instrument types, kind of power and mass. Returns
+// { id, name, year, agency, blurb, shared: [reasons] } or null.
+function closestMission(design) {
+  if (typeof MISSIONS === "undefined" || !MISSIONS.length) return null;
+  var parts = designParts(design);
+  var tags = parts.filter(function (p) { return p.category === "instrument"; })
+                  .reduce(function (t, p) { return t.concat(p.tags); }, []);
+  var hasSolar = parts.some(function (p) { return p.category === "power" && solarPowerW(p) > 0; });
+  var mass = sum(parts, function (p) { return p.mass_kg; });
+  var orbit = getOrbit(design.orbit);
+  var best = null;
+  MISSIONS.forEach(function (m) {
+    var shared = [], score = 0;
+    if (m.objective === design.objective) { score += 10; shared.push("both studied " + lcFirst((getObjective(m.objective) || {}).name || m.objective)); }
+    if (m.orbit === design.orbit) { score += 4; shared.push("both flew in " + (orbit ? lcFirst(orbit.name) : m.orbit)); }
+    var common = m.tags.filter(function (t) { return tags.indexOf(t) !== -1; });
+    if (common.length) { score += 3 * common.length; shared.push("both carried " + common.join(" and ") + " instruments"); }
+    if ((m.power === "solar") === hasSolar) { score += 2; shared.push(hasSolar ? "both ran on solar power" : "both ran on batteries alone"); }
+    var ratio = mass > 0 ? Math.max(mass, m.mass_kg) / Math.min(mass, m.mass_kg) : 1000;
+    score += Math.max(0, 3 - Math.log(ratio) / Math.log(3));   // within a factor of 3 scores well
+    if (ratio < 2) shared.push("about the same mass (" + Math.round(mass) + " kg against " + m.mass_kg + " kg)");
+    if (!best || score > best.score) best = { score: score, m: m, shared: shared };
+  });
+  if (!best) return null;
+  return { id: best.m.id, name: best.m.name, year: best.m.year, agency: best.m.agency,
+           blurb: best.m.blurb, shared: best.shared };
 }
