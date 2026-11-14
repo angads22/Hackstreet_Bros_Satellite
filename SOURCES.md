@@ -21,6 +21,7 @@ One row per resource used. QA copies this into the project page.
 | Explorer 1 overview | NASA | https://www.nasa.gov/history/explorer-1-overview/ | `data/parts.js` (Geiger counter package), `data/launchers.js` (Juno I), `data/objectives.js` (radiation topic) | Opened by the AI; NEEDS HUMAN CHECK |
 | SILSO monthly mean total sunspot number, version 2 | Royal Observatory of Belgium (CC BY-NC 4.0) | https://www.sidc.be/SILSO/datafiles | `data/earth.js` solar entry (1957-1990), drives the solar topic and solar-storm odds (built by `tools/earth_data.py`) | Downloaded and processed |
 | Explorer 1, Vanguard 1 and Sputnik 1 figures (mass, batteries, transmitters, operating days) | Secondary sources found by web search | see `data/parts.js` source fields | Era battery and beacon parts | NEEDS HUMAN CHECK against NSSDCA |
+| Real missions for the debrief comparison (Explorer 1 and 3, Vanguard 2, TIROS-1, SOLRAD 1, SDO, GOES-R, Terra, FOREST, PlanetScope, Seasat, RADARSAT Constellation, ICEYE) | NASA, NOAA, CSA, Planet, ICEYE, OroraTech | see the `source` field of each record in `data/missions.js` | Debrief "your design's real twin" | NEEDS HUMAN CHECK (masses marked) |
 
 ## Tools and other resources
 
