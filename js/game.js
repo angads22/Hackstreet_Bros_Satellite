@@ -181,15 +181,48 @@ function getOrbitFacts(design) {
     eclipse_min: round(f * periodS / 60, 1),
     speed_kms: round(orbitalSpeedMs(h) / 1000, 2),
     resolution_m: res,  // per instrument id; null = radar (formula does not apply)
+    target_in_view: targetInView(design),  // share of the objective's real targets in view, or null
     battery_needed_wh: round(batteryNeededWh(getTotals(design).power_draw_w, h), 0)
   };
+}
+
+// Share of the objective's real-world targets this orbit can see (NASA data), or null.
+function targetInView(design) {
+  var e = earthFor(design.objective);
+  if (!e || !e.orbit_view || !design.orbit || e.orbit_view[design.orbit] === undefined) return null;
+  return e.orbit_view[design.orbit];
 }
 
 // ------------------------------------------------------------------ science rate
 // Science per month for a design, before events. mission.js uses this too.
 // `brokenIds` lists parts that have failed during a mission.
-function scienceRate(design, brokenIds) {
+// Real NASA data (data/earth.js) for this objective, or null.
+function earthFor(objectiveId) {
+  return (typeof EARTH !== "undefined" && EARTH[objectiveId]) ? EARTH[objectiveId] : null;
+}
+function mean(list) { return list.reduce(function (a, b) { return a + b; }, 0) / list.length; }
+
+// How the real world changes an instrument's science this month.
+//   view:   share of the real targets this orbit can see (wildfire: NASA FIRMS)
+//   season: this month's share of the year's targets, scaled so the year averages 1
+//   light:  cameras see nothing in polar night (sea ice: Sun at 75 degrees north)
+// calMonth 0..11, or null for the yearly average (the Build screen preview).
+function earthFactor(objectiveId, orbitId, part, calMonth) {
+  var e = earthFor(objectiveId);
+  if (!e) return 1;
+  var view = (e.orbit_view && e.orbit_view[orbitId] !== undefined) ? e.orbit_view[orbitId] : 1;
+  var season = 1;
+  if (e.monthly_share && calMonth !== null && calMonth !== undefined) season = e.monthly_share[calMonth] * 12;
+  var light = 1;
+  if (e.daylight_share && part.tags.indexOf("imaging") !== -1) {
+    light = (calMonth === null || calMonth === undefined) ? mean(e.daylight_share) : e.daylight_share[calMonth];
+  }
+  return view * season * light;
+}
+
+function scienceRate(design, brokenIds, calMonth) {
   brokenIds = brokenIds || [];
+  if (calMonth === undefined) calMonth = null;
   var orbit = getOrbit(design.orbit);
   var objective = getObjective(design.objective);
   var result = { per_month: 0, ideal_per_month: 0, data_share: 1, power_share: 1, instruments: [] };
@@ -219,7 +252,8 @@ function scienceRate(design, brokenIds) {
     });
     var x = resolutionM(p, h);
     var sharpEnough = !objective.needs_resolution_m || x === null || x <= objective.needs_resolution_m;
-    var pts = p.science * orbit.science_mult * fit * match * (sharpEnough ? 1 : 0);
+    var pts = p.science * orbit.science_mult * fit * match * (sharpEnough ? 1 : 0) *
+              earthFactor(objective.id, orbit.id, p, calMonth);
     result.instruments.push({ id: p.id, match: match, sharp_enough: sharpEnough, points: round(pts, 2) });
     ideal += pts;
   });

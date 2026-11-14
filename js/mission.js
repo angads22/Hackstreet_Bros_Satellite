@@ -80,6 +80,8 @@ function startMission(design) {
     thin_margins: thin,
     // Bookkeeping for the debrief:
     lost: { data: 0, power: 0, event: 0 },
+    // Real-world tally against NASA data (data/earth.js):
+    real: { fires_in_view: 0, fires_reported: 0, months_mapped: 0, dark_months_mapped: 0 },
     ended: false,
     ended_early: false,
     end_reason: null
@@ -108,10 +110,13 @@ function stepMonth(mission) {
              event: mission.pending_event, ended: mission.ended };
   }
   mission.month += 1;
+  var cal = calendarMonth(mission.month);
 
   // Earn this month's science, unless an event cost us the month.
-  var rate = scienceRate(mission.design, mission.broken);
-  if (mission.lost_months > 0) {
+  var rate = scienceRate(mission.design, mission.broken, cal);
+  var observing = mission.lost_months === 0;
+  tallyRealWorld(mission, rate, cal, observing);
+  if (!observing) {
     mission.lost_months -= 1;
     mission.lost.event += rate.per_month * mission.science_mult;
   } else {
@@ -128,7 +133,90 @@ function stepMonth(mission) {
   if (event) mission.pending_event = event;
 
   if (!event && mission.month >= mission.lifetime_months) mission.ended = true;
-  return { month: mission.month, science: round(mission.science, 1), event: event, ended: mission.ended };
+  return { month: mission.month, science: round(mission.science, 1), event: event, ended: mission.ended,
+           calendar_month: cal, month_name: MONTH_NAMES[cal], real: realThisMonth(mission.design.objective, cal) };
+}
+
+// ------------------------------------------------------------------ real NASA data
+var MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July",
+                   "August", "September", "October", "November", "December"];
+
+// Mission month 1 is January of the data year (EARTH.start_month), then it cycles.
+function calendarMonth(missionMonth) {
+  var start = (typeof EARTH !== "undefined" && EARTH.start_month) ? EARTH.start_month : 0;
+  return (start + missionMonth - 1) % 12;
+}
+
+// What the real Earth looked like this calendar month, for the Mission screen.
+function realThisMonth(objectiveId, cal) {
+  var e = earthFor(objectiveId);
+  if (!e) return null;
+  if (e.monthly_share) {
+    return { fires: Math.round(e.detections * e.monthly_share[cal]), year: e.year };
+  }
+  if (e.extent_mkm2) {
+    return { ice_extent_mkm2: e.extent_mkm2[cal], ice_average_mkm2: e.extent_1981_2010_mkm2[cal],
+             daylight_share: e.daylight_share[cal], year: e.year };
+  }
+  return null;
+}
+
+function tallyRealWorld(mission, rate, cal, observing) {
+  var e = earthFor(mission.design.objective);
+  if (!e) return;
+  var useful = rate.instruments.some(function (i) { return i.points > 0; });
+  var quality = rate.data_share * rate.power_share * mission.science_mult;
+  if (e.monthly_share) {
+    var view = e.orbit_view ? (e.orbit_view[mission.design.orbit] || 0) : 1;
+    var objective = getObjective(mission.design.objective);
+    var looks = objective.orbit_fit ? (objective.orbit_fit[mission.design.orbit] || 0) : 1;  // how often it looks
+    var fires = e.detections * e.monthly_share[cal];   // this month's real detections
+    mission.real.fires_in_view += fires * view;
+    if (observing && useful) mission.real.fires_reported += fires * view * looks * quality;
+  }
+  if (e.extent_mkm2 && observing && useful) {
+    mission.real.months_mapped += 1;
+    if (e.daylight_share[cal] === 0) mission.real.dark_months_mapped += 1;
+  }
+}
+
+// One-paragraph comparison with the real Earth for the Debrief screen.
+function realWorldSummary(mission) {
+  var e = earthFor(mission.design.objective);
+  if (!e) return null;
+  if (e.monthly_share) {
+    var years = mission.month / 12;
+    var seen = mission.real.fires_in_view, reported = mission.real.fires_reported;
+    var view = e.orbit_view ? (e.orbit_view[mission.design.orbit] || 0) : 1;
+    return {
+      fires_per_year: e.detections,
+      share_in_view: view,
+      fires_reported: Math.round(reported),
+      share_reported: seen > 0 ? round(reported / (e.detections * years), 3) : 0,
+      text: "In " + e.year + ", NASA's MODIS instruments detected " + e.detections.toLocaleString("en-US") +
+        " active fires worldwide. From this orbit your satellite could see " + Math.round(view * 100) +
+        "% of them. Over " + mission.month + " months it would have reported about " +
+        Math.round(reported).toLocaleString("en-US") + " fires, " +
+        Math.round(100 * reported / (e.detections * Math.max(years, 1 / 12))) + "% of all the fires that burned."
+    };
+  }
+  if (e.extent_mkm2) {
+    var sep = 8, drop = Math.round(100 * (1 - e.extent_mkm2[sep] / e.extent_1981_2010_mkm2[sep]));
+    var dark = e.daylight_share.filter(function (x) { return x === 0; }).length;
+    return {
+      september_extent_mkm2: e.extent_mkm2[sep],
+      september_drop_share: drop / 100,
+      months_mapped: mission.real.months_mapped,
+      dark_months_mapped: mission.real.dark_months_mapped,
+      text: "In September " + e.year + ", Arctic sea ice shrank to " + e.extent_mkm2[sep] +
+        " million km2, " + drop + "% below the 1981-2010 average (NSIDC). Your satellite mapped the ice in " +
+        mission.real.months_mapped + " of " + mission.month + " months, " +
+        (mission.real.dark_months_mapped
+          ? "including " + mission.real.dark_months_mapped + " months of polar night, when only radar can see."
+          : "but none in the " + dark + " months of polar night each year, when only radar can see.")
+    };
+  }
+  return null;
 }
 
 // `choice` is the index of the chosen option in event.choices.
@@ -221,6 +309,7 @@ function getDebrief(mission) {
     science_target: target,
     paragraph: DEBRIEF[lim.key] || "",
     real_mission: objective ? objective.real_mission : "",
+    real_world: realWorldSummary(mission),
     events: mission.events_seen,
     ended_early: mission.ended_early
   };

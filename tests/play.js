@@ -57,6 +57,8 @@ function showOrbits(design) {
     var f = G.getOrbitFacts(probe);
     console.log("\n [" + o.id + "] " + o.name + "  " + o.altitude_km + " km");
     console.log(wrap(o.blurb));
+    var obj = G.getObjective(design.objective), e = obj && typeof G.EARTH !== "undefined" ? G.EARTH[obj.id] : null;
+    if (e && e.orbit_view) console.log("   Can see " + Math.round(e.orbit_view[o.id] * 100) + "% of the world's real fires (NASA FIRMS " + e.year + ").");
     console.log("   One lap every " + f.period_min + " min (" + f.laps_per_day + " a day), " +
       f.eclipse_min + " min in shadow per lap, " + f.speed_kms + " km/s. Lifetime " + o.lifetime_months + " months.");
   });
@@ -134,6 +136,7 @@ function showDebrief(mission) {
   console.log(wrap(d.paragraph));
   console.log("\n   Try this: ");
   console.log(wrap(d.suggestion));
+  if (d.real_world) { console.log("\n   Against the real Earth (NASA data):"); console.log(wrap(d.real_world.text)); }
   if (d.real_mission) { console.log("\n   Real-world cousin:"); console.log(wrap(d.real_mission)); }
   return d;
 }
@@ -155,7 +158,9 @@ function runMission(design, chooser, done) {
   function next() {
     var s = G.stepMonth(m);
     var bar = new Array(Math.min(40, Math.round(s.science / 5)) + 1).join("|");
-    console.log("   Month " + pad(s.month, 3) + pad(s.science, 7) + bar);
+    var real = !s.real ? "" : s.real.fires !== undefined ? "  " + s.month_name.slice(0, 3) + ": " + s.real.fires.toLocaleString("en-US") + " real fires"
+      : "  " + s.month_name.slice(0, 3) + ": ice " + s.real.ice_extent_mkm2 + "M km2" + (s.real.daylight_share === 0 ? ", polar night" : "");
+    console.log("   Month " + pad(s.month, 3) + pad(s.science, 7) + pad(bar, 26) + real);
     if (s.event) {
       console.log("\n   !! " + s.event.title.toUpperCase());
       console.log(wrap(s.event.text, "      "));
