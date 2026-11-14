@@ -130,8 +130,10 @@ function showDebrief(mission) {
   var stars = new Array(d.stars + 1).join("*") + new Array(4 - d.stars).join(".");
   console.log("\n   Score " + d.score + " / 100   [" + stars + "]" + (d.ended_early ? "   (mission ended early)" : ""));
   console.log("   Science " + d.science + " / " + d.science_target +
-    "   Breakdown: science " + d.breakdown.science + ", budget " + d.breakdown.budget +
-    ", margins " + d.breakdown.margins + ", events " + d.breakdown.events);
+    "   Breakdown: science " + d.breakdown.science + "/50, efficiency " + d.breakdown.efficiency +
+    "/15, margins " + d.breakdown.margins + "/15, events " + d.breakdown.events + "/10, novelty " + d.breakdown.novelty + "/10");
+  console.log("   Payout $" + d.payout_musd + "M for $" + d.spent_musd + "M spent; knowledge " +
+    Math.round(d.knowledge_before * 100) + "% -> " + Math.round(d.knowledge_after * 100) + "%");
   console.log("\n   What limited you: " + d.limiting.toUpperCase());
   console.log(wrap(d.paragraph));
   console.log("\n   Try this: ");
@@ -164,7 +166,9 @@ function runMission(design, chooser, done) {
     if (s.event) {
       console.log("\n   !! " + s.event.title.toUpperCase());
       console.log(wrap(s.event.text, "      "));
-      s.event.choices.forEach(function (c, i) { console.log("      " + i + ") " + c.label); });
+      s.event.choices.forEach(function (c, i) {
+        console.log("      " + i + ") " + c.label + (c.fail_chance_now ? "  (" + Math.round(c.fail_chance_now * 100) + "% risk)" : ""));
+      });
       chooser(s.event, function (i) {
         var rec = G.chooseEvent(m, i);
         console.log("      You chose: " + rec.label +
