@@ -98,7 +98,7 @@ check("3 three stars need the target", threeBelowTarget === 0, threeSeen + " thr
 // The 1957 era is low orbit only, as in history: polar orbits need thrusters, which
 // come with modern research. So the orbit check is made within each era.
 var WHY = {
-  "era/sso": "historical: 1950s satellites flew low orbits; polar orbits need thrusters from modern research",
+  "era/sso": "standalone missions use today's rules: since 1995 a polar orbit needs fuel to come down. In an era before 1995 a Thor-Agena reaches it without (Alouette 1, Nimbus 1; see 7)",
   "era/geo": "historical: no 1950s rocket could reach geostationary orbit (first: Syncom 2, 1963)",
   "modern/geo": "its real advantage, minutes-fast fire detection, is not scored yet (red-team N5)"
 };
@@ -125,7 +125,14 @@ var G2 = require("./load")({ newCategoriesRequired: true });
 G2.ERAS.forEach(function (era) {
   G2.getEras().filter(function (e) { return e.id === era.id; })[0].topics.forEach(function (topic) {
     var ok = null;
-    (winners[topic] || []).some(function (w) {
+    // Before 1995 a polar orbit needs no disposal fuel, so also try each winner without its thruster.
+    var tries = [];
+    (winners[topic] || []).forEach(function (w) {
+      tries.push(w);
+      var noProp = w.parts.filter(function (p) { return G2.getPart(p).category !== "propulsion"; });
+      if (noProp.length < w.parts.length) tries.push({ orbit: w.orbit, parts: noProp });
+    });
+    tries.some(function (w) {
       var probe = G2.setEra(G2.newDesign("training"), era.id);
       if (!w.parts.every(function (p) { return G2.isPartAvailable(p, probe); })) return false;
       var bodies = G2.PARTS.filter(function (p) { return p.category === "structure" && G2.isPartAvailable(p.id, probe); });
@@ -142,12 +149,36 @@ G2.ERAS.forEach(function (era) {
         return false;
       }); }); });
     });
+    // Fallback: a small search over the era's own parts (the sweep above uses every part).
+    if (!ok) ok = eraSearch(era, topic);
     var label = "7 " + era.year + " " + era.name + ": " + topic + " can earn 3 stars with that era's parts";
     // Historical: 1964 was the quietest year of the solar cycle (SILSO), so solar science is scarce.
     if (!ok && topic === "solar" && G2.sunspots(era.year, null) < 50) warn(label, "historical: the Sun averaged " + Math.round(G2.sunspots(era.year, null)) + " sunspots in " + era.year + "; 2 stars is the honest best");
     else check(label, !!ok, ok || "no design found");
   });
 });
+function eraSearch(era, topic) {
+  var probe = G2.setEra(G2.newDesign("training"), era.id), ob = G2.getObjective(topic);
+  function av(cat, f) { return G2.PARTS.filter(function (p) { return p.category === cat && G2.isPartAvailable(p.id, probe) && (!f || f(p)); }); }
+  var ins = av("instrument", function (p) { return p.tags.some(function (t) { return ob.wants.indexOf(t) !== -1; }); });
+  var gens = av("power", function (p) { return p.panel_area_m2; }), bats = [null].concat(av("power", function (p) { return p.battery_wh; }));
+  var comms = av("comms"), comps = av("computer"), bodies = av("structure"), atts = av("attitude");
+  var rockets = G2.LAUNCHERS.filter(function (l) { return G2.isLauncherAvailable(l.id, probe); });
+  var found = null;
+  G2.ORBITS.some(function (o) { return ins.some(function (i) { return gens.some(function (g) { return bats.some(function (b) {
+    return comms.some(function (c) { return comps.some(function (k) { return bodies.some(function (bo) { return atts.some(function (a) {
+      return rockets.some(function (l) {
+        var d = G2.setEra(G2.newDesign("training"), era.id);
+        G2.setObjective(d, topic); G2.setOrbit(d, o.id); G2.setLauncher(d, l.id);
+        [i.id, g.id, c.id, k.id, bo.id, a.id].concat(b ? [b.id] : []).forEach(function (p) { G2.addPart(d, p); });
+        if (G2.runChecks(d).blockers.length || G2.previewScience(d).total < ob.science_target) return false;
+        var m = G2.startMission(d), s;
+        do { s = G2.stepMonth(m); if (s.event) G2.chooseEvent(m, safe2(s.event)); } while (!m.ended);
+        if (G2.getDebrief(m).stars === 3) { found = o.id + "/" + l.id + "/" + bo.id + "/" + a.id + "/" + i.id; return true; }
+        return false;
+      }); }); }); }); }); }); }); }); });
+  return found;
+}
 function safe2(ev) { var j = ev.choices.findIndex(function (c) { return !c.fail_chance_now; }); return j < 0 ? 0 : j; }
 
 // 5. Advice never names a part that is already fitted; missions fly a copy.

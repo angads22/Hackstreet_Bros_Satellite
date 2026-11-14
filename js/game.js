@@ -164,8 +164,40 @@ function itemYear(kind, id) {
     var o = getObjective(id);
     if (o && o.requires_research) { var rr = researchById(o.requires_research); if (rr) return rr.year; }
   }
+  if (kind === "parts") { var up = upgradeOf(id); if (up) return up.year; }
   var r = researchUnlocking(kind, id);
   return r ? r.year : BASE_YEAR;
+}
+// Upgrades (SPEC.md, "The lab"): a part with an `upgrade` field is the real successor of
+// another part. In a campaign it is bought in the lab and then replaces its predecessor.
+// Fuel to bring a polar-orbit satellite down at the end is a debris rule from 1995
+// (NASA-STD 1740.14, later NASA-STD-8719.14). Before then, satellites such as Alouette 1
+// (1962) and Nimbus 1 (1964) reached polar orbits on their rocket alone.
+var DISPOSAL_RULE_YEAR = 1995;
+var DISPOSAL_ONLY_ORBITS = ["sso"];   // orbits whose dv_needed_ms is only the disposal fuel
+function designYear(design) {
+  if (!design) return null;
+  if (design.campaign) { var c = typeof getCampaign === "function" ? getCampaign() : null; return c ? c.year : null; }
+  return design.year || null;
+}
+function dvNeeded(orbit, design) {
+  if (!orbit) return 0;
+  var y = designYear(design);
+  if (y !== null && y < DISPOSAL_RULE_YEAR && DISPOSAL_ONLY_ORBITS.indexOf(orbit.id) !== -1) return 0;
+  return orbit.dv_needed_ms;
+}
+function upgradeOf(partId) {
+  var p = typeof PARTS === "undefined" ? null : findById(PARTS, partId);
+  return p && p.upgrade ? p.upgrade : null;
+}
+// The owned upgrade that replaced this part in the campaign, or null.
+function replacedBy(partId, c) {
+  if (!c || !c.upgrades) return null;
+  for (var i = 0; i < c.upgrades.length; i++) {
+    var u = upgradeOf(c.upgrades[i]);
+    if (u && u.of === partId) return findById(PARTS, c.upgrades[i]);
+  }
+  return null;
 }
 function researchById(id) {
   return typeof RESEARCH === "undefined" ? null : RESEARCH.filter(function (r) { return r.id === id; })[0] || null;
@@ -178,13 +210,17 @@ function isUnlocked(kind, id, design) {
   if (design && !design.campaign) {
     return !design.year || itemYear(kind, id) <= design.year;
   }
+  var c = typeof getCampaign === "function" ? getCampaign() : null;
+  if (kind === "parts" && c) {
+    if (replacedBy(id, c)) return false;
+    if (upgradeOf(id)) return (c.upgrades || []).indexOf(id) !== -1;
+  }
   var r = researchUnlocking(kind, id);
   if (kind === "objectives") {
     var o = getObjective(id);
     if (o && o.requires_research) r = researchById(o.requires_research) || r;
   }
   if (!r) return true;
-  var c = typeof getCampaign === "function" ? getCampaign() : null;
   return !c || c.research.indexOf(r.id) !== -1;
 }
 function researchNameFor(kind, id) {
@@ -204,7 +240,13 @@ function isObjectiveAvailable(id, design) { return isUnlocked("objectives", id, 
 function getAvailability(design) {
   function entry(kind, id) {
     var ok = isUnlocked(kind, id, design), y = itemYear(kind, id), reason = null;
-    if (!ok) reason = design && design.campaign ? "Needs research: " + researchNameFor(kind, id) : "Arrives in " + y;
+    if (!ok) {
+      var c = design && design.campaign && typeof getCampaign === "function" ? getCampaign() : null;
+      var by = kind === "parts" && c ? replacedBy(id, c) : null, up = kind === "parts" ? upgradeOf(id) : null;
+      if (by) reason = "Replaced by " + by.name;
+      else if (c && up) reason = "Upgrade in the lab, from " + ((findById(PARTS, up.of) || {}).name || up.of);
+      else reason = c ? "Needs research: " + researchNameFor(kind, id) : "Arrives in " + y;
+    }
     return { available: ok, year: y, reason: reason };
   }
   var out = { parts: {}, launchers: {}, objectives: {} };
@@ -557,8 +599,8 @@ function runChecks(design) {
       "%. Events will hit harder.");
   }
 
-  if (orbit && t.delta_v_ms < orbit.dv_needed_ms) {
-    block("delta-v", orbit.name + " needs " + orbit.dv_needed_ms + " m/s of thrust from the spacecraft, but it has only " +
+  if (orbit && t.delta_v_ms < dvNeeded(orbit, design)) {
+    block("delta-v", orbit.name + " needs " + dvNeeded(orbit, design) + " m/s of thrust from the spacecraft, but it has only " +
       t.delta_v_ms + " m/s. Add propulsion or cut mass.");
   }
 

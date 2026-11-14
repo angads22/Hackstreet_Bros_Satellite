@@ -131,7 +131,9 @@ var cells = G.buyResearch("solar-cells");
 check("6 research needs its lesson first", !cells.ok && /fall silent/.test(cells.reason), cells.reason);
 var r6 = G.recordResult(fly(campaignDesign("radiation", "leo", "juno-1", ERA)));
 check("6 a battery-only satellite teaches batteries_ran_out", r6.lessons_new.indexOf("batteries_ran_out") !== -1, r6.lessons_new.join(","));
-check("6 then the research can be bought", G.buyResearch("solar-cells").ok);
+G.recordResult(fly(campaignDesign("radiation", "leo", "juno-1", ERA)));   // research also costs science points: fly again
+var r6b = G.buyResearch("solar-cells");
+check("6 then the research can be bought", r6b.ok, r6b.reason + " sci=" + G.getCampaign().science_pts);
 var tape = G.buyResearch("tape-recorder");
 check("6 knowledge gate: data from earlier satellites is needed", !tape.ok && /radiation/i.test(tape.reason), tape.reason);
 var hub6 = G.getHubInfo().research.filter(function (r) { return r.id === "television"; })[0];
@@ -156,6 +158,35 @@ var tBefore = G.getCampaign().treasury_musd;
 var m8 = fly(d8); G.recordResult(m8);
 check("8 standalone uses the tier budget", G.getTotals(d8).budget_musd === G.getTier("standard").budget_musd);
 check("8 standalone does not touch the treasury", G.getCampaign().treasury_musd === tBefore);
+
+// 10. The lab: upgrades replace their predecessor; research and upgrades cost money and science.
+G.resetCampaign(); G.newCampaign("training");
+var c9 = G.getCampaign();
+var lab = G.getLab();
+check("10 getLab lists every upgrade with its predecessor", lab.upgrades.length === G.PARTS.filter(function (p) { return p.upgrade; }).length &&
+  lab.upgrades.every(function (u) { return u.of && u.of_name && u.gains.length; }));
+check("10 an upgrade waits for its year", !G.buyUpgrade("scintillation-counter").ok);
+c9.year = 1958; c9.science_pts = 100; G.saveCampaign(c9);
+var t9 = G.getCampaign().treasury_musd, b9 = G.buyUpgrade("scintillation-counter");
+check("10 then it can be bought", b9.ok, b9.reason);
+var c9b = G.getCampaign();
+check("10 it costs money and science", c9b.treasury_musd < t9 && c9b.science_pts === 100 - G.getPart("scintillation-counter").upgrade.cost_sci);
+var d9 = G.newCampaignDesign(), av9 = G.getAvailability(d9).parts;
+check("10 the successor replaces its predecessor", av9["scintillation-counter"].available && !av9["cosmic-ray-counter"].available &&
+  /Replaced by/.test(av9["cosmic-ray-counter"].reason), av9["cosmic-ray-counter"].reason);
+check("10 an upgrade needs its predecessor first", !G.buyUpgrade("avcs-camera").ok);
+var d9s = G.setEra(G.newDesign("training"), "nimbus");
+check("10 outside a campaign both stay on offer from their years",
+  G.isPartAvailable("cosmic-ray-counter", d9s) && G.isPartAvailable("scintillation-counter", d9s) && !G.isPartAvailable("alouette-2-sounder", d9s));
+var r9 = G.RESEARCH.filter(function (r) { return r.id === "solar-cells"; })[0];
+var c9c = G.getCampaign(); c9c.lessons = ["batteries_ran_out"]; c9c.science_pts = 0; G.saveCampaign(c9c);
+var rb9 = G.buyResearch("solar-cells");
+check("10 research needs science points too", !rb9.ok && /science points/.test(rb9.reason), rb9.reason);
+var c9d = G.getCampaign(); c9d.science_pts = r9.cost_sci; G.saveCampaign(c9d);
+check("10 and spends them", G.buyResearch("solar-cells").ok && G.getCampaign().science_pts === 0);
+var c9e = G.getCampaign(); c9e.tier = "expert"; G.saveCampaign(c9e);
+var hidden = G.getHubInfo().research.filter(function (r) { return r.id === "topside-sounding"; })[0].missing.join(" ");
+check("10 above Initial Feasibility, lesson conditions are hints", hidden.indexOf("Show in flight") === -1 && /scientists/.test(hidden), hidden);
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

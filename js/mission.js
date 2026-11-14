@@ -230,6 +230,9 @@ function realThisMonth(objectiveId, cal, year) {
     var sn = sunspots(year, cal);
     return sn === null ? null : { sunspots: sn, year: year };
   }
+  if (e.soundings) {
+    return { soundings: Math.round(ionoSoundingsPerYear(e) * e.monthly_share[cal]), year: e.year };
+  }
   if (e.monthly_share) {
     return { fires: Math.round(e.detections * e.monthly_share[cal]), year: e.year };
   }
@@ -248,6 +251,13 @@ function tallyRealWorld(mission, rate, cal, observing) {
   // at half the rate of a thermal imager (it cannot see through smoke or at night).
   var match = rate.instruments.reduce(function (m, i) { return i.points > 0 ? Math.max(m, i.match) : m; }, 0);
   var quality = rate.data_share * rate.power_share * mission.science_mult * match;
+  if (e.soundings) {
+    var reach = e.orbit_view ? (e.orbit_view[mission.design.orbit] || 0) : 1;
+    var sound = ionoSoundingsPerYear(e) * e.monthly_share[cal];   // Alouette's real soundings this month
+    mission.real.soundings_alouette = (mission.real.soundings_alouette || 0) + sound;
+    if (observing && useful) mission.real.soundings_heard = (mission.real.soundings_heard || 0) + sound * reach * quality;
+    return;
+  }
   if (e.monthly_share) {
     var view = e.orbit_view ? (e.orbit_view[mission.design.orbit] || 0) : 1;
     var objective = getObjective(mission.design.objective);
@@ -287,9 +297,33 @@ function withLiveNow(summary, objectiveId) {
   return summary;
 }
 
+// Alouette 1's average soundings a year over its three busiest years (1963-1965).
+function ionoSoundingsPerYear(e) {
+  var y = e.soundings_by_year || {};
+  return ((y[1963] || 0) + (y[1964] || 0) + (y[1965] || 0)) / 3;
+}
+
 function realWorldSummary(mission) {
   var e = earthFor(mission.design.objective);
   if (!e) return null;
+  if (e.soundings) {
+    var heard = Math.round(mission.real.soundings_heard || 0), pace = mission.real.soundings_alouette || 0;
+    var reach = e.orbit_view ? (e.orbit_view[mission.design.orbit] || 0) : 1;
+    var top = e.top_stations || [];
+    return {
+      soundings_heard: heard,
+      share_of_alouette: pace > 0 ? round(heard / pace, 3) : 0,
+      stations_in_reach_share: reach,
+      text: "Alouette 1 swept the ionosphere " + e.soundings.toLocaleString("en-US") + " times between 1962 and 1973, and " +
+        e.stations + " ground stations heard it (CSA, digitised Alouette 1 ionograms). The busiest were " +
+        (top[0] ? top[0].name + " (" + top[0].soundings.toLocaleString("en-US") + ")" : "") +
+        (top[1] ? " and " + top[1].name + " (" + top[1].soundings.toLocaleString("en-US") + ")" : "") +
+        ", under the auroral zone. From this orbit your satellite could reach the stations that heard " + Math.round(reach * 100) +
+        "% of Alouette's soundings. Over " + mission.month + " months it would have sent about " + heard.toLocaleString("en-US") +
+        " soundings home, " + Math.round(100 * (pace > 0 ? heard / pace : 0)) + "% of Alouette's pace." +
+        (reach < 1 ? " Alouette flew an 80-degree orbit to pass over the polar stations." : "")
+    };
+  }
   if (e.sunspots && mission.start_year !== null) {
     var y0 = mission.start_year, sn0 = sunspots(y0, null), all = [];
     e.sunspots.monthly.forEach(function (row) { all.push(mean(row)); });
@@ -719,6 +753,8 @@ function newCampaign(tierId) {
     treasury_musd: tier.budget_musd,
     knowledge_science: knowledge,
     research: [],
+    upgrades: [],             // lab upgrades bought (successor part ids)
+    science_pts: 0,           // science returned, spent in the lab
     lessons: [],
     missions: [],
     flights: 0,
@@ -748,7 +784,7 @@ function grantFor(c) {
 // branch stops as soon as it cannot beat the best design found, so it stays fast
 // (a few milliseconds) even with every part unlocked. Battery-only designs count.
 function cheapestLaunchCost(c) {
-  var key = c.research.slice().sort().join(",");
+  var key = c.research.slice().sort().join(",") + "|" + (c.upgrades || []).slice().sort().join(",");
   if (cheapestCache[key] !== undefined) return cheapestCache[key];
   function byCost(list) { return list.slice().sort(function (a, b) { return a.cost_musd - b.cost_musd; }); }
   function avail(cat) { return byCost(PARTS.filter(function (p) { return p.category === cat && isPartAvailable(p.id); })); }
@@ -811,7 +847,11 @@ function settleCampaign(mission, debrief, result) {
   c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + mission.science;
   c.treasury_musd = round(c.treasury_musd + debrief.payout_musd + grant - mission.extra_cost_musd, 3);
   var yearFlown = c.year;
-  c.year += missionYears(mission.design);   // time as a resource: long builds cost years
+  var yearsPassed = missionYears(mission.design);
+  c.year += yearsPassed;   // time as a resource: long builds cost years
+  // Science points: this flight's data, plus a share of the whole archive for every year that passed.
+  var archive = round(archivePerYear(c) * yearsPassed, 1);
+  c.science_pts = round((c.science_pts || 0) + mission.science + archive, 1);
   var newLessons = lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
   c.lessons = c.lessons.concat(newLessons);
   c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
@@ -849,6 +889,17 @@ function settleCampaign(mission, debrief, result) {
   result.campaign_over = c.finished;
   result.won = c.won;
   result.lessons_new = newLessons;
+  result.science_pts_earned = round(mission.science, 1);
+  result.archive_sci = archive;
+  result.science_pts = c.science_pts;
+}
+
+// Science points the archive pays each campaign year (SPEC.md, "The archive").
+function archivePerYear(c) {
+  var share = typeof CAMPAIGN !== "undefined" && CAMPAIGN.archive_share !== undefined ? CAMPAIGN.archive_share : 0;
+  var banked = 0;
+  Object.keys(c.knowledge_science || {}).forEach(function (k) { banked += c.knowledge_science[k] || 0; });
+  return round(banked * share, 1);
 }
 
 function getHubInfo() {
@@ -857,6 +908,8 @@ function getHubInfo() {
   return {
     year: c.year,
     treasury_musd: c.treasury_musd,
+    science_pts: c.science_pts || 0,
+    archive_sci_per_year: archivePerYear(c),
     topics: OBJECTIVES.map(function (o) {
       var S = c.knowledge_science[o.id] || 0;
       var open = isObjectiveAvailable(o.id);
@@ -872,8 +925,9 @@ function getHubInfo() {
     research: (typeof RESEARCH === "undefined" ? [] : RESEARCH).map(function (r) {
       var owned = c.research.indexOf(r.id) !== -1;
       var missing = researchMissing(r, c);
-      var met = missing.filter(function (m) { return m.kind !== "money"; }).length === 0;
-      return { id: r.id, name: r.name, year: r.year, depth: researchDepth(r.id), cost_musd: r.cost_musd, blurb: r.blurb,
+      var met = missing.filter(function (m) { return m.kind !== "money" && m.kind !== "science"; }).length === 0;
+      return { id: r.id, name: r.name, year: r.year, depth: researchDepth(r.id), cost_musd: r.cost_musd,
+               cost_sci: r.cost_sci || 0, blurb: r.blurb,
                owned: owned, requires: r.requires || [], requires_met: met, affordable: !owned && missing.length === 0,
                missing: owned ? [] : missing.map(function (m) { return m.text; }), unlocks_names: unlockNames(r) };
     }),
@@ -893,6 +947,7 @@ function buyResearch(id) {
   var missing = researchMissing(r, c);
   if (missing.length) return { ok: false, reason: missing.map(function (m) { return m.text; }).join(" ") };
   c.treasury_musd = round(c.treasury_musd - r.cost_musd, 3);
+  c.science_pts = round((c.science_pts || 0) - (r.cost_sci || 0), 1);
   c.research.push(id);
   saveCampaign(c);
   return { ok: true, reason: null };
@@ -983,8 +1038,10 @@ function researchMissing(r, c) {
   (r.requires || []).forEach(function (q) {
     if (c.research.indexOf(q) === -1) { var rq = researchById(q); out.push({ kind: "research", text: "Needs " + (rq ? rq.name : q) + "." }); }
   });
+  var hidden = lessonsHidden(c);
   (r.requires_lessons || []).forEach(function (l) {
-    if (c.lessons.indexOf(l) === -1) out.push({ kind: "lesson", text: "Show in flight: " + (LESSONS[l] || l) + "." });
+    if (c.lessons.indexOf(l) === -1) out.push({ kind: "lesson",
+      text: hidden ? (LESSON_HINTS[l] || "A review board wants to see better practice in flight.") : "Show in flight: " + (LESSONS[l] || l) + "." });
   });
   var rk = r.requires_knowledge || {};
   Object.keys(rk).forEach(function (topic) {
@@ -993,7 +1050,100 @@ function researchMissing(r, c) {
       (o ? o.name : topic) + " (now " + Math.round(k * 100) + "%)." });
   });
   if (c.treasury_musd < r.cost_musd) out.push({ kind: "money", text: "Costs $" + r.cost_musd + "M." });
+  if ((c.science_pts || 0) < (r.cost_sci || 0)) out.push({ kind: "science", text: "Needs " + (r.cost_sci || 0) +
+    " science points (you have " + Math.floor(c.science_pts || 0) + ")." });
   return out;
+}
+
+// Less hand-holding (SPEC.md, "The lab"): above Initial Feasibility, a lesson's exact
+// condition stays hidden behind a hint until the player earns it.
+function lessonsHidden(c) {
+  var tier = getTier(c.tier);
+  return !!(tier && tier.hints && tier.hints !== "on");
+}
+var LESSON_HINTS = {
+  margins: "A review board wants proof of engineering discipline before it signs off.",
+  all_data: "The scientists complain that data is being left in orbit.",
+  three_stars: "Only a flawless mission will convince the committee.",
+  storm_survived: "Engineers want to see a satellite come through the Sun's worst unharmed.",
+  "protected": "Show that you planned for something going wrong, and it paid off.",
+  spare: "The board asks what happens when a part fails and there is no second one.",
+  batteries_ran_out: "Someone must learn first-hand what a satellite without a generator does.",
+  new_topic: "The agency wants a programme, not a single experiment."
+};
+
+// ------------------------------------------------------------------ the lab: upgrades replace
+// What still stands between the player and an upgrade, as { kind, text } items.
+function upgradeMissing(p, c) {
+  var u = p.upgrade, out = [], pred = findById(PARTS, u.of);
+  if (!isPartAvailable(u.of)) out.push({ kind: "part", text: "Needs " + (pred ? pred.name : u.of) + " first." });
+  (u.requires || []).forEach(function (q) {
+    if (c.research.indexOf(q) === -1) { var rq = researchById(q); out.push({ kind: "research", text: "Needs " + (rq ? rq.name : q) + "." }); }
+  });
+  if (c.year < u.year) out.push({ kind: "year", text: "Not invented until " + u.year + "." });
+  if (c.treasury_musd < u.cost_musd) out.push({ kind: "money", text: "Costs $" + u.cost_musd + "M." });
+  if ((c.science_pts || 0) < u.cost_sci) out.push({ kind: "science", text: "Needs " + u.cost_sci +
+    " science points (you have " + Math.floor(c.science_pts || 0) + ")." });
+  return out;
+}
+
+// Plain-English differences between a successor and its predecessor.
+function upgradeGains(p, pred) {
+  var out = [];
+  function diff(field, label, unit, better) {
+    var a = pred[field] || 0, b = p[field] || 0;
+    if (a === b) return;
+    var word = (b > a) === (better === "more") ? "better" : "worse";
+    out.push(label + " " + a + unit + " to " + b + unit + " (" + word + ")");
+  }
+  diff("science", "Science", "", "more");
+  diff("mass_kg", "Mass", " kg", "less");
+  diff("power_draw_w", "Power draw", " W", "less");
+  diff("efficiency", "Cell efficiency", "", "more");
+  diff("data_gb_day", "Data", " GB/day", "more");
+  diff("downlink_gb_day", "Downlink", " GB/day", "more");
+  diff("cost_musd", "Price", " $M", "less");
+  (p.protects || []).forEach(function (e) {
+    if ((pred.protects || []).indexOf(e) === -1) {
+      var ev = EVENTS.filter(function (x) { return x.id === e; })[0];
+      out.push("Shrugs off: " + (ev ? ev.title : e));
+    }
+  });
+  return out;
+}
+
+function getLab() {
+  var c = getCampaign();
+  if (!c) return null;
+  var ups = PARTS.filter(function (p) { return p.upgrade; }).map(function (p) {
+    var pred = findById(PARTS, p.upgrade.of) || {};
+    var owned = (c.upgrades || []).indexOf(p.id) !== -1;
+    var missing = owned ? [] : upgradeMissing(p, c).map(function (m) { return m.text; });
+    return { id: p.id, name: p.name, of: p.upgrade.of, of_name: pred.name || p.upgrade.of, year: p.upgrade.year,
+             cost_musd: p.upgrade.cost_musd, cost_sci: p.upgrade.cost_sci, owned: owned,
+             can_buy: !owned && !c.finished && missing.length === 0, missing: missing,
+             gains: upgradeGains(p, pred), blurb: p.blurb };
+  });
+  ups.sort(function (a, b) { return a.year - b.year; });
+  return { science_pts: c.science_pts || 0, treasury_musd: c.treasury_musd,
+           archive_sci_per_year: archivePerYear(c), upgrades: ups };
+}
+
+function buyUpgrade(id) {
+  var c = getCampaign();
+  if (!c) return { ok: false, reason: "No campaign is running." };
+  if (c.finished) return { ok: false, reason: "The campaign is over." };
+  var p = findById(PARTS, id);
+  if (!p || !p.upgrade) return { ok: false, reason: "No such upgrade." };
+  if ((c.upgrades || []).indexOf(id) !== -1) return { ok: false, reason: "Already owned." };
+  var missing = upgradeMissing(p, c);
+  if (missing.length) return { ok: false, reason: missing.map(function (m) { return m.text; }).join(" ") };
+  c.treasury_musd = round(c.treasury_musd - p.upgrade.cost_musd, 3);
+  c.science_pts = round((c.science_pts || 0) - p.upgrade.cost_sci, 1);
+  c.upgrades = (c.upgrades || []).concat([id]);
+  saveCampaign(c);
+  cheapestCache = {};
+  return { ok: true, reason: null };
 }
 
 // Longest chain of prerequisites, so a tree screen can put each node in a column.
@@ -1092,7 +1242,8 @@ function getResearchTree() {
   var nodes = (typeof RESEARCH === "undefined" ? [] : RESEARCH).map(function (r) {
     var owned = !!(c && c.research.indexOf(r.id) !== -1);
     var missing = c && !owned ? researchMissing(r, c).map(function (m) { return m.text; }) : [];
-    return { id: r.id, name: r.name, year: r.year, depth: researchDepth(r.id), cost_musd: r.cost_musd, blurb: r.blurb,
+    return { id: r.id, name: r.name, year: r.year, depth: researchDepth(r.id), cost_musd: r.cost_musd,
+             cost_sci: r.cost_sci || 0, blurb: r.blurb,
              unlocks_names: unlockNames(r), owned: owned, can_buy: !!(c && !owned && !c.finished && missing.length === 0),
              missing: missing };
   });

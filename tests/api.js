@@ -147,7 +147,7 @@ check("switch-over: rescue search still finds a design", isFinite(G2.cheapestLau
 var eras = G.getEras();
 check("getEras lists four eras, first open", eras.length === 4 && eras[0].unlocked && !eras[1].unlocked, eras.map(function (e) { return e.id + (e.unlocked ? "+" : "-"); }).join(" "));
 has(eras[0], ["id", "name", "year", "blurb", "unlocked", "best_stars", "topics", "real_missions"], "getEras[]");
-check("1958 offers only radiation; 2026 offers all five", eras[0].topics.join(",") === "radiation" && eras[3].topics.length === 5);
+check("1958 offers only radiation; 2026 offers every topic", eras[0].topics.join(",") === "radiation" && eras[3].topics.length === G.OBJECTIVES.length);
 var ed = G.setEra(G.newDesign("training"), "igy");
 check("setEra sets era and year", ed.era === "igy" && ed.year === 1958);
 check("1958: no TV camera, no Thor-Able; Explorer parts yes",

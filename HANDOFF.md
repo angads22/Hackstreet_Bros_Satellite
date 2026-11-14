@@ -56,3 +56,17 @@ node tests/api.js
 ```
 
 The contract test: every function and field the screens use. Also `node tests/formulas.js`, `node tests/campaign.js`, `node tests/balance.js` and `node tests/speed.js`; all pass on `main` today. If a number you need is missing, file a GitHub issue to Rules or Simulation rather than computing it on screen.
+
+---
+
+## Priority 5 (0.7): the lab, the archive and the ionosphere (November 14, evening)
+
+Back end is on `main`; `SPEC.md` "The lab, the archive and open choices" has the design.
+
+- **Lab screen** (reached from the hub): two tabs.
+  - **Research (add):** the existing tree. Nodes now carry `cost_sci` next to `cost_musd`; show both ("$4M · 30 science"). `missing` can now say "Needs 30 science points (you have 12)."
+  - **Upgrades (replace):** `getLab()` → `{ science_pts, treasury_musd, archive_sci_per_year, upgrades: [{ id, name, of, of_name, year, cost_musd, cost_sci, owned, can_buy, missing, gains, blurb }] }`. One card per upgrade, drawn as "predecessor → successor" (the tree component works: an edge from `of` to `id`). `gains` are ready-made lines ("Science 4 to 6 (better)", "Shrugs off: ..."). Buy with `buyUpgrade(id)` → `{ ok, reason }`.
+- **Hub:** show `science_pts` next to the treasury, and "Archive: +N science a year" from `archive_sci_per_year`. After a campaign mission, `recordResult` adds `science_pts_earned`, `archive_sci` and `science_pts`.
+- **Build screen:** a replaced part greys out with `reason` "Replaced by …"; an upgrade not yet bought shows "Upgrade in the lab, from …". Nothing else changes: `getAvailability` already carries it.
+- **New topic `ionosphere`** (Alouette 1, Canada): it works with the existing screens. `stepMonth().real` can now be `{ soundings, year }` ("Alouette heard 18,000 soundings this month"); the debrief's `real_world.text` already explains the ground stations.
+- **Research hints:** on Trade Space and Point Design, `missing` holds a hint instead of the exact lesson. Nothing to change on screen.
