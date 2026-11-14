@@ -220,7 +220,7 @@ const PARTS = [
     storage_gb: 8,           // ESTIMATE
     science: 0,
     tags: [],
-    protects: [],            // Story: add "solar-storm" here once events.js has it (data owner approves)
+    protects: ["solar-storm"],
     blurb: "A fault-tolerant processor that shrugs off radiation hits.",
     source: "AAC Clyde Space Sirius OBC: fault-tolerant LEON3FT processor, 1.3 W, flown in LEO and on a lunar lander. SOA p.260, Table 8-4. Mass and storage are ESTIMATES."
   },
@@ -256,7 +256,7 @@ const PARTS = [
     storage_gb: 0,
     science: 0,
     tags: [],
-    protects: [],
+    protects: ["debris"],
     blurb: "A safe, non-toxic monopropellant. Enough to lower the orbit at end of life for a light satellite.",
     source: "VACCO 3U MiPS, LMP-103S propellant: 4 x 0.1 N, Isp 190 s, total impulse 3.3 kN-s, 5 kg wet, 15 W max. SOA p.127, Table 4-3. Fuel = 3300 / (190 x 9.81) = 1.77 kg.",
     isp_s: 190,
@@ -275,7 +275,7 @@ const PARTS = [
     storage_gb: 0,
     science: 0,
     tags: [],
-    protects: [],
+    protects: ["debris"],
     blurb: "Four 1 N thrusters and plenty of fuel. Heavy, but it moves a radar satellite.",
     source: "VACCO 11U MiPS, LMP-103S propellant: 4 x 1 N, Isp 200 s, total impulse 12 kN-s, 14.7 kg wet, 50 W max. SOA p.127, Table 4-3. Fuel = 12000 / (200 x 9.81) = 6.12 kg.",
     isp_s: 200,
@@ -294,7 +294,7 @@ const PARTS = [
     storage_gb: 0,
     science: 0,
     tags: [],
-    protects: [],
+    protects: ["debris"],
     blurb: "Ten times more efficient than chemical thrusters, but draws 70 W while it runs.",
     source: "Busek BIT-3 RF ion thruster, iodine: 1.0 mN, Isp 1,960 s, total impulse 31.7 kN-s, 2.9 kg wet, 70 W. SOA p.133, Table 4-9. Fuel = 31700 / (1960 x 9.81) = 1.65 kg.",
     isp_s: 1960,

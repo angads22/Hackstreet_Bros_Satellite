@@ -17,7 +17,7 @@ const OBJECTIVES = [
     id: "sea-ice",
     name: "Arctic sea-ice mapping",
     briefing: "Arctic sea ice is shrinking, and ships, scientists and northern communities all need to know where it is. The Arctic is dark for months and often cloudy. Design a satellite that can map the ice anyway.",
-    wants: ["radar"],
+    wants: ["radar", "imaging"],  // a camera helps a little, in daylight and clear sky
     science_target: 200,
     orbit_fit: { leo: 0.3, sso: 1.0, geo: 0 },    // values from SPEC.md; GEO cannot see the poles
     real_mission: "Canada's RADARSAT Constellation Mission maps Arctic ice with radar from a polar orbit."
