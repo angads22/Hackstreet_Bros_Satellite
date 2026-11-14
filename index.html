@@ -3,57 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Space Mission Design Game</title>
+  <title>Starline: Space Mission Design Game</title>
+  <!-- Pixel fonts from Google Fonts (SIL Open Font License). The game falls back to Courier New offline. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&family=VT323&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="site-header">
-    <div class="wrap header-row">
-      <h1>Space Mission Design Game</h1>
-      <p class="tier-label" id="tier-label"></p>
-    </div>
-  </header>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-name">STARLINE</span>
+        <span class="brand-status" id="status">Space Mission Design Game</span>
+      </div>
+      <nav aria-label="Mission steps" class="steps-nav">
+        <ol class="steps" id="steps"></ol>
+      </nav>
+      <button type="button" class="icon-btn" id="help-btn" aria-label="Hint for this screen" aria-expanded="false" hidden>?</button>
+    </header>
 
-  <!-- The seven steps. Mission and Debrief are shown but cannot be clicked from the design screens. -->
-  <nav class="steps" aria-label="Mission steps">
-    <ol class="wrap steps-list" id="steps">
-      <li><button type="button" class="step" data-screen="briefing"><span class="step-num">1</span><span class="step-name">Briefing</span></button></li>
-      <li><button type="button" class="step" data-screen="orbit"><span class="step-num">2</span><span class="step-name">Orbit</span></button></li>
-      <li><button type="button" class="step" data-screen="build"><span class="step-num">3</span><span class="step-name">Build</span></button></li>
-      <li><button type="button" class="step" data-screen="launcher"><span class="step-num">4</span><span class="step-name">Launch vehicle</span></button></li>
-      <li><button type="button" class="step" data-screen="review"><span class="step-num">5</span><span class="step-name">Readiness review</span></button></li>
-      <li><span class="step step-locked" data-screen="mission"><span class="step-num">6</span><span class="step-name">Mission</span></span></li>
-      <li><span class="step step-locked" data-screen="debrief"><span class="step-num">7</span><span class="step-name">Debrief</span></span></li>
-    </ol>
-  </nav>
+    <p class="hint" id="hint" hidden></p>
 
-  <!-- The four resource bars. js/ui-design.js fills in the text and the widths. -->
-  <section class="bars" id="bars" aria-label="Spacecraft resources">
-    <div class="wrap bars-grid">
-      <div class="bar" id="bar-mass">
-        <div class="bar-head"><span class="bar-name">Mass</span><span class="bar-margin">&ndash;</span></div>
-        <div class="bar-track"><div class="bar-fill"></div></div>
-        <div class="bar-value">&ndash;</div>
-      </div>
-      <div class="bar" id="bar-power">
-        <div class="bar-head"><span class="bar-name">Power</span><span class="bar-margin">&ndash;</span></div>
-        <div class="bar-track"><div class="bar-fill"></div></div>
-        <div class="bar-value">&ndash;</div>
-      </div>
-      <div class="bar" id="bar-budget">
-        <div class="bar-head"><span class="bar-name">Budget</span><span class="bar-margin">&ndash;</span></div>
-        <div class="bar-track"><div class="bar-fill"></div></div>
-        <div class="bar-value">&ndash;</div>
-      </div>
-      <div class="bar" id="bar-data">
-        <div class="bar-head"><span class="bar-name">Data</span><span class="bar-margin">&ndash;</span></div>
-        <div class="bar-track"><div class="bar-fill"></div></div>
-        <div class="bar-value">&ndash;</div>
-      </div>
-    </div>
-  </section>
+    <main id="app" tabindex="-1"></main>
+  </div>
 
-  <main id="app" class="wrap"></main>
+  <svg class="backdrop" aria-hidden="true" viewBox="0 0 320 60" preserveAspectRatio="none" shape-rendering="crispEdges">
+    <rect x="12" y="4" width="1" height="1" fill="#f4f0e0"/><rect x="80" y="10" width="1" height="1" fill="#a9a6d6"/>
+    <rect x="150" y="6" width="2" height="1" fill="#f4f0e0"/><rect x="232" y="2" width="2" height="1" fill="#ffc247"/>
+    <rect x="300" y="8" width="1" height="1" fill="#f4f0e0"/><rect x="190" y="14" width="1" height="1" fill="#a9a6d6"/>
+    <rect x="100" y="32" width="120" height="1" fill="#6fe3ff"/><rect x="100" y="33" width="120" height="27" fill="#24349e"/>
+    <rect x="58" y="38" width="204" height="1" fill="#6fe3ff"/><rect x="58" y="39" width="204" height="21" fill="#24349e"/>
+    <rect x="23" y="44" width="274" height="1" fill="#6fe3ff"/><rect x="23" y="45" width="274" height="15" fill="#24349e"/>
+    <rect x="0" y="50" width="320" height="1" fill="#6fe3ff"/><rect x="0" y="51" width="320" height="9" fill="#24349e"/>
+    <rect x="116" y="36" width="30" height="2" fill="#3d6bff"/><rect x="170" y="52" width="44" height="3" fill="#3d6bff"/>
+    <rect x="60" y="54" width="40" height="3" fill="#3d6bff"/><rect x="230" y="48" width="30" height="2" fill="#3d6bff"/>
+  </svg>
 
   <!-- Data: one global per file -->
   <script src="data/parts.js"></script>

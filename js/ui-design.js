@@ -1,616 +1,750 @@
 // js/ui-design.js — owned by Design screens.
-// Briefing, Orbit, Build, Launch vehicle and Readiness review screens,
-// plus the step navigation and the four resource bars.
+// The shared layout (header, step bar, hints) and the screens before launch:
+// Tier select, 1 Briefing, 2 Orbit, 3 Build, 4 Launch vehicle, 5 Readiness review.
+// Every number shown comes from a game.js / mission.js call or a plain data field;
+// this file only formats numbers and draws the page.
 //
-// Rule: this file never does maths. Every number comes from game.js
-// (getTotals, getOrbitFacts, runChecks, getPartFacts) or straight from a
-// data field. This file only formats numbers and draws them.
+// Everything lives inside one function so no name here can clash with the
+// back end's globals. Two names are shared on purpose:
+//   showDesignScreen(name, design)  — used by ui-mission.js for Redesign / New mission
+//   StarlineUI                      — small drawing helpers ui-mission.js reuses
+(function () {
+  "use strict";
 
-// ---------- Settings ----------
+  // ---------------------------------------------------------------- setup
+  var STEPS = [
+    { id: "briefing", label: "BRIEF" },
+    { id: "orbit",    label: "ORBIT" },
+    { id: "build",    label: "BUILD" },
+    { id: "launcher", label: "ROCKET" },
+    { id: "review",   label: "REVIEW" },
+    { id: "mission",  label: "MISSION" },
+    { id: "debrief",  label: "DEBRIEF" }
+  ];
+  var DESIGN_STEPS = ["briefing", "orbit", "build", "launcher", "review"];
 
-// The five design screens, in order.
-var DESIGN_SCREENS = ["briefing", "orbit", "build", "launcher", "review"];
+  var CATEGORIES = [
+    { id: "instrument", name: "INSTRUMENTS", sub: "What the mission sees", required: true },
+    { id: "power",      name: "POWER",       sub: "Panels and batteries",  required: true },
+    { id: "comms",      name: "RADIO",       sub: "Send data home",        required: true },
+    { id: "computer",   name: "COMPUTER",    sub: "Runs the spacecraft",   required: true },
+    { id: "propulsion", name: "PROPULSION",  sub: "Speed change, optional", required: false }
+  ];
 
-// Part categories on the Build screen, in order.
-var PART_CATEGORIES = [
-  { id: "instrument", title: "Instruments", word: "instrument" },
-  { id: "power",      title: "Power",       word: "power" },
-  { id: "comms",      title: "Comms",       word: "comms" },
-  { id: "computer",   title: "Computer",    word: "computer" },
-  { id: "propulsion", title: "Propulsion",  word: "propulsion" }
-];
-
-// A bar turns the warning colour when its margin is under this.
-var LOW_MARGIN = 0.10;
-
-var DASH = "–";
-
-// ---------- State ----------
-
-var currentDesign = null;         // the design being edited
-var currentScreen = "briefing";   // which design screen is showing
-var launchMessage = "";           // shown under the Launch button
-
-// ---------- Data access (safe when a data file is empty or missing) ----------
-
-function listOrEmpty(list) {
-  return Array.isArray(list) ? list : [];
-}
-
-function getObjectiveList() {
-  return typeof OBJECTIVES !== "undefined" ? listOrEmpty(OBJECTIVES) : [];
-}
-
-function getOrbitList() {
-  return typeof ORBITS !== "undefined" ? listOrEmpty(ORBITS) : [];
-}
-
-function getPartList() {
-  return typeof PARTS !== "undefined" ? listOrEmpty(PARTS) : [];
-}
-
-function getLauncherList() {
-  return typeof LAUNCHERS !== "undefined" ? listOrEmpty(LAUNCHERS) : [];
-}
-
-function getTierList() {
-  return typeof TIERS !== "undefined" ? listOrEmpty(TIERS) : [];
-}
-
-// Find an item by id in a list. Returns null if it is not there.
-function lookUp(list, id) {
-  for (var i = 0; i < list.length; i++) {
-    if (list[i] && list[i].id === id) return list[i];
-  }
-  return null;
-}
-
-function getDesign() {
-  if (!currentDesign) currentDesign = newDesign();
-  if (!Array.isArray(currentDesign.parts)) currentDesign.parts = [];
-  return currentDesign;
-}
-
-// ---------- Formatting ----------
-
-function isNumber(value) {
-  return typeof value === "number" && isFinite(value);
-}
-
-// 1234.56 -> "1,235" (or "1,234.6" with decimals = 1). Not a number -> dash.
-function formatNumber(value, decimals) {
-  if (!isNumber(value)) return DASH;
-  return value.toLocaleString("en-US", { maximumFractionDigits: decimals || 0 });
-}
-
-function formatKg(value) { return formatNumber(value, 1) + " kg"; }
-function formatWatts(value) { return formatNumber(value, 0) + " W"; }
-function formatCost(value) { return "$" + formatNumber(value, 1) + "M"; }
-function formatGbDay(value) { return formatNumber(value, 1) + " GB/day"; }
-
-// A share such as 0.39 shown as "39%".
-function formatPercent(share) {
-  if (!isNumber(share)) return DASH;
-  return formatNumber(share * 100, 0) + "%";
-}
-
-// ---------- Small DOM helpers ----------
-
-function makeElement(tag, className, text) {
-  var node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined && text !== null) node.textContent = String(text);
-  return node;
-}
-
-function clearElement(node) {
-  while (node.firstChild) node.removeChild(node.firstChild);
-}
-
-// A friendly note for an empty list.
-function makeEmptyNote(text) {
-  return makeElement("p", "empty-note", text);
-}
-
-// One "label: value" line inside a card.
-function addFact(listNode, label, value) {
-  var row = makeElement("span", "fact");
-  row.appendChild(makeElement("span", "fact-label", label));
-  row.appendChild(makeElement("span", "fact-value", value));
-  listNode.appendChild(row);
-}
-
-// A card the player can click. The whole card is one real <button>.
-// options: { key, title, blurb, selected, selectedWord, onClick }
-function makeCard(options) {
-  var card = makeElement("button", "card");
-  card.type = "button";
-  card.setAttribute("data-key", options.key);
-  card.setAttribute("aria-pressed", options.selected ? "true" : "false");
-  if (options.selected) card.className = "card is-selected";
-
-  var head = makeElement("span", "card-head");
-  head.appendChild(makeElement("span", "card-title", options.title || "Unnamed"));
-  if (options.selected) {
-    head.appendChild(makeElement("span", "card-badge", options.selectedWord || "Selected"));
-  }
-  card.appendChild(head);
-
-  if (options.blurb) card.appendChild(makeElement("span", "card-blurb", options.blurb));
-
-  var facts = makeElement("span", "card-facts");
-  card.appendChild(facts);
-  card.factsNode = facts;
-
-  card.addEventListener("click", options.onClick);
-  return card;
-}
-
-// ---------- Step navigation ----------
-
-function updateSteps() {
-  var steps = document.querySelectorAll("#steps .step");
-  for (var i = 0; i < steps.length; i++) {
-    if (steps[i].getAttribute("data-screen") === currentScreen) {
-      steps[i].setAttribute("aria-current", "step");
-    } else {
-      steps[i].removeAttribute("aria-current");
-    }
-  }
-}
-
-function setUpSteps() {
-  var buttons = document.querySelectorAll("#steps button.step");
-  for (var i = 0; i < buttons.length; i++) {
-    buttons[i].addEventListener("click", function (event) {
-      goToScreen(event.currentTarget.getAttribute("data-screen"));
-    });
-  }
-}
-
-// ---------- Resource bars ----------
-
-// margin: a number from getTotals(design).margins, or null/undefined for "not known yet".
-function setBar(name, valueText, margin) {
-  var bar = document.getElementById("bar-" + name);
-  if (!bar) return;
-  var fill = bar.querySelector(".bar-fill");
-  var marginNode = bar.querySelector(".bar-margin");
-  var valueNode = bar.querySelector(".bar-value");
-  var known = isNumber(margin);
-
-  // The bar's fill is 1 - margin, kept between empty and full.
-  var share = known ? 1 - margin : 0;
-  if (share < 0) share = 0;
-  if (share > 1) share = 1;
-  fill.style.width = (share * 100) + "%";
-
-  var state = "";
-  var marginText = DASH;
-  if (known && margin < 0) {
-    state = " is-error";
-    marginText = "Over by " + formatPercent(-margin);
-  } else if (known && margin < LOW_MARGIN) {
-    state = " is-warn";
-    marginText = formatPercent(margin) + " margin, thin";
-  } else if (known) {
-    marginText = formatPercent(margin) + " margin";
-  }
-  bar.className = "bar" + state;
-  marginNode.textContent = marginText;
-  valueNode.textContent = valueText;
-}
-
-function updateBars() {
-  var design = getDesign();
-  var totals = getTotals(design) || {};
-  var margins = totals.margins || {};
-
-  // Mass: used, and the launcher's capacity for the chosen orbit if both are picked.
-  var massText = formatKg(totals.mass_kg);
-  var launcher = lookUp(getLauncherList(), design.launcher);
-  if (launcher && launcher.capacity_kg && design.orbit && isNumber(launcher.capacity_kg[design.orbit])) {
-    massText += " of " + formatKg(launcher.capacity_kg[design.orbit]);
-  }
-  setBar("mass", massText, margins.mass);
-
-  setBar("power", formatWatts(totals.power_draw_w) + " used of " + formatWatts(totals.power_gen_w) + " made", margins.power);
-
-  // Budget: spent, and the tier's budget if the tier is in the data.
-  var budgetText = formatCost(totals.cost_musd);
-  var tier = lookUp(getTierList(), design.tier);
-  if (tier && isNumber(tier.budget_musd)) budgetText += " of " + formatCost(tier.budget_musd);
-  setBar("budget", budgetText, margins.budget);
-
-  setBar("data", formatGbDay(totals.data_gb_day) + " made, radio " + formatGbDay(totals.downlink_gb_day), margins.data);
-
-  var tierLabel = document.getElementById("tier-label");
-  if (tierLabel) tierLabel.textContent = tier ? "Tier: " + (tier.name || tier.id) : "";
-}
-
-// ---------- Screen: Briefing ----------
-
-function renderBriefing(app, design) {
-  addScreenHeading(app, "Briefing", "Pick a science objective. Decide the goal before the hardware.");
-  var objectives = getObjectiveList();
-  if (objectives.length === 0) {
-    app.appendChild(makeEmptyNote("No objectives in the data yet. You can still carry on to the next screen."));
-    return;
-  }
-  var grid = makeElement("div", "card-grid");
-  objectives.forEach(function (objective) {
-    var card = makeCard({
-      key: "objective:" + objective.id,
-      title: objective.name,
-      blurb: objective.briefing,
-      selected: design.objective === objective.id,
-      onClick: function () {
-        setObjective(design, objective.id);
-        render();
-      }
-    });
-    if (isNumber(objective.science_target)) {
-      addFact(card.factsNode, "Science target", formatNumber(objective.science_target, 0) + " points");
-    }
-    var wants = listOrEmpty(objective.wants);
-    if (wants.length > 0) addFact(card.factsNode, "Instruments that count", wants.join(", "));
-    if (isNumber(objective.needs_resolution_m)) {
-      addFact(card.factsNode, "Needs detail of", formatNumber(objective.needs_resolution_m, 1) + " m or finer");
-    }
-    grid.appendChild(card);
-  });
-  app.appendChild(grid);
-}
-
-// ---------- Screen: Orbit ----------
-
-// Orbit facts for one orbit card: ask game.js about a copy of the design flying in that orbit.
-function getFactsForOrbit(design, orbitId) {
-  var copy = {
-    tier: design.tier,
-    objective: design.objective,
-    orbit: orbitId,
-    parts: design.parts.slice(),
-    launcher: design.launcher
+  // Shown under the header when the tier's hints are on (or on request).
+  var HINTS = {
+    title:    "Earn 2 stars on a tier to unlock the next one.",
+    briefing: "Decide the goal before the hardware. The objective says which instruments count.",
+    orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
+    build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
+    launcher: "A bigger rocket solves mass and eats the budget.",
+    review:   "Blockers stop the launch. Warnings do not, but thin margins make events hit harder.",
+    mission:  "Designs get tested by things you did not plan. Pick one answer per event.",
+    debrief:  "Change the one thing that limited you, then fly the same design again."
   };
-  return getOrbitFacts(copy) || {};
-}
 
-function renderOrbit(app, design) {
-  addScreenHeading(app, "Orbit", "Pick an orbit. Where you fly changes everything else.");
-  var orbits = getOrbitList();
-  if (orbits.length === 0) {
-    app.appendChild(makeEmptyNote("No orbits in the data yet. You can still carry on to the next screen."));
-    return;
+  // Where each readiness check is fixed (SPEC: "Where each check is fixed").
+  var FIX_SCREEN = {
+    "no-objective": "briefing",
+    "no-orbit": "orbit", "orbit-fit": "orbit",
+    "no-launcher": "launcher", "launcher-reach": "launcher", "mass": "launcher",
+    "mass-margin": "launcher", "budget": "launcher"
+  };
+
+  var state = {
+    design: null,        // the one design object
+    screen: "title",
+    reached: 0,          // furthest design step visited, as an index into DESIGN_STEPS
+    bin: "instrument",   // which parts bin is open on Build
+    hover: null,         // part id being previewed on Build
+    hintOpen: false,
+    locked: false        // true from launch until the debrief buttons
+  };
+
+  // ---------------------------------------------------------------- small helpers
+  function list(x) { return Array.isArray(x) ? x : []; }
+  function byId(items, id) {
+    var found = null;
+    list(items).forEach(function (item) { if (item && item.id === id) found = item; });
+    return found;
   }
-  var grid = makeElement("div", "card-grid");
-  orbits.forEach(function (orbit) {
-    var card = makeCard({
-      key: "orbit:" + orbit.id,
-      title: orbit.name,
-      blurb: orbit.blurb,
-      selected: design.orbit === orbit.id,
-      onClick: function () {
-        setOrbit(design, orbit.id);
-        render();
-      }
+  function data(name) {
+    // Reads a data global without throwing if its file is missing.
+    // (The data files use `const`, which is not on `window`, hence the typeof checks.)
+    switch (name) {
+      case "PARTS":      return typeof PARTS !== "undefined" ? list(PARTS) : [];
+      case "ORBITS":     return typeof ORBITS !== "undefined" ? list(ORBITS) : [];
+      case "LAUNCHERS":  return typeof LAUNCHERS !== "undefined" ? list(LAUNCHERS) : [];
+      case "OBJECTIVES": return typeof OBJECTIVES !== "undefined" ? list(OBJECTIVES) : [];
+      case "TIERS":      return typeof TIERS !== "undefined" ? list(TIERS) : [];
+      case "EVENTS":     return typeof EVENTS !== "undefined" ? list(EVENTS) : [];
+      default:           return [];
+    }
+  }
+  function isNum(v) { return typeof v === "number" && isFinite(v); }
+
+  function num(v, places) {
+    if (!isNum(v)) return "–";
+    return v.toLocaleString("en-US", { maximumFractionDigits: places === undefined ? 1 : places });
+  }
+  function money(v) { return isNum(v) ? "$" + num(v, v < 1 ? 2 : 1) + "M" : "–"; }
+  function signed(v, places) { return (v > 0 ? "+" : "") + num(v, places); }
+  function starsText(n) {
+    n = isNum(n) ? n : 0;
+    var s = "";
+    for (var i = 0; i < 3; i++) s += i < n ? "★" : "☆";
+    return s;
+  }
+
+  // Builds an element. `kids` may be strings (as text) or nodes.
+  function el(tag, attrs, kids) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === "class") node.className = v;
+      else if (k === "text") node.textContent = v;
+      else if (k.indexOf("on") === 0) node.addEventListener(k.slice(2), v);
+      else node.setAttribute(k, v === true ? "" : v);
     });
-    var facts = getFactsForOrbit(design, orbit.id);
-    if (isNumber(orbit.altitude_km)) addFact(card.factsNode, "Altitude", formatNumber(orbit.altitude_km, 0) + " km");
-    addFact(card.factsNode, "One lap takes", isNumber(facts.period_min) ? formatNumber(facts.period_min, 1) + " min" : DASH);
-    addFact(card.factsNode, "Laps per day", formatNumber(facts.laps_per_day, 1));
-    if (isNumber(facts.eclipse_fraction)) {
-      addFact(card.factsNode, "Time in shadow", "up to " + formatPercent(facts.eclipse_fraction) + " of each lap");
-    }
-    if (isNumber(orbit.downlink_mult)) addFact(card.factsNode, "Ground contact", formatPercent(orbit.downlink_mult) + " of the day");
-    if (isNumber(orbit.lifetime_months)) addFact(card.factsNode, "Mission lifetime", formatNumber(orbit.lifetime_months, 0) + " months");
-    grid.appendChild(card);
-  });
-  app.appendChild(grid);
-}
-
-// ---------- Screen: Build ----------
-
-function makePartCard(design, part) {
-  var added = design.parts.indexOf(part.id) !== -1;
-  var card = makeCard({
-    key: "part:" + part.id,
-    title: part.name,
-    blurb: part.blurb,
-    selected: added,
-    selectedWord: "Added",
-    onClick: function () {
-      if (added) {
-        removePart(design, part.id);
-      } else {
-        addPart(design, part.id);
-      }
-      render();
-    }
-  });
-  var list = card.factsNode;
-
-  // Values game.js works out for this part in the chosen orbit (not in the stub).
-  var partFacts = {};
-  if (typeof getPartFacts === "function") partFacts = getPartFacts(design, part.id) || {};
-
-  addFact(list, "Mass", formatKg(part.mass_kg));
-  if (part.power_draw_w > 0 || part.category !== "power") addFact(list, "Power draw", formatWatts(part.power_draw_w));
-  if (isNumber(partFacts.power_gen_w) && partFacts.power_gen_w > 0) {
-    addFact(list, "Power made", formatWatts(partFacts.power_gen_w));
-  } else if (part.power_gen_w > 0) {
-    addFact(list, "Power made", formatWatts(part.power_gen_w));
-  }
-  addFact(list, "Cost", formatCost(part.cost_musd));
-  if (part.data_gb_day > 0) addFact(list, "Data made", formatGbDay(part.data_gb_day));
-  if (part.downlink_gb_day > 0) addFact(list, "Downlink", formatGbDay(part.downlink_gb_day));
-  if (part.storage_gb > 0) addFact(list, "Storage", formatNumber(part.storage_gb, 0) + " GB");
-  if (part.battery_wh > 0) addFact(list, "Battery", formatNumber(part.battery_wh, 0) + " Wh");
-  if (part.fuel_kg > 0) addFact(list, "Fuel", formatKg(part.fuel_kg));
-  if (part.science > 0) addFact(list, "Science", formatNumber(part.science, 1) + " points a month");
-  if (isNumber(partFacts.resolution_m)) {
-    addFact(list, "Smallest detail", formatNumber(partFacts.resolution_m, 1) + " m from this orbit");
-  }
-  var tags = listOrEmpty(part.tags);
-  if (tags.length > 0) addFact(list, "Type", tags.join(", "));
-  return card;
-}
-
-function renderBuild(app, design) {
-  addScreenHeading(app, "Build", "Pick parts in five categories. Every part costs something in all four bars.");
-  var parts = getPartList();
-  if (parts.length === 0) {
-    app.appendChild(makeEmptyNote("No parts in the data yet. You can still carry on to the next screen."));
-    return;
-  }
-  PART_CATEGORIES.forEach(function (category) {
-    var section = makeElement("section", "part-group");
-    var inCategory = parts.filter(function (part) { return part && part.category === category.id; });
-    var picked = inCategory.filter(function (part) { return design.parts.indexOf(part.id) !== -1; });
-
-    var heading = makeElement("h3", "group-title", category.title);
-    heading.appendChild(makeElement("span", "group-count", picked.length + " added"));
-    section.appendChild(heading);
-
-    if (inCategory.length === 0) {
-      section.appendChild(makeEmptyNote("No " + category.word + " parts in the data yet."));
-    } else {
-      var grid = makeElement("div", "card-grid");
-      inCategory.forEach(function (part) {
-        grid.appendChild(makePartCard(design, part));
-      });
-      section.appendChild(grid);
-    }
-    app.appendChild(section);
-  });
-}
-
-// ---------- Screen: Launch vehicle ----------
-
-function renderLauncher(app, design) {
-  addScreenHeading(app, "Launch vehicle", "Pick a rocket. A bigger rocket solves mass and eats the budget.");
-  var launchers = getLauncherList();
-  if (launchers.length === 0) {
-    app.appendChild(makeEmptyNote("No launch vehicles in the data yet. You can still carry on to the next screen."));
-    return;
-  }
-  var orbits = getOrbitList();
-  var chosenOrbit = lookUp(orbits, design.orbit);
-  if (!chosenOrbit) {
-    app.appendChild(makeElement("p", "note", "No orbit chosen yet, so each card lists what the rocket can lift to every orbit."));
-  }
-
-  var grid = makeElement("div", "card-grid");
-  launchers.forEach(function (launcher) {
-    var card = makeCard({
-      key: "launcher:" + launcher.id,
-      title: launcher.name,
-      blurb: launcher.blurb,
-      selected: design.launcher === launcher.id,
-      onClick: function () {
-        setLauncher(design, launcher.id);
-        render();
-      }
+    (Array.isArray(kids) ? kids : [kids]).forEach(function (kid) {
+      if (kid === null || kid === undefined || kid === false) return;
+      node.appendChild(typeof kid === "string" ? document.createTextNode(kid) : kid);
     });
-    var capacity = launcher.capacity_kg || {};
-    addFact(card.factsNode, "Cost", formatCost(launcher.cost_musd));
-    if (chosenOrbit) {
-      addFact(card.factsNode, "Lifts to " + (chosenOrbit.name || chosenOrbit.id), formatCapacity(capacity[chosenOrbit.id]));
+    return node;
+  }
+
+  // Draws pixel art from [x, y, w, h, colour] rows. Static art only, never data text.
+  function art(viewBox, rects, label, className) {
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", viewBox);
+    svg.setAttribute("shape-rendering", "crispEdges");
+    if (className) svg.setAttribute("class", className);
+    if (label) { svg.setAttribute("role", "img"); svg.setAttribute("aria-label", label); }
+    else svg.setAttribute("aria-hidden", "true");
+    rects.forEach(function (r) {
+      var rect = document.createElementNS(NS, "rect");
+      rect.setAttribute("x", r[0]); rect.setAttribute("y", r[1]);
+      rect.setAttribute("width", r[2]); rect.setAttribute("height", r[3]);
+      rect.setAttribute("fill", r[4]);
+      if (r[5] !== undefined) rect.setAttribute("opacity", r[5]);
+      svg.appendChild(rect);
+    });
+    return svg;
+  }
+
+  function facts(rows) {
+    return el("dl", { class: "facts" }, rows.filter(Boolean).map(function (r) {
+      return el("div", null, [el("dt", { text: r[0] }), el("dd", { text: r[1] })]);
+    }));
+  }
+
+  function button(label, onClick, opts) {
+    opts = opts || {};
+    return el("button", { type: "button", class: "btn" + (opts.primary ? " primary" : "") + (opts.big ? " big" : ""),
+      disabled: !!opts.disabled, onclick: onClick, "aria-label": opts.aria }, label);
+  }
+
+  // ---------------------------------------------------------------- pixel art
+  var PAL = { ink: "#f4f0e0", muted: "#a9a6d6", line: "#4b4a8a", gold: "#ffc247", cyan: "#6fe3ff",
+              red: "#ff6b5e", blue: "#3d6bff", navy: "#24349e", sky: "#0d0b1e", skin: "#e8b796" };
+
+  // The satellite on the bench grows as each category gets a part.
+  function satelliteArt(design) {
+    var has = {};
+    list(design.parts).forEach(function (id) {
+      var p = byId(data("PARTS"), id);
+      if (p) has[p.category] = true;
+    });
+    var r = [];
+    // Body: an outline until a computer is in, then solid.
+    if (has.computer) {
+      r.push([9, 3, 6, 6, PAL.ink], [9, 8, 6, 1, PAL.muted], [14, 3, 1, 6, PAL.muted]);
     } else {
-      orbits.forEach(function (orbit) {
-        addFact(card.factsNode, "Lifts to " + (orbit.name || orbit.id), formatCapacity(capacity[orbit.id]));
-      });
+      r.push([9, 3, 6, 1, PAL.line], [9, 8, 6, 1, PAL.line], [9, 3, 1, 6, PAL.line], [14, 3, 1, 6, PAL.line]);
     }
-    grid.appendChild(card);
-  });
-  app.appendChild(grid);
-}
-
-// A capacity of 0 (or none listed) means the rocket cannot reach that orbit.
-function formatCapacity(value) {
-  if (!isNumber(value) || value <= 0) return "Cannot reach";
-  return formatKg(value);
-}
-
-// ---------- Screen: Readiness review ----------
-
-function addSummaryRow(listNode, label, value) {
-  listNode.appendChild(makeElement("dt", "", label));
-  listNode.appendChild(makeElement("dd", value ? "" : "is-missing", value || "Not chosen yet"));
-}
-
-function nameOf(list, id) {
-  var item = lookUp(list, id);
-  if (item) return item.name || item.id;
-  return "";
-}
-
-function addCheckItems(listNode, checks, kind, label) {
-  checks.forEach(function (check) {
-    var item = makeElement("li", "check check-" + kind);
-    item.appendChild(makeElement("span", "check-tag", label));
-    item.appendChild(makeElement("span", "check-text", check && check.text ? check.text : "Check failed."));
-    listNode.appendChild(item);
-  });
-}
-
-function renderReview(app, design) {
-  addScreenHeading(app, "Readiness review", "Go or no-go. Blockers stop the launch. Warnings do not, but they cost points.");
-
-  // What is on the pad.
-  var summary = makeElement("dl", "summary");
-  addSummaryRow(summary, "Objective", nameOf(getObjectiveList(), design.objective));
-  addSummaryRow(summary, "Orbit", nameOf(getOrbitList(), design.orbit));
-  var partNames = design.parts.map(function (id) { return nameOf(getPartList(), id) || id; });
-  addSummaryRow(summary, "Parts", partNames.join(", "));
-  addSummaryRow(summary, "Launch vehicle", nameOf(getLauncherList(), design.launcher));
-  app.appendChild(summary);
-
-  var checks = runChecks(design) || {};
-  var blockers = listOrEmpty(checks.blockers);
-  var warnings = listOrEmpty(checks.warnings);
-  var canLaunch = blockers.length === 0;
-
-  var verdictText = "Go for launch.";
-  if (!canLaunch) {
-    verdictText = "No go. " + blockers.length + (blockers.length === 1 ? " blocker" : " blockers") + " to fix.";
-  } else if (warnings.length > 0) {
-    verdictText = "Go for launch, with " + warnings.length + (warnings.length === 1 ? " warning." : " warnings.");
+    if (has.power) {
+      r.push([1, 4, 7, 4, PAL.blue], [16, 4, 7, 4, PAL.blue], [1, 4, 7, 1, PAL.cyan], [16, 4, 7, 1, PAL.cyan],
+             [3, 4, 1, 4, PAL.navy], [5, 4, 1, 4, PAL.navy], [18, 4, 1, 4, PAL.navy], [20, 4, 1, 4, PAL.navy],
+             [8, 5, 1, 2, PAL.muted], [15, 5, 1, 2, PAL.muted]);
+    }
+    if (has.comms) r.push([11, 1, 1, 2, PAL.muted], [10, 0, 3, 1, PAL.gold]);
+    if (has.instrument) {
+      r.push([11, 5, 2, 2, PAL.sky], [10, 4, 4, 1, PAL.red], [10, 7, 4, 1, PAL.red], [10, 5, 1, 2, PAL.red], [13, 5, 1, 2, PAL.red]);
+    }
+    if (has.propulsion) r.push([10, 9, 1, 2, PAL.muted], [13, 9, 1, 2, PAL.muted], [10, 11, 4, 1, PAL.line]);
+    var label = "Pixel drawing of your satellite: " +
+      CATEGORIES.map(function (c) { return (has[c.id] ? "" : "no ") + c.name.toLowerCase(); }).join(", ");
+    return art("0 0 24 13", r, label, "sat");
   }
-  app.appendChild(makeElement("p", canLaunch ? "verdict verdict-go" : "verdict verdict-nogo", verdictText));
 
-  var list = makeElement("ul", "check-list");
-  addCheckItems(list, blockers, "blocker", "No go");
-  addCheckItems(list, warnings, "warning", "Warning");
-  if (blockers.length === 0 && warnings.length === 0) {
-    var allClear = makeElement("li", "check check-go");
-    allClear.appendChild(makeElement("span", "check-tag", "Go"));
-    allClear.appendChild(makeElement("span", "check-text", "Every check passed."));
-    list.appendChild(allClear);
+  // Mission control, who briefs the player.
+  function directorArt() {
+    return art("0 0 16 16", [
+      [0, 0, 16, 16, "#2a2957"],
+      [5, 2, 6, 3, "#5c3a26"], [4, 3, 1, 4, "#5c3a26"], [11, 3, 1, 4, "#5c3a26"],
+      [5, 5, 6, 6, PAL.skin], [6, 7, 1, 1, PAL.sky], [9, 7, 1, 1, PAL.sky], [7, 9, 2, 1, "#7a3b3b"],
+      [3, 5, 1, 3, PAL.line], [3, 4, 2, 1, PAL.line], [12, 5, 1, 3, PAL.line], [11, 4, 2, 1, PAL.line],
+      [12, 8, 1, 2, PAL.line], [10, 10, 3, 1, PAL.cyan],
+      [3, 12, 10, 4, PAL.navy], [6, 12, 4, 4, PAL.ink], [7, 12, 2, 2, PAL.cyan]
+    ], "Portrait of the mission director wearing a headset", "portrait");
   }
-  app.appendChild(list);
 
-  return canLaunch;
-}
-
-// Hand the design over to the Mission screen (js/ui-mission.js), if it exists.
-function launchMission() {
-  if (typeof showMissionScreen === "function") {
-    launchMessage = "";
-    showMissionScreen(getDesign());
-    return;
+  // Rocket on the pad at night.
+  function padArt(ready) {
+    var r = [
+      [0, 0, 187, 152, "#15132b"],
+      [14, 12, 1, 1, PAL.ink], [52, 30, 1, 1, PAL.muted], [70, 10, 2, 2, PAL.ink], [110, 22, 1, 1, PAL.ink],
+      [146, 40, 1, 1, PAL.muted], [170, 14, 2, 2, PAL.gold], [160, 74, 1, 1, PAL.ink], [30, 66, 1, 1, PAL.ink],
+      [22, 20, 14, 14, PAL.ink], [26, 24, 3, 3, PAL.muted], [31, 29, 2, 2, PAL.muted],
+      [0, 136, 187, 16, "#2a2957"], [0, 136, 187, 1, PAL.line], [60, 132, 76, 4, PAL.line],
+      [124, 60, 4, 72, PAL.line], [114, 78, 10, 2, PAL.line], [114, 104, 10, 2, PAL.line],
+      [125, 56, 2, 2, ready ? PAL.cyan : PAL.red]
+    ];
+    var rocket = [
+      [5, 0, 2, 2, PAL.red], [4, 2, 4, 2, PAL.ink], [3, 4, 6, 16, PAL.ink], [8, 4, 1, 16, PAL.muted],
+      [5, 7, 2, 2, PAL.cyan], [3, 12, 6, 1, PAL.red], [1, 17, 2, 5, PAL.red], [9, 17, 2, 5, PAL.red], [4, 20, 4, 2, PAL.line]
+    ];
+    rocket.forEach(function (q) { r.push([78 + q[0] * 3, 66 + q[1] * 3, q[2] * 3, q[3] * 3, q[4]]); });
+    r.push([66, 126, 8, 6, PAL.muted, 0.5], [118, 124, 10, 8, PAL.muted, 0.5]);
+    return art("0 0 187 152", r, ready ? "A rocket on the pad, tower light green" : "A rocket on the pad, tower light red", "scene");
   }
-  launchMessage = "Mission screen not built yet. Your design is ready and waiting on the pad.";
-  render();
-}
 
-// ---------- Shared screen parts ----------
+  // Small 8x8 icons for the parts bins.
+  var BIN_ICONS = {
+    instrument: [[0, 2, 8, 5, PAL.ink], [2, 1, 2, 1, PAL.ink], [3, 3, 3, 3, PAL.sky], [4, 4, 1, 1, PAL.cyan]],
+    power:      [[0, 1, 8, 6, PAL.blue], [2, 1, 1, 6, PAL.sky], [5, 1, 1, 6, PAL.sky], [0, 4, 8, 1, PAL.sky]],
+    comms:      [[3, 4, 2, 4, PAL.muted], [3, 2, 2, 2, PAL.gold], [0, 1, 1, 3, PAL.cyan], [7, 1, 1, 3, PAL.cyan], [1, 0, 1, 1, PAL.cyan], [6, 0, 1, 1, PAL.cyan]],
+    computer:   [[1, 1, 6, 6, PAL.sky], [2, 2, 4, 4, PAL.ink], [3, 3, 2, 2, PAL.sky], [0, 2, 1, 1, PAL.muted], [7, 5, 1, 1, PAL.muted]],
+    propulsion: [[3, 0, 2, 5, PAL.ink], [2, 4, 1, 2, PAL.red], [5, 4, 1, 2, PAL.red], [3, 6, 2, 2, PAL.gold]]
+  };
 
-function addScreenHeading(app, title, lesson) {
-  var heading = makeElement("h2", "screen-title", title);
-  heading.id = "screen-title";
-  heading.tabIndex = -1;
-  app.appendChild(heading);
-  app.appendChild(makeElement("p", "screen-lesson", lesson));
-}
+  // ---------------------------------------------------------------- shell: header, steps, hints
+  function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
 
-// Back and Next buttons. On the review screen, Next becomes Launch.
-function addScreenButtons(app, canLaunch) {
-  var index = DESIGN_SCREENS.indexOf(currentScreen);
-  var row = makeElement("div", "screen-buttons");
-
-  var back = makeElement("button", "button", "Back");
-  back.type = "button";
-  back.setAttribute("data-key", "nav:back");
-  if (index === 0) {
-    back.disabled = true;
-  } else {
-    back.addEventListener("click", function () { goToScreen(DESIGN_SCREENS[index - 1]); });
+  function setStatus(text) {
+    var node = document.getElementById("status");
+    if (node) node.textContent = text;
   }
-  row.appendChild(back);
 
-  if (currentScreen === "review") {
-    var launch = makeElement("button", "button button-primary", "Launch");
-    launch.type = "button";
-    launch.id = "launch-button";
-    launch.setAttribute("data-key", "nav:launch");
-    launch.disabled = !canLaunch;
-    launch.addEventListener("click", launchMission);
-    row.appendChild(launch);
-  } else {
-    var next = makeElement("button", "button button-primary", "Next");
-    next.type = "button";
-    next.setAttribute("data-key", "nav:next");
-    next.addEventListener("click", function () { goToScreen(DESIGN_SCREENS[index + 1]); });
-    row.appendChild(next);
+  function designStatus() {
+    var t = tier();
+    if (!t) return "Space Mission Design Game";
+    var totals = getTotals(state.design);
+    return t.name.toUpperCase() + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
   }
-  app.appendChild(row);
 
-  if (currentScreen === "review") {
-    var message = makeElement("p", "launch-message", canLaunch ? launchMessage : "Fix the blockers above to unlock Launch.");
-    message.id = "launch-message";
-    message.setAttribute("role", "status");
-    app.appendChild(message);
+  function setStep(screen) {
+    var nav = document.getElementById("steps");
+    if (!nav) return;
+    while (nav.firstChild) nav.removeChild(nav.firstChild);
+    var current = -1;
+    STEPS.forEach(function (s, i) { if (s.id === screen) current = i; });
+    STEPS.forEach(function (s, i) {
+      var designIndex = DESIGN_STEPS.indexOf(s.id);
+      var clickable = !state.locked && state.design && designIndex !== -1 && designIndex <= state.reached && s.id !== screen;
+      var done = current !== -1 && i < current;
+      var b = el("button", {
+        type: "button",
+        class: "step" + (done ? " done" : ""),
+        "aria-current": s.id === screen ? "step" : null,
+        disabled: !clickable,
+        "aria-label": "Step " + (i + 1) + ": " + s.label.toLowerCase(),
+        onclick: function () { go(s.id); }
+      }, [el("span", { class: "step-num", text: String(i + 1) }), el("span", { class: "step-label", text: s.label })]);
+      nav.appendChild(el("li", null, [b]));
+      if (i < STEPS.length - 1) nav.appendChild(el("li", { "aria-hidden": "true" }, [el("span", { class: "step-link" + (done ? " done" : "") })]));
+    });
   }
-}
 
-// ---------- Drawing and navigation ----------
+  function setHint(screen) {
+    var box = document.getElementById("hint");
+    var btn = document.getElementById("help-btn");
+    if (!box || !btn) return;
+    var mode = tier() ? tier().hints : "on";
+    var text = HINTS[screen] || "";
+    btn.hidden = !(mode === "request" && text);
+    btn.setAttribute("aria-expanded", state.hintOpen ? "true" : "false");
+    box.hidden = !text || mode === "off" || (mode === "request" && !state.hintOpen);
+    box.textContent = text;
+  }
 
-// Redraw the current screen, the step navigation and the four bars.
-function render() {
-  var app = document.getElementById("app");
-  if (!app) return;
-  var design = getDesign();
+  function mount(screen, node) {
+    state.screen = screen;
+    var app = document.getElementById("app");
+    while (app.firstChild) app.removeChild(app.firstChild);
+    app.appendChild(node);
+    setStep(screen);
+    setHint(screen);
+  }
 
-  // Remember which card or button had keyboard focus, to give it back after the redraw.
-  var active = document.activeElement;
-  var focusKey = active && active.getAttribute ? active.getAttribute("data-key") : null;
-
-  clearElement(app);
-  var canLaunch = false;
-  if (currentScreen === "briefing") renderBriefing(app, design);
-  if (currentScreen === "orbit") renderOrbit(app, design);
-  if (currentScreen === "build") renderBuild(app, design);
-  if (currentScreen === "launcher") renderLauncher(app, design);
-  if (currentScreen === "review") canLaunch = renderReview(app, design);
-  addScreenButtons(app, canLaunch);
-
-  updateSteps();
-  updateBars();
-
-  if (focusKey) {
-    var keyed = app.querySelectorAll("[data-key]");
-    for (var i = 0; i < keyed.length; i++) {
-      if (keyed[i].getAttribute("data-key") === focusKey && !keyed[i].disabled) {
-        keyed[i].focus();
-        break;
-      }
+  // Redraws the current screen and keeps keyboard focus on the same control.
+  function redraw() {
+    var active = document.activeElement;
+    var key = active && active.getAttribute ? active.getAttribute("data-key") : null;
+    draw(state.screen);
+    if (key) {
+      var again = document.querySelector('[data-key="' + key + '"]');
+      if (again) again.focus();
     }
   }
-}
 
-// Move to another design screen after a click.
-function goToScreen(screenName) {
-  if (DESIGN_SCREENS.indexOf(screenName) === -1) return;
-  currentScreen = screenName;
-  launchMessage = "";
-  render();
-  window.scrollTo(0, 0);
-  var heading = document.getElementById("screen-title");
-  if (heading) heading.focus();
-}
+  function go(screen) {
+    var i = DESIGN_STEPS.indexOf(screen);
+    if (i > state.reached) state.reached = i;
+    state.hover = null;
+    state.hintOpen = false;
+    draw(screen);
+    var app = document.getElementById("app");
+    if (app) app.focus();
+    window.scrollTo(0, 0);
+  }
 
-// Public: show one design screen. `design` is optional and replaces the current one,
-// so the Debrief can send the player back to Build with the same design loaded.
-// screenName: briefing | orbit | build | launcher | review
-function showDesignScreen(screenName, design) {
-  if (design) currentDesign = design;
-  currentScreen = DESIGN_SCREENS.indexOf(screenName) === -1 ? "briefing" : screenName;
-  launchMessage = "";
-  render();
-  window.scrollTo(0, 0);
-}
+  function draw(screen) {
+    if (screen === "title" || !state.design) return mount("title", drawTitle());
+    state.screen = screen;   // set first: the check list reads it while drawing
+    setStatus(designStatus());
+    if (screen === "briefing") return mount(screen, drawBriefing());
+    if (screen === "orbit") return mount(screen, drawOrbit());
+    if (screen === "build") return mount(screen, drawBuild());
+    if (screen === "launcher") return mount(screen, drawLauncher());
+    if (screen === "review") return mount(screen, drawReview());
+    return mount("title", drawTitle());
+  }
 
-// Start on the Briefing screen as soon as this file loads.
-setUpSteps();
-showDesignScreen("briefing");
+  function head(title, text) {
+    return el("div", { class: "screen-head" }, [el("h1", { text: title }), text ? el("p", { text: text }) : null]);
+  }
+
+  function navRow(backTo, nextTo, nextOk, nextLabel) {
+    return el("div", { class: "nav-row" }, [
+      backTo ? button(["< ", "BACK"], function () { go(backTo); }) : el("span"),
+      nextTo ? button([nextLabel || "CONTINUE", " >"], function () { go(nextTo); }, { primary: true, disabled: !nextOk }) : null
+    ]);
+  }
+
+  // ---------------------------------------------------------------- the four resource bars
+  function barClass(m) { return !isNum(m) ? "" : m < 0 ? " bad" : m < 0.1 ? " warn" : ""; }
+
+  function bar(name, right, fill, cls, note) {
+    var pct = isNum(fill) ? Math.max(0, Math.min(1, fill)) * 100 : 0;
+    return el("div", { class: "bar" + (cls || "") }, [
+      el("div", { class: "bar-top" }, [el("span", { text: name }), el("span", { text: right })]),
+      el("div", { class: "bar-track", role: "presentation" }, [el("div", { class: "bar-fill", style: "width: " + pct + "%" })]),
+      note ? el("div", { class: "bar-note", text: note }) : null
+    ]);
+  }
+
+  function resourceBars(design) {
+    var t = getTotals(design);
+    var m = t.margins || {};
+    var massRight = t.capacity_kg ? num(t.mass_kg) + " / " + num(t.capacity_kg, 0) + " KG" : num(t.mass_kg) + " KG";
+    var dataLost = t.data_gb_day > t.data_returned_gb_day;
+    return el("div", { class: "bars" }, [
+      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass),
+          t.capacity_kg ? null : "Pick a rocket to see the limit"),
+      bar("POWER", num(t.power_draw_w, 0) + " / " + num(t.power_gen_w, 0) + " W",
+          isNum(m.power) ? 1 - m.power : (t.power_draw_w > 0 ? 1 : 0), isNum(m.power) ? barClass(m.power) : (t.power_draw_w > 0 ? " bad" : ""),
+          t.power_gen_w ? null : "Nothing makes power yet"),
+      bar("BUDGET", money(t.cost_musd) + " / " + money(t.budget_musd), isNum(m.budget) ? 1 - m.budget : null, barClass(m.budget)),
+      // For data a full bar is good: it is the share of data that reaches the ground.
+      bar("DATA HOME", num(t.data_returned_gb_day) + " / " + num(t.data_gb_day) + " GB/DAY",
+          t.data_gb_day > 0 ? t.data_returned_gb_day / t.data_gb_day : 0,
+          dataLost ? (t.data_returned_gb_day > 0 ? " warn" : " bad") : "",
+          !design.orbit ? "Pick an orbit to see ground contact" : null)
+    ]);
+  }
+
+  function checkList(design, opts) {
+    opts = opts || {};
+    var checks = runChecks(design);
+    var rows = [];
+    checks.blockers.forEach(function (c) {
+      if (opts.skip && opts.skip.indexOf(c.id) !== -1) return;
+      rows.push({ c: c, kind: "bad", status: opts.short ? "[X]" : "NO GO" });
+    });
+    checks.warnings.forEach(function (c) { rows.push({ c: c, kind: "warn", status: opts.short ? "[!]" : "WARN" }); });
+    if (!rows.length) return opts.short ? el("p", { class: "preview-line fix", text: "No problems right now." }) : null;
+    return el("ul", { class: "checks" }, rows.map(function (row) {
+      var target = FIX_SCREEN[row.c.id] || "build";
+      return el("li", { class: "check " + row.kind }, [
+        el("span", { text: row.c.text }),
+        opts.fix && target !== state.screen
+          ? el("button", { type: "button", class: "fix", onclick: function () { go(target); },
+              "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
+          : el("span", { class: "status", text: row.status })
+      ]);
+    }));
+  }
+
+  // ---------------------------------------------------------------- tier select (title)
+  function drawTitle() {
+    setStatus("Space Mission Design Game");
+    state.locked = false;
+    var tiers = data("TIERS");
+    var progress = typeof getProgress === "function" ? getProgress() : { best_stars: {} };
+    var cards = tiers.map(function (t) {
+      var open = typeof isTierUnlocked === "function" ? isTierUnlocked(t.id) : true;
+      var best = (progress.best_stars || {})[t.id] || 0;
+      return el("button", {
+        type: "button", class: "card" + (open ? "" : " locked"), disabled: !open, "data-key": "tier-" + t.id,
+        onclick: function () {
+          state.design = newDesign(t.id);
+          state.reached = 0;
+          go("briefing");
+        }
+      }, [
+        el("div", { class: "card-title" }, [el("h3", { text: t.name.toUpperCase() }),
+          el("span", { class: "stars", text: starsText(best), "aria-label": best + " of 3 stars" })]),
+        facts([
+          ["Budget", money(t.budget_musd)],
+          ["Events per mission", num(t.events, 0)],
+          ["Hints", t.hints === "on" ? "On" : t.hints === "request" ? "On request" : "Off"]
+        ]),
+        open ? null : el("p", { class: "card-blurb", text: "Earn 2 stars on the previous tier." })
+      ]);
+    });
+    return el("section", { class: "title" }, [
+      el("div", { class: "kicker", text: "A SPACE MISSION DESIGN GAME" }),
+      el("h1", { class: "big-title", text: "STARLINE" }),
+      el("p", { class: "tagline", text: "Pick a job for a satellite. Build it under hard limits. Launch it, and learn why it worked or failed." }),
+      el("h2", { class: "subhead", text: "CHOOSE A TIER" }),
+      tiers.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No tiers in the data yet." }),
+      el("div", null, [button("RESET PROGRESS", function () {
+        if (typeof resetProgress === "function" && window.confirm("Forget every star you have earned?")) { resetProgress(); draw("title"); }
+      })])
+    ]);
+  }
+
+  // ---------------------------------------------------------------- 1 Briefing
+  function wantsLine(objective) {
+    // Instrument names whose tags match; the first wanted type counts fully, the others half.
+    var parts = data("PARTS").filter(function (p) { return p.category === "instrument"; });
+    return list(objective.wants).map(function (tag, i) {
+      var names = parts.filter(function (p) { return list(p.tags).indexOf(tag) !== -1; }).map(function (p) { return p.name; });
+      return (names.length ? names.join(" or ") : tag) + (i === 0 ? " (counts fully)" : " (counts half)");
+    }).join("; ");
+  }
+
+  function drawBriefing() {
+    var d = state.design;
+    var objectives = data("OBJECTIVES");
+    var chosen = byId(objectives, d.objective);
+    var cards = objectives.map(function (o) {
+      return el("button", {
+        type: "button", class: "card", "aria-pressed": d.objective === o.id ? "true" : "false", "data-key": "obj-" + o.id,
+        onclick: function () { setObjective(d, o.id); redraw(); }
+      }, [
+        el("div", { class: "card-title" }, [el("h3", { text: o.name.toUpperCase() }),
+          d.objective === o.id ? el("span", { class: "tag on", text: "CHOSEN" }) : null]),
+        el("p", { text: o.briefing }),
+        facts([["Science target", num(o.science_target, 0) + " points"], ["What counts", wantsLine(o)]])
+      ]);
+    });
+    return el("section", { class: "screen" }, [
+      head("1 · BRIEFING", "Decide the goal before the hardware."),
+      el("div", { class: "dialogue" }, [
+        directorArt(),
+        el("div", null, [
+          el("div", { class: "speaker" }, [el("h2", { text: "MISSION DIRECTOR" }), el("span", { text: "Ground control" })]),
+          el("p", { class: "speech", text: chosen
+            ? chosen.name + ". Good. Now find an orbit that can actually see it."
+            : "Two jobs on the board today. Pick one, and I will find you a budget." })
+        ])
+      ]),
+      objectives.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No objectives in the data yet." }),
+      navRow("title", "orbit", !!d.objective)
+    ]);
+  }
+
+  // ---------------------------------------------------------------- 2 Orbit
+  function drawOrbit() {
+    var d = state.design;
+    var objective = byId(data("OBJECTIVES"), d.objective);
+    var cards = data("ORBITS").map(function (o) {
+      var probe = newDesign(d.tier);
+      setOrbit(probe, o.id);
+      var f = getOrbitFacts(probe);
+      var fit = objective && objective.orbit_fit ? objective.orbit_fit[o.id] : undefined;
+      var badge = !isNum(fit) ? null
+        : fit === 0 ? el("span", { class: "tag bad", text: "CANNOT SEE TARGET" })
+        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL VIEW" })
+        : el("span", { class: "tag good", text: "GOOD VIEW" });
+      return el("button", {
+        type: "button", class: "card" + (fit === 0 ? " dim" : ""), "aria-pressed": d.orbit === o.id ? "true" : "false",
+        "data-key": "orbit-" + o.id, onclick: function () { setOrbit(d, o.id); redraw(); }
+      }, [
+        el("div", { class: "card-title" }, [el("h3", { text: o.name.toUpperCase() }), badge]),
+        el("p", { class: "card-blurb", text: o.blurb }),
+        facts([
+          ["Altitude", num(o.altitude_km, 0) + " km"],
+          ["One lap", num(f.period_min) + " min"],
+          ["Laps a day", num(f.laps_per_day)],
+          ["In Earth's shadow", num(f.eclipse_min) + " min a lap"],
+          ["Mission lifetime", num(o.lifetime_months, 0) + " months"]
+        ])
+      ]);
+    });
+    return el("section", { class: "screen" }, [
+      head("2 · ORBIT", objective ? "Where should a satellite for " + objective.name.toLowerCase() + " fly?" : "Where you fly changes everything else."),
+      cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No orbits in the data yet." }),
+      navRow("briefing", "build", !!d.orbit)
+    ]);
+  }
+
+  // ---------------------------------------------------------------- 3 Build
+  function partStats(p) {
+    var bits = [];
+    if (p.mass_kg) bits.push(num(p.mass_kg) + " kg");
+    if (p.power_draw_w) bits.push(num(p.power_draw_w, 0) + " W draw");
+    if (p.data_gb_day) bits.push(num(p.data_gb_day) + " GB/day made");
+    if (p.downlink_gb_day) bits.push(num(p.downlink_gb_day) + " GB/day radio");
+    if (p.battery_wh) bits.push(num(p.battery_wh, 0) + " Wh");
+    return bits.join(" · ");
+  }
+
+  function partCard(p) {
+    var d = state.design;
+    var on = list(d.parts).indexOf(p.id) !== -1;
+    var f = getPartFacts(d, p.id) || {};
+    var extra = [];
+    if (f.power_gen_w) extra.push("Makes " + num(f.power_gen_w, 0) + " W in sunlight");
+    if (isNum(f.science_per_month)) extra.push(num(f.science_per_month) + " science a month");
+    if (isNum(f.resolution_m)) extra.push("Sees " + num(f.resolution_m) + " m detail");
+    var note = f.counts === false ? "Does not count for this objective"
+      : f.sharp_enough === false ? "Too blurry from this orbit" : null;
+    function preview() { state.hover = p.id; refreshPreview(); }
+    return el("button", {
+      type: "button", class: "part" + (note ? " dim" : ""), "aria-pressed": on ? "true" : "false", "data-key": "part-" + p.id,
+      onclick: function () { if (on) removePart(d, p.id); else addPart(d, p.id); redraw(); },
+      onmouseenter: preview, onfocus: preview,
+      onmouseleave: function () { state.hover = null; refreshPreview(); }
+    }, [
+      el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost", text: money(p.cost_musd) })]),
+      el("span", { class: "part-stats", text: partStats(p) }),
+      extra.length ? el("span", { class: "part-stats", text: extra.join(" · ") }) : null,
+      el("span", { class: "part-stats", text: p.blurb }),
+      note ? el("span", { class: "part-note", text: note }) : null,
+      on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
+    ]);
+  }
+
+  // What clicking the hovered part would change (previewToggle), drawn in place.
+  function drawPreview() {
+    var box = el("div", { class: "panel preview", id: "preview", "aria-live": "polite" }, [el("h2", { text: "IF YOU CLICK" })]);
+    if (!state.hover) {
+      box.appendChild(el("p", { class: "preview-empty", text: "Point at a part to see what it would change." }));
+      return box;
+    }
+    var p = byId(data("PARTS"), state.hover);
+    var t = previewToggle(state.design, state.hover);
+    var dl = t.delta || {};
+    var bits = [];
+    if (dl.mass_kg) bits.push(signed(dl.mass_kg) + " kg");
+    if (dl.power_draw_w) bits.push(signed(dl.power_draw_w, 0) + " W draw");
+    if (dl.power_gen_w) bits.push(signed(dl.power_gen_w, 0) + " W made");
+    if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
+    if (dl.data_returned_gb_day) bits.push("data home " + signed(dl.data_returned_gb_day) + " GB/day");
+    if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
+    if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
+    if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
+    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + (p ? p.name.toUpperCase() : "") }));
+    box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
+    list(t.fixes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
+    list(t.causes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    return box;
+  }
+
+  function refreshPreview() {
+    var old = document.getElementById("preview");
+    if (old) old.parentNode.replaceChild(drawPreview(), old);
+  }
+
+  function sciencePanel(design) {
+    var s = previewScience(design);
+    var rows = list(s.instruments).map(function (i) {
+      return el("div", null, [el("dt", { text: i.name }), el("dd", { text: i.counts === false ? "does not count" : num(i.per_month) + " a month" })]);
+    });
+    return el("div", { class: "panel" }, [
+      el("h2", { text: "SCIENCE PREVIEW" }),
+      el("p", { text: "About " + num(s.total, 0) + " of " + num(s.target, 0) + " over " + num(s.months, 0) + " months, if nothing goes wrong." }),
+      rows.length ? el("dl", { class: "facts" }, rows) : null
+    ]);
+  }
+
+  function drawBuild() {
+    var d = state.design;
+    var parts = data("PARTS");
+    var count = {};
+    list(d.parts).forEach(function (id) { var p = byId(parts, id); if (p) count[p.category] = (count[p.category] || 0) + 1; });
+
+    var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(CATEGORIES.map(function (c) {
+      var n = count[c.id] || 0;
+      var need = c.required && !n;
+      return el("button", {
+        type: "button", class: "bin", "aria-pressed": state.bin === c.id ? "true" : "false", "data-key": "bin-" + c.id,
+        onclick: function () { state.bin = c.id; state.hover = null; redraw(); }
+      }, [
+        art("0 0 8 8", BIN_ICONS[c.id] || [], null),
+        el("span", { class: "bin-text" }, [
+          el("span", { class: "bin-name", text: c.name }),
+          el("span", { class: "bin-sub" + (need ? " need" : ""), text: need ? "Needed" : n ? n + " on board" : c.sub })
+        ])
+      ]);
+    })));
+
+    var built = CATEGORIES.filter(function (c) { return count[c.id]; }).length;
+    var bench = el("div", { class: "bench" }, [
+      el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
+        el("span", { text: list(d.parts).length + " parts · " + built + " of " + CATEGORIES.length + " systems" })]),
+      satelliteArt(d),
+      drawPreview()
+    ]);
+
+    var overview = el("div", { class: "panel" }, [
+      el("h2", { text: "MISSION OVERVIEW" }),
+      resourceBars(d),
+      el("h2", { class: "divided", text: "PROBLEMS" }),
+      checkList(d, { short: true, skip: ["no-launcher", "launcher-reach", "mass", "mass-margin"] })
+    ]);
+
+    var cat = byId(CATEGORIES, state.bin) || CATEGORIES[0];
+    var shelfParts = parts.filter(function (p) { return p.category === cat.id; });
+    var shelf = el("div", { class: "panel" }, [
+      el("h2", { text: "AVAILABLE " + cat.name }),
+      shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
+        : el("p", { class: "empty", text: "No parts in this bin yet." })
+    ]);
+
+    return el("section", { class: "screen" }, [
+      head("3 · BUILD", "Click a part to add it, click again to remove it. Several parts per bin are allowed."),
+      el("div", { class: "workshop" }, [bins, bench, el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
+      shelf,
+      navRow("orbit", "launcher", true)
+    ]);
+  }
+
+  // ---------------------------------------------------------------- 4 Launch vehicle
+  function drawLauncher() {
+    var d = state.design;
+    var totals = getTotals(d);
+    var orbit = byId(data("ORBITS"), d.orbit);
+    var cards = data("LAUNCHERS").map(function (l) {
+      var cap = orbit && l.capacity_kg ? l.capacity_kg[orbit.id] : null;
+      var reach = isNum(cap) && cap > 0;
+      var fits = reach && cap >= totals.mass_kg;
+      var tag = !orbit ? null
+        : !reach ? el("span", { class: "tag bad", text: "CANNOT REACH" })
+        : fits ? el("span", { class: "tag good", text: "FITS" })
+        : el("span", { class: "tag bad", text: "TOO SMALL" });
+      return el("button", {
+        type: "button", class: "card" + (orbit && !reach ? " locked" : ""), disabled: !!(orbit && !reach),
+        "aria-pressed": d.launcher === l.id ? "true" : "false", "data-key": "rocket-" + l.id,
+        onclick: function () { setLauncher(d, l.id); redraw(); }
+      }, [
+        el("div", { class: "card-title" }, [el("h3", { text: l.name.toUpperCase() }), tag]),
+        el("p", { class: "card-blurb", text: l.blurb }),
+        facts([
+          ["Price", money(l.cost_musd)],
+          orbit ? ["Lifts to " + orbit.name.toLowerCase(), reach ? num(cap, 0) + " kg" : "cannot reach"] : null,
+          ["Your spacecraft", num(totals.mass_kg) + " kg"]
+        ])
+      ]);
+    });
+    return el("section", { class: "screen" }, [
+      head("4 · LAUNCH VEHICLE", "A bigger rocket solves mass and eats the budget."),
+      el("div", { class: "pad" }, [
+        cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No rockets in the data yet." }),
+        el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])
+      ]),
+      navRow("build", "review", true)
+    ]);
+  }
+
+  // ---------------------------------------------------------------- 5 Readiness review (launch control)
+  function drawReview() {
+    var d = state.design;
+    var checks = runChecks(d);
+    var blocked = checks.blockers.length > 0;
+    var warned = checks.warnings.length > 0;
+    var names = function (ids, items) {
+      return list(ids).map(function (id) { var x = byId(items, id); return x ? x.name : id; }).join(", ");
+    };
+    var objective = byId(data("OBJECTIVES"), d.objective);
+    var orbit = byId(data("ORBITS"), d.orbit);
+    var rocket = byId(data("LAUNCHERS"), d.launcher);
+    var control = el("div", { class: "panel" }, [
+      el("span", { class: "countdown-label", text: "T-MINUS" }),
+      el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
+      el("p", { class: "verdict " + (blocked ? "bad" : warned ? "warn" : "ok"),
+        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "") : "ALL SYSTEMS GO" }),
+      checkList(d, { fix: true }),
+      facts([
+        ["Objective", objective ? objective.name : "not chosen"],
+        ["Orbit", orbit ? orbit.name : "not chosen"],
+        ["Parts", list(d.parts).length ? names(d.parts, data("PARTS")) : "none"],
+        ["Rocket", rocket ? rocket.name : "not chosen"]
+      ]),
+      button(blocked ? "LAUNCH" : warned ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
+      blocked ? el("p", { class: "bar-note", text: "Fix the NO GO lines to unlock launch." }) : null
+    ]);
+    return el("section", { class: "screen" }, [
+      head("5 · READINESS REVIEW", "Go or no-go. Blockers stop the launch; warnings cost points."),
+      el("div", { class: "pad" }, [
+        el("div", { class: "stack" }, [padArt(!blocked), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])]),
+        control
+      ]),
+      navRow("launcher", null)
+    ]);
+  }
+
+  function launch() {
+    if (runChecks(state.design).blockers.length) return;
+    if (typeof window.showMissionScreen === "function") {
+      state.locked = true;
+      window.showMissionScreen(state.design);
+    }
+  }
+
+  // ---------------------------------------------------------------- start-up and shared names
+  function showDesignScreen(screenName, design) {
+    if (design) state.design = design;
+    state.locked = false;
+    if (screenName === "title") { state.design = null; state.reached = 0; }
+    var i = DESIGN_STEPS.indexOf(screenName);
+    if (i !== -1 && i > state.reached) state.reached = i;
+    // A fresh design starts over; coming back to redesign, every step has been visited.
+    if (design && screenName === "briefing") state.reached = 0;
+    else if (design) state.reached = DESIGN_STEPS.length - 1;
+    go(screenName || "briefing");
+  }
+
+  window.showDesignScreen = showDesignScreen;
+  window.StarlineUI = {
+    el: el, art: art, facts: facts, button: button, num: num, money: money, starsText: starsText,
+    byId: byId, data: data, list: list, directorArt: directorArt,
+    setStep: setStep, setHint: setHint, setStatus: setStatus,
+    lock: function () { state.locked = true; },
+    mount: function (screen, node) {
+      state.screen = screen;
+      var app = document.getElementById("app");
+      while (app.firstChild) app.removeChild(app.firstChild);
+      app.appendChild(node);
+      setStep(screen);
+      setHint(screen);
+      app.focus();
+      window.scrollTo(0, 0);
+    },
+    tierName: function () { var t = tier(); return t ? t.name.toUpperCase() : ""; }
+  };
+
+  function start() {
+    var help = document.getElementById("help-btn");
+    if (help) help.addEventListener("click", function () { state.hintOpen = !state.hintOpen; setHint(state.screen); });
+    draw("title");
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
