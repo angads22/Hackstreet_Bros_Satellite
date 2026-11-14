@@ -8,9 +8,11 @@ A browser game where the player designs a satellite mission under tight limits, 
 
 The core loop takes about five minutes: choose an objective, build the spacecraft, check the margins, launch, read the debrief, redesign. Everything we build serves that loop. One mission that plays start to finish beats three half-built ones.
 
+Missions sit inside a **campaign**. The player runs their own space programme: nobody tells them what to measure. Money and knowledge carry from one satellite to the next, money is spent at launch, and the payout is for **new** knowledge, so repeating a topic pays less each time. Sometimes the best move is a fresh topic rather than a better satellite for the same one. A single mission must still play on its own, with no campaign, at every commit.
+
 - **Platform:** plain HTML, CSS and JavaScript. No frameworks, no build step. It runs from a link.
 - **Players:** one player first. Pass-and-play roles for up to four come later, if time allows.
-- **Scenario:** an Earth-observation satellite with three orbit choices.
+- **Scenario:** a campaign of Earth-observation missions, with three orbit choices, two topics at the start and more opened by research.
 - **Give this whole doc to your AI** at the start of every session, so all six assistants build the same game.
 
 ## How we are judged
@@ -19,8 +21,8 @@ Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026).
 
 | Criterion | What a 5 looks like | Where we stand | What we change |
 | --- | --- | --- | --- |
-| **Impact** | A significant problem, a large audience, inspiring | Teaches mission design to anyone with a browser; wildfire and sea ice are real, current problems | The debrief ties each result to the real problem ("your satellite would have reported X of last year's fires") |
-| **Creativity** | Original, improves on existing ideas | Adds what the NASA telescope game lacks: hard limits, random events and a debrief explaining *why* | Play the mission against real NASA observations of last year's Earth, which no comparable game does |
+| **Impact** | A significant problem, a large audience, inspiring | Teaches mission design to anyone with a browser; wildfire and sea ice are real, current problems | The debrief ties each result to the real problem; the campaign teaches that science is paid for by what is *new* ("you pay to learn") |
+| **Creativity** | Original, improves on existing ideas | Adds what the NASA telescope game lacks: hard limits, random events and a debrief explaining *why* | Missions played against real NASA observations, inside a persistent economy that rewards new knowledge over repetition; no comparable game does either |
 | **Validity** | Scientifically sound, feasible, usable | Eight real formulas with hand-worked tests; parts from NASA's Small Spacecraft State of the Art report | Put the formula tests on `main` and cite them on the project page; one sourcing pass before submission (Data task 3) |
 | **Relevance** | NASA data is a **core component**, not an add-on | Was the weakest; now NASA FIRMS and NSIDC data drive the simulation | Done: see "NASA data in the game" below |
 | **Presentation** | Clear, engaging story; the demo and the whole project are judged | No QA owner yet, so no one owns the demo | Assign the demo now; script it around the core loop: build, fail, read the debrief, fix, succeed |
@@ -34,6 +36,21 @@ Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026).
 
 **Global awards worth aiming at:** Best Use of Data (real NASA data driving the game), Best Mission Concept (plausible concept and design), Best Storytelling (the debrief), Most Inspirational.
 
+### Honest audit (Saturday evening)
+
+What a strict judge would mark down today, and what we do about it. Recheck this list at every checkpoint.
+
+| Risk | Criterion | Fix |
+| --- | --- | --- |
+| **The era contradicts itself.** The campaign story began in 1957, but the game uses 2025 NASA data, modern parts and 2025 prices. | Validity | The calendar starts at `CAMPAIGN.start_year`, and the text never names an era the data cannot support. **Open decision for the data owner:** a modern "new space race" start (for example 2027) keeps every number honest; a 1957 start needs era parts and era data (see Phase F). |
+| **Wording overclaims.** A MODIS detection is a hot pixel, not a fire. | Validity | All text says "fire detections". |
+| **The economy's numbers are invented.** | Validity | `value_musd`, `knowledge_scale`, grants and research costs are labelled game values. The knowledge curve is described as a model of diminishing returns, not a fact. |
+| **No screens yet; the campaign adds a hub.** A half-built interface hurts usability and the demo. | Validity, Presentation | A single mission plays without a campaign at every commit. Research (Phase E) and new content (Phase F) start only once the seven screens and the hub play end to end. |
+| **The economy could bury the lesson.** | Impact | The debrief leads with what limited the mission and one concrete change; the payout comes second. |
+| **Event choices barely matter** (red team B5). | Creativity, Impact | 3 stars need the science target; lost months and event costs count against everything they affect; each choice shows its odds. |
+| **Orbit choice is solved** (polar orbit wins both objectives, red team B2). | Creativity | Retune with the sweep before the Sunday 10:00 checkpoint; each orbit must win at least one objective and tier. |
+| **New topics without NASA data would weaken Relevance.** | Relevance | Phase F topics are chosen by what NASA data we can actually download (for example NASA Ozone Watch), not by era. Any topic without real data is labelled as game values. |
+
 ### NASA data in the game
 
 To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else (no `fetch`).
@@ -43,13 +60,15 @@ To move Relevance from add-on to core, two small real data sets drive the missio
 
 **Built and on `main`.** `data/earth.js` holds the real numbers, `tools/earth_data.py` rebuilds them from the original downloads, and both sources are in `SOURCES.md`. What the data showed:
 
-- NASA MODIS detected **3,693,555 fires in 2025**; August was the peak month (15%), 75% burned in the tropics and 7.9% north or south of 50 degrees.
-- A low orbit sees 92% of them, a polar orbit all of them, and one geostationary satellite only one side of Earth: 69% from Meteosat's slot over Africa and Europe, just 24% from GOES-East over the Americas. The game places geostationary at 0 degrees.
+- NASA MODIS made **3,693,555 active-fire detections in 2025** (a detection is one hot pixel on one pass, not one distinct fire); August was the peak month (15%), 75% were in the tropics and 7.9% north or south of 50 degrees.
+- A low orbit can see 92% of them, a polar orbit all of them, and one geostationary satellite only one side of Earth: 69% from Meteosat's slot over Africa and Europe, just 24% from GOES-East over the Americas. The game places geostationary at 0 degrees.
 - Arctic ice fell to **4.75 million km2 in September 2025, 26% below the 1981-2010 average**. At 75 degrees north the Sun never rises in November, December and January, so a camera maps nothing for three months a year; radar keeps working.
 
 ## Game progression
 
 A mission is seven screens in a fixed order. Each screen teaches one idea, and the player can go back to any earlier screen before launch.
+
+In a campaign, the seven screens sit between visits to the **Campaign hub**, which shows the year, the treasury, how much the player knows about each topic, and the research list. Starting a new campaign replaces tier select: the tier sets the campaign's starting treasury and its events. A mission with no campaign still starts from tier select, exactly as below.
 
 1. **Briefing.** The player picks a science objective, such as wildfire monitoring or sea-ice mapping. The objective sets a science target and says which instrument types count. *Teaches: decide the goal before the hardware.*
 2. **Orbit.** The player picks one of three orbits. Each card states its trade-off in one line: image detail, time in contact with the ground, mission lifetime, and how hard it is to reach. *Teaches: where you fly changes everything else.*
@@ -181,7 +200,48 @@ Allowed effect keys are `lose_months`, `science_mult`, `cost_musd`, `fail_chance
 
 **Earth data** in `data/earth.js`: one global, `EARTH`, keyed by objective id, plus `start_month` (missions start in January). Wildfire: `detections`, `monthly_share` (12 values), `orbit_view` ({ leo, sso, geo }, share of real fires each orbit can see). Sea ice: `extent_mkm2` and `extent_1981_2010_mkm2` (12 values each), `daylight_share` (12 values, 0 = polar night). Each entry names its `source` and `year`. The game multiplies an instrument's science by `orbit_view`, by the month's share of fires (averaging 1 over the year), and, for cameras on sea ice, by `daylight_share`.
 
-**Debrief text** in `data/debrief.js`: one short paragraph per limiting factor, keyed `mass`, `power`, `budget`, `data`, `event`, `design` and `none`. `design` means nothing ran short but the instruments or orbit did not suit the objective; `none` means the target was reached.
+**Campaign settings** in `data/campaign.js`: one global, `CAMPAIGN`. All values are game values.
+
+```js
+const CAMPAIGN = {
+  start_year: 1957,           // calendar shown on the hub (era: see "Honest audit")
+  years_per_mission: 1,       // the year advances by this after each recorded mission
+  end_year: 1969,             // the campaign ends here, or earlier on a win
+  repeat_floor_musd: 0.3,     // minimum payout for any finished mission
+  win: { topics_known: 3, knowledge: 0.6 },   // win when this many topics reach this knowledge share
+  grant_musd: 4,              // agency grant added to the treasury after each mission
+  save_version: 1             // bump when the saved shape changes; an older save is discarded
+};
+```
+
+**Campaign fields on every objective** in `data/objectives.js`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `value_musd` | number | Total money for knowing the topic completely. Game value. |
+| `knowledge_scale` | number | Science points at which the player knows about 63% of the topic. Game value. |
+| `requires_research` | string or `null` | Research id that must be bought before the topic is offered. `null` = available from the start. |
+
+`science_target` keeps its meaning: the per-mission star target, not the knowledge ceiling.
+
+**Research** in `data/research.js`: one global, `RESEARCH`, six to eight records. Anything not named in any research record is available from the start, so `parts.js` and `launchers.js` gain no fields.
+
+```js
+{
+  id: "radar-lab",
+  name: "Radar laboratory",
+  cost_musd: 6,
+  requires: [],                   // research ids that must be bought first
+  unlocks: { parts: ["sar-radar"], launchers: [], objectives: ["sea-ice"] },
+  blurb: "One line the hub shows."
+}
+```
+
+**Tier field:** `grant_musd`, optional, overrides `CAMPAIGN.grant_musd` for that tier. In a campaign, `budget_musd` is the **starting treasury**.
+
+**Event field:** `objectives`, an optional array of objective ids. If present, the event fires only on missions for those topics.
+
+**Debrief text** in `data/debrief.js`: one short paragraph per limiting factor, keyed `mass`, `power`, `budget`, `data`, `event`, `design` and `none`, plus two campaign keys: `saturated` (this mission's knowledge gain was under 15% of a first mission's on the topic) and `breakthrough` (over 60%: a first look at a new topic). `design` means nothing ran short but the instruments or orbit did not suit the objective; `none` means the target was reached.
 
 Radar skips the resolution check (formula 6), because radar builds a synthetic aperture far larger than its antenna. This stays unless radar resolution starts to matter in play.
 
@@ -218,12 +278,22 @@ Checks and formulas live in `js/game.js`, owned by Rules. The simulation, events
 
 | Part of the score | Points | How it is earned |
 | --- | --- | --- |
-| Science returned | 60 | Share of the objective's `science_target` reached |
-| Budget left | 15 | Share of the budget unspent |
+| Science returned | 50 | Share of the objective's `science_target` reached |
+| Efficiency | 15 | Payout divided by everything spent (design, launch and event costs); full points at 1.5 |
 | Margins | 15 | Mass and power margins of 10% or more |
-| Events | 10 | Events survived without losing a part |
+| Events | 10 | Lost for each part lost, each month lost and each event cost paid |
+| Novelty | 10 | This mission's knowledge gain as a share of what a first mission on the topic would earn |
 
-One star at 50 points, two at 70, three at 90.
+One star at 50 points, two at 70, three at 90. **Three stars also need the science target reached.** Lost months and event costs count against everything they affect: science, treasury, efficiency, novelty and the event points. Without a campaign, efficiency and novelty are scored as if it were the first mission on the topic.
+
+**Payout** (campaign only), for the science `S` a mission actually sent home (a failed mission keeps what it sent before failing):
+
+```
+knowledge(S) = 1 - exp(-S / knowledge_scale)
+payout       = max(value_musd * (knowledge(S_after) - knowledge(S_before)), repeat_floor_musd)
+```
+
+**Ends:** a win when `win.topics_known` topics reach `win.knowledge`; a time-out at `end_year`. The game never soft-locks: if the treasury cannot afford the cheapest launchable design for any open topic, an emergency grant tops it up and the debrief says so.
 
 ### Debrief
 
@@ -417,7 +487,30 @@ recordResult(mission)           // call once per finished mission; returns { sta
 getProgress()                   // { best_stars: { tierId: n }, best_score: { tierId: n } }
 isTierUnlocked(tierId)          // true for Training, and for any tier after one with 2+ stars
 resetProgress()
+
+// js/mission.js (Simulation): campaign and saves. Without a campaign, nothing above changes.
+newCampaign(tierId)             // starts and saves a campaign; treasury = tier.budget_musd; replaces any save
+getCampaign()                   // the saved state, or null
+resetCampaign()
+getHubInfo()                    // { year, treasury_musd, topics: [{ id, name, available, knowledge, science_so_far,
+                                //   next_payout_estimate_musd, locked_reason }], research: [{ id, name, cost_musd,
+                                //   owned, affordable, requires_met, blurb }], finished, won }
+buyResearch(id)                 // { ok, reason }
+isPartAvailable(id), isLauncherAvailable(id), isObjectiveAvailable(id)   // false only when locked by research
+previewPayout(design)           // { expected_payout_musd, knowledge_before, knowledge_after, novelty, cost_musd, net_musd }
+exportSave()                    // the whole save (campaign and tier progress) as one text code; may be long
+importSave(code)                // { ok, reason }; a bad code never crashes and never overwrites a good save
 ```
+
+Changes in a campaign:
+
+- `getTotals` and `runChecks` use the treasury as the budget.
+- `runChecks` adds `part-locked`, `launcher-locked` and `objective-locked` blockers.
+- `startMission` returns null if there are blockers, takes a copy of the design (later edits never change a flown mission), and deducts the cost from the treasury.
+- `stepMonth`'s `event` carries each choice's real odds: `choices[i].fail_chance_now`, which includes the thin-margin penalty.
+- `recordResult` rejects an unfinished mission and pays only once. It also returns `{ payout_musd, knowledge_before, knowledge_after, novelty, treasury_musd, year, bailout, campaign_over, won }`.
+- `getDebrief` adds `payout_musd`, `knowledge_before`, `knowledge_after`, `novelty` and `best_next_topic`, and `breakdown` has `efficiency` and `novelty` instead of `budget`.
+- The seed: without a campaign, the same design replays the same mission exactly. In a campaign, the mission number is added, so each flight has fresh luck.
 
 All of these are live on `main` with real maths. Every one can be tried in the browser console (F12) before any screen exists.
 
@@ -430,6 +523,8 @@ This section tells the screens exactly what the player does on each screen, whic
 ### The loop
 
 ```
+New campaign / Continue -> Campaign hub -> 1 Briefing ... 7 Debrief -> back to the Campaign hub
+                           (or, with no campaign:)
 Tier select -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readiness --GO--> 6 Mission -> 7 Debrief
                   ^____________ back to any earlier screen, any time before launch ____|                        |
                                                    3 Build  <------------- "Redesign" (same design) ------------|
@@ -440,6 +535,24 @@ Tier select -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readine
 - **A step bar** across the top shows the seven screens. Before launch, every earlier screen is clickable. From launch on, the bar is locked until the Debrief.
 - **The four resource bars** (mass, power, budget, data) appear from Build onward, on Build, Launch vehicle and Readiness. Refresh them after every change with `getTotals(design)`.
 - **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Story writes the hint text.
+
+### Campaign hub (campaign only, outside the step bar)
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| Year and treasury | `getHubInfo()`: `year`, `treasury_musd` | Always visible. |
+| One card per topic | `topics[]`: `name`, `knowledge` as a bar, `next_payout_estimate_musd` | Locked topics show `locked_reason` ("Needs Radar laboratory"). |
+| Research list | `research[]`: `name`, `cost_musd`, `blurb`, `owned`, `affordable` | A Buy button calls `buyResearch(id)`, then the hub refreshes. |
+| Start a mission | `design = newDesign(campaign.tier)` | Opens Briefing. |
+| Save codes | `exportSave()`, `importSave(code)` | An "Export" box to copy from; an "Import" box with an error line on failure. |
+| Ending | `finished`, `won` | A win or time-out summary instead of the start button. |
+
+**Campaign additions to the seven screens:**
+
+- **Briefing** shows only available topics, each with its expected payout.
+- **Build and Launch vehicle** grey out locked parts and rockets with "Research needed: name". The budget bar's limit is the treasury. A line from `previewPayout(design)` reads: "Expected payout $X M, cost $Y M, net $Z M".
+- **Mission** shows each event choice's odds from `fail_chance_now`, for example "40% chance of losing the computer".
+- **Debrief** keeps the limiting factor and the "Try this" line **first**, then shows the payout, knowledge before and after as a bar, the `saturated` or `breakthrough` paragraph, and a "try a new topic" line from `best_next_topic`. "Redesign" becomes "Rebuild this satellite" (a fresh launch, paid again), and a new button returns to the hub.
 
 ### Tier select (before Briefing)
 
@@ -562,7 +675,7 @@ Where each check is fixed:
 | --- | --- | --- |
 | Save the result | `r = recordResult(mission)`, once | If `r.unlocked`, show a banner: "Standard unlocked". |
 | Score and stars | `d = getDebrief(mission)`: `score`, `stars` | Stars at 50, 70 and 90 points. |
-| Score breakdown | `d.breakdown`: science (of 60), budget (of 15), margins (of 15), events (of 10) | Four short rows. |
+| Score breakdown | `d.breakdown`: science (of 50), efficiency (of 15), margins (of 15), events (of 10), novelty (of 10) | Five short rows. |
 | Science | `d.science` against `d.science_target` | |
 | What limited you | `d.limiting` as the heading, then `d.paragraph` | The heading names one factor: mass, power, budget, data, event, design or none. |
 | Try this | `d.suggestion` | One concrete change. This is the most important line on the screen. |
@@ -571,7 +684,7 @@ Where each check is fixed:
 | Events log | `d.events`: `title`, `label`, `failed_part` | What happened and what the player chose. |
 | Buttons | | **Redesign**: back to Build with the same `design`. **New mission**: Briefing with a fresh `newDesign(tier)`. **Change tier**: tier select. |
 
-The same design always replays the same mission (the seed comes from the design), so the player can see exactly what their change did.
+Without a campaign, the same design always replays the same mission (the seed comes from the design), so the player can see exactly what their change did. In a campaign each flight has fresh luck.
 
 ## Team roles
 
@@ -590,41 +703,15 @@ Owners change only their own files. Anything else goes through a GitHub issue to
 
 ### Current tasks: Data, Rules and Simulation
 
-Yareem holds all three back-end roles. The first build is done: real data, all eight formulas, the seeded simulation, scoring and the debrief, checked by `tests/simulate.js`. These are next, in order within each role. Anything marked *stretch* starts only after the first full playthrough works on screen.
+Yareem holds all three back-end roles. The full ordered plan, with the timeline and cut lines, is `PLAN.md`. In short, all before the Sunday 14:00 freeze:
 
-**Data**
+1. **Phase A.** Red-team bug fixes: copy the design at launch, honest `protected`, in-flight power, a proportional battery, input guards, advice that matches the design, "fire detections" wording.
+2. **Phases B and C.** Campaign data, campaign state and saves, payout, the new scoring with the 3-star gate, and odds on event choices.
+3. **Phase D.** `tests/campaign.js` and `tests/balance.js`, then tuning with the red-team sweep and a campaign simulation.
+4. **Phase E.** Research and unlocks, once the seven screens and the hub play end to end.
+5. **Phase F.** New topics chosen by available NASA data, plus era events.
 
-Balancing will change most numbers, so the current estimates stand until then. No more sourcing work before balancing.
-
-1. ~~Decide the debrief `design` key and radar resolution~~ Done: `design` key added; radar keeps skipping the resolution check.
-2. *Stretch:* propose the data fields for per-tier weights and part variance (see `STRETCH.md`). The data person approves any new field before code uses it.
-3. *After balancing, before submission:* one quick pass over the numbers that survived. Spot-check three by hand, mark them Checked in `SOURCES.md`, and label the rest as estimates or game values on the project page.
-
-**Rules (`js/game.js`)**
-
-1. ~~Hand-worked tests for the eight formulas~~ Done (`tests/formulas.js` on the working branch).
-2. ~~Science preview for the Build screen~~ Done: `previewScience` and `getPartFacts`.
-3. *Stretch:* apply per-tier weights to each calculation once the fields are approved.
-4. *Stretch:* seeded per-part variance, so the same part performs slightly differently from mission to mission.
-
-**Simulation (`js/mission.js`)**
-
-1. ~~Tune wildfire~~ Done: a single thermal imager earns 2 stars; 3 stars needs thermal plus camera and a fast radio.
-2. ~~Weight events by orbit~~ Done: `orbit_weight` on events.
-3. ~~Unlock tiers and save progress~~ Done: `recordResult`, `getProgress`, `isTierUnlocked`.
-4. *Stretch:* shareable design codes, which encode the design so a link replays the same mission.
-5. *Stretch:* the money-making sub-missions for the Impossible mode in `STRETCH.md`.
-
-**Judging (all roles)**
-
-1. ~~NASA data in the game~~ Done on `main`, including the `data/earth.js` script tag in `index.html` (added by the data owner).
-2. **Demo owner:** someone takes QA now. The demo is a 30-second video or at most 7 slides, scripted around build, fail, debrief, fix, succeed.
-3. **References:** `SOURCES.md` lists every external resource and the AI tools used, ready to paste into the submission form.
-4. **Validity evidence:** the formula tests are on `main` (`node tests/formulas.js`); the project page says how the numbers were sourced and which are game values.
-
-**Integration with Design screens**
-
-The back end on `main` supplies everything the section "Player interaction, screen by screen" asks for. Design screens builds against it; any missing number or behaviour goes to Rules or Simulation as a GitHub issue, never as maths in the front end.
+**Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the formula tests and the red-team harness are on `main` as validity evidence.
 
 ## Workflow
 
@@ -685,6 +772,7 @@ We are not building any of these, even if an AI offers to:
 - Real orbital mechanics or trajectory maths
 - Accounts, logins or a server
 - More than one destination. Mars and the Moon wait until the Earth mission is finished.
+- A rival AI space programme, and any online leaderboard. The campaign save stays in the browser, with export and import codes.
 
 **Stretch list, in order**, started only after the first full playthrough works:
 
