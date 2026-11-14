@@ -18,6 +18,74 @@
 // The spacecraft structure, attitude control and wiring are not modelled.
 
 const PARTS = [
+  // ======================================================== structure and attitude control
+  // The satellite's body and how it points (SPEC.md, "Structure and attitude control").
+  {
+    id: "explorer-body",
+    name: "Explorer-style cylinder",
+    category: "structure",
+    mass_kg: 1,              // ESTIMATE
+    power_draw_w: 0, power_gen_w: 0,
+    cost_musd: 0.05,         // GAME VALUE
+    data_gb_day: 0, downlink_gb_day: 0, storage_gb: 0, science: 0,
+    tags: [], protects: [],
+    blurb: "A slim steel tube that is also the rocket's last stage nose: light, cheap and cramped.",
+    source: "Explorer 1 was a long thin cylinder carried on top of its final rocket stage (checked by hand by the team). Mass is an ESTIMATE.",
+    build_months: 2
+  },
+  {
+    id: "drum-body",
+    name: "TIROS-style drum",
+    category: "structure",
+    mass_kg: 20,             // ESTIMATE
+    power_draw_w: 0, power_gen_w: 0,
+    cost_musd: 0.5,          // GAME VALUE
+    data_gb_day: 0, downlink_gb_day: 0, storage_gb: 0, science: 0,
+    tags: [], protects: [],
+    blurb: "An 18-sided drum, about a metre across, with solar cells on the outside and room for cameras inside.",
+    source: "NASA NSSDCA, TIROS 1: an 18-sided right prism, 107 cm across and 56 cm high. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B Mass is an ESTIMATE.",
+    build_months: 6
+  },
+  {
+    id: "smallsat-bus",
+    name: "Modern smallsat bus",
+    category: "structure",
+    mass_kg: 15,             // ESTIMATE
+    power_draw_w: 0, power_gen_w: 0,
+    cost_musd: 1,            // ESTIMATE
+    data_gb_day: 0, downlink_gb_day: 0, storage_gb: 0, science: 0,
+    tags: [], protects: [],
+    blurb: "An off-the-shelf frame for satellites up to about 180 kg, with standard mounts for everything.",
+    source: "Representative of ESPA-class buses listed in NASA's Small Spacecraft Technology State of the Art 2025, Table 2-7 (https://www.nasa.gov/wp-content/uploads/2026/05/soa-2026.pdf). Mass and cost are ESTIMATES.",
+    build_months: 4
+  },
+  {
+    id: "spin-stabilised",
+    name: "Spin stabilisation",
+    category: "attitude",
+    mass_kg: 0.2,            // ESTIMATE
+    power_draw_w: 0, power_gen_w: 0,
+    cost_musd: 0.02,         // GAME VALUE
+    data_gb_day: 0, downlink_gb_day: 0, storage_gb: 0, science: 0,
+    tags: ["spin"], protects: [],
+    blurb: "Spin it like a top and it keeps its axis. Simple, but cameras see a smeared, turning Earth.",
+    source: "Explorer 1 and TIROS 1 were spin-stabilised; TIROS 1 used small solid thrusters to keep 8-12 rpm (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Mass is an ESTIMATE.",
+    build_months: 1
+  },
+  {
+    id: "reaction-wheels",
+    name: "Reaction wheels",
+    category: "attitude",
+    mass_kg: 3,              // ESTIMATE
+    power_draw_w: 6,         // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.4,          // ESTIMATE
+    data_gb_day: 0, downlink_gb_day: 0, storage_gb: 0, science: 0,
+    tags: ["three-axis"], protects: [],
+    blurb: "Spinning wheels inside the satellite hold it steady and pointed, so cameras get sharp pictures.",
+    source: "Small reaction wheels with flight heritage are listed in NASA's Small Spacecraft Technology State of the Art 2025, Table 5-3 (https://www.nasa.gov/wp-content/uploads/2026/05/soa-2026.pdf). Mass, power and cost are ESTIMATES.",
+    build_months: 4
+  },
   // ======================================================== 1957-1960 era parts
   // The campaign starts with these (SPEC.md, "The 1957 campaign"). Research unlocks the rest.
   // Sources: NASA's Explorer 1 history page (E1), NASA NSSDCA records for Vanguard 2 (V2,
@@ -39,7 +107,8 @@ const PARTS = [
     tags: ["radiation"],
     protects: [],
     blurb: "James Van Allen's cosmic-ray counter. On Explorer 1 it went strangely quiet high up: the counter was swamped.",
-    source: "NASA, Explorer 1 overview: the main instrument was a cosmic-ray detection package designed by James Van Allen. https://www.nasa.gov/history/explorer-1-overview/ Mass and power are ESTIMATES."
+    source: "NASA, Explorer 1 overview: the main instrument was a cosmic-ray detection package designed by James Van Allen. https://www.nasa.gov/history/explorer-1-overview/ Mass and power are ESTIMATES.",
+    build_months: 2          // GAME VALUE: months to build and test
   },
   {
     id: "cloud-photocell",
@@ -56,7 +125,8 @@ const PARTS = [
     tags: ["imaging"],
     protects: [],
     blurb: "Two photocells that measure sunlight reflected from clouds: the first attempt to see weather from orbit.",
-    source: "NASA NSSDCA, Vanguard 2 (1959): designed to measure cloud-cover distribution; 10.75 kg sphere. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A Part mass and power are ESTIMATES."
+    source: "NASA NSSDCA, Vanguard 2 (1959): designed to measure cloud-cover distribution; 10.75 kg sphere. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A Part mass and power are ESTIMATES.",
+    build_months: 3          // GAME VALUE: months to build and test
   },
   {
     id: "vidicon-camera",
@@ -73,7 +143,8 @@ const PARTS = [
     tags: ["imaging"],
     protects: [],
     blurb: "Two small TV cameras, one wide and one narrow. TIROS-1 sent the first television pictures of Earth's clouds.",
-    source: "NASA NSSDCA, TIROS 1 (1960): two 1.27 cm vidicon TV cameras, pictures sent live or stored on tape. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B Mass and power are ESTIMATES."
+    source: "NASA NSSDCA, TIROS 1 (1960): two 1.27 cm vidicon TV cameras, pictures sent live or stored on tape. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B Mass and power are ESTIMATES.",
+    build_months: 6          // GAME VALUE: months to build and test
   },
   {
     id: "solar-xray-photometer",
@@ -90,7 +161,8 @@ const PARTS = [
     tags: ["solar"],
     protects: [],
     blurb: "Watches the Sun's X-ray flares, which only show above the atmosphere. Busiest when the Sun is.",
-    source: "Modelled on the US Navy's SOLRAD 1 (1960), the first satellite to observe solar X-rays. NEEDS A CHECKED SOURCE; all numbers are ESTIMATES."
+    source: "Modelled on the US Navy's SOLRAD 1 (1960), the first satellite to observe solar X-rays. NEEDS A CHECKED SOURCE; all numbers are ESTIMATES.",
+    build_months: 4          // GAME VALUE: months to build and test
   },
   {
     id: "mercury-battery",
@@ -108,7 +180,8 @@ const PARTS = [
     protects: [],
     blurb: "Explorer 1's power. No recharging: when they run down, the satellite falls silent.",
     source: "Explorer 1 ran on mercury batteries; its transmitters lasted 31 and 105 days (secondary sources summarising NASA records; NEEDS HUMAN CHECK). Energy and mass are ESTIMATES.",
-    battery_wh: 100          // ESTIMATE
+    battery_wh: 100, // ESTIMATE
+    build_months: 1          // GAME VALUE: months to build and test
   },
   {
     id: "silver-zinc-battery",
@@ -126,7 +199,8 @@ const PARTS = [
     protects: [],
     blurb: "Sputnik 1's batteries: plenty of energy, but heavy. Sputnik fell silent after about 21 days.",
     source: "Sputnik 1 (83.6 kg) carried three silver-zinc batteries and transmitted for about 21 days (secondary sources; NEEDS HUMAN CHECK). Energy is an ESTIMATE.",
-    battery_wh: 1000         // ESTIMATE
+    battery_wh: 1000, // ESTIMATE
+    build_months: 1          // GAME VALUE: months to build and test
   },
   {
     id: "silicon-cells",
@@ -145,7 +219,8 @@ const PARTS = [
     blurb: "The first satellite solar cells. Vanguard 1's kept transmitting for more than six years.",
     source: "Vanguard 1 (1958) was the first solar-powered satellite; TIROS 1 (1960) carried about 9000 1 x 2 cm silicon cells (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Lit area and efficiency are ESTIMATES (1950s silicon cells: about 8-10%).",
     panel_area_m2: 0.2,      // ESTIMATE: the share of body-mounted cells facing the Sun at once
-    efficiency: 0.08
+    efficiency: 0.08,
+    build_months: 3          // GAME VALUE: months to build and test
   },
   {
     id: "nicad-battery",
@@ -163,7 +238,8 @@ const PARTS = [
     protects: [],
     blurb: "Rechargeable batteries: with solar cells they carry the satellite through Earth's shadow.",
     source: "TIROS 1 (1960) carried 21 nickel-cadmium batteries charged by its solar cells (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Energy and mass are ESTIMATES.",
-    battery_wh: 120          // ESTIMATE
+    battery_wh: 120, // ESTIMATE
+    build_months: 2          // GAME VALUE: months to build and test
   },
   {
     id: "minitrack-beacon",
@@ -180,7 +256,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "A tiny radio the ground can track and listen to. Enough for a counter, hopeless for pictures.",
-    source: "Explorer 1 and the Vanguards transmitted near 108 MHz for the Minitrack tracking network (secondary sources; NEEDS HUMAN CHECK). Data rate is an ESTIMATE."
+    source: "Explorer 1 and the Vanguards transmitted near 108 MHz for the Minitrack tracking network (secondary sources; NEEDS HUMAN CHECK). Data rate is an ESTIMATE.",
+    build_months: 1          // GAME VALUE: months to build and test
   },
   {
     id: "vhf-telemetry",
@@ -197,7 +274,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "A stronger radio that can send TV pictures to the ground.",
-    source: "TIROS 1 used 235 MHz telemetry antennas and sent TV pictures to ground stations (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Rate, mass and power are ESTIMATES."
+    source: "TIROS 1 used 235 MHz telemetry antennas and sent TV pictures to ground stations (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Rate, mass and power are ESTIMATES.",
+    build_months: 3          // GAME VALUE: months to build and test
   },
   {
     id: "command-timer",
@@ -214,7 +292,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "Before computers: a clock and a radio receiver that switch things on and off.",
-    source: "Early satellites used timers and ground commands rather than computers (TIROS 1 carried a command receiver; NSSDCA). All numbers are ESTIMATES."
+    source: "Early satellites used timers and ground commands rather than computers (TIROS 1 carried a command receiver; NSSDCA). All numbers are ESTIMATES.",
+    build_months: 1          // GAME VALUE: months to build and test
   },
   {
     id: "tape-recorder",
@@ -231,7 +310,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "Records a whole orbit and plays it back over a station. Explorer 3 carried one to explain Explorer 1's silent counter.",
-    source: "Explorer 3 (1958) added a tape recorder, and its data confirmed the radiation belts (secondary sources; NEEDS HUMAN CHECK). All numbers are ESTIMATES."
+    source: "Explorer 3 (1958) added a tape recorder, and its data confirmed the radiation belts (secondary sources; NEEDS HUMAN CHECK). All numbers are ESTIMATES.",
+    build_months: 2          // GAME VALUE: months to build and test
   },
 
   // ---------------------------------------------------------------- instruments
@@ -252,7 +332,8 @@ const PARTS = [
     blurb: "Sees heat through smoke, day or night. The best eye for fires, but needs a big lens to see detail from far away.",
     source: "Representative of wildfire thermal smallsats such as OroraTech FOREST (https://science.nasa.gov/earth-science/csda/vendor-ororatech/). Wavelength: long-wave infrared, about 10 micrometres. Mass, power, data and cost are ESTIMATES.",
     aperture_m: 0.25,        // ESTIMATE
-    wavelength_m: 0.00001    // 10 micrometres, long-wave infrared (physics)
+    wavelength_m: 0.00001, // 10 micrometres, long-wave infrared (physics)
+    build_months: 12          // GAME VALUE: months to build and test
   },
   {
     id: "sar-radar",
@@ -272,7 +353,8 @@ const PARTS = [
     source: "ICEYE Gen 2: 85 kg satellite, 9.65 GHz X-band, 3.2 m x 0.4 m antenna, 3.2 kW peak radiated power (https://www.eoportal.org/satellite-missions/iceye-constellation). Payload share of mass, average power, data and cost are ESTIMATES.",
     aperture_m: 3.2,         // ICEYE antenna length. The diffraction formula does not
                              // apply to radar (it builds a much larger synthetic aperture).
-    wavelength_m: 0.031      // 9.65 GHz X-band (c / f)
+    wavelength_m: 0.031, // 9.65 GHz X-band (c / f)
+    build_months: 18          // GAME VALUE: months to build and test
   },
   {
     id: "optical-camera",
@@ -291,7 +373,8 @@ const PARTS = [
     blurb: "Light, cheap and sharp, but blind at night and through cloud, and it makes a lot of data.",
     source: "Representative of Planet's Dove cameras, about 9 cm aperture (https://www.eoportal.org/satellite-missions/planetscope). Wavelength: visible light, 550 nm. Mass, power, data and cost are ESTIMATES.",
     aperture_m: 0.09,
-    wavelength_m: 0.00000055 // 550 nm, visible light (physics)
+    wavelength_m: 0.00000055, // 550 nm, visible light (physics)
+    build_months: 6          // GAME VALUE: months to build and test
   },
 
   // ---------------------------------------------------------------------- power
@@ -312,7 +395,8 @@ const PARTS = [
     blurb: "183 W in full sun. Enough for a camera or a thermal imager, not a radar.",
     source: "Airbus Sparkwing 600x1100 mm 50 V panel: 183 W peak, 28 W/kg. SOA p.50, Table 3-2. Efficiency is the panel-level value, 183 W / (1361 W/m2 x 0.66 m2).",
     panel_area_m2: 0.66,     // 0.6 m x 1.1 m
-    efficiency: 0.204        // panel-level: cells (about 30%, SOA p.48) minus gaps and wiring
+    efficiency: 0.204, // panel-level: cells (about 30%, SOA p.48) minus gaps and wiring
+    build_months: 4          // GAME VALUE: months to build and test
   },
   {
     id: "solar-large",
@@ -331,7 +415,8 @@ const PARTS = [
     blurb: "366 W in full sun. Twice the power for barely more mass.",
     source: "Airbus Sparkwing 1070x1100 mm 50 V panel: 366 W peak, 45 W/kg. SOA p.50, Table 3-2. Efficiency is the panel-level value, 366 W / (1361 W/m2 x 1.177 m2).",
     panel_area_m2: 1.177,    // 1.07 m x 1.1 m
-    efficiency: 0.228
+    efficiency: 0.228,
+    build_months: 5          // GAME VALUE: months to build and test
   },
   {
     id: "battery-28v",
@@ -349,7 +434,8 @@ const PARTS = [
     protects: [],
     blurb: "Keeps instruments running in Earth's shadow. Without one, they switch off every night-side pass.",
     source: "Ibeos 28 V Modular Battery: 109.8 Wh/kg, 8 to 30+ Ah. SOA p.61, Table 3-5. A 20 Ah configuration gives 28 V x 20 Ah = 560 Wh.",
-    battery_wh: 560
+    battery_wh: 560,
+    build_months: 3          // GAME VALUE: months to build and test
   },
 
   // ---------------------------------------------------------------------- comms
@@ -368,7 +454,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "Tiny, cheap and reliable. Fine for health reports, hopeless for images.",
-    source: "GomSpace NanoCom AX100: up to 38.4 kbit/s, 30 dBm, 24.5 g. SOA p.294, Table 9-3."
+    source: "GomSpace NanoCom AX100: up to 38.4 kbit/s, 30 dBm, 24.5 g. SOA p.294, Table 9-3.",
+    build_months: 2          // GAME VALUE: months to build and test
   },
   {
     id: "radio-sband",
@@ -385,7 +472,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "The workhorse. Enough for a thermal imager, tight for a radar or a busy camera.",
-    source: "AAC Clyde Space TX-2400: 6,000 kbit/s, 2.5 W, 70 g. SOA p.296, Table 9-3. Antenna: Anteral S-band patch, 150 g, SOA p.289, Table 9-2."
+    source: "AAC Clyde Space TX-2400: 6,000 kbit/s, 2.5 W, 70 g. SOA p.296, Table 9-3. Antenna: Anteral S-band patch, 150 g, SOA p.289, Table 9-2.",
+    build_months: 3          // GAME VALUE: months to build and test
   },
   {
     id: "radio-xband",
@@ -402,7 +490,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "A fast data pipe for image-heavy missions. Heavier and hungrier than S-band.",
-    source: "Tethers Unlimited SWIFT-XTX: 25,000 kbit/s, 33 dBm, 300 g. SOA p.298, Table 9-3. Antenna: Anteral 8x8 X-band patch, 500 g, SOA p.290, Table 9-2."
+    source: "Tethers Unlimited SWIFT-XTX: 25,000 kbit/s, 33 dBm, 300 g. SOA p.298, Table 9-3. Antenna: Anteral 8x8 X-band patch, 500 g, SOA p.290, Table 9-2.",
+    build_months: 4          // GAME VALUE: months to build and test
   },
 
   // ------------------------------------------------------------------- computer
@@ -421,7 +510,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "Sips power and runs the spacecraft, but has no radiation hardening.",
-    source: "AAC Clyde Space Kryten-M3: ARM Cortex-M3, 0.4 W, 9.59 x 9.02 cm. SOA p.260, Table 8-4. Mass and storage are ESTIMATES."
+    source: "AAC Clyde Space Kryten-M3: ARM Cortex-M3, 0.4 W, 9.59 x 9.02 cm. SOA p.260, Table 8-4. Mass and storage are ESTIMATES.",
+    build_months: 2          // GAME VALUE: months to build and test
   },
   {
     id: "obc-radtol",
@@ -438,7 +528,8 @@ const PARTS = [
     tags: [],
     protects: ["solar-storm"],
     blurb: "A fault-tolerant processor that shrugs off radiation hits.",
-    source: "AAC Clyde Space Sirius OBC: fault-tolerant LEON3FT processor, 1.3 W, flown in LEO and on a lunar lander. SOA p.260, Table 8-4. Mass and storage are ESTIMATES."
+    source: "AAC Clyde Space Sirius OBC: fault-tolerant LEON3FT processor, 1.3 W, flown in LEO and on a lunar lander. SOA p.260, Table 8-4. Mass and storage are ESTIMATES.",
+    build_months: 4          // GAME VALUE: months to build and test
   },
   {
     id: "obc-payload",
@@ -455,7 +546,8 @@ const PARTS = [
     tags: [],
     protects: [],
     blurb: "Big memory and an FPGA to process images on board. Heavier and hungrier.",
-    source: "Aerospacelab FPGA-based OBC (Belgium): under 4 W, 1.325 kg, 100 krad radiation tested. SOA p.260, Table 8-4. Storage is an ESTIMATE."
+    source: "Aerospacelab FPGA-based OBC (Belgium): under 4 W, 1.325 kg, 100 krad radiation tested. SOA p.260, Table 8-4. Storage is an ESTIMATE.",
+    build_months: 4          // GAME VALUE: months to build and test
   },
 
   // ----------------------------------------------------------------- propulsion
@@ -476,7 +568,8 @@ const PARTS = [
     blurb: "A safe, non-toxic monopropellant. Enough to lower the orbit at end of life for a light satellite.",
     source: "VACCO 3U MiPS, LMP-103S propellant: 4 x 0.1 N, Isp 190 s, total impulse 3.3 kN-s, 5 kg wet, 15 W max. SOA p.127, Table 4-3. Fuel = 3300 / (190 x 9.81) = 1.77 kg.",
     isp_s: 190,
-    fuel_kg: 1.77
+    fuel_kg: 1.77,
+    build_months: 6          // GAME VALUE: months to build and test
   },
   {
     id: "prop-green-large",
@@ -495,7 +588,8 @@ const PARTS = [
     blurb: "Four 1 N thrusters and plenty of fuel. Heavy, but it moves a radar satellite.",
     source: "VACCO 11U MiPS, LMP-103S propellant: 4 x 1 N, Isp 200 s, total impulse 12 kN-s, 14.7 kg wet, 50 W max. SOA p.127, Table 4-3. Fuel = 12000 / (200 x 9.81) = 6.12 kg.",
     isp_s: 200,
-    fuel_kg: 6.12
+    fuel_kg: 6.12,
+    build_months: 8          // GAME VALUE: months to build and test
   },
   {
     id: "prop-ion",
@@ -514,6 +608,7 @@ const PARTS = [
     blurb: "Ten times more efficient than chemical thrusters, but draws 70 W while it runs.",
     source: "Busek BIT-3 RF ion thruster, iodine: 1.0 mN, Isp 1,960 s, total impulse 31.7 kN-s, 2.9 kg wet, 70 W. SOA p.133, Table 4-9. Fuel = 31700 / (1960 x 9.81) = 1.65 kg.",
     isp_s: 1960,
-    fuel_kg: 1.65
+    fuel_kg: 1.65,
+    build_months: 9          // GAME VALUE: months to build and test
   }
 ];

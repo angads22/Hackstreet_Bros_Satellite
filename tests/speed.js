@@ -31,7 +31,7 @@ time("a whole mission, launch to debrief and record", 100, function () {
   var m = G.startMission(d), s;
   do { s = G.stepMonth(m); if (s.event) G.chooseEvent(m, 0); } while (!m.ended);
   G.getDebrief(m); G.recordResult(m);
-  var cc = G.getCampaign(); cc.treasury_musd = 500; cc.finished = false; G.saveCampaign(cc);
+  var cc = G.getCampaign(); cc.treasury_musd = 500; cc.finished = false; cc.year = G.CAMPAIGN.start_year; G.saveCampaign(cc);
 }, 10);
 time("export and import a save", 20, function () { G.importSave(G.exportSave()); }, 20);
 console.log(passed + " passed, " + failed + " failed");

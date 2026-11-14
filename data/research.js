@@ -45,8 +45,14 @@ const RESEARCH = [
   {
     id: "television", name: "Television from orbit", year: 1960, cost_musd: 5,
     requires: ["cloud-photometry", "thor-rockets"], requires_lessons: [], requires_knowledge: { weather: 0.3 },
-    unlocks: { parts: ["vidicon-camera", "vhf-telemetry"], launchers: [], objectives: [] },
+    unlocks: { parts: ["vidicon-camera", "vhf-telemetry", "drum-body"], launchers: [], objectives: [] },
     blurb: "TIROS-1 sent the first TV pictures of clouds. Needs what your photocells learned about weather."
+  },
+  {
+    id: "three-axis-control", name: "Three-axis control", year: 1964, cost_musd: 5,
+    requires: ["television"], requires_lessons: [], requires_knowledge: { weather: 0.4 },
+    unlocks: { parts: ["reaction-wheels"], launchers: [], objectives: [] },
+    blurb: "TIROS spun, so its cameras saw a tumbling Earth. Nimbus 1 (1964) held steady and pointed straight down."
   },
   {
     id: "integrated-circuits", name: "On-board computers", year: 1965, cost_musd: 6,
@@ -57,7 +63,7 @@ const RESEARCH = [
   {
     id: "modern-power", name: "Modern solar arrays and batteries", year: 1995, cost_musd: 8,
     requires: ["integrated-circuits", "rechargeable-batteries"], requires_lessons: ["spare"], requires_knowledge: {},
-    unlocks: { parts: ["solar-small", "solar-large", "battery-28v"], launchers: [], objectives: [] },
+    unlocks: { parts: ["solar-small", "solar-large", "battery-28v", "smallsat-bus"], launchers: [], objectives: [] },
     blurb: "Multi-junction cells and lithium-ion batteries: ten times the power per kilogram. Fly a spare first."
   },
   {

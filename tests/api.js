@@ -118,6 +118,31 @@ while ((mm = re2.exec(src))) ids[mm[1].replace(/-$/, "")] = true;
 var noHint = Object.keys(ids).filter(function (k) { return !G.HINTS.checks[k]; });
 check("every readiness check has a hint", noHint.length === 0, noHint.join(", "));
 
+// ---- categories, development time, pointing
+var cats = G.getCategories();
+check("getCategories lists all seven in order", cats.map(function (c) { return c.id; }).join(",") === "structure,instrument,power,comms,computer,attitude,propulsion");
+has(cats[0], ["id", "name", "sub", "required"], "getCategories[]");
+check("every part's category is listed", G.PARTS.every(function (p) { return cats.some(function (c) { return c.id === p.category; }); }));
+check("every part has build_months", G.PARTS.every(function (p) { return typeof p.build_months === "number"; }));
+var td = G.newDesign("training"); G.setObjective(td, "weather"); G.setOrbit(td, "leo"); G.setLauncher(td, "thor-able");
+["vidicon-camera", "silicon-cells", "nicad-battery", "vhf-telemetry", "command-timer"].forEach(function (p) { G.addPart(td, p); });
+check("dev_months = longest build + 1 per 3 parts", G.getTotals(td).dev_months === 6 + 2, String(G.getTotals(td).dev_months));
+var before = G.previewScience(td).total; G.addPart(td, "spin-stabilised");
+var spun = G.previewScience(td).total; G.removePart(td, "spin-stabilised"); G.addPart(td, "reaction-wheels");
+check("spin smears the camera (60%), wheels do not", Math.abs(spun - 0.6 * before) < 0.2 && G.previewScience(td).total === before,
+  before + " / spin " + spun + " / wheels " + G.previewScience(td).total);
+
+// ---- switch-over: once structure and attitude are required
+var G2 = require("./load")({ newCategoriesRequired: true });
+var sd = G2.newDesign("training"); G2.setObjective(sd, "radiation"); G2.setOrbit(sd, "leo"); G2.setLauncher(sd, "juno-1");
+["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"].forEach(function (p) { G2.addPart(sd, p); });
+var ids2 = G2.runChecks(sd).blockers.map(function (b) { return b.id; });
+check("switch-over: structure and attitude become required", ids2.indexOf("empty-structure") !== -1 && ids2.indexOf("empty-attitude") !== -1, ids2.join(","));
+G2.addPart(sd, "explorer-body"); G2.addPart(sd, "spin-stabilised");
+check("switch-over: an Explorer 1 design launches with a body and spin", G2.runChecks(sd).blockers.length === 0);
+G2.resetCampaign(); G2.newCampaign("training");
+check("switch-over: rescue search still finds a design", isFinite(G2.cheapestLaunchCost(G2.getCampaign())), String(G2.cheapestLaunchCost(G2.getCampaign())));
+
 // ---- robustness: bad input never throws
 var threw = [];
 [["getTotals", [G.newDesign()]], ["runChecks", [G.newDesign()]], ["previewScience", [G.newDesign()]],
