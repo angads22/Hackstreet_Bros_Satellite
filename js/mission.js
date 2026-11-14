@@ -422,6 +422,8 @@ function getDebrief(mission) {
     real_mission: objective ? objective.real_mission : "",
     real_world: realWorldSummary(mission),
     closest_mission: closestMission(design),
+    limiting_name: disciplineName(lim),
+    segments: segmentLines(mission, totals, k),
     events: mission.events_seen,
     ended_early: mission.ended_early,
     payout_musd: k.payout_musd,
@@ -504,7 +506,7 @@ function limitingFactor(mission, totals, scienceShare) {
   // An orbit that cannot see the target at all comes before everything else.
   if (objective && orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
     var better = bestOrbitFor(objective);
-    return { key: "design", suggestion: "From " + orbit.name.toLowerCase() + " the spacecraft cannot see what " +
+    return { key: "design", discipline: "orbit", suggestion: "From " + orbit.name.toLowerCase() + " the spacecraft cannot see what " +
       objective.name.toLowerCase() + " needs. Fly in " + better.name.toLowerCase() + " instead." };
   }
 
@@ -547,7 +549,7 @@ function limitingFactor(mission, totals, scienceShare) {
     var rate = scienceRate(design, []);
     var weak = rate.instruments.filter(function (i) { return i.match === 0 || !i.sharp_enough; });
     if (weak.length) {
-      return { key: "design", suggestion: "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it." };
+      return { key: "design", discipline: "instruments", suggestion: "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it." };
     }
     // A wanted instrument type nobody carries is the cheapest way to more science.
     var carried = designParts(design).filter(function (p) { return p.category === "instrument"; })
@@ -555,11 +557,11 @@ function limitingFactor(mission, totals, scienceShare) {
     var missingTag = objective ? objective.wants.filter(function (t) { return carried.indexOf(t) === -1; })[0] : null;
     var extra = missingTag ? PARTS.filter(function (p) { return p.category === "instrument" && p.tags.indexOf(missingTag) !== -1; })[0] : null;
     if (extra) {
-      return { key: "design", suggestion: "Nothing ran short, but one instrument was not enough. Add the " +
+      return { key: "design", discipline: "instruments", suggestion: "Nothing ran short, but one instrument was not enough. Add the " +
         extra.name.toLowerCase() + " as well; this objective counts it too." };
     }
     var best = bestOrbitFor(objective);
-    return { key: "design", suggestion: best.id !== design.orbit
+    return { key: "design", discipline: best.id !== design.orbit ? "orbit" : "instruments", suggestion: best.id !== design.orbit
       ? "Nothing ran short, but the science fell below target. " + best.name + " suits this objective better."
       : "Nothing ran short, and this is already the best orbit for this objective. A longer-lived or sharper design is the only way up." };
   }
@@ -994,4 +996,43 @@ function closestMission(design) {
   if (!best) return null;
   return { id: best.m.id, name: best.m.name, year: best.m.year, agency: best.m.agency,
            blurb: best.m.blurb, shared: best.shared };
+}
+
+// ------------------------------------------------------------------ disciplines and segments
+// The Mission Design Lab's name for what limited the mission (data/debrief.js "disciplines").
+function disciplineName(lim) {
+  var names = (typeof DEBRIEF !== "undefined" && DEBRIEF.disciplines) || {};
+  var key = lim.discipline || lim.key;
+  return names[key] || names[lim.key] || key;
+}
+
+// Data per day in units a person can read: GB, MB or kB.
+function formatData(gb) {
+  if (gb >= 1) return round(gb, 1) + " GB";
+  if (gb >= 0.001) return round(gb * 1000, 1) + " MB";
+  return round(gb * 1e6, 1) + " kB";
+}
+
+// One line per mission segment (NASA, "Design and Develop Science Missions").
+function segmentLines(mission, t, k) {
+  var d = mission.design, orbit = getOrbit(d.orbit), launcher = getLauncher(d.launcher), objective = getObjective(d.objective);
+  var spare = t.capacity_kg ? Math.round(100 * (t.capacity_kg - t.mass_kg) / t.capacity_kg) : null;
+  var parts = designParts(d);
+  var lines = [];
+  lines.push({ id: "launch", name: "Launch segment",
+    text: (launcher ? launcher.name : "The rocket") + " carried " + round(t.mass_kg, 1) + " kg to " +
+      (orbit ? lcFirst(orbit.name) : "orbit") + (spare !== null ? ", with " + spare + "% of its capacity to spare." : ".") });
+  lines.push({ id: "space", name: "Space segment",
+    text: parts.length + " parts drawing " + round(t.power_draw_w, 1) + " W" +
+      (t.power_gen_w > 0 ? " from " + round(t.power_gen_w, 1) + " W of solar cells" : " from batteries alone") +
+      "; it worked for " + mission.month + " of " + mission.lifetime_months + " months planned" +
+      (mission.ended_early ? ", then a failure ended it." : mission.end_cause === "batteries" ? ", until the batteries ran down." : ".") });
+  var share = t.data_gb_day > 0 ? Math.round(100 * t.data_returned_gb_day / t.data_gb_day) : 100;
+  lines.push({ id: "ground", name: "Ground segment",
+    text: formatData(t.data_returned_gb_day) + " of the " + formatData(t.data_gb_day) + " made each day reached the ground (" + share + "%)" +
+      (orbit ? ", in contact with a ground station " + round(orbit.downlink_mult * 100, orbit.downlink_mult < 0.1 ? 1 : 0) + "% of the time." : ".") });
+  lines.push({ id: "user", name: "User segment",
+    text: "Scientists received " + Math.round(mission.science) + " science points against a target of " +
+      (objective ? objective.science_target : "?") + (mission.campaign_flight ? "; the programme was paid $" + k.payout_musd + "M for what was new." : ".") });
+  return lines;
 }
