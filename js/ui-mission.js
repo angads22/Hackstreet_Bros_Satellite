@@ -34,6 +34,7 @@
     n.of = el("span", { class: "countdown-label", text: "of " + num(mission.lifetime_months, 0) });
     n.fill = el("div", { class: "bar-fill" });
     n.sciText = el("span", { text: "0 / " + num(objective ? objective.science_target : 0, 0) });
+    n.real = el("p", { class: "nasa-line", "aria-live": "off" });
     n.log = el("ol", { class: "log", "aria-live": "polite" });
     n.event = el("div", { class: "stack" });
     n.pause = UI.button("PAUSE", togglePause, { aria: "Pause the mission" });
@@ -53,7 +54,8 @@
         el("div", { class: "bar" }, [
           el("div", { class: "bar-top" }, [el("span", { text: "SCIENCE" }), n.sciText]),
           el("div", { class: "bar-track", role: "presentation" }, [n.fill])
-        ])
+        ]),
+        n.real
       ]),
       n.event,
       el("div", { class: "panel" }, [el("h2", { text: "MISSION LOG" }), n.log])
@@ -87,8 +89,28 @@
     run.nodes.sciText.textContent = num(s.science, 0) + " / " + num(target, 0);
     // Bar width only; the score itself comes from getDebrief.
     run.nodes.fill.style.width = (target > 0 ? Math.min(1, s.science / target) * 100 : 0) + "%";
+    run.nodes.real.textContent = realEarthText(s);
     status();
   }
+
+  // The real Earth this month, from NASA data the back end returns with each step.
+  // Wildfire: "August: 557,357 fires burned (NASA FIRMS 2025)".
+  // Sea ice:  "January: 13.1 million km2 of Arctic ice, polar night (NSIDC 2025)".
+  function realEarthText(s) {
+    var r = s.real;
+    if (!r || !s.month_name) return "";
+    if (typeof r.fires === "number") {
+      return s.month_name + ": " + num(r.fires, 0) + " fires burned on Earth (NASA FIRMS " + r.year + ")";
+    }
+    if (typeof r.ice_extent_mkm2 === "number") {
+      return s.month_name + ": " + num(r.ice_extent_mkm2, 1) + " million km\u00b2 of Arctic ice" +
+        (r.daylight_share === 0 ? ", polar night" : "") + " (NSIDC " + r.year + ")";
+    }
+    return "";
+  }
+
+  var FAIL_NAMES = { instrument: "an instrument", power: "a power part", comms: "the radio",
+                     computer: "the computer", propulsion: "the thruster" };
 
   function tick() {
     if (!run) return;
@@ -105,7 +127,11 @@
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
     var choices = UI.list(event.choices).map(function (c, i) {
-      return UI.button(c.label, function () { answer(i); }, { primary: i === 0 });
+      // Each choice shows its odds right now (fail_chance_now), protection and thin margins included.
+      var risk = c.fail_chance_now > 0 && c.effect && c.effect.fails
+        ? Math.round(c.fail_chance_now * 100) + "% chance of losing " + (FAIL_NAMES[c.effect.fails] || c.effect.fails) : null;
+      return UI.button(risk ? [el("span", { text: c.label }), el("span", { class: "odds", text: risk })] : c.label,
+        function () { answer(i); }, { primary: i === 0 });
     });
     box.appendChild(el("div", { class: "dialogue", role: "alertdialog", "aria-labelledby": "event-title" }, [
       UI.directorArt(),
@@ -164,21 +190,32 @@
     function row(label, sub, value, of) {
       return el("div", { class: "row" }, [
         el("div", { class: "row-label" }, [el("span", { text: label }), el("span", { text: sub })]),
-        el("span", { class: "row-value", text: num(value) + " / " + of })
+        el("span", { class: "row-value", text: num(value) + (of ? " / " + of : "") })
       ]);
     }
+
+    // One row per part of the score, in the back end's order; unknown parts still show.
+    var PARTS_OF_SCORE = {
+      science:    ["SCIENCE RETURNED", 50, num(d.science, 0) + " of " + num(d.science_target, 0) + " points"],
+      efficiency: ["VALUE FOR MONEY", 15, "Science paid back for what you spent"],
+      budget:     ["BUDGET LEFT", 15, "Share of the budget unspent"],
+      margins:    ["MARGINS", 15, "Mass and power margins of 10% or more"],
+      events:     ["EVENTS", 10, "Events survived without losing a part"],
+      novelty:    ["NEW SCIENCE", 10, "How much of it nobody knew before"]
+    };
+    var rows = Object.keys(b).map(function (k) {
+      var info = PARTS_OF_SCORE[k] || [k.toUpperCase(), null, ""];
+      return row(info[0], info[2], b[k], info[1]);
+    });
 
     var paper = el("div", { class: "panel paper" }, [
       el("div", { class: "ledger-head" }, [
         el("h1", { text: "MISSION REPORT" }),
         el("span", { class: "stamp" + (d.stars > 0 ? " pass" : ""), text: UI.starsText(d.stars), "aria-label": d.stars + " of 3 stars" })
-      ]),
-      row("SCIENCE RETURNED", num(d.science, 0) + " of " + num(d.science_target, 0) + " points", b.science, 60),
-      row("BUDGET LEFT", "Share of the budget unspent", b.budget, 15),
-      row("MARGINS", "Mass and power margins of 10% or more", b.margins, 15),
-      row("EVENTS", "Events survived without losing a part", b.events, 10),
+      ])
+    ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
-    ]);
+    ]));
 
     var events = UI.list(d.events).map(function (e) {
       var p = e.failed_part ? UI.byId(UI.data("PARTS"), e.failed_part) : null;
@@ -191,6 +228,8 @@
       el("h2", { text: "WHAT LIMITED YOU: " + (LIMIT_NAMES[d.limiting] || String(d.limiting || "").toUpperCase()) }),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
+      d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
+        el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text })]) : null,
       d.real_mission ? el("p", { class: "bar-note", text: "Real-world cousin: " + d.real_mission }) : null,
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,

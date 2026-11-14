@@ -85,6 +85,10 @@
     screen: "title",
     player: "gate",      // map node the player stands on
     walking: false,      // true while the player arrow is moving
+    stepping: false,     // ...and that walk is one arrow-key step
+    queued: null,        // one arrow key pressed during a step, played when it ends
+    swappedAt: 0,        // when the screen last changed (to drop the 2nd click of a double-click)
+    lastClickAt: 0,      // when the last click that was let through started
     walkTimer: null,
     mapNote: "",         // one-off message on the map ("Locked: ...")
     map: null,           // live map elements, while the map is showing
@@ -163,7 +167,8 @@
       var rect = document.createElementNS(NS, "rect");
       rect.setAttribute("x", r[0]); rect.setAttribute("y", r[1]);
       rect.setAttribute("width", r[2]); rect.setAttribute("height", r[3]);
-      rect.setAttribute("fill", r[4]);
+      if (String(r[4]).indexOf("--") === 0) rect.style.fill = "var(" + r[4] + ")";
+      else rect.setAttribute("fill", r[4]);
       if (r[5] !== undefined) rect.setAttribute("opacity", r[5]);
       svg.appendChild(rect);
     });
@@ -183,8 +188,11 @@
   }
 
   // ---------------------------------------------------------------- pixel art
-  var PAL = { ink: "#f4f0e0", muted: "#a9a6d6", line: "#4b4a8a", gold: "#ffc247", cyan: "#6fe3ff",
-              red: "#ff6b5e", blue: "#3d6bff", navy: "#24349e", sky: "#0d0b1e", skin: "#e8b796" };
+  // Pixel-art colours are CSS custom properties (see :root in css/style.css), so the
+  // colour scheme lives in one place. art() turns a "--name" into var(--name).
+  var PAL = { ink: "--pal-white", muted: "--pal-metal", line: "--pal-frame", gold: "--pal-light", cyan: "--pal-glass",
+              red: "--pal-red", blue: "--pal-cell", navy: "--pal-cell-dark", sky: "--pal-dark", skin: "--pal-skin",
+              hair: "--pal-hair", mouth: "--pal-mouth", portrait: "--pal-portrait", night: "--pal-night" };
 
   // The satellite on the bench grows as each category gets a part.
   function satelliteArt(design) {
@@ -218,9 +226,9 @@
   // Mission control, who briefs the player.
   function directorArt() {
     return art("0 0 16 16", [
-      [0, 0, 16, 16, "#2a2957"],
-      [5, 2, 6, 3, "#5c3a26"], [4, 3, 1, 4, "#5c3a26"], [11, 3, 1, 4, "#5c3a26"],
-      [5, 5, 6, 6, PAL.skin], [6, 7, 1, 1, PAL.sky], [9, 7, 1, 1, PAL.sky], [7, 9, 2, 1, "#7a3b3b"],
+      [0, 0, 16, 16, PAL.portrait],
+      [5, 2, 6, 3, PAL.hair], [4, 3, 1, 4, PAL.hair], [11, 3, 1, 4, PAL.hair],
+      [5, 5, 6, 6, PAL.skin], [6, 7, 1, 1, PAL.sky], [9, 7, 1, 1, PAL.sky], [7, 9, 2, 1, PAL.mouth],
       [3, 5, 1, 3, PAL.line], [3, 4, 2, 1, PAL.line], [12, 5, 1, 3, PAL.line], [11, 4, 2, 1, PAL.line],
       [12, 8, 1, 2, PAL.line], [10, 10, 3, 1, PAL.cyan],
       [3, 12, 10, 4, PAL.navy], [6, 12, 4, 4, PAL.ink], [7, 12, 2, 2, PAL.cyan]
@@ -230,11 +238,11 @@
   // Rocket on the pad at night.
   function padArt(ready) {
     var r = [
-      [0, 0, 187, 152, "#15132b"],
+      [0, 0, 187, 152, PAL.night],
       [14, 12, 1, 1, PAL.ink], [52, 30, 1, 1, PAL.muted], [70, 10, 2, 2, PAL.ink], [110, 22, 1, 1, PAL.ink],
       [146, 40, 1, 1, PAL.muted], [170, 14, 2, 2, PAL.gold], [160, 74, 1, 1, PAL.ink], [30, 66, 1, 1, PAL.ink],
       [22, 20, 14, 14, PAL.ink], [26, 24, 3, 3, PAL.muted], [31, 29, 2, 2, PAL.muted],
-      [0, 136, 187, 16, "#2a2957"], [0, 136, 187, 1, PAL.line], [60, 132, 76, 4, PAL.line],
+      [0, 136, 187, 16, PAL.line], [0, 136, 187, 1, PAL.line], [60, 132, 76, 4, PAL.line],
       [124, 60, 4, 72, PAL.line], [114, 78, 10, 2, PAL.line], [114, 104, 10, 2, PAL.line],
       [125, 56, 2, 2, ready ? PAL.cyan : PAL.red]
     ];
@@ -256,7 +264,7 @@
     propulsion: [[3, 0, 2, 5, PAL.ink], [2, 4, 1, 2, PAL.red], [5, 4, 1, 2, PAL.red], [3, 6, 2, 2, PAL.gold]]
   };
 
-  // ---------------------------------------------------------------- shell: header, steps, hints
+  // ---------------------------------------------------------------- shell: header, objective line, minimap, hints
   function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
 
   function setStatus(text) {
@@ -280,7 +288,7 @@
     else if (screen === "debrief") text = "Read what limited you, then fly again.";
     else if (state.design && screen !== "title") {
       var next = waypoint();
-      text = next === screen ? DO_TEXT[screen] : GO_TEXT[next];
+      text = next === screen ? doText(screen) : GO_TEXT[next];
     }
     if (line) {
       line.textContent = text ? "OBJECTIVE: " + text : "";
@@ -334,12 +342,16 @@
     if (i > state.reached) state.reached = i;
     if (i !== -1) state.player = screen;   // you are standing in that building
     stopWalking();
+    state.swappedAt = Date.now();
     state.hover = null;
     state.hintOpen = false;
     draw(screen);
     var app = document.getElementById("app");
     if (app) app.focus();
     window.scrollTo(0, 0);
+    // On short landscape screens, bring the map itself into view.
+    var board = document.getElementById("map");
+    if (screen === "map" && board && window.innerHeight <= 500) board.scrollIntoView({ block: "start" });
   }
 
   function draw(screen) {
@@ -361,11 +373,14 @@
 
   // Every place has a way out to the map. CONTINUE walks you to the next place.
   function navRow(nextTo, nextOk) {
+    // If the gold route points further on (after a redesign or a FIX link), go there instead.
+    var gps = waypoint();
+    if (nextTo && DESIGN_STEPS.indexOf(gps) > DESIGN_STEPS.indexOf(state.screen)) nextTo = gps;
     var next = byId(PLACES, nextTo);
     return el("div", { class: "nav-row" }, [
-      button(["< ", "MAP [M]"], openMap, { aria: "Back to the base map" }),
+      button(["< ", "MAP [M]"], openMap, { aria: "Map: back to the base map" }),
       next ? button(["GO TO " + next.name, " >"], function () { travel(nextTo); },
-        { primary: true, disabled: !nextOk, aria: "Walk to the " + next.name.toLowerCase() }) : null
+        { primary: true, disabled: !nextOk, aria: "Go to " + next.name.toLowerCase() }) : null
     ]);
   }
 
@@ -505,11 +520,19 @@
   }
 
   // ---------------------------------------------------------------- 2 Orbit
+  // "Sees 69% of the world's fires (NASA FIRMS 2025)": the share comes from getOrbitFacts.
+  function inViewText(objectiveId, share) {
+    var e = typeof EARTH !== "undefined" && EARTH ? EARTH[objectiveId] : null;
+    var what = objectiveId === "wildfire" ? "of the world's fires" : objectiveId === "sea-ice" ? "of the Arctic sea ice" : "of the target";
+    var src = e && e.source ? " (" + (objectiveId === "wildfire" ? "NASA FIRMS" : objectiveId === "sea-ice" ? "NSIDC Sea Ice Index" : "NASA data") + (e.year ? " " + e.year : "") + ")" : "";
+    return "Sees " + Math.round(share * 100) + "% " + what + src;
+  }
   function drawOrbit() {
     var d = state.design;
     var objective = byId(data("OBJECTIVES"), d.objective);
     var cards = data("ORBITS").map(function (o) {
       var probe = newDesign(d.tier);
+      setObjective(probe, d.objective);
       setOrbit(probe, o.id);
       var f = getOrbitFacts(probe);
       var fit = objective && objective.orbit_fit ? objective.orbit_fit[o.id] : undefined;
@@ -529,7 +552,8 @@
           ["Laps a day", num(f.laps_per_day)],
           ["In Earth's shadow", num(f.eclipse_min) + " min a lap"],
           ["Mission lifetime", num(o.lifetime_months, 0) + " months"]
-        ])
+        ]),
+        isNum(f.target_in_view) ? el("p", { class: "nasa-line", text: inViewText(d.objective, f.target_in_view) }) : null
       ]);
     });
     return el("section", { class: "screen" }, [
@@ -785,14 +809,37 @@
     return CATEGORIES.every(function (c) { return !c.required || have[c.id]; });
   }
 
-  // The GPS target: the first job not done yet.
+  // Where a NO GO line is fixed. Mass and budget belong to the rocket once one is chosen,
+  // and to the parts before that.
+  function fixPlace(check, d) {
+    if ((check.id === "mass" || check.id === "budget") && !d.launcher) return "build";
+    return FIX_SCREEN[check.id] || "build";
+  }
+
+  function blockedAt(d) {
+    var at = {};
+    runChecks(d).blockers.forEach(function (c) { at[fixPlace(c, d)] = true; });
+    return at;
+  }
+
+  // The GPS target: the first place with something left to do, judged by runChecks.
   function waypoint() {
     var d = state.design;
     if (!d || !d.objective) return "briefing";
     if (!d.orbit) return "orbit";
-    if (!hasRequiredParts(d)) return "build";
+    var at = blockedAt(d);
+    if (!hasRequiredParts(d) || at.build) return at.orbit ? "orbit" : "build";
     if (!d.launcher) return "launcher";
+    for (var i = 0; i < DESIGN_STEPS.length - 1; i++) if (at[DESIGN_STEPS[i]]) return DESIGN_STEPS[i];
     return "review";
+  }
+
+  // The objective line while you stand where the GPS points.
+  function doText(screen) {
+    var d = state.design;
+    if (screen === "build" && hasRequiredParts(d)) return "Clear the [X] problems under the bars.";
+    if (screen === "review" && !runChecks(d).blockers.length) return "Launch when ready.";
+    return DO_TEXT[screen];
   }
 
   // A place opens once you have reached the one before it and made the choice it needs.
@@ -807,10 +854,11 @@
   function placeDone(id) {
     var d = state.design;
     if (!d) return false;
+    var at = blockedAt(d);
     if (id === "briefing") return !!d.objective;
-    if (id === "orbit") return !!d.orbit;
-    if (id === "build") return hasRequiredParts(d);
-    if (id === "launcher") return !!d.launcher;
+    if (id === "orbit") return !!d.orbit && !at.orbit;
+    if (id === "build") return hasRequiredParts(d) && !at.build;
+    if (id === "launcher") return !!d.launcher && !at.launcher;
     return false;
   }
 
@@ -831,12 +879,13 @@
 
   // ---------------------------------------------------------------- the base map: drawing
   function mapRects() {
-    var C = { ground: "#16152f", lot: "#1f1e40", road: "#2a2957", dash: "#4b4a8a", sea: "#24349e" };
+    var C = { ground: "--map-ground", lot: "--map-lot", road: "--map-road", dash: "--map-dash", sea: "--map-sea",
+              wave: "--map-wave", shore: "--map-shore" };
     var r = [
       [0, 0, MAP_W, MAP_H, C.ground],
       // sea along the east coast, with a few waves
-      [184, 0, 16, MAP_H, C.sea], [182, 0, 2, MAP_H, PAL.cyan],
-      [188, 14, 6, 1, PAL.blue], [190, 46, 7, 1, PAL.blue], [187, 78, 6, 1, PAL.blue], [191, 104, 6, 1, PAL.blue],
+      [184, 0, 16, MAP_H, C.sea], [182, 0, 2, MAP_H, C.shore],
+      [188, 14, 6, 1, C.wave], [190, 46, 7, 1, C.wave], [187, 78, 6, 1, C.wave], [191, 104, 6, 1, C.wave],
       // building lots
       [20, 8, 40, 30, C.lot], [80, 8, 40, 30, C.lot], [146, 6, 34, 32, C.lot],
       [18, 90, 44, 24, C.lot], [78, 90, 44, 24, C.lot], [144, 90, 34, 24, C.lot],
@@ -909,9 +958,8 @@
   function pct(node) { return { left: (node.x / MAP_W * 100) + "%", top: (node.y / MAP_H * 100) + "%" }; }
 
   function drawMap() {
-    var d = state.design;
     var refs = { markers: {}, legend: {} };
-    var board = el("div", { class: "map", id: "map", tabindex: "0", "aria-label": "Base map. Arrow keys or WASD to walk, E to go in." });
+    var board = el("div", { class: "map", id: "map", role: "group", tabindex: "0", "aria-label": "Base map. Arrow keys or WASD to walk, E to go in." });
     refs.svg = mapSvg(false);
     refs.route = refs.svg.querySelector(".map-route");
     board.appendChild(refs.svg);
@@ -927,7 +975,7 @@
     });
     ["gate", "ground"].forEach(function (id) {
       var at = pct(NODES[id]);
-      board.appendChild(el("span", { class: "map-label", style: "left: " + at.left + "; top: " + at.top,
+      board.appendChild(el("span", { class: "map-label map-label-" + id, style: "left: " + at.left + "; top: " + at.top,
         text: id === "gate" ? "MAIN GATE" : "GROUND STATION", "aria-hidden": "true" }));
     });
 
@@ -943,13 +991,14 @@
 
     var legend = el("ul", { class: "legend" }, PLACES.map(function (p) {
       var status = el("span", { class: "tag" });
+      var does = el("span", { class: "legend-does", text: p.does });
+      // No aria-label: the button's name is its visible text, which updateMap keeps current.
       var item = el("li", null, [el("button", {
-        type: "button", class: "legend-item", "data-key": "legend-" + p.id, onclick: function () { walkTo(p.id, true); },
-        "aria-label": "Walk to the " + p.name.toLowerCase()
+        type: "button", class: "legend-item", "data-key": "legend-" + p.id, onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }),
-          el("span", { class: "legend-text" }, [el("span", { text: p.name }), el("span", { class: "legend-does", text: p.does })]),
+          el("span", { class: "legend-text" }, [el("span", { text: p.name }), does]),
           status])]);
-      refs.legend[p.id] = { item: item, status: status };
+      refs.legend[p.id] = { status: status, does: does };
       return item;
     }));
 
@@ -963,7 +1012,7 @@
           el("h2", { text: "OBJECTIVE" }), refs.objective,
           el("h2", { class: "divided", text: "PLACES" }), legend,
           el("h2", { class: "divided", text: "CONTROLS" }),
-          el("p", { class: "bar-note", text: "Arrow keys or WASD: walk. E or Enter: go in, or follow the gold route. Click a marker: walk there. M: map." }),
+          el("p", { class: "bar-note", text: "Arrow keys or WASD: walk. E or Enter: go in, or follow the gold route. Click a marker: walk there. M or Esc: back inside." }),
           el("div", null, [button("CHANGE TIER", function () { showDesignScreen("title"); })])
         ])
       ])
@@ -994,7 +1043,9 @@
     PLACES.forEach(function (p) {
       var st = placeStatus(p.id);
       refs.markers[p.id].className = "blip " + st + (state.player === p.id ? " here" : "");
-      refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + p.does + ".");
+      var line = st === "locked" ? lockedReason(p.id) : p.does + ".";
+      refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
+      refs.legend[p.id].does.textContent = st === "locked" ? lockedReason(p.id) : p.does;
       refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
       refs.legend[p.id].status.textContent = STATUS_TEXT[st];
     });
@@ -1010,7 +1061,8 @@
     else text = "Follow the gold route. " + GO_TEXT[next];
     refs.promptText.textContent = text;
     refs.enter.textContent = canEnter ? "ENTER [E]" : "FOLLOW ROUTE [E]";
-    refs.enter.disabled = state.walking || (!!here && !canEnter && here.id === next);
+    // Never disabled while walking: that would drop keyboard focus to the page.
+    refs.enter.disabled = !!here && !canEnter && here.id === next;
     setStep("map");
   }
 
@@ -1018,6 +1070,8 @@
     if (state.walkTimer) clearTimeout(state.walkTimer);
     state.walkTimer = null;
     state.walking = false;
+    state.stepping = false;
+    state.queued = null;
   }
 
   // Walks the player along a list of nodes, one road at a time, then calls done().
@@ -1044,6 +1098,7 @@
       state.mapNote = byId(PLACES, id).name + " is locked. " + lockedReason(id);
       updateMap();
       state.mapNote = "";
+      if (state.map) state.map.prompt.scrollIntoView({ block: "nearest" });
       return;
     }
     go(id);
@@ -1051,6 +1106,7 @@
 
   function walkTo(id, enterOnArrival) {
     if (state.walking) return;
+    if (enterOnArrival && !placeOpen(id)) return enterPlace(id);   // say why now, no wasted walk
     walkPath(route(state.player, id), function () { if (enterOnArrival) enterPlace(id); });
   }
 
@@ -1062,15 +1118,24 @@
     walkTo(waypoint(), false);
   }
 
+  // Returns true if the key did something (so the page should not scroll).
   function stepToward(dir) {
-    if (state.walking) return;
+    if (state.walking) { if (state.stepping) state.queued = dir; return true; }
     var at = NODES[state.player], best = null, bestScore = 0.5;
     neighbours(state.player).forEach(function (n) {
       var dx = NODES[n].x - at.x, dy = NODES[n].y - at.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
       var score = (dx * dir[0] + dy * dir[1]) / len;
       if (score > bestScore) { bestScore = score; best = n; }
     });
-    if (best) walkPath([state.player, best]);
+    if (!best) return false;
+    walkPath([state.player, best], function () {
+      var q = state.queued;
+      state.stepping = false;
+      state.queued = null;
+      if (q && state.screen === "map") stepToward(q);
+    });
+    state.stepping = true;   // after walkPath, which resets it
+    return true;
   }
 
   function openMap() {
@@ -1089,13 +1154,18 @@
     if (e.altKey || e.ctrlKey || e.metaKey || !state.design || state.locked) return;
     var k = e.key, active = document.activeElement;
     var onMap = state.screen === "map";
-    if (onMap && KEY_DIRS[k]) { e.preventDefault(); return stepToward(KEY_DIRS[k]); }
+    if (onMap && KEY_DIRS[k]) { if (stepToward(KEY_DIRS[k])) e.preventDefault(); return; }
+    if (onMap && (k === "m" || k === "M" || k === "Escape")) {
+      e.preventDefault();
+      if (!e.repeat && !state.walking && placeOpen(state.player)) go(state.player);   // back inside
+      return;
+    }
     if (onMap && (k === "e" || k === "E")) { e.preventDefault(); return act(); }
     // Enter is left to a focused button; otherwise it acts on the map.
     if (onMap && k === "Enter" && !(active && active.tagName === "BUTTON")) { e.preventDefault(); return act(); }
     if (!onMap && DESIGN_STEPS.indexOf(state.screen) !== -1 && (k === "m" || k === "M" || k === "Escape")) {
       e.preventDefault();
-      openMap();
+      if (!e.repeat) openMap();
     }
   }
 
@@ -1128,6 +1198,7 @@
     lock: function () { state.locked = true; },
     mount: function (screen, node) {
       state.screen = screen;
+      state.swappedAt = Date.now();
       var app = document.getElementById("app");
       while (app.firstChild) app.removeChild(app.firstChild);
       app.appendChild(node);
@@ -1145,6 +1216,16 @@
     var mini = document.getElementById("minimap");
     if (mini) mini.addEventListener("click", openMap);
     document.addEventListener("keydown", onKey);
+    // A double-click whose first click changed the screen must not also click
+    // whatever appeared under the pointer. Later clicks on the new screen are fine.
+    document.addEventListener("click", function (e) {
+      if (e.detail > 1 && state.lastClickAt <= state.swappedAt && Date.now() - state.swappedAt < 600) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      state.lastClickAt = Date.now();
+    }, true);
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) WALK_MS = 0;
     draw("title");
   }
