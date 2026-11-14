@@ -3,6 +3,41 @@
 // build environment, so every source below needs a person to open and confirm it.
 
 const LAUNCHERS = [
+  // ---------------------------------------------------------------- 1957-1960 era
+  // Capacities are the masses these rockets really flew; prices are GAME VALUES.
+  {
+    id: "juno-1",
+    name: "Juno I",
+    cost_musd: 3,
+    capacity_kg: { leo: 15, sso: 0, geo: 0 },
+    blurb: "A Redstone missile with clusters of small solid rockets on top. It put Explorer 1 in orbit.",
+    source: "NASA, Explorer 1 overview: launched on a Juno (Redstone first stage with Baby Sergeant upper stages); Explorer 1 was 13.97 kg. https://www.nasa.gov/history/explorer-1-overview/ Capacity rounded up from the flown mass; price is a GAME VALUE."
+  },
+  {
+    id: "vanguard-rocket",
+    name: "Vanguard",
+    cost_musd: 2.5,
+    capacity_kg: { leo: 11, sso: 0, geo: 0 },
+    blurb: "The Navy's purpose-built satellite rocket. Small and temperamental.",
+    source: "NASA NSSDCA, Vanguard 2: a 10.75 kg satellite launched by Vanguard in 1959. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A Capacity rounded from the flown mass; price is a GAME VALUE."
+  },
+  {
+    id: "thor-able",
+    name: "Thor-Able",
+    cost_musd: 6,
+    capacity_kg: { leo: 130, sso: 0, geo: 0 },
+    blurb: "An intermediate-range missile with upper stages: room for a real weather satellite.",
+    source: "NASA NSSDCA, TIROS 1: 122.5 kg, launched on a Thor in 1960. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B Capacity rounded from the flown mass; price is a GAME VALUE."
+  },
+  {
+    id: "thor-agena",
+    name: "Thor-Agena",
+    cost_musd: 9,
+    capacity_kg: { leo: 750, sso: 300, geo: 0 },
+    blurb: "Thor with a restartable Agena stage: the first rocket that could reach polar orbits.",
+    source: "Thor-Agena launched the first polar-orbiting satellites from 1959. Capacities are ESTIMATES; price is a GAME VALUE. NEEDS A CHECKED SOURCE."
+  },
+
   {
     id: "rideshare",
     name: "Rideshare slot",

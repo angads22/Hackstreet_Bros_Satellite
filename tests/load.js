@@ -3,7 +3,7 @@
 // Usage: var G = require("./load")();
 var fs = require("fs"), vm = require("vm"), path = require("path");
 
-var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js", "data/campaign.js",
+var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js", "data/campaign.js", "data/research.js",
              "data/tiers.js", "data/events.js", "data/debrief.js", "data/earth.js", "js/game.js", "js/mission.js"];
 
 module.exports = function load() {
@@ -19,5 +19,15 @@ module.exports = function load() {
   });
   var G = {};
   names.forEach(function (n) { G[n] = vm.runInContext(n, ctx); });
+  // For the sweeps: parts and launchers grouped by era. "era" = open at the start of a
+  // campaign or unlocked by research dated before 1965; "modern" = everything later.
+  G.eraOf = function (kind, id) {
+    var r = G.researchUnlocking(kind, id);
+    return (!r || r.year < 1965) ? "era" : "modern";
+  };
+  G.topicEra = function (objectiveId) {
+    var o = G.getObjective(objectiveId), r = o && o.requires_research ? G.researchById(o.requires_research) : null;
+    return (!r || r.year < 1965) ? "era" : "modern";
+  };
   return G;
 };

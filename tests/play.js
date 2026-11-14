@@ -160,7 +160,8 @@ function runMission(design, chooser, done) {
   function next() {
     var s = G.stepMonth(m);
     var bar = new Array(Math.min(40, Math.round(s.science / 5)) + 1).join("|");
-    var real = !s.real ? "" : s.real.fires !== undefined ? "  " + s.month_name.slice(0, 3) + ": " + s.real.fires.toLocaleString("en-US") + " real fires"
+    var real = !s.real ? "" : s.real.sunspots !== undefined ? "  " + s.month_name.slice(0, 3) + " " + s.year + ": " + s.real.sunspots + " sunspots (SILSO)"
+      : s.real.fires !== undefined ? "  " + s.month_name.slice(0, 3) + ": " + s.real.fires.toLocaleString("en-US") + " fire detections"
       : "  " + s.month_name.slice(0, 3) + ": ice " + s.real.ice_extent_mkm2 + "M km2" + (s.real.daylight_share === 0 ? ", polar night" : "");
     console.log("   Month " + pad(s.month, 3) + pad(s.science, 7) + pad(bar, 26) + real);
     if (s.event) {
@@ -281,11 +282,13 @@ function showHub() {
       Math.round(t.knowledge * 100) + "% known   next mission pays about $" + t.next_payout_estimate_musd + "M" +
       (t.available ? "" : "   LOCKED: " + t.locked_reason));
   });
+  if (h.lessons.length) console.log("\n LESSONS SHOWN IN FLIGHT: " + h.lessons.map(function (l) { return l.name; }).join("; "));
   if (h.research.length) {
-    console.log("\n RESEARCH");
-    h.research.forEach(function (r) {
-      console.log("  " + (r.owned ? "[x] " : r.affordable ? "[$] " : "[ ] ") + pad(r.id, 18) + "$" + r.cost_musd + "M  " + r.name +
-        (r.requires_met ? "" : "  (needs earlier research)"));
+    console.log("\n RESEARCH (a timeline of satellite technology)");
+    h.research.slice().sort(function (a, b) { return a.depth - b.depth; }).forEach(function (r) {
+      console.log("  " + (r.owned ? "[x] " : r.affordable ? "[$] " : "[ ] ") + "col " + r.depth + "  " + pad(r.id, 25) + r.year + "  $" + r.cost_musd + "M  " + r.name +
+        "  -> " + r.unlocks_names.join(", "));
+      if (!r.owned && r.missing.length) console.log("          " + r.missing.join(" "));
     });
   }
   if (h.missions.length) {
@@ -360,7 +363,8 @@ function campaign() {
             console.log("\n   Paid $" + r.payout_musd + "M + grant $" + r.grant_musd + "M" +
               (r.event_costs_musd ? " - event costs $" + r.event_costs_musd + "M" : "") + ". Treasury now $" + r.treasury_musd + "M." +
               (r.bailout ? " Emergency grant: $" + r.bailout_musd + "M." : "") +
-              (db.best_next_topic && db.best_next_topic !== m.design.objective ? " Best next topic: " + db.best_next_topic + "." : ""));
+              (db.best_next_topic && db.best_next_topic !== m.design.objective ? " Best next topic: " + db.best_next_topic + "." : "") +
+              (r.lessons_new && r.lessons_new.length ? "\n   New lessons: " + r.lessons_new.join(", ") + "." : ""));
             ask("Press Enter to return to the hub.", function () { hub(); });
           });
         });

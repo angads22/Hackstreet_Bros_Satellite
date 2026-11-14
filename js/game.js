@@ -191,8 +191,8 @@ function getTotals(design) {
     power_draw_w: round(draw, 1),
     power_gen_w: round(gen, 1),
     cost_musd: round(cost, 3),
-    data_gb_day: round(produced, 2),
-    downlink_gb_day: round(downlink, 2),
+    data_gb_day: round(produced, 6),        // 6 places: 1950s radios sent only bits a second
+    downlink_gb_day: round(downlink, 6),
     delta_v_ms: round(deltaV, 0),
     margins: {
       mass: capacity ? round(margin(capacity, mass), 3) : null,
@@ -200,7 +200,7 @@ function getTotals(design) {
       budget: budget ? round(margin(budget, cost), 3) : null
     },
     // Extra values so the screens never do maths:
-    data_returned_gb_day: round(returned, 2),
+    data_returned_gb_day: round(returned, 6),
     battery_wh: batteryWh,
     capacity_kg: capacity,
     budget_musd: budget
@@ -255,9 +255,27 @@ function mean(list) { return list.reduce(function (a, b) { return a + b; }, 0) /
 //   season: this month's share of the year's targets, scaled so the year averages 1
 //   light:  cameras see nothing in polar night (sea ice: Sun at 75 degrees north)
 // calMonth 0..11, or null for the yearly average (the Build screen preview).
-function earthFactor(objectiveId, orbitId, part, calMonth) {
+// Real sunspot number for a calendar year and month (SILSO), or null.
+function sunspots(year, calMonth) {
+  var e = earthFor("solar");
+  if (!e || !e.sunspots || year === null || year === undefined) return null;
+  var row = e.sunspots.monthly[year - e.sunspots.start_year];
+  if (!row) return null;
+  return (calMonth === null || calMonth === undefined) ? mean(row) : row[calMonth];
+}
+
+// How strongly the Sun's activity drives the solar topic: 0.5 at a quiet Sun,
+// about 1.8 at the 1957-58 maximum. A GAME VALUE shape on real sunspot numbers.
+function solarActivityFactor(sn) { return 0.5 + sn / 200; }
+
+function earthFactor(objectiveId, orbitId, part, calMonth, year) {
   var e = earthFor(objectiveId);
   if (!e) return 1;
+  if (e.sunspots) {
+    var y = (year === null || year === undefined) ? e.sunspots.start_year : year;
+    var sn = sunspots(y, calMonth);
+    return sn === null ? 1 : solarActivityFactor(sn);
+  }
   var view = (e.orbit_view && e.orbit_view[orbitId] !== undefined) ? e.orbit_view[orbitId] : 1;
   var season = 1;
   if (e.monthly_share && calMonth !== null && calMonth !== undefined) season = e.monthly_share[calMonth] * 12;
@@ -268,7 +286,7 @@ function earthFactor(objectiveId, orbitId, part, calMonth) {
   return view * season * light;
 }
 
-function scienceRate(design, brokenIds, calMonth) {
+function scienceRate(design, brokenIds, calMonth, year) {
   brokenIds = brokenIds || [];
   if (calMonth === undefined) calMonth = null;
   var orbit = getOrbit(design.orbit);
@@ -296,8 +314,11 @@ function scienceRate(design, brokenIds, calMonth) {
   var battery = sum(parts, function (p) { return p.battery_wh; });
   var f = eclipseFraction(h);
   var need = batteryNeededWh(draw, h);
-  var sunShare = draw > 0 ? Math.min(1, gen / draw) : 1;
-  var shadowCovered = need > 0 ? Math.min(1, battery / need) : 1;
+  // A battery-only spacecraft (Sputnik, Explorer 1) runs fully until its battery is spent;
+  // that end is handled by the mission's lifetime, not here.
+  var batteryOnly = gen === 0 && battery > 0;
+  var sunShare = batteryOnly ? 1 : (draw > 0 ? Math.min(1, gen / draw) : 1);
+  var shadowCovered = batteryOnly ? 1 : (need > 0 ? Math.min(1, battery / need) : 1);
   var powerShare = sunShare * (1 - f * (1 - shadowCovered));
 
   var ideal = 0;
@@ -310,7 +331,7 @@ function scienceRate(design, brokenIds, calMonth) {
     var x = resolutionM(p, h);
     var sharpEnough = !objective.needs_resolution_m || x === null || x <= objective.needs_resolution_m;
     var pts = p.science * orbit.science_mult * fit * match * (sharpEnough ? 1 : 0) *
-              earthFactor(objective.id, orbit.id, p, calMonth);
+              earthFactor(objective.id, orbit.id, p, calMonth, year);
     result.instruments.push({ id: p.id, match: match, sharp_enough: sharpEnough, points: round(pts, 2) });
     ideal += pts;
   });
@@ -374,7 +395,11 @@ function runChecks(design) {
       (design.campaign ? "the treasury holds $" : "the budget is $") + round(t.budget_musd, 2) + "M.");
   }
 
-  if (t.power_draw_w > t.power_gen_w) {
+  var batteryMonths = batteryLifeMonths(design);
+  if (batteryMonths !== null) {
+    warn("battery-only", "No solar panel: the battery runs everything for about " + Math.max(1, Math.round(batteryMonths * 30)) +
+      " days, then the satellite falls silent.");
+  } else if (t.power_draw_w > t.power_gen_w) {
     block("power", "Parts draw " + t.power_draw_w + " W but the solar panels make only " + t.power_gen_w + " W.");
   } else if (t.power_gen_w > 0 && t.margins.power < LOW_MARGIN) {
     warn("power-margin", "Power margin is only " + Math.round(t.margins.power * 100) +
@@ -424,6 +449,17 @@ function runChecks(design) {
   return { blockers: blockers, warnings: warnings };
 }
 
+// A spacecraft with batteries and no solar panel runs until the battery is spent.
+// Returns that time in months, or null when solar panels (or no battery) apply.
+function batteryLifeMonths(design) {
+  var parts = designParts(design);
+  var gen = sum(parts, function (p) { return p.category === "power" ? solarPowerW(p) : 0; });
+  var battery = sum(parts, function (p) { return p.battery_wh; });
+  var draw = sum(parts, function (p) { return p.power_draw_w; });
+  if (gen > 0 || battery <= 0 || draw <= 0) return null;
+  return battery / draw / 730;   // 730 hours in a month
+}
+
 // ------------------------------------------------------------------ science preview
 // What the Build screen shows before launch: expected science over the whole
 // mission if nothing goes wrong. Function name to be confirmed with Design screens.
@@ -432,11 +468,13 @@ function previewScience(design) {
   var objective = getObjective(design.objective);
   var rate = scienceRate(design, []);
   var months = orbit ? orbit.lifetime_months : 0;
+  var bl = batteryLifeMonths(design);
+  if (bl !== null) months = Math.min(months, bl);
   var target = objective ? objective.science_target : 0;
   var total = rate.per_month * months;
   return {
     per_month: round(rate.per_month, 2),
-    months: months,
+    months: round(months, 1),
     total: round(total, 1),
     target: target,
     share: target ? round(Math.min(1, total / target), 3) : 0,

@@ -8,7 +8,8 @@ var passed = 0, failed = 0, warned = 0;
 function check(name, ok, detail) { if (ok) passed++; else failed++; console.log((ok ? "PASS " : "FAIL ") + name + (detail ? "  (" + detail + ")" : "")); }
 function warn(name, detail) { warned++; console.log("GAP  " + name + (detail ? "  (" + detail + ")" : "")); }
 
-function cat(c) { return G.PARTS.filter(function (p) { return p.category === c; }).map(function (p) { return p.id; }); }
+// Each topic is swept with the parts and rockets of its own era (SPEC.md, "The 1957 campaign").
+function cat(c, era) { return G.PARTS.filter(function (p) { return p.category === c && G.eraOf("parts", p.id) === era; }).map(function (p) { return p.id; }); }
 function combos(list, min, max) {
   var out = [];
   for (var m = 1; m < (1 << list.length); m++) {
@@ -17,11 +18,16 @@ function combos(list, min, max) {
   }
   return out;
 }
-var SETS = [];
-combos(cat("instrument"), 1, 2).forEach(function (i) { combos(cat("power"), 1, 3).forEach(function (p) {
-  cat("comms").forEach(function (c) { cat("computer").forEach(function (k) {
-    [null].concat(cat("propulsion")).forEach(function (r) { SETS.push(i.concat(p, [c, k], r ? [r] : [])); });
-  }); }); }); });
+function setsFor(era) {
+  var out = [];
+  combos(cat("instrument", era), 1, 2).forEach(function (i) { combos(cat("power", era), 1, 3).forEach(function (p) {
+    cat("comms", era).forEach(function (c) { cat("computer", era).forEach(function (k) {
+      [null].concat(cat("propulsion", era)).forEach(function (r) { out.push(i.concat(p, [c, k], r ? [r] : [])); });
+    }); }); }); });
+  return out;
+}
+var SETS_BY_ERA = { era: setsFor("era"), modern: setsFor("modern") };
+function launchersFor(era) { return G.LAUNCHERS.filter(function (l) { return G.eraOf("launchers", l.id) === era; }); }
 
 function safe(ev) { var j = ev.choices.findIndex(function (c) { return !c.fail_chance_now; }); return j < 0 ? 0 : j; }
 function play(d) {
@@ -30,12 +36,14 @@ function play(d) {
   return m;
 }
 
-var stats = {}, adviceBad = [], orbitWins = { leo: 0, sso: 0, geo: 0 }, threeBelowTarget = 0, threeSeen = 0;
+var stats = {}, adviceBad = [], threeBelowTarget = 0, threeSeen = 0;
+var orbitWins = { era: { leo: 0, sso: 0, geo: 0 }, modern: { leo: 0, sso: 0, geo: 0 } };
 G.TIERS.forEach(function (t) {
   G.OBJECTIVES.forEach(function (o) {
     var key = t.id + "/" + o.id, best = { score: -1 }, three = 0, bestByOrbit = {};
+    var era = G.topicEra(o.id), SETS = SETS_BY_ERA[era];
     G.ORBITS.forEach(function (orb) {
-      G.LAUNCHERS.forEach(function (l) {
+      launchersFor(era).forEach(function (l) {
         SETS.forEach(function (parts) {
           var d = G.newDesign(t.id); G.setObjective(d, o.id); G.setOrbit(d, orb.id); G.setLauncher(d, l.id);
           parts.forEach(function (p) { G.addPart(d, p); });
@@ -56,15 +64,15 @@ G.TIERS.forEach(function (t) {
     });
     stats[key] = { three: three, best: best, byOrbit: bestByOrbit };
     var top = Object.keys(bestByOrbit).sort(function (a, b) { return bestByOrbit[b] - bestByOrbit[a]; })[0];
-    Object.keys(bestByOrbit).forEach(function (id) { if (bestByOrbit[id] >= bestByOrbit[top]) orbitWins[id]++; });
+    Object.keys(bestByOrbit).forEach(function (id) { if (bestByOrbit[id] >= bestByOrbit[top]) orbitWins[era][id]++; });
   });
 });
 
 // 1. Every objective has a design that reaches its science target (preview ceiling).
 G.OBJECTIVES.forEach(function (o) {
-  var ceiling = 0;
-  G.ORBITS.forEach(function (orb) { SETS.forEach(function (parts) {
-    var d = { tier: "training", objective: o.id, orbit: orb.id, launcher: "heavy", parts: parts };
+  var ceiling = 0, era = G.topicEra(o.id);
+  G.ORBITS.forEach(function (orb) { SETS_BY_ERA[era].forEach(function (parts) {
+    var d = { tier: "training", objective: o.id, orbit: orb.id, launcher: era === "era" ? "thor-agena" : "heavy", parts: parts };
     if (G.runChecks(d).blockers.length) return;
     ceiling = Math.max(ceiling, G.previewScience(d).total);
   }); });
@@ -81,9 +89,20 @@ Object.keys(stats).forEach(function (k) {
 check("3 three stars need the target", threeBelowTarget === 0, threeSeen + " three-star missions, " + threeBelowTarget + " below target");
 
 // 4. Each orbit is the best (or tied best) choice for at least one tier x objective.
-Object.keys(orbitWins).forEach(function (id) {
-  if (orbitWins[id] > 0) check("4 " + id + " wins at least once", true, orbitWins[id] + " tier x objective");
-  else warn("4 " + id + " never wins", "known: its real advantage, minutes-fast detection, is not scored yet (red-team N5)");
+// The 1957 era is low orbit only, as in history: polar orbits need thrusters, which
+// come with modern research. So the orbit check is made within each era.
+var WHY = {
+  "era/sso": "historical: 1950s satellites flew low orbits; polar orbits need thrusters from modern research",
+  "era/geo": "historical: no 1950s rocket could reach geostationary orbit (first: Syncom 2, 1963)",
+  "modern/geo": "its real advantage, minutes-fast fire detection, is not scored yet (red-team N5)"
+};
+["era", "modern"].forEach(function (era) {
+  Object.keys(orbitWins[era]).forEach(function (id) {
+    var k = era + "/" + id;
+    if (orbitWins[era][id] > 0) check("4 " + k + " wins at least once", true, orbitWins[era][id] + " tier x objective");
+    else if (WHY[k]) warn("4 " + k + " never wins", WHY[k]);
+    else check("4 " + k + " wins at least once", false, "no tier x objective");
+  });
 });
 
 // 5. Advice never names a part that is already fitted; missions fly a copy.
