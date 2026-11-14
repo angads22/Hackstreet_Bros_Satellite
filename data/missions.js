@@ -83,5 +83,11 @@ const MISSIONS = [
     objective: "sea-ice", orbit: "sso", tags: ["radar"], mass_kg: 85, power: "solar",
     blurb: "Microwave-oven-sized radar satellites: what once took two tonnes now takes 85 kg.",
     source: "eoPortal, ICEYE constellation: https://www.eoportal.org/satellite-missions/iceye-constellation"
+  },
+  {
+    id: "alouette-1", name: "Alouette 1", year: 1962, agency: "Canada (DRTE) / NASA launch",
+    objective: "ionosphere", orbit: "sso", tags: ["ionosphere"], mass_kg: 145, power: "solar",
+    blurb: "Canada's first satellite, launched on a Thor-Agena into an 80-degree orbit. Designed for one year, it sent ionograms for ten, heard by 33 ground stations from Resolute Bay to the Falklands.",
+    source: "CSA, Alouette 1: https://www.asc-csa.gc.ca/eng/satellites/alouette.asp ; ionogram counts from the CSA's Alouette-1 data extraction (result_master.csv). Mass 145 kg NEEDS HUMAN CHECK."
   }
 ];

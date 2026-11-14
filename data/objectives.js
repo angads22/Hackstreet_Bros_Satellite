@@ -72,5 +72,17 @@ const OBJECTIVES = [
     knowledge_scale: 300,       // GAME VALUE
     requires_research: "synthetic-aperture-radar",   // radar from orbit arrived with Seasat (1978)
     real_mission: "Canada's RADARSAT Constellation Mission maps Arctic ice with radar from a polar orbit."
+  },
+  {
+    id: "ionosphere",
+    name: "The ionosphere from above",
+    briefing: "It is 1962. Radio signals bounce off the ionosphere, but nobody has seen its top side. Canada wants to fly a radio sounder above it and listen for the echoes. Which ground stations will hear your satellite?",
+    wants: ["ionosphere"],
+    science_target: 120,         // GAME VALUE
+    orbit_fit: { leo: 1.0, sso: 1.0, geo: 0 },   // a sounder must fly just above the ionosphere
+    value_musd: 30,              // GAME VALUE
+    knowledge_scale: 180,        // GAME VALUE
+    requires_research: "topside-sounding",
+    real_mission: "Alouette 1 (1962, Canada): the first satellite built by a country other than the USSR or the US. Built to last a year, it sounded the ionosphere for ten."
   }
 ];

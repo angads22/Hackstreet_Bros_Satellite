@@ -4,7 +4,17 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- **The lab: research adds, upgrades replace.** Science returned is now a currency (`science_pts`). Research costs money *and* science. Six real successor parts can be bought as upgrades, each replacing its predecessor for the rest of the campaign: Explorer 4's scintillation counter (shrugs off the swamped-counter event), OSO 1's X-ray spectrometer, radiation-hard n-on-p solar cells (after Starfish Prime, 1962), Nimbus 1's camera system, PCM digital telemetry and Alouette 2's sounder. `getLab()`, `buyUpgrade(id)`.
+- **The archive.** Each campaign year, 10% of all the science banked comes back as science points: old data keeps paying.
+- **A Canadian topic: the ionosphere from above,** driven by the CSA's 699,369 digitised Alouette 1 soundings. A low orbit reaches only the stations that heard 42% of them; Alouette flew polar to reach Resolute Bay and College, Alaska. New research "Topside sounding (Alouette)", 1962.
+
+### Changed
+
+- **Polar orbits before 1995 need no disposal fuel,** as in history (Alouette 1 and Nimbus 1 reached them on a Thor-Agena); the debris rule dates from 1995.
+- **Less hand-holding.** On Trade Space and Point Design, research shows a hint instead of the exact lesson to earn.
+- **Saves:** campaign save version 3; older campaign saves start over.
 
 ## 0.6 beta (November 14, 2026)
 

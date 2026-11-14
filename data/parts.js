@@ -646,5 +646,139 @@ const PARTS = [
     isp_s: 1960,
     fuel_kg: 1.65,
     build_months: 9          // GAME VALUE: months to build and test
+  },
+  {
+    id: "topside-sounder",
+    name: "Topside sounder (Alouette 1)",
+    category: "instrument",
+    mass_kg: 30,            // ESTIMATE
+    power_draw_w: 10,      // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 2,          // GAME VALUE
+    data_gb_day: 0.005,    // ESTIMATE
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 6,              // GAME VALUE
+    tags: ["ionosphere"],
+    protects: [],
+    blurb: "A radio that sweeps from 0.5 to 11.5 MHz and listens for echoes from the ionosphere below, on antennas 45 m tip to tip. No tape recorder: a sounding counts only if a ground station hears it.",
+    source: "CSA, Alouette 1 (1962): swept-frequency topside sounder, Canada's first satellite. https://www.asc-csa.gc.ca/eng/satellites/alouette.asp Mass, power and data are ESTIMATES.",
+    build_months: 9          // GAME VALUE: months to build and test
+  },
+  {
+    id: "alouette-2-sounder",
+    name: "Improved topside sounder (Alouette 2)",
+    category: "instrument",
+    mass_kg: 32,            // ESTIMATE
+    power_draw_w: 10,      // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 2.5,          // GAME VALUE
+    data_gb_day: 0.008,    // ESTIMATE
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 8,              // GAME VALUE
+    tags: ["ionosphere"],
+    protects: [],
+    upgrade: { of: "topside-sounder", year: 1965, cost_musd: 2, cost_sci: 60, requires: [] },   // GAME VALUE costs
+    blurb: "Alouette 2 swept from 0.1 to 14.5 MHz, deeper and wider than Alouette 1, and was built from Alouette 1's backup.",
+    source: "CSA, Alouette 2 (1965): improved swept-frequency sounder. https://www.asc-csa.gc.ca/eng/satellites/alouette.asp Numbers are ESTIMATES.",
+    build_months: 8          // GAME VALUE: months to build and test
+  },
+  {
+    id: "scintillation-counter",
+    name: "Scintillation counter (Explorer 4)",
+    category: "instrument",
+    mass_kg: 3,            // ESTIMATE
+    power_draw_w: 0.1,      // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.4,          // GAME VALUE
+    data_gb_day: 4e-05,    // ESTIMATE
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 6,              // GAME VALUE
+    tags: ["radiation"],
+    protects: ["counter-silence"],
+    upgrade: { of: "cosmic-ray-counter", year: 1958, cost_musd: 1, cost_sci: 40, requires: [] },   // GAME VALUE costs
+    blurb: "After Explorer 1's counter was swamped, Van Allen's team flew counters built for intense radiation on Explorer 4. They mapped the belts instead of falling silent.",
+    source: "NASA NSSDCA, Explorer 4 (1958-005A): scintillation and Geiger counters for high-intensity trapped radiation. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1958-005A Numbers are ESTIMATES.",
+    build_months: 3          // GAME VALUE: months to build and test
+  },
+  {
+    id: "avcs-camera",
+    name: "Advanced vidicon camera system (Nimbus 1)",
+    category: "instrument",
+    mass_kg: 15,            // ESTIMATE
+    power_draw_w: 8,      // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 2,          // GAME VALUE
+    data_gb_day: 0.04,    // ESTIMATE
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 8,              // GAME VALUE
+    tags: ["imaging"],
+    protects: [],
+    upgrade: { of: "vidicon-camera", year: 1964, cost_musd: 3, cost_sci: 90, requires: ["three-axis-control"] },   // GAME VALUE costs
+    blurb: "Three cameras looking down from a satellite that always faced Earth: Nimbus 1 sent sharper, wider cloud pictures than TIROS ever could.",
+    source: "NASA NSSDCA, Nimbus 1 (1964-052A): Advanced Vidicon Camera System. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1964-052A Numbers are ESTIMATES.",
+    build_months: 8          // GAME VALUE: months to build and test
+  },
+  {
+    id: "oso-xray-spectrometer",
+    name: "X-ray spectrometer (OSO 1)",
+    category: "instrument",
+    mass_kg: 6,            // ESTIMATE
+    power_draw_w: 1,      // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 1,          // GAME VALUE
+    data_gb_day: 0.0001,    // ESTIMATE
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 7,              // GAME VALUE
+    tags: ["solar"],
+    protects: [],
+    upgrade: { of: "solar-xray-photometer", year: 1962, cost_musd: 2, cost_sci: 70, requires: [] },   // GAME VALUE costs
+    blurb: "The first Orbiting Solar Observatory kept its instruments pointed at the Sun and split its X-rays by energy, not just counted them.",
+    source: "NASA NSSDCA, OSO 1 (1962-006A): first Orbiting Solar Observatory. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1962-006A Numbers are ESTIMATES.",
+    build_months: 6          // GAME VALUE: months to build and test
+  },
+  {
+    id: "pcm-telemetry",
+    name: "PCM digital telemetry",
+    category: "comms",
+    mass_kg: 3,            // ESTIMATE
+    power_draw_w: 5,      // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.5,          // GAME VALUE
+    data_gb_day: 0,    // ESTIMATE
+    downlink_gb_day: 1.0,
+    storage_gb: 0,
+    science: 0,              // GAME VALUE
+    tags: [],
+    protects: [],
+    upgrade: { of: "vhf-telemetry", year: 1964, cost_musd: 1, cost_sci: 50, requires: [] },   // GAME VALUE costs
+    blurb: "Digital pulse-code telemetry replaced analog tones in the mid-1960s, sending twice the data on the same power.",
+    source: "NASA NSSDCA, OGO 1 (1964-054A) used digital PCM telemetry. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1964-054A Numbers are ESTIMATES.",
+    build_months: 3          // GAME VALUE: months to build and test
+  },
+  {
+    id: "n-on-p-cells",
+    name: "Radiation-hard n-on-p solar cells",
+    category: "power",
+    mass_kg: 3,              // ESTIMATE
+    power_draw_w: 0,
+    power_gen_w: 0,          // computed by game.js: 1361 x 0.2 x 0.10 = 27.2 W
+    cost_musd: 0.6,          // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 0,
+    tags: [],
+    protects: ["solar-storm"],
+    upgrade: { of: "silicon-cells", year: 1963, cost_musd: 1.5, cost_sci: 50, requires: [] },   // GAME VALUE costs
+    blurb: "In 1962 a high-altitude nuclear test filled the belts with electrons and killed the solar cells of several satellites, Telstar 1 among them. Cells built the other way round, n-on-p, shrugged the radiation off.",
+    source: "Starfish Prime (July 1962) damaged satellites including Telstar 1; n-on-p silicon cells were adopted for their radiation resistance. Area and efficiency are ESTIMATES.",
+    panel_area_m2: 0.2,      // ESTIMATE
+    efficiency: 0.10,        // ESTIMATE
+    build_months: 3          // GAME VALUE: months to build and test
   }
 ];

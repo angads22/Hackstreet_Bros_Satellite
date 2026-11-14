@@ -31,7 +31,7 @@ const ORBITS = [
     science_mult: 0.9,
     downlink_mult: 0.07,
     lifetime_months: 48,
-    blurb: "Passes over every part of Earth, poles included, at the same local time each day. You must bring fuel to come down at the end.",
+    blurb: "Passes over every part of Earth, poles included, at the same local time each day. Since 1995 you must also bring fuel to come down at the end.",
     altitude_km: 700,
     dv_needed_ms: 80
   },

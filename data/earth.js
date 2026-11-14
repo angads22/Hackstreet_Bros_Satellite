@@ -102,6 +102,33 @@ const EARTH = {
       ]
     }
   },
+  ionosphere: {
+    source: "Canadian Space Agency, Alouette-1 ionogram data extraction (result_master.csv), CSA Open Data portal. https://donnees-data.asc-csa.gc.ca/users/OpenData_DonneesOuvertes/pub/Alouette-ISIS/Alouette-1/",
+    year: 1963,
+    // Every digitised Alouette 1 sounding (an ionogram: one sweep of the sounder),
+    // with the ground station that received it. Alouette had no tape recorder, so a
+    // sounding exists only if a station heard it. Counts are what has been digitised.
+    soundings: 699369,
+    stations: 33,
+    soundings_by_year: { 1962: 29686, 1963: 222418, 1964: 207351, 1965: 141557, 1966: 30215, 1967: 53631,
+                         1968: 10937, 1969: 3430, 1970: 49, 1971: 46, 1972: 40, 1973: 9 },
+    stations_by_year: { 1962: 24, 1963: 30, 1964: 31, 1965: 32, 1966: 27, 1967: 26, 1968: 25, 1969: 16,
+                        1970: 7, 1971: 9, 1972: 11, 1973: 5 },
+    // Share of each month's soundings, Jan..Dec, over the full years 1963-1967.
+    monthly_share: [0.0981, 0.0905, 0.0878, 0.0962, 0.1016, 0.0779, 0.0844, 0.0815, 0.0532, 0.0813, 0.0842, 0.0635],
+    // Share of the soundings received by stations each orbit can reach:
+    //   leo: stations at or below 50 degrees latitude (same rule as wildfire)
+    //   sso: every station (Alouette itself flew an 80-degree orbit)
+    //   geo: none (a sounder must fly just above the ionosphere)
+    orbit_view: { leo: 0.424, sso: 1.0, geo: 0 },
+    top_stations: [
+      { name: "Resolute Bay, Nunavut, Canada", lat: 74.7, soundings: 140965 },
+      { name: "College, Fairbanks, Alaska, USA", lat: 64.9, soundings: 127497 },
+      { name: "Ottawa, Canada", lat: 45.4, soundings: 68468 },
+      { name: "Falkland Islands", lat: -51.8, soundings: 65338 },
+      { name: "Winkfield, England", lat: 51.4, soundings: 47414 }
+    ]
+  },
   "sea-ice": {
     source: "NSIDC Sea Ice Index, version 4 (G02135), Arctic monthly extent. https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/",
     year: 2025,

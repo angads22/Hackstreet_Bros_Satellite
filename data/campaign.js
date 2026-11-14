@@ -10,5 +10,6 @@ const CAMPAIGN = {
   repeat_floor_musd: 0.3,     // minimum payout for any finished mission
   win: { topics_known: 3, knowledge: 0.6 },   // win when this many topics (or all, if fewer) reach this share
   grant_musd: 2,              // agency grant after each mission: small, so money still matters
-  save_version: 2             // bump when the saved shape changes; an older save is discarded
+  archive_share: 0.1,         // GAME VALUE: each year the archive pays this share of all science banked, as science points
+  save_version: 3             // bump when the saved shape changes; an older save is discarded
 };

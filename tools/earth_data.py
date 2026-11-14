@@ -6,7 +6,8 @@ Not part of the game (the game needs no build step). Run with Python 3:
   2. Download https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/N_MM_extent_v4.0.csv
      for MM = 01..12 into one folder.
   3. Download https://www.sidc.be/SILSO/INFO/snmtotcsv.php (monthly sunspot numbers).
-  4. python3 tools/earth_data.py modis_2025_all_countries.zip path/to/nsidc_folder SN_m_tot_V2.0.csv
+  4. Alouette 1 ionograms: data/result_master.csv (CSA Open Data), already in the repo.
+  5. python3 tools/earth_data.py modis_2025_all_countries.zip path/to/nsidc_folder SN_m_tot_V2.0.csv data/result_master.csv
 """
 import csv, io, math, os, sys, zipfile
 
@@ -70,9 +71,42 @@ def sunspots(csv_path, first=1957, last=2025):
         print("  ", rows[y], "//", y)
 
 
+def ionosphere(csv_path, max_lat=50):
+    """Alouette 1 ionograms from the CSA (result_master.csv, CSA Open Data portal,
+    https://donnees-data.asc-csa.gc.ca/users/OpenData_DonneesOuvertes/pub/Alouette-ISIS/Alouette-1/result/).
+    One row per sounding: when it was taken and which ground station received it."""
+    from collections import Counter, defaultdict
+    by_year, by_month, by_station, st_year = Counter(), Counter(), Counter(), defaultdict(set)
+    lat_of, name_of = {}, {}
+    with open(csv_path) as f:
+        for r in csv.DictReader(f):
+            t = r["Timestamp"]
+            y, m, code = int(t[:4]), int(t[5:7]), r["Station_Code"]
+            by_year[y] += 1
+            if 1963 <= y <= 1967:          # full years of operation, for the season
+                by_month[m] += 1
+            by_station[code] += 1
+            st_year[y].add(code)
+            la = r["Lat"]
+            lat_of[code] = float(la[:-1]) * (1 if la.endswith("N") else -1) if la[-1:] in "NS" else 0.0
+            name_of[code] = r["Station_Name"]
+    n = sum(by_year.values())
+    low = sum(c for k, c in by_station.items() if abs(lat_of[k]) <= max_lat)
+    tot_m = sum(by_month.values())
+    print("soundings", n, "stations", len(by_station))
+    print("soundings_by_year", dict(sorted(by_year.items())))
+    print("stations_by_year", {y: len(v) for y, v in sorted(st_year.items())})
+    print("monthly_share", [round(by_month[m] / tot_m, 4) for m in range(1, 13)])
+    print("orbit_view leo", round(low / n, 3))
+    for k, c in by_station.most_common(6):
+        print("  station", k, name_of[k], lat_of[k], c)
+
+
 if __name__ == "__main__":
     fires(sys.argv[1])
     sea_ice(sys.argv[2])
     if len(sys.argv) > 3:
         sunspots(sys.argv[3])
+    if len(sys.argv) > 4:
+        ionosphere(sys.argv[4])
     daylight()
