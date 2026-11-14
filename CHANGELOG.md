@@ -15,11 +15,20 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Eras for standalone play** (back end; no screen yet): 1958 International Geophysical Year, 1964 Nimbus, 1999 Earth Observing System, 2026 New Space. A mission set in an era offers only the parts, rockets and topics that existed by then; two stars in an era opens the next. `getEras()`, `setEra(design, eraId)`, `getAvailability(design)`; `recordResult` returns `era_unlocked`. The solar topic uses the real sunspot count for the era's year.
 - **Satellite bodies** with a payload limit and slots per part type: Explorer-style cylinder, TIROS-style drum, Nimbus-class bus, modern smallsat bus, 12U CubeSat frame. Readiness checks for too heavy, too many parts of a kind, and more than one body. `getTotals` returns `body`.
 - **`getResearchTree()`**: nodes and edges for a research-tree screen.
+- **Build screen.** Seven parts bins, in the back end's order: the satellite's body (structure) and how it points (attitude) join the five that were there. With a body fitted, each bin shows how many of its slots are used ("2 / 3 slots"), and a body card shows the payload carried against what the body can hold. The two new bins stay optional until the switch-over.
+- **Tier select: eras.** A grid with the four eras across (1958, 1964, 1999, 2026) and the three levels down. The first era is open; two stars in an era opens the next. A mission is set in its era: topics, parts and rockets that did not exist yet are greyed out with when they arrive ("Arrives in 1964"), the header shows the year, and the debrief announces a newly opened era.
+- **Campaign.** The campaign can now be played. The title screen starts or continues one; the Campaign hub shows the year, the treasury, how much is known about each topic and what its next mission would pay, the lessons shown in flight, the missions flown, and save codes to export and import. In a campaign the Briefing lists only open topics with their payout, Build and Launch vehicle show the expected payout against the cost, locked parts say which research they need, and the debrief shows the payout, the knowledge gained, new lessons and the way back to the hub.
+- **Research tree.** The hub draws the research tree: boxes in columns by depth joined by their prerequisites, filled when owned and bright when they can be bought. Picking a box shows what it unlocks and what it still needs, with a Buy button. The drawing is a separate, reusable piece (`js/ui-tree.js`) that only needs nodes and edges.
 
 ### Not in this version yet
 
-- Eras, bodies and the research tree have no screens yet (see `HANDOFF.md`).
-- Structure and attitude are optional until the Build screen has their two bins: Design screens turns on `NEW_CATEGORIES_REQUIRED` in `js/game.js` in the same change (`node tests/api.js` already tests the game with it on).
+- Structure and attitude are still optional. The Build screen now has their two bins, but turning on `NEW_CATEGORIES_REQUIRED` in `js/game.js` makes the tests that load the game without the option fail (their sample satellites have no body), so the switch waits for `tests/load.js` to set the flag from its option.
+
+### Changed
+
+- **Wording.** The Mission screen and the orbit cards say "fire detections", not "fires": a satellite detection is one hot pixel on one pass, not one fire.
+- **Debrief.** The heading names the NASA Mission Design Lab discipline that limited the mission ("Communications limited this mission"), and four short lines sum up the launch, space, ground and user segments.
+- **Readiness review.** Shows how many months the satellite takes to build.
 
 ### Fixed
 

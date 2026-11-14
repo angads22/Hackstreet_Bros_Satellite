@@ -94,13 +94,14 @@
   }
 
   // The real Earth this month, from NASA data the back end returns with each step.
-  // Wildfire: "August: 557,357 fires burned (NASA FIRMS 2025)".
+  // Wildfire: "August: 557,357 fire detections worldwide (NASA FIRMS 2025)". A detection is one
+  // hot pixel on one satellite pass, not one fire, so the screens never say "fires burned".
   // Sea ice:  "January: 13.1 million km2 of Arctic ice, polar night (NSIDC 2025)".
   function realEarthText(s) {
     var r = s.real;
     if (!r || !s.month_name) return "";
     if (typeof r.fires === "number") {
-      return s.month_name + ": " + num(r.fires, 0) + " fires burned on Earth (NASA FIRMS " + r.year + ")";
+      return s.month_name + ": " + num(r.fires, 0) + " fire detections worldwide (NASA FIRMS " + r.year + ")";
     }
     if (typeof r.ice_extent_mkm2 === "number") {
       return s.month_name + ": " + num(r.ice_extent_mkm2, 1) + " million km\u00b2 of Arctic ice" +
@@ -228,20 +229,32 @@
 
     var side = el("div", { class: "panel limit" }, [
       result && result.unlocked ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
-      el("h2", { text: "WHAT LIMITED YOU: " + (LIMIT_NAMES[d.limiting] || String(d.limiting || "").toUpperCase()) }),
+      result && result.era_unlocked ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
+      el("h2", { text: limitingHeading(d) }),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
+      campaignBlock(done.design, d, result),
       d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
         el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text })]) : null,
+      segmentRows(d),
       closestLine(d),
       d.real_mission ? el("p", { class: "bar-note", text: "Real-world cousin: " + d.real_mission }) : null,
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
-      el("div", { class: "choices" }, [
-        UI.button(["REDESIGN", " >"], function () { window.showDesignScreen("build", done.design); }, { primary: true }),
-        UI.button("NEW MISSION", function () { window.showDesignScreen("map", newDesign(done.design.tier)); }),
-        UI.button("CHANGE TIER", function () { window.showDesignScreen("title"); })
-      ])
+      done.design.campaign
+        ? el("div", { class: "choices" }, [
+            UI.button(["BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
+            // A fresh launch of the same satellite, paid for again.
+            result && result.campaign_over ? null : UI.button("REBUILD THIS SATELLITE", function () {
+              var again = rebuildDesign(done.design);
+              if (again) window.showDesignScreen("build", again); else window.showCampaignHub();
+            })
+          ])
+        : el("div", { class: "choices" }, [
+            UI.button(["REDESIGN", " >"], function () { window.showDesignScreen("build", done.design); }, { primary: true }),
+            UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
+            UI.button("CHANGE TIER", function () { window.showDesignScreen("title"); })
+          ])
     ]);
 
     UI.mount("debrief", el("section", { class: "screen" }, [
@@ -252,6 +265,22 @@
     run = null;
   }
 
+  // "POWER LIMITED THIS MISSION": the name is a NASA Mission Design Lab discipline from the back end.
+  function limitingHeading(d) {
+    var name = d.limiting_name || LIMIT_NAMES[d.limiting] || String(d.limiting || "");
+    return (name + " limited this mission").toUpperCase();
+  }
+
+  // The four mission segments (launch, space, ground, user), one short line each.
+  function segmentRows(d) {
+    var rows = UI.list(d.segments).filter(function (s) { return s && s.text; });
+    if (!rows.length) return null;
+    return el("div", { class: "segments" }, [el("h2", { class: "divided", text: "THE FOUR SEGMENTS" }),
+      el("dl", { class: "facts wide" }, rows.map(function (s) {
+        return el("div", null, [el("dt", { text: s.name || s.id }), el("dd", { text: s.text })]);
+      }))]);
+  }
+
   // "Closest real mission: Explorer 1 (1958, NASA / JPL). ... Like yours: same orbit; battery power."
   function closestLine(d) {
     var c = d.closest_mission;
@@ -260,6 +289,59 @@
     return el("p", { class: "nasa-line", text: "Closest real mission: " + c.name +
       " (" + [c.year, c.agency].filter(Boolean).join(", ") + "). " + (c.blurb || "") +
       (shared ? " Like yours: " + shared + "." : "") });
+  }
+
+  // ---- campaign: what the flight paid and taught. Every number is from recordResult() or getDebrief().
+  function campaignBlock(design, d, result) {
+    if (!design.campaign || !result) return null;
+    var objectives = UI.data("OBJECTIVES");
+    var next = d.best_next_topic && d.best_next_topic !== design.objective ? UI.byId(objectives, d.best_next_topic) : null;
+    var lessonNames = typeof LESSONS !== "undefined" && LESSONS ? LESSONS : {};
+    var lessons = UI.list(result.lessons_new).map(function (id) { return lessonNames[id] || id; });
+    var before = typeof result.knowledge_before === "number" ? result.knowledge_before : d.knowledge_before;
+    var after = typeof result.knowledge_after === "number" ? result.knowledge_after : d.knowledge_after;
+    var pct = function (x) { return Math.max(0, Math.min(1, x || 0)) * 100 + "%"; };
+    return el("div", { class: "nasa-box payout-box" }, [
+      el("h2", { text: "PAYOUT " + UI.money(result.payout_musd) }),
+      el("div", { class: "bar" }, [
+        el("div", { class: "bar-top" }, [el("span", { text: "KNOWLEDGE OF THIS TOPIC" }),
+          el("span", { text: Math.round((before || 0) * 100) + "% to " + Math.round((after || 0) * 100) + "%" })]),
+        // Two fills: what was known before, then what this mission added.
+        el("div", { class: "bar-track two", role: "presentation" }, [
+          el("div", { class: "bar-fill", style: "width: " + pct(before) }),
+          el("div", { class: "bar-fill gain", style: "width: " + pct((after || 0) - (before || 0)) })
+        ])
+      ]),
+      d.knowledge_paragraph ? el("p", { text: d.knowledge_paragraph }) : null,
+      next ? el("p", { class: "nasa-line", text: "Try a new topic: " + next.name + "." }) : null,
+      lessons.length ? el("p", { class: "nasa-line", text: "Shown in flight: " + lessons.join("; ") + "." }) : null,
+      result.bailout ? el("p", { class: "part-note", text: "An emergency grant of " + UI.money(result.bailout_musd) + " topped up the treasury." }) : null,
+      el("p", { class: "bar-note", text: "Treasury now " + UI.money(result.treasury_musd) + ", year " + result.year + "." })
+    ]);
+  }
+
+  // The same satellite again as a new campaign design (a fresh launch, paid again).
+  function rebuildDesign(old) {
+    var d = typeof newCampaignDesign === "function" ? newCampaignDesign() : null;
+    if (!d) return null;
+    if (old.objective) setObjective(d, old.objective);
+    if (old.orbit) setOrbit(d, old.orbit);
+    UI.list(old.parts).forEach(function (id) { addPart(d, id); });
+    if (old.launcher) setLauncher(d, old.launcher);
+    return d;
+  }
+
+  // A new design on the same tier and in the same era as the one just flown.
+  function freshDesign(old) {
+    var d = newDesign(old.tier);
+    if (old.era && typeof setEra === "function") setEra(d, old.era);
+    return d;
+  }
+
+  function eraLabel(id) {
+    var eras = typeof getEras === "function" ? UI.list(getEras()) : [];
+    var e = UI.byId(eras, id);
+    return e ? String(e.name).toUpperCase() + " (" + e.year + ")" : String(id).toUpperCase();
   }
 
   function tierLabel(id) {
