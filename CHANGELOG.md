@@ -4,6 +4,12 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.6 beta (November 14, 2026)
+
+The campaign can be played from the title screen, and a standalone mission can be set in any of four eras. The satellite now has a body and a way of pointing, and the debrief names the discipline that limited the mission. The Gravitron story, part-by-part satellite art and launch failures are not built yet.
+
 ### Added
 
 - **Time as a resource.** Every part has a build time, and a satellite's development time (the longest part plus integration) comes back from `getTotals` as `dev_months`. In a campaign, long builds cost years on the calendar, and a satellite that could not be ready before the programme ends is blocked.
