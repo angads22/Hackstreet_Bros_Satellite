@@ -121,7 +121,7 @@ Readiness checks (only when a body is fitted, which becomes always once the swit
 | **Relevance** | The challenge asks for "different difficulty levels, mission types, or scenarios" and "simple and advanced components depending on the difficulty level". Eras are both, and they rest on NASA's own mission history (NSSDCA). | — |
 | **Presentation** | A 30-second demo can open in 1958 with Explorer 1 and close in 2026, which is a story in itself. The screens need only an era picker and slot counts on the body. | The research-tree screen is the biggest new screen; it is only needed for the campaign, so eras come first. |
 
-### The lab, the fleet and open choices (0.7, approved November 14)
+### The lab, the archive and open choices (0.7, approved November 14)
 
 Playtest verdict: the campaign was one corridor (fly, get paid, buy the next node) with too much hand-holding, and science points paid for nothing. 0.7 makes it an incremental and simulator hybrid: every launch is still a hard design puzzle (simulator), and what the programme learns keeps piling up between launches (incremental).
 
@@ -129,13 +129,13 @@ Playtest verdict: the campaign was one corridor (fly, get paid, buy the next nod
 - **The lab: research adds, upgrades replace.**
   - **Research (add):** the research tree, each node now costing `cost_musd` *and* `cost_sci`. It adds new parts, rockets and topics. Lessons still gate it (the history lesson stays).
   - **Upgrade (replace):** a part with an `upgrade` field is the real successor of another part: Explorer 1's Geiger counter becomes Explorer 4's scintillation counter, TIROS's vidicon becomes Nimbus's AVCS camera, Alouette 1's sounder becomes ISIS-1's. Buying an upgrade replaces the predecessor everywhere in the campaign: the old card shows "Replaced by ...". An upgrade can only be bought when its predecessor is available and the calendar has reached its year. Outside a campaign, both stay on offer from their years.
-- **The fleet: satellites keep working.** A satellite that ends its planned mission still working keeps returning science every year until its lifetime runs out (the orbit's lifetime, or its batteries). It adds `fleet_share` of its mission's yearly science to `science_pts` each campaign year. Real: Alouette 1 was built for a year and sent soundings for ten; Vanguard 1 transmitted for six. The hub lists the fleet.
+- **The archive: data keeps paying.** Every campaign year, scientists re-analyse what the programme has already returned: `science_pts` grows by `archive_share` of all the science banked so far, so every flight keeps feeding the lab. (Not a satellite living longer: the mission simulation already flies each satellite until its orbit decays or its batteries die.) Real: Alouette 1's ionograms were nearly lost, then digitised by the CSA from 2017 and are being studied again.
 - **Less hand-holding.** On Trade Space and Point Design, a research node's lesson condition is hidden behind a hint ("A review board wants proof of engineering discipline") until the lesson is earned. Initial Feasibility keeps the exact wording.
 - **A Canadian topic from Canadian data: the ionosphere.** Alouette 1 (1962), the first satellite built by a country other than the USSR or the US, sounded the ionosphere from above. The CSA's digitised Alouette 1 ionograms (699,369 soundings received by 33 ground stations, 1962-1973; `data/result_master.csv`, CSA Open Data) drive the topic: which ground stations a low orbit can reach, and the season. The sounder had no tape recorder, so only soundings heard by a ground station count; the debrief compares the player's satellite with Alouette's real record.
 - **Calls for proposals (if time):** each campaign year the hub offers two seeded calls (for example "IGY: radiation data by 1959, bonus $12M"), drawn from `data/calls.js`. Taking one is optional.
 - **Chronicle headline:** the debrief adds `headline`, a newspaper-style line built from the mission, its real data and the year, for the hub's history and the ending.
 
-New data fields (approved): parts `upgrade: { of, year, cost_musd, cost_sci, requires: [research ids] }`; research `cost_sci`; `CAMPAIGN.fleet_share`, `CAMPAIGN.save_version` 3; an `ionosphere` entry in `data/earth.js` (`source`, `soundings`, `stations`, `soundings_by_year`, `stations_by_year`, `monthly_share`, `orbit_view`, `top_stations`); a new objective `ionosphere`, research `topside-sounding`, parts `topside-sounder`, `isis-sounder` and other successor parts. Campaign state adds `science_pts`, `upgrades` and `fleet`.
+New data fields (approved): parts `upgrade: { of, year, cost_musd, cost_sci, requires: [research ids] }`; research `cost_sci`; `CAMPAIGN.archive_share`, `CAMPAIGN.save_version` 3; an `ionosphere` entry in `data/earth.js` (`source`, `soundings`, `stations`, `soundings_by_year`, `stations_by_year`, `monthly_share`, `orbit_view`, `top_stations`); a new objective `ionosphere`, research `topside-sounding`, parts `topside-sounder`, `isis-sounder` and other successor parts. Campaign state adds `science_pts` and `upgrades`.
 
 ### NASA data in the game
 
@@ -676,7 +676,7 @@ newCampaignDesign()             // an empty design that belongs to the campaign 
                                 // null if there is no campaign or it has finished. newDesign() stays a standalone mission.
 getCampaign()                   // the saved state, or null
 resetCampaign()
-getHubInfo()                    // { year, treasury_musd, science_pts, fleet: [{ name, objective, launched, ends_year, sci_per_year }],
+getHubInfo()                    // { year, treasury_musd, science_pts, archive_sci_per_year,
                                 //   lessons: [ids earned], topics: [{ id, name, available, knowledge,
                                 //   science_so_far, next_payout_estimate_musd, locked_reason }],
                                 //   research: [{ id, name, year, depth, cost_musd, cost_sci, blurb, owned, affordable, requires_met,
