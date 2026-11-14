@@ -36,7 +36,7 @@ function play(d) {
   return m;
 }
 
-var stats = {}, adviceBad = [], threeBelowTarget = 0, threeSeen = 0, threeDesigns = {};
+var stats = {}, adviceBad = [], threeBelowTarget = 0, threeSeen = 0, threeDesigns = {}, winners = {};
 var orbitWins = { era: { leo: 0, sso: 0, geo: 0 }, modern: { leo: 0, sso: 0, geo: 0 } };
 G.TIERS.forEach(function (t) {
   G.OBJECTIVES.forEach(function (o) {
@@ -50,6 +50,7 @@ G.TIERS.forEach(function (t) {
           if (G.runChecks(d).blockers.length) return;
           var m = play(d), db = G.getDebrief(m);
           if (db.stars === 3) {
+            if (t.id === "training") (winners[o.id] = winners[o.id] || []).push({ orbit: orb.id, launcher: l.id, parts: d.parts.slice() });
             three++; threeSeen++; if (db.science < db.science_target) threeBelowTarget++;
             // Distinct ways to succeed: a different orbit or different instruments (a bigger rocket alone does not count).
             var inst = d.parts.filter(function (p) { return G.getPart(p).category === "instrument"; }).sort().join("+");
@@ -116,6 +117,38 @@ G.OBJECTIVES.forEach(function (o) {
   var ways = Object.keys(threeDesigns[o.id] || {});
   check("4b " + o.id + " has more than one way to 3 stars", ways.length >= 2, ways.length + " ways, e.g. " + ways.slice(0, 3).join(", "));
 });
+
+// 7. Eras, with the switch-over on (body and attitude required): every topic open in an
+// era can earn 3 stars using only what existed that year. Starts from the 3-star designs
+// above, keeps those whose parts existed, then tries every era rocket, body and attitude part.
+var G2 = require("./load")({ newCategoriesRequired: true });
+G2.ERAS.forEach(function (era) {
+  G2.getEras().filter(function (e) { return e.id === era.id; })[0].topics.forEach(function (topic) {
+    var ok = null;
+    (winners[topic] || []).some(function (w) {
+      var probe = G2.setEra(G2.newDesign("training"), era.id);
+      if (!w.parts.every(function (p) { return G2.isPartAvailable(p, probe); })) return false;
+      var bodies = G2.PARTS.filter(function (p) { return p.category === "structure" && G2.isPartAvailable(p.id, probe); });
+      var atts = G2.PARTS.filter(function (p) { return p.category === "attitude" && G2.isPartAvailable(p.id, probe); });
+      var rockets = G2.LAUNCHERS.filter(function (l) { return G2.isLauncherAvailable(l.id, probe); });
+      return bodies.some(function (b) { return atts.some(function (a) { return rockets.some(function (l) {
+        var d = G2.setEra(G2.newDesign("training"), era.id);
+        G2.setObjective(d, topic); G2.setOrbit(d, w.orbit); G2.setLauncher(d, l.id);
+        w.parts.concat([b.id, a.id]).forEach(function (p) { G2.addPart(d, p); });
+        if (G2.runChecks(d).blockers.length) return false;
+        var m = G2.startMission(d), s;
+        do { s = G2.stepMonth(m); if (s.event) G2.chooseEvent(m, safe2(s.event)); } while (!m.ended);
+        if (G2.getDebrief(m).stars === 3) { ok = w.orbit + "/" + l.id + "/" + b.id + "/" + a.id; return true; }
+        return false;
+      }); }); });
+    });
+    var label = "7 " + era.year + " " + era.name + ": " + topic + " can earn 3 stars with that era's parts";
+    // Historical: 1964 was the quietest year of the solar cycle (SILSO), so solar science is scarce.
+    if (!ok && topic === "solar" && G2.sunspots(era.year, null) < 50) warn(label, "historical: the Sun averaged " + Math.round(G2.sunspots(era.year, null)) + " sunspots in " + era.year + "; 2 stars is the honest best");
+    else check(label, !!ok, ok || "no design found");
+  });
+});
+function safe2(ev) { var j = ev.choices.findIndex(function (c) { return !c.fail_chance_now; }); return j < 0 ? 0 : j; }
 
 // 5. Advice never names a part that is already fitted; missions fly a copy.
 check("5 advice never asks for a fitted part", adviceBad.length === 0, adviceBad.length ? adviceBad[0] : "");

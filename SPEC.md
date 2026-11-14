@@ -594,7 +594,10 @@ getTotals(design)               // { mass_kg, power_draw_w, power_gen_w, cost_mu
                                 //   data_returned_gb_day, battery_wh, capacity_kg, budget_musd, dev_months,
                                 //   body: { id, name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null }
 getCategories()                 // [{ id, name, sub, required }] in display order: the Build screen's bins
-getEras()                       // [{ id, name, year, blurb, unlocked, best_stars, topics: [objective ids open in that era] }]
+getEras()                       // [{ id, name, year, blurb, real_missions, unlocked, best_stars, topics: [objective ids open in that era] }]
+getAvailability(design)         // { parts: { id: { available, year, reason } }, launchers: {...}, objectives: {...} }
+                                // One call per screen refresh: grey out a card when available is false and show reason
+                                // ("Arrives in 1964", or "Needs research: Television from orbit" in a campaign).
 setEra(design, eraId)           // sets design.era and design.year; only what existed by then is offered
 getResearchTree()               // { nodes: [{ id, name, year, depth, cost_musd, blurb, unlocks_names, owned, can_buy,
                                 //   missing }], edges: [{ from, to }] }; owned and can_buy are false outside a campaign
@@ -628,7 +631,8 @@ getDebrief(mission)             // { score, stars, limiting, suggestion, breakdo
                                 //   closest_mission: { id, name, year, agency, blurb, shared: [plain-English reasons] } or null,
                                 //   limiting_name: the Mission Design Lab discipline, for example "Power" or "Cost",
                                 //   segments: [{ id: "launch" | "space" | "ground" | "user", name, text }] one line each }
-recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null) }
+recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null),
+                                //   era_unlocked (era id or null) }
 getProgress()                   // { best_stars: { tierId: n }, best_score: { tierId: n } }
 isTierUnlocked(tierId)          // true for Training, and for any tier after one with 2+ stars
 resetProgress()

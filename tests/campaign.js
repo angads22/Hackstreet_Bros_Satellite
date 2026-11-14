@@ -138,6 +138,17 @@ var hub6 = G.getHubInfo().research.filter(function (r) { return r.id === "televi
 check("6 hub explains what is missing and what a node unlocks", hub6.missing.length > 0 && hub6.unlocks_names.length > 0 && hub6.depth === 2,
   "depth " + hub6.depth + "; " + hub6.missing.join(" ") + " -> " + hub6.unlocks_names.join(", "));
 
+// 9. Eras: two stars in an era opens the next, and the result says so.
+G.resetProgress();
+var e9 = G.setEra(G.newDesign("training"), "igy");
+G.setObjective(e9, "radiation"); G.setOrbit(e9, "leo"); G.setLauncher(e9, "juno-1");
+["cosmic-ray-counter", "silicon-cells", "minitrack-beacon", "command-timer"].forEach(function (p) { G.addPart(e9, p); });
+var m9 = fly(e9, function (ev) { var j = ev.choices.findIndex(function (c) { return !c.fail_chance_now; }); return j < 0 ? 0 : j; });
+var r9 = G.recordResult(m9);
+check("9 a good 1958 mission opens the Nimbus era", r9.stars >= 2 && r9.era_unlocked === "nimbus" && G.getEras()[1].unlocked,
+  r9.stars + " stars, era_unlocked " + r9.era_unlocked);
+check("9 the 1958 solar cycle is used for a 1958 mission", m9.start_year === 1958);
+
 // 8. Standalone missions are untouched by a saved campaign.
 var d8 = G.newDesign("standard"); G.setObjective(d8, "wildfire"); G.setOrbit(d8, "sso"); G.setLauncher(d8, "rideshare");
 FIRE.concat(["prop-green-small"]).forEach(function (p) { G.addPart(d8, p); });

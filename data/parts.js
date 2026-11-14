@@ -31,6 +31,8 @@ const PARTS = [
     tags: [], protects: [],
     blurb: "A slim steel tube that is also the rocket's last stage nose: light, cheap and cramped.",
     source: "Explorer 1 was a long thin cylinder carried on top of its final rocket stage (checked by hand by the team). Mass is an ESTIMATE.",
+    payload_kg: 10,          // approved field: the most this body carries
+    slots: { instrument: 1, power: 2, comms: 1, computer: 2, attitude: 1 },
     build_months: 2
   },
   {
@@ -44,6 +46,8 @@ const PARTS = [
     tags: [], protects: [],
     blurb: "An 18-sided drum, about a metre across, with solar cells on the outside and room for cameras inside.",
     source: "NASA NSSDCA, TIROS 1: an 18-sided right prism, 107 cm across and 56 cm high. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B Mass is an ESTIMATE.",
+    payload_kg: 100,          // approved field: the most this body carries
+    slots: { instrument: 2, power: 3, comms: 2, computer: 2, attitude: 1 },
     build_months: 6
   },
   {
@@ -57,7 +61,39 @@ const PARTS = [
     tags: [], protects: [],
     blurb: "An off-the-shelf frame for satellites up to about 180 kg, with standard mounts for everything.",
     source: "Representative of ESPA-class buses listed in NASA's Small Spacecraft Technology State of the Art 2025, Table 2-7 (https://www.nasa.gov/wp-content/uploads/2026/05/soa-2026.pdf). Mass and cost are ESTIMATES.",
+    payload_kg: 150,          // approved field: the most this body carries
+    slots: { instrument: 2, power: 3, comms: 2, computer: 2, attitude: 2, propulsion: 1 },
     build_months: 4
+  },
+  {
+    id: "nimbus-bus",
+    name: "Nimbus-class bus",
+    category: "structure",
+    mass_kg: 60,             // ESTIMATE
+    power_draw_w: 0, power_gen_w: 0,
+    cost_musd: 1.5,          // GAME VALUE
+    data_gb_day: 0, downlink_gb_day: 0, storage_gb: 0, science: 0,
+    tags: [], protects: [],
+    blurb: "A big three-axis platform with room for several instruments and a thruster.",
+    source: "Modelled on Nimbus 1 (1964, 374.4 kg, polar orbit; NASA NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1964-052A). Body mass, payload and slots are ESTIMATES.",
+    payload_kg: 300,         // approved field
+    slots: { instrument: 3, power: 3, comms: 2, computer: 2, attitude: 2, propulsion: 1 },
+    build_months: 8
+  },
+  {
+    id: "cubesat-12u",
+    name: "12U CubeSat frame",
+    category: "structure",
+    mass_kg: 2,              // ESTIMATE
+    power_draw_w: 0, power_gen_w: 0,
+    cost_musd: 0.1,          // ESTIMATE
+    data_gb_day: 0, downlink_gb_day: 0, storage_gb: 0, science: 0,
+    tags: [], protects: [],
+    blurb: "A standard box of twelve 10 cm units: cheap, quick and tiny.",
+    source: "CubeSat units are 10 cm cubes of about 1 to 1.33 kg each; 12U is one of the standard sizes (NASA CubeSat 101, PDF p.12, https://www3.nasa.gov/sites/default/files/atoms/files/nasa_csli_cubesat_101_508.pdf). Frame mass is an ESTIMATE; payload is 12 x 1.33 kg plus margin.",
+    payload_kg: 22,          // approved field
+    slots: { instrument: 1, power: 2, comms: 1, computer: 1, attitude: 1, propulsion: 1 },
+    build_months: 3
   },
   {
     id: "spin-stabilised",

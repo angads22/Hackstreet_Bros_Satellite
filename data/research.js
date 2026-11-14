@@ -51,7 +51,7 @@ const RESEARCH = [
   {
     id: "three-axis-control", name: "Three-axis control", year: 1964, cost_musd: 5,
     requires: ["television"], requires_lessons: [], requires_knowledge: { weather: 0.4 },
-    unlocks: { parts: ["reaction-wheels"], launchers: [], objectives: [] },
+    unlocks: { parts: ["reaction-wheels", "nimbus-bus"], launchers: [], objectives: [] },
     blurb: "TIROS spun, so its cameras saw a tumbling Earth. Nimbus 1 (1964) held steady and pointed straight down."
   },
   {
@@ -93,7 +93,7 @@ const RESEARCH = [
   {
     id: "commercial-launch", name: "Commercial small launchers", year: 2018, cost_musd: 8,
     requires: ["modern-radio"], requires_lessons: [], requires_knowledge: {},
-    unlocks: { parts: [], launchers: ["rideshare", "small"], objectives: [] },
+    unlocks: { parts: ["cubesat-12u"], launchers: ["rideshare", "small"], objectives: [] },
     blurb: "Rideshares and small dedicated rockets make orbit cheap."
   },
   {
