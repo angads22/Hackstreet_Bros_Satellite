@@ -343,3 +343,36 @@ function previewScience(design) {
     })
   };
 }
+
+// ------------------------------------------------------------------ part card facts
+// Numbers a part card shows that are computed, not read from the data:
+// solar output, resolution from the chosen orbit, and the science this
+// instrument would earn in this design. Works for parts not yet added.
+function getPartFacts(design, partId) {
+  var p = getPart(partId);
+  if (!p) return null;
+  var orbit = getOrbit(design.orbit);
+  var objective = getObjective(design.objective);
+  var facts = {
+    power_gen_w: p.category === "power" ? round(solarPowerW(p), 1) : 0,
+    resolution_m: null,      // instruments only, once an orbit is chosen; null for radar
+    sharp_enough: null,      // true/false when the objective sets needs_resolution_m
+    counts: null,            // true when this instrument's type counts for the objective
+    science_per_month: null  // instruments only, before data and power losses
+  };
+  if (p.category !== "instrument") return facts;
+  if (orbit) {
+    var x = resolutionM(p, orbit.altitude_km);
+    facts.resolution_m = x === null ? null : round(x, x < 10 ? 1 : 0);
+    if (objective && objective.needs_resolution_m && x !== null) facts.sharp_enough = x <= objective.needs_resolution_m;
+  }
+  if (objective) {
+    facts.counts = p.tags.some(function (t) { return objective.wants.indexOf(t) !== -1; });
+    if (orbit) {
+      var probe = { tier: design.tier, objective: design.objective, orbit: design.orbit, launcher: design.launcher, parts: [partId] };
+      var row = scienceRate(probe, []).instruments[0];
+      facts.science_per_month = row ? row.points : 0;
+    }
+  }
+  return facts;
+}

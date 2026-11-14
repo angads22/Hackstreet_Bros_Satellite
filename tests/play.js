@@ -68,11 +68,14 @@ function showBuild(design) {
     console.log("\n " + cat.toUpperCase());
     G.PARTS.filter(function (p) { return p.category === cat; }).forEach(function (p) {
       var mark = design.parts.indexOf(p.id) !== -1 ? "[x]" : "[ ]";
+      var pf = G.getPartFacts(design, p.id);
+      var extra = pf.science_per_month !== null ? ", science " + pf.science_per_month + "/mo" +
+        (pf.resolution_m ? " at " + pf.resolution_m + " m" : "") + (pf.counts ? "" : " (does not count)") : "";
       var stats = p.mass_kg + " kg, " + (p.power_draw_w ? "-" + p.power_draw_w + " W, " : "") +
-        (p.category === "power" && p.panel_area_m2 ? "+" + Math.round(G.solarPowerW(p)) + " W, " : "") +
+        (pf.power_gen_w ? "+" + pf.power_gen_w + " W, " : "") +
         (p.battery_wh ? p.battery_wh + " Wh, " : "") +
         (p.data_gb_day ? p.data_gb_day + " GB/day made, " : "") +
-        (p.downlink_gb_day ? p.downlink_gb_day + " GB/day link, " : "") + money(p.cost_musd);
+        (p.downlink_gb_day ? p.downlink_gb_day + " GB/day link, " : "") + money(p.cost_musd) + extra;
       console.log("  " + mark + " " + pad(p.id, 18) + stats);
     });
   });
@@ -158,8 +161,7 @@ function runMission(design, chooser, done) {
       console.log(wrap(s.event.text, "      "));
       s.event.choices.forEach(function (c, i) { console.log("      " + i + ") " + c.label); });
       chooser(s.event, function (i) {
-        G.chooseEvent(m, i);
-        var rec = m.events_seen[m.events_seen.length - 1];
+        var rec = G.chooseEvent(m, i);
         console.log("      You chose: " + rec.label +
           (rec.protected ? "  (a part on board protected you)" : "") +
           (rec.failed_part ? "  -> " + G.getPart(rec.failed_part).name + " FAILED" : "") + "\n");

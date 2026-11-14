@@ -132,9 +132,11 @@ function stepMonth(mission) {
 }
 
 // `choice` is the index of the chosen option in event.choices.
+// Returns what happened: { id, title, choice, label, protected, failed_part,
+// ended, ended_early }. failed_part is a part id or null.
 function chooseEvent(mission, choice) {
   var event = mission.pending_event;
-  if (!event) return mission;
+  if (!event) return null;
   var picked = event.choices[choice] || event.choices[0];
   var effect = picked.effect || {};
   var prot = isProtected(mission.design, event.id);
@@ -176,7 +178,9 @@ function chooseEvent(mission, choice) {
   } else if (mission.month >= mission.lifetime_months) {
     mission.ended = true;
   }
-  return mission;
+  return { id: record.id, title: record.title, choice: record.choice, label: record.label,
+           protected: record.protected, failed_part: record.failed_part,
+           ended: mission.ended, ended_early: mission.ended_early };
 }
 
 // ------------------------------------------------------------------ debrief
