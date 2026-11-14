@@ -37,6 +37,8 @@ Tiers reuse the same screens and parts. Only the numbers in the data file change
 
 Tier 1 is a must-have. Tiers 2 and 3 are the first stretch items, because they add replay value for an hour of work.
 
+Later, each tier will carry its own weights for every calculation, in the style of Plague Inc's difficulty selection, and a fourth Impossible mode is planned. Both are described in `STRETCH.md` and are not part of the first build.
+
 ## Content choices
 
 Two objectives, three orbits and three instruments, chosen so that different designs win different missions.
@@ -360,13 +362,41 @@ Each person owns one aspect of the game and the files that go with it. The data 
 | Aspect | Owner | AI | Owns | Job |
 | --- | --- | --- | --- | --- |
 | Data | Yareem | Fable (or equal) | `data/parts.js`, `launchers.js`, `orbits.js`, `objectives.js`, `tiers.js`, `SOURCES.md` | Real numbers with checked sources and the data format. Sets up the starting repo with stub functions. Approves any change to a data field. |
-| Rules | angads22 | Opus | `js/game.js` | Totals, the eight formulas, blockers and warnings, orbit facts. |
-| Simulation | angads22 | Opus | `js/mission.js` | The month-by-month mission, random events and their effects, scoring, stars and the limiting factor. |
+| Rules | Yareem | Opus | `js/game.js` | Totals, the eight formulas, blockers and warnings, orbit facts. |
+| Simulation | Yareem | Opus | `js/mission.js` | The month-by-month mission, random events and their effects, scoring, stars and the limiting factor. |
 | Design screens | angads22 | Fable (or equal) | `index.html`, `css/`, `js/ui-design.js` | Briefing, Orbit, Build, Launch vehicle and Readiness review, the four resource bars, and the shared layout. |
 | Story | (name) | Opus | `js/ui-mission.js`, `data/events.js`, `data/debrief.js` | The Mission and Debrief screens, the event and debrief writing, and tutorial hints. |
 | QA | (name) | Opus | `tests/`, `README.md`, project page, demo video | Plays every merged build, files issues, requests tuning, keeps the record of AI use, and submits. |
 
 Owners change only their own files. Anything else goes through a GitHub issue to that file's owner.
+
+### Current tasks: Data, Rules and Simulation
+
+Yareem holds all three back-end roles. The first build is done: real data, all eight formulas, the seeded simulation, scoring and the debrief, checked by `tests/simulate.js`. These are next, in order within each role. Anything marked *stretch* starts only after the first full playthrough works on screen.
+
+**Data**
+
+1. Spot-check three numbers in the NASA Small Spacecraft State of the Art PDF by hand, and mark those rows Checked in `SOURCES.md`.
+2. Confirm the three launch prices and capacities on the official SpaceX and Rocket Lab pages. They are marked NEEDS HUMAN CHECK.
+3. Replace the instrument estimates (mass, power, data, cost) with sourced figures from eoPortal or NASA pages.
+4. Decide two open questions: whether `data/debrief.js` gets a `design` key for "wrong instrument or orbit", and whether radar gets a resolution check.
+5. Research real-world conditions that could weight the maths: part failure rates, radiation by orbit and solar cycle, cloud cover by region, ground-station contact times. Results go in `STRETCH.md` with sources.
+6. *Stretch:* propose the data fields for per-tier weights and part variance (see `STRETCH.md`). The data person approves any new field before code uses it.
+
+**Rules (`js/game.js`)**
+
+1. Add hand-worked test values for each of the eight formulas to `tests/`, so a change that breaks the maths shows up.
+2. Add a science preview the Build screen can show, so the front end never estimates science itself. Agree the function name with Design screens first.
+3. *Stretch:* apply per-tier weights to each calculation once the fields are approved.
+4. *Stretch:* seeded per-part variance, so the same part performs slightly differently from mission to mission.
+
+**Simulation (`js/mission.js`)**
+
+1. Tune wildfire. It scores 94 or more on every tier, so the higher tiers are too easy.
+2. Weight events by orbit: solar storms hit harder in geostationary and polar orbits, debris warnings come more often in low orbits.
+3. Unlock tiers: two stars on one tier unlocks the next. Save progress with `localStorage`, guarded so the game still runs without it.
+4. *Stretch:* shareable design codes, which encode the design so a link replays the same mission.
+5. *Stretch:* the money-making sub-missions for the Impossible mode in `STRETCH.md`.
 
 ## Workflow
 

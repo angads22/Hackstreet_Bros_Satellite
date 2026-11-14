@@ -6,9 +6,9 @@
 /data/              @yarmee
 /SOURCES.md         @yarmee
 
-# Rules, Simulation, Design screens
-/js/game.js         @angads22
-/js/mission.js      @angads22
+# Rules and Simulation: yarmee. Design screens: angads22.
+/js/game.js         @yarmee
+/js/mission.js      @yarmee
 /js/ui-design.js    @angads22
 /index.html         @angads22
 /css/               @angads22
