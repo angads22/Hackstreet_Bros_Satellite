@@ -73,6 +73,9 @@ const HINTS = {
     "launcher-locked": "This rocket needs research first.",
     "objective-locked": "This topic needs research first.",
     "smear": "A spinning satellite smears cameras, thermal imagers and radar. Three-axis control holds it steady.",
+    "body-count": "A satellite has one body. Keep the one that fits your parts.",
+    "body-payload": "Your parts are too heavy for this body. Choose a bigger body or lighter parts.",
+    "body-slots": "This body has no room for another part of that kind. A bigger body has more slots.",
     "too-late": "This satellite takes too long to build: it would miss the end of the programme. Use parts that are quicker to build."
   }
 };

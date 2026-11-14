@@ -157,8 +157,32 @@ function researchUnlocking(kind, id) {
   }
   return null;
 }
-function isUnlocked(kind, id) {
+// The year an item arrived: the year of the research that unlocks it, or 1957.
+var BASE_YEAR = 1957;
+function itemYear(kind, id) {
+  if (kind === "objectives") {
+    var o = getObjective(id);
+    if (o && o.requires_research) { var rr = researchById(o.requires_research); if (rr) return rr.year; }
+  }
   var r = researchUnlocking(kind, id);
+  return r ? r.year : BASE_YEAR;
+}
+function researchById(id) {
+  return typeof RESEARCH === "undefined" ? null : RESEARCH.filter(function (r) { return r.id === id; })[0] || null;
+}
+
+// Available to this design? Campaign designs follow research; a design set in an
+// era offers only what existed by its year; anything else offers everything.
+// Without a design, research applies whenever a campaign is saved (as before).
+function isUnlocked(kind, id, design) {
+  if (design && !design.campaign) {
+    return !design.year || itemYear(kind, id) <= design.year;
+  }
+  var r = researchUnlocking(kind, id);
+  if (kind === "objectives") {
+    var o = getObjective(id);
+    if (o && o.requires_research) r = researchById(o.requires_research) || r;
+  }
   if (!r) return true;
   var c = typeof getCampaign === "function" ? getCampaign() : null;
   return !c || c.research.indexOf(r.id) !== -1;
@@ -171,15 +195,63 @@ function researchNameFor(kind, id) {
   }
   return r ? r.name : "";
 }
-function isPartAvailable(id)      { return isUnlocked("parts", id); }
-function isLauncherAvailable(id)  { return isUnlocked("launchers", id); }
-function isObjectiveAvailable(id) {
-  var o = getObjective(id);
-  if (o && o.requires_research) {
-    var c = typeof getCampaign === "function" ? getCampaign() : null;
-    if (c && c.research.indexOf(o.requires_research) === -1) return false;
+function isPartAvailable(id, design)      { return isUnlocked("parts", id, design); }
+function isLauncherAvailable(id, design)  { return isUnlocked("launchers", id, design); }
+function isObjectiveAvailable(id, design) { return isUnlocked("objectives", id, design); }
+
+// Availability of every part, rocket and topic for this design, with the year each
+// arrived and a reason to show when it is not available. One call per screen refresh.
+function getAvailability(design) {
+  function entry(kind, id) {
+    var ok = isUnlocked(kind, id, design), y = itemYear(kind, id), reason = null;
+    if (!ok) reason = design && design.campaign ? "Needs research: " + researchNameFor(kind, id) : "Arrives in " + y;
+    return { available: ok, year: y, reason: reason };
   }
-  return isUnlocked("objectives", id);
+  var out = { parts: {}, launchers: {}, objectives: {} };
+  PARTS.forEach(function (p) { out.parts[p.id] = entry("parts", p.id); });
+  LAUNCHERS.forEach(function (l) { out.launchers[l.id] = entry("launchers", l.id); });
+  OBJECTIVES.forEach(function (o) { out.objectives[o.id] = entry("objectives", o.id); });
+  return out;
+}
+
+// ------------------------------------------------------------------ eras
+function getEra(id) { return typeof ERAS === "undefined" ? null : findById(ERAS, id); }
+
+// Set a standalone design in an era: only what existed by its year is offered.
+function setEra(design, eraId) {
+  var e = getEra(eraId);
+  design.era = e ? e.id : null;
+  design.year = e ? e.year : null;
+  return design;
+}
+
+function getEras() {
+  if (typeof ERAS === "undefined") return [];
+  var p = typeof getProgress === "function" ? getProgress() : { best_stars_by_era: {} };
+  var byEra = p.best_stars_by_era || {};
+  return ERAS.map(function (e, i) {
+    return {
+      id: e.id, name: e.name, year: e.year, blurb: e.blurb, real_missions: e.real_missions || [],
+      unlocked: i === 0 || (byEra[ERAS[i - 1].id] || 0) >= 2,
+      best_stars: byEra[e.id] || 0,
+      topics: OBJECTIVES.filter(function (o) { return itemYear("objectives", o.id) <= e.year; }).map(function (o) { return o.id; })
+    };
+  });
+}
+
+// ------------------------------------------------------------------ bodies
+// The satellite's body (a structure part with payload_kg and slots), or null.
+function bodySummary(parts) {
+  var body = parts.filter(function (p) { return p.category === "structure"; })[0];
+  if (!body) return null;
+  var used = {}, slots = {};
+  parts.forEach(function (p) { if (p.category !== "structure") used[p.category] = (used[p.category] || 0) + 1; });
+  CATEGORY_LIST.forEach(function (c) {
+    if (c.id === "structure") return;
+    slots[c.id] = { used: used[c.id] || 0, max: (body.slots && body.slots[c.id]) || 0 };
+  });
+  return { id: body.id, name: body.name, payload_kg: body.payload_kg || 0,
+           payload_used_kg: round(sum(parts, function (p) { return p.category === "structure" ? 0 : p.mass_kg; }), 2), slots: slots };
 }
 
 // ------------------------------------------------------------------ development time
@@ -251,7 +323,8 @@ function getTotals(design) {
     battery_wh: batteryWh,
     capacity_kg: capacity,
     budget_musd: budget,
-    dev_months: dev
+    dev_months: dev,
+    body: bodySummary(parts)
   };
 }
 
@@ -407,17 +480,29 @@ function runChecks(design) {
 
   if (!objective) block("no-objective", "Pick a science objective on the Briefing screen.");
 
-  // Research locks (campaign only; with no research data nothing is locked).
-  if (design.campaign) {
-    if (objective && !isObjectiveAvailable(objective.id)) {
-      block("objective-locked", objective.name + " needs research first: " + researchNameFor("objectives", objective.id) + ".");
+  // Locks: research in a campaign; the era's year in a standalone mission set in an era.
+  if (design.campaign || design.year) {
+    var why = function (kind, id) {
+      return design.campaign ? " needs research first: " + researchNameFor(kind, id) + "."
+                             : " does not exist yet in " + design.year + " (it arrives in " + itemYear(kind, id) + ").";
+    };
+    if (objective && !isObjectiveAvailable(objective.id, design)) block("objective-locked", objective.name + why("objectives", objective.id));
+    parts.forEach(function (p) { if (!isPartAvailable(p.id, design)) block("part-locked", p.name + why("parts", p.id)); });
+    if (launcher && !isLauncherAvailable(launcher.id, design)) block("launcher-locked", launcher.name + why("launchers", launcher.id));
+  }
+
+  // The body: one per satellite, and everything must fit in it.
+  var bodies = parts.filter(function (p) { return p.category === "structure"; });
+  if (bodies.length > 1) block("body-count", "A satellite has one body; remove all but one.");
+  var bs = bodySummary(parts);
+  if (bs) {
+    if (bs.payload_used_kg > bs.payload_kg) {
+      block("body-payload", "The parts weigh " + bs.payload_used_kg + " kg but the " + bs.name + " carries at most " + bs.payload_kg + " kg.");
     }
-    parts.forEach(function (p) {
-      if (!isPartAvailable(p.id)) block("part-locked", p.name + " needs research first: " + researchNameFor("parts", p.id) + ".");
+    Object.keys(bs.slots).forEach(function (cat) {
+      var sl = bs.slots[cat];
+      if (sl.used > sl.max) block("body-slots", "The " + bs.name + " has room for " + sl.max + " " + cat + " part" + (sl.max === 1 ? "" : "s") + " (you fitted " + sl.used + ").");
     });
-    if (launcher && !isLauncherAvailable(launcher.id)) {
-      block("launcher-locked", launcher.name + " needs research first: " + researchNameFor("launchers", launcher.id) + ".");
-    }
   }
   if (!orbit) block("no-orbit", "Pick an orbit.");
   if (!launcher) block("no-launcher", "Pick a launch vehicle.");
@@ -485,7 +570,7 @@ function runChecks(design) {
   if (orbit && t.power_draw_w > 0) {
     var need = batteryNeededWh(t.power_draw_w, orbit.altitude_km);
     if (t.battery_wh < need) {
-      warn("battery", "Riding through Earth's shadow needs a " + Math.round(need) + " Wh battery; you have " +
+      warn("battery", "Riding through Earth's shadow needs a " + round(need, need < 10 ? 1 : 0) + " Wh battery; you have " +
         t.battery_wh + " Wh. Instruments will switch off in shadow.");
     }
   }
