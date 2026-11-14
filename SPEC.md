@@ -47,8 +47,9 @@ What a strict judge would mark down today, and what we do about it. Recheck this
 | **The economy's numbers are invented.** | Validity | `value_musd`, `knowledge_scale`, grants and research costs are labelled game values. The knowledge curve is described as a model of diminishing returns, not a fact. |
 | **No screens yet; the campaign adds a hub.** A half-built interface hurts usability and the demo. | Validity, Presentation | A single mission plays without a campaign at every commit. Research (Phase E) and new content (Phase F) start only once the seven screens and the hub play end to end. |
 | **The economy could bury the lesson.** | Impact | The debrief leads with what limited the mission and one concrete change; the payout comes second. |
-| **Event choices barely matter** (red team B5). | Creativity, Impact | 3 stars need the science target; lost months and event costs count against everything they affect; each choice shows its odds. |
-| **Orbit choice is solved** (polar orbit wins both objectives, red team B2). | Creativity | Retune with the sweep before the Sunday 10:00 checkpoint; each orbit must win at least one objective and tier. |
+| **Event choices barely matter** (red team B5). | Creativity, Impact | Done: 3 stars need the science target (0 of 327 three-star missions below it); lost months and event costs count against everything they affect; each choice shows its odds (`fail_chance_now`). |
+| **With two topics, winning forces repeats.** The win needs every topic known to 60%, so a player must fly wildfire about four times, earning 1 star each as novelty falls. | Impact, Creativity | Content, not tuning: Phase F topics give the player somewhere new to go. If Phase F slips, lower `win.knowledge` for two topics. |
+| **Orbit choice is solved** (polar orbit wins both objectives, red team B2). | Creativity | Retuned: low orbit now wins wildfire on every tier and polar orbit wins sea ice (`tests/balance.js`). **Still open:** geostationary wins nothing, because its real advantage, minutes-fast fire detection, is not scored yet (red team N5). |
 | **New topics without NASA data would weaken Relevance.** | Relevance | Phase F topics are chosen by what NASA data we can actually download (for example NASA Ozone Watch), not by era. Any topic without real data is labelled as game values. |
 
 ### NASA data in the game
@@ -109,7 +110,7 @@ Two objectives, three orbits and three instruments, chosen so that different des
 
 The three instruments are a thermal imager (tag `thermal`), a radar (tag `radar`) and an optical camera (tag `imaging`). The camera only partly helps either objective, so it is the tempting wrong choice.
 
-Each objective carries one extra field, `orbit_fit`, that multiplies its science by orbit. For example, sea ice uses `{ leo: 0.3, sso: 1.0, geo: 0 }`. These values are starting points to tune.
+Each objective carries one extra field, `orbit_fit`, that multiplies its science by orbit. For example, sea ice uses `{ leo: 0, sso: 1.0, geo: 0 }`: only a polar orbit passes over the Arctic. These values are starting points to tune.
 
 ## Data format
 
@@ -171,9 +172,9 @@ These field names are fixed. Nobody renames or adds a field without the data per
   name: "Wildfire monitoring",
   briefing: "Two or three sentences the player reads first.",
   wants: ["thermal", "imaging"],  // instrument tags that count; the first counts fully, later ones half
-  science_target: 180,
+  science_target: 160,
   needs_resolution_m: 2000,       // optional: instruments blurrier than this earn nothing
-  orbit_fit: { leo: 0.55, sso: 0.5, geo: 1.0 }, // how often each orbit looks; 0 = cannot see the target.
+  orbit_fit: { leo: 0.85, sso: 0.5, geo: 1.0 }, // how well each orbit catches the target when it looks; 0 = cannot see it.
                                   // For wildfire, what each orbit can see at all comes from data/earth.js.
   real_mission: "One line naming a real mission with a similar design."
 }
@@ -209,7 +210,7 @@ const CAMPAIGN = {
   end_year: 1969,             // the campaign ends here, or earlier on a win
   repeat_floor_musd: 0.3,     // minimum payout for any finished mission
   win: { topics_known: 3, knowledge: 0.6 },   // win when this many topics reach this knowledge share
-  grant_musd: 4,              // agency grant added to the treasury after each mission
+  grant_musd: 1,              // agency grant added to the treasury after each mission
   save_version: 1             // bump when the saved shape changes; an older save is discarded
 };
 ```
@@ -714,7 +715,9 @@ Yareem holds all three back-end roles. The full ordered plan, with the timeline 
 4. **Phase E.** Research and unlocks, once the seven screens and the hub play end to end.
 5. **Phase F.** New topics chosen by available NASA data, plus era events.
 
-**Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the formula tests and the red-team harness are on `main` as validity evidence.
+**Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the tests are on `main` as validity evidence: `node tests/formulas.js` (the eight formulas), `node tests/campaign.js` (the economy), `node tests/balance.js` (balance guarantees), plus the red-team harness in `tests/redteam/`.
+
+**Status (Saturday night):** Phases A to D are done and on `main`. Phase E (research) waits for the screens; Phase F (new topics) next.
 
 ## Workflow
 
