@@ -15,3 +15,18 @@ One row per resource used. QA copies this into the project page.
 | Falcon 9 | SpaceX | https://www.spacex.com/vehicles/falcon-9/ | `data/launchers.js`: medium-lift rocket | No |
 | RADARSAT Constellation Mission | CSA | https://www.asc-csa.gc.ca/eng/satellites/radarsat/ | `data/objectives.js`: sea-ice real mission (outside source) | No |
 | GOES-R series | NOAA / NASA | https://www.goes-r.gov/ | `data/objectives.js`: wildfire real mission and 2 km resolution need (outside source) | No |
+| NASA FIRMS, MODIS active-fire detections, all countries, 2025 | NASA | https://firms.modaps.eosdis.nasa.gov/country/ | `data/earth.js`: monthly fire counts, share of fires each orbit can see (built by `tools/earth_data.py`) | Downloaded and processed |
+| NSIDC Sea Ice Index, version 4 (G02135), Arctic monthly extent | NSIDC (NASA DAAC) / NOAA | https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/ | `data/earth.js`: 2025 monthly extent and 1981-2010 average | Downloaded and processed |
+
+## Tools and other resources
+
+The submission form's References field must list every external resource, including code, text, images and data, even if open source. Paste this file into that field.
+
+| Name | Type | Link | Used for |
+| --- | --- | --- | --- |
+| Claude (Anthropic), via Claude Code | AI assistant | https://claude.ai/code | Drafting data files, game logic (`js/game.js`, `js/mission.js`), tests and spec text. Sourced numbers cite their page; the rest are labelled ESTIMATE or GAME VALUE in the data files |
+| NASA Space Apps 2026 Judging & Awards Guide | Rules | https://www.spaceappschallenge.org | Judging criteria and submission requirements (SPEC.md, "How we are judged") |
+| A Learning Game About Telescopes | NASA | https://science.nasa.gov/mission/webb/game-build-it-yourself/ | Design reference only; no code or art reused |
+| Digital Games and Activities | CSA | https://www.asc-csa.gc.ca/eng/youth-educators/digital-games-and-activities.asp | Tone and style reference only |
+
+No third-party code libraries, fonts, images or music are used. Teammates add any other AI tools they used (QA keeps the record).
