@@ -6,7 +6,10 @@ var fs = require("fs"), vm = require("vm"), path = require("path");
 var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js", "data/campaign.js", "data/research.js",
              "data/tiers.js", "data/events.js", "data/debrief.js", "data/missions.js", "data/hints.js", "data/earth.js", "js/game.js", "js/mission.js"];
 
-module.exports = function load() {
+// load({ newCategoriesRequired: true }) loads the game as it will be once the Build
+// screen has bins for structure and attitude (SPEC.md, "Switch-over").
+module.exports = function load(opts) {
+  opts = opts || {};
   var root = path.join(__dirname, "..");
   var ctx = vm.createContext({ console: console, Math: Math, btoa: btoa, atob: atob });   // browser globals the game uses
   var names = [];
@@ -17,6 +20,7 @@ module.exports = function load() {
     var re = /^(?:const|var|let)\s+([A-Za-z_$][\w$]*)|^function\s+([A-Za-z_$][\w$]*)/gm, m;
     while ((m = re.exec(src))) names.push(m[1] || m[2]);
   });
+  if (opts.newCategoriesRequired) vm.runInContext("NEW_CATEGORIES_REQUIRED = true;", ctx);
   var G = {};
   names.forEach(function (n) { G[n] = vm.runInContext(n, ctx); });
   // For the sweeps: parts and launchers grouped by era. "era" = open at the start of a

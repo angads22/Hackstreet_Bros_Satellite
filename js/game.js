@@ -11,7 +11,30 @@ var G0 = 9.81;              // standard gravity, m/s^2
 var SUN_W_M2 = 1361;        // sunlight above the atmosphere, W/m^2
 var DOD = 0.3;              // battery depth of discharge (formula 5)
 var LOW_MARGIN = 0.10;      // margins under 10% raise a warning
-var REQUIRED_CATEGORIES = ["instrument", "power", "comms", "computer"];
+// Part categories in Build-screen order (SPEC.md, "Structure and attitude control").
+// Switch-over: structure and attitude become required only when the Build screen
+// has bins for them. Design screens sets this to true in the same change.
+var NEW_CATEGORIES_REQUIRED = false;
+var CATEGORY_LIST = [
+  { id: "structure",  name: "STRUCTURE",  sub: "The satellite's body",      required: "new" },
+  { id: "instrument", name: "INSTRUMENTS", sub: "What the mission sees",    required: true },
+  { id: "power",      name: "POWER",      sub: "Panels and batteries",      required: true },
+  { id: "comms",      name: "RADIO",      sub: "Send data home",            required: true },
+  { id: "computer",   name: "COMPUTER",   sub: "Runs the spacecraft",       required: true },
+  { id: "attitude",   name: "ATTITUDE",   sub: "Keeps it pointed",          required: "new" },
+  { id: "propulsion", name: "PROPULSION", sub: "Speed change, optional",    required: false }
+];
+function getCategories() {
+  return CATEGORY_LIST.map(function (c) {
+    return { id: c.id, name: c.name, sub: c.sub, required: c.required === "new" ? NEW_CATEGORIES_REQUIRED : c.required };
+  });
+}
+function requiredCategories() { return getCategories().filter(function (c) { return c.required; }).map(function (c) { return c.id; }); }
+var REQUIRED_CATEGORIES = requiredCategories();   // fixed at load; use requiredCategories() in logic
+
+// Instruments that need a steady view: on a spinning satellite their pictures smear.
+var POINTING_TAGS = ["imaging", "thermal", "radar"];
+var SPIN_SMEAR = 0.6;   // GAME VALUE: share of science a smeared instrument still returns
 
 // ------------------------------------------------------------------ lookups
 function findById(list, id) {
@@ -159,12 +182,36 @@ function isObjectiveAvailable(id) {
   return isUnlocked("objectives", id);
 }
 
+// ------------------------------------------------------------------ development time
+// Time as a resource (SPEC.md): the longest part to build, plus one month of
+// integration and testing for every three parts. Parts are built in parallel.
+function devMonths(design) {
+  var parts = designParts(design);
+  if (!parts.length) return 0;
+  var longest = Math.max.apply(null, parts.map(function (p) { return p.build_months || 0; }));
+  return longest + Math.ceil(parts.length / 3);
+}
+
+// Years a campaign mission takes on the calendar: at least one, more for long builds.
+function missionYears(design) {
+  var per = typeof CAMPAIGN !== "undefined" ? CAMPAIGN.years_per_mission : 1;
+  return Math.max(per, Math.ceil(devMonths(design) / 12));
+}
+
+// How the satellite points: "three-axis", "spin", or null when no attitude part is fitted.
+function pointingOf(parts) {
+  var att = parts.filter(function (p) { return p.category === "attitude"; });
+  if (!att.length) return NEW_CATEGORIES_REQUIRED ? "spin" : null;
+  return att.some(function (p) { return p.tags.indexOf("three-axis") !== -1; }) ? "three-axis" : "spin";
+}
+
 // ------------------------------------------------------------------ totals
 function getTotals(design) {
   var parts = designParts(design);
   var orbit = getOrbit(design.orbit);
   var launcher = getLauncher(design.launcher);
   var budget = budgetFor(design);
+  var dev = devMonths(design);
 
   var mass = sum(parts, function (p) { return p.mass_kg; });
   var draw = sum(parts, function (p) { return p.power_draw_w; });
@@ -203,7 +250,8 @@ function getTotals(design) {
     data_returned_gb_day: round(returned, 6),
     battery_wh: batteryWh,
     capacity_kg: capacity,
-    budget_musd: budget
+    budget_musd: budget,
+    dev_months: dev
   };
 }
 
@@ -321,7 +369,7 @@ function scienceRate(design, brokenIds, calMonth, year) {
   var shadowCovered = batteryOnly ? 1 : (need > 0 ? Math.min(1, battery / need) : 1);
   var powerShare = sunShare * (1 - f * (1 - shadowCovered));
 
-  var ideal = 0;
+  var ideal = 0, pointing = pointingOf(parts);
   parts.forEach(function (p) {
     if (p.category !== "instrument") return;
     var match = 0;   // first wanted tag counts fully, later ones half
@@ -330,9 +378,10 @@ function scienceRate(design, brokenIds, calMonth, year) {
     });
     var x = resolutionM(p, h);
     var sharpEnough = !objective.needs_resolution_m || x === null || x <= objective.needs_resolution_m;
-    var pts = p.science * orbit.science_mult * fit * match * (sharpEnough ? 1 : 0) *
+    var smeared = pointing === "spin" && p.tags.some(function (t) { return POINTING_TAGS.indexOf(t) !== -1; });
+    var pts = p.science * orbit.science_mult * fit * match * (sharpEnough ? 1 : 0) * (smeared ? SPIN_SMEAR : 1) *
               earthFactor(objective.id, orbit.id, p, calMonth, year);
-    result.instruments.push({ id: p.id, match: match, sharp_enough: sharpEnough, points: round(pts, 2) });
+    result.instruments.push({ id: p.id, match: match, sharp_enough: sharpEnough, smeared: smeared, points: round(pts, 2) });
     ideal += pts;
   });
 
@@ -373,7 +422,7 @@ function runChecks(design) {
   if (!orbit) block("no-orbit", "Pick an orbit.");
   if (!launcher) block("no-launcher", "Pick a launch vehicle.");
 
-  REQUIRED_CATEGORIES.forEach(function (cat) {
+  requiredCategories().forEach(function (cat) {
     var has = parts.some(function (p) { return p.category === cat; });
     if (!has) block("empty-" + cat, "No " + cat + " part. The spacecraft needs at least one.");
   });
@@ -393,6 +442,23 @@ function runChecks(design) {
   if (t.budget_musd !== null && t.cost_musd > t.budget_musd) {
     block("budget", "Cost is $" + round(t.cost_musd, 2) + "M but " +
       (design.campaign ? "the treasury holds $" : "the budget is $") + round(t.budget_musd, 2) + "M.");
+  }
+
+  // A spinning satellite smears cameras, thermal imagers and radar.
+  if (pointingOf(parts) === "spin") {
+    parts.filter(function (p) { return p.category === "instrument" && p.tags.some(function (t) { return POINTING_TAGS.indexOf(t) !== -1; }); })
+      .forEach(function (p) {
+        warn("smear-" + p.id, p.name + " on a spinning satellite smears its pictures: it returns " + Math.round(SPIN_SMEAR * 100) +
+          "% of its science. Three-axis control would hold it steady.");
+      });
+  }
+
+  // Time: in a campaign, the satellite must be built before the programme ends.
+  if (design.campaign && typeof getCampaign === "function" && typeof CAMPAIGN !== "undefined") {
+    var camp = getCampaign();
+    if (camp && camp.year + missionYears(design) > CAMPAIGN.end_year) {
+      block("too-late", "Building this takes " + t.dev_months + " months: it could not launch before the programme ends in " + CAMPAIGN.end_year + ".");
+    }
   }
 
   var batteryMonths = batteryLifeMonths(design);
@@ -569,7 +635,8 @@ function getHints(screen, design) {
   if (design && ["build", "launch", "readiness"].indexOf(screen) !== -1) {
     var c = runChecks(design), seen = {};
     c.blockers.concat(c.warnings).forEach(function (x) {
-      var key = x.id.indexOf("resolution-") === 0 ? "resolution" : x.id.indexOf("empty-") === 0 ? "empty" : x.id;
+      var key = x.id.indexOf("resolution-") === 0 ? "resolution" : x.id.indexOf("empty-") === 0 ? "empty" :
+                x.id.indexOf("smear-") === 0 ? "smear" : x.id;
       if (seen[key] || !h.checks[key]) return;
       if (screen === "build" && ["no-launcher", "launcher-reach", "launcher-locked"].indexOf(key) !== -1) return;
       seen[key] = true;

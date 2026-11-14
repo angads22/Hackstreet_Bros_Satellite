@@ -15,7 +15,7 @@ const DEBRIEF = {
   // avionics, communications, attitude control, software, reliability, cost and risk).
   disciplines: {
     mass: "Structures", power: "Power", budget: "Cost", data: "Communications", event: "Risk",
-    orbit: "Orbit and trajectory", instruments: "Science instruments", none: "Nothing"
+    orbit: "Orbit and trajectory", instruments: "Science instruments", attitude: "Attitude control", none: "Nothing"
   },
   none: "Nothing broke, no resource ran short and you hit the science target. This is a design real engineers would be proud of."
 };

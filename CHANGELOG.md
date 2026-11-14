@@ -4,7 +4,17 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- **Time as a resource.** Every part has a build time, and a satellite's development time (the longest part plus integration) comes back from `getTotals` as `dev_months`. In a campaign, long builds cost years on the calendar, and a satellite that could not be ready before the programme ends is blocked.
+- **Structure and attitude control** as part categories: an Explorer-style cylinder, a TIROS-style drum and a modern smallsat bus; spin stabilisation and reaction wheels. A spinning satellite smears cameras, thermal imagers and radar (60% of their science), so the debrief can now say "Attitude control limited this mission". A new 1964 research node, three-axis control (Nimbus 1), unlocks reaction wheels.
+- **`getCategories()`** returns the Build screen's part bins in order, with display names and which are required.
+- **Debrief:** `limiting_name` (the NASA Mission Design Lab discipline) and `segments` (one line each for the launch, space, ground and user segments).
+- **Tier names** from JPL's Concept Maturity Levels: Initial Feasibility, Trade Space, Point Design.
+
+### Not in this version yet
+
+- Structure and attitude are optional until the Build screen has their two bins: Design screens turns on `NEW_CATEGORIES_REQUIRED` in `js/game.js` in the same change (`node tests/api.js` already tests the game with it on).
 
 ## 0.5 beta (November 14, 2026)
 

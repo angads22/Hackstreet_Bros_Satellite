@@ -147,8 +147,9 @@ function missingRequired(mission) {
   var working = designParts(mission.design).filter(function (p) {
     return mission.broken.indexOf(p.id) === -1;
   });
-  for (var i = 0; i < REQUIRED_CATEGORIES.length; i++) {
-    var cat = REQUIRED_CATEGORIES[i];
+  var req = requiredCategories();
+  for (var i = 0; i < req.length; i++) {
+    var cat = req[i];
     if (!working.some(function (p) { return p.category === cat; })) return cat;
   }
   // A battery alone cannot keep a spacecraft alive: it needs a working generator.
@@ -547,6 +548,11 @@ function limitingFactor(mission, totals, scienceShare) {
       return { key: "mass", suggestion: "The rocket was nearly full. A bigger launcher or lighter parts would give you room." };
     }
     var rate = scienceRate(design, []);
+    if (rate.instruments.some(function (i) { return i.smeared && i.match > 0; })) {
+      var wheels = PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1 && isPartAvailable(p.id); })[0];
+      return { key: "design", discipline: "attitude", suggestion: "Your satellite spun, so its pictures were smeared, as TIROS-1's were. " +
+        (wheels ? "Fit " + wheels.name.toLowerCase() + " to hold it steady." : "Research three-axis control to hold it steady.") };
+    }
     var weak = rate.instruments.filter(function (i) { return i.match === 0 || !i.sharp_enough; });
     if (weak.length) {
       return { key: "design", discipline: "instruments", suggestion: "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it." };
@@ -713,6 +719,13 @@ function cheapestLaunchCost(c) {
   function byCost(list) { return list.slice().sort(function (a, b) { return a.cost_musd - b.cost_musd; }); }
   function avail(cat) { return byCost(PARTS.filter(function (p) { return p.category === cat && isPartAvailable(p.id); })); }
   var power = avail("power"), comms = avail("comms"), comp = avail("computer"), prop = [null].concat(avail("propulsion"));
+  // Structure and attitude join the search once they are required: their cheapest
+  // part is always the cheapest choice that keeps a design launchable, so take it.
+  var extras = [];
+  ["structure", "attitude"].forEach(function (cat) {
+    if (requiredCategories().indexOf(cat) !== -1) { var cheapest = avail(cat)[0]; if (cheapest) extras.push(cheapest); }
+  });
+  var extraCost = extras.reduce(function (t, p) { return t + p.cost_musd; }, 0);
   var launchers = byCost(LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id); }));
   var best = Infinity;
   OBJECTIVES.forEach(function (o) {
@@ -723,7 +736,7 @@ function cheapestLaunchCost(c) {
     ORBITS.forEach(function (orb) {
       if (o.orbit_fit && !o.orbit_fit[orb.id]) return;
       for (var a = 0; a < ins.length; a++) {
-        var c1 = ins[a].cost_musd; if (c1 >= best) break;
+        var c1 = ins[a].cost_musd + extraCost; if (c1 >= best) break;
         for (var b = 0; b < power.length; b++) {
           var c2 = c1 + power[b].cost_musd; if (c2 >= best) break;
           for (var e = 0; e < comms.length; e++) {
@@ -735,7 +748,8 @@ function cheapestLaunchCost(c) {
                 for (var h = 0; h < launchers.length; h++) {
                   var cost = c5 + launchers[h].cost_musd; if (cost >= best) break;
                   var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: launchers[h].id,
-                            parts: [ins[a].id, power[b].id, comms[e].id, comp[f].id].concat(prop[g] ? [prop[g].id] : []) };
+                            parts: [ins[a].id, power[b].id, comms[e].id, comp[f].id].concat(prop[g] ? [prop[g].id] : [],
+                                   extras.map(function (x) { return x.id; })) };
                   var blockers = runChecks(d).blockers.filter(function (x) { return x.id !== "budget"; });
                   if (!blockers.length && scienceRate(d, []).per_month > 0) { best = cost; break; }
                 }
@@ -760,7 +774,7 @@ function settleCampaign(mission, debrief, result) {
   c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + mission.science;
   c.treasury_musd = round(c.treasury_musd + debrief.payout_musd + grant - mission.extra_cost_musd, 3);
   var yearFlown = c.year;
-  c.year += typeof CAMPAIGN !== "undefined" ? CAMPAIGN.years_per_mission : 1;
+  c.year += missionYears(mission.design);   // time as a resource: long builds cost years
   var newLessons = lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
   c.lessons = c.lessons.concat(newLessons);
   c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
@@ -916,7 +930,7 @@ function lessonsFrom(mission, debrief, c) {
   if (mission.events_seen.some(function (e) { return e.protected; })) out.push("protected");
   var counts = {};
   designParts(mission.design).forEach(function (p) { counts[p.category] = (counts[p.category] || 0) + 1; });
-  if (REQUIRED_CATEGORIES.some(function (cat) { return (counts[cat] || 0) >= 2; })) out.push("spare");
+  if (requiredCategories().some(function (cat) { return (counts[cat] || 0) >= 2; })) out.push("spare");
   if (mission.end_cause === "batteries") out.push("batteries_ran_out");
   var topics = {};
   c.missions.forEach(function (m) { topics[m.objective] = true; });

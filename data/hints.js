@@ -71,6 +71,8 @@ const HINTS = {
     "resolution": "This instrument is too blurry from this orbit. A lower orbit or a bigger lens would help.",
     "part-locked": "This part needs research first. Open the research list on the hub.",
     "launcher-locked": "This rocket needs research first.",
-    "objective-locked": "This topic needs research first."
+    "objective-locked": "This topic needs research first.",
+    "smear": "A spinning satellite smears cameras, thermal imagers and radar. Three-axis control holds it steady.",
+    "too-late": "This satellite takes too long to build: it would miss the end of the programme. Use parts that are quicker to build."
   }
 };
