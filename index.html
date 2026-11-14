@@ -7,8 +7,53 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <h1>Space Mission Design Game</h1>
-  <p>Skeleton build. No screens yet. Press F12 and try <code>getTotals(newDesign())</code> in the console.</p>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <h1>Space Mission Design Game</h1>
+      <p class="tier-label" id="tier-label"></p>
+    </div>
+  </header>
+
+  <!-- The seven steps. Mission and Debrief are shown but cannot be clicked from the design screens. -->
+  <nav class="steps" aria-label="Mission steps">
+    <ol class="wrap steps-list" id="steps">
+      <li><button type="button" class="step" data-screen="briefing"><span class="step-num">1</span><span class="step-name">Briefing</span></button></li>
+      <li><button type="button" class="step" data-screen="orbit"><span class="step-num">2</span><span class="step-name">Orbit</span></button></li>
+      <li><button type="button" class="step" data-screen="build"><span class="step-num">3</span><span class="step-name">Build</span></button></li>
+      <li><button type="button" class="step" data-screen="launcher"><span class="step-num">4</span><span class="step-name">Launch vehicle</span></button></li>
+      <li><button type="button" class="step" data-screen="review"><span class="step-num">5</span><span class="step-name">Readiness review</span></button></li>
+      <li><span class="step step-locked" data-screen="mission"><span class="step-num">6</span><span class="step-name">Mission</span></span></li>
+      <li><span class="step step-locked" data-screen="debrief"><span class="step-num">7</span><span class="step-name">Debrief</span></span></li>
+    </ol>
+  </nav>
+
+  <!-- The four resource bars. js/ui-design.js fills in the text and the widths. -->
+  <section class="bars" id="bars" aria-label="Spacecraft resources">
+    <div class="wrap bars-grid">
+      <div class="bar" id="bar-mass">
+        <div class="bar-head"><span class="bar-name">Mass</span><span class="bar-margin">&ndash;</span></div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+        <div class="bar-value">&ndash;</div>
+      </div>
+      <div class="bar" id="bar-power">
+        <div class="bar-head"><span class="bar-name">Power</span><span class="bar-margin">&ndash;</span></div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+        <div class="bar-value">&ndash;</div>
+      </div>
+      <div class="bar" id="bar-budget">
+        <div class="bar-head"><span class="bar-name">Budget</span><span class="bar-margin">&ndash;</span></div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+        <div class="bar-value">&ndash;</div>
+      </div>
+      <div class="bar" id="bar-data">
+        <div class="bar-head"><span class="bar-name">Data</span><span class="bar-margin">&ndash;</span></div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+        <div class="bar-value">&ndash;</div>
+      </div>
+    </div>
+  </section>
+
+  <main id="app" class="wrap"></main>
 
   <!-- Data: one global per file -->
   <script src="data/parts.js"></script>
