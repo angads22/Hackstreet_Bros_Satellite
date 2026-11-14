@@ -48,7 +48,7 @@ What a strict judge would mark down today, and what we do about it. Recheck this
 | **No screens yet; the campaign adds a hub.** A half-built interface hurts usability and the demo. | Validity, Presentation | A single mission plays without a campaign at every commit. Research (Phase E) and new content (Phase F) start only once the seven screens and the hub play end to end. |
 | **The economy could bury the lesson.** | Impact | The debrief leads with what limited the mission and one concrete change; the payout comes second. |
 | **Event choices barely matter** (red team B5). | Creativity, Impact | Done: 3 stars need the science target (0 of 327 three-star missions below it); lost months and event costs count against everything they affect; each choice shows its odds (`fail_chance_now`). |
-| **With two topics, winning forces repeats.** The win needs every topic known to 60%, so a player must fly wildfire about four times, earning 1 star each as novelty falls. | Impact, Creativity | Content, not tuning: Phase F topics give the player somewhere new to go. If Phase F slips, lower `win.knowledge` for two topics. |
+| **With two topics, winning forces repeats.** *(Fixed by the 1957 content: five topics, win on three.)* The win needs every topic known to 60%, so a player must fly wildfire about four times, earning 1 star each as novelty falls. | Impact, Creativity | Content, not tuning: Phase F topics give the player somewhere new to go. If Phase F slips, lower `win.knowledge` for two topics. |
 | **Orbit choice is solved** (polar orbit wins both objectives, red team B2). | Creativity | Retuned: low orbit now wins wildfire on every tier and polar orbit wins sea ice (`tests/balance.js`). **Still open:** geostationary wins nothing, because its real advantage, minutes-fast fire detection, is not scored yet (red team N5). |
 | **New topics without NASA data would weaken Relevance.** | Relevance | Phase F topics are chosen by what NASA data we can actually download (for example NASA Ozone Watch), not by era. Any topic without real data is labelled as game values. |
 
@@ -755,7 +755,7 @@ Yareem holds all three back-end roles. The full ordered plan, with the timeline 
 
 **Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the tests are on `main` as validity evidence: `node tests/formulas.js` (the eight formulas), `node tests/campaign.js` (the economy), `node tests/balance.js` (balance guarantees), plus the red-team harness in `tests/redteam/`.
 
-**Status (Saturday night):** Phases A to D are done and on `main`. Phase E (research) waits for the screens; Phase F (new topics) next.
+**Status (Saturday night):** Phases A to F are on `main`. The 1957 campaign plays end to end in text (`node tests/play.js --campaign` on the working branch): 3 era topics plus 2 modern ones, 27 parts, 7 rockets and a 15-node research tree from 1958 solar cells to reusable rockets. A greedy campaign bot wins Training around 1963 and Standard around 1969, and times out on Expert, so a thoughtful player has room to do better. Known gaps, reported by `tests/balance.js` rather than hidden: the 1957 era flies low orbit only, as in history (polar orbits need thrusters from modern research); geostationary never wins, because fast fire detection is not scored yet (red team N5).
 
 ## Workflow
 
