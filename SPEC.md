@@ -8,6 +8,8 @@ A browser game where the player designs a satellite mission under tight limits, 
 
 The core loop takes about five minutes: choose an objective, build the spacecraft, check the margins, launch, read the debrief, redesign. Everything we build serves that loop. One mission that plays start to finish beats three half-built ones.
 
+KEY: At least one data set from the resources provided under the challenge has to be used. The only data set there is PSI Data Repository: Combustion Science (NASA): experimental data from NASA’s combustion research on the ISS.
+
 Missions sit inside a **campaign**. The player runs their own space programme: nobody tells them what to measure. Money and knowledge carry from one satellite to the next, money is spent at launch, and the payout is for **new** knowledge, so repeating a topic pays less each time. Sometimes the best move is a fresh topic rather than a better satellite for the same one. A single mission must still play on its own, with no campaign, at every commit.
 
 - **Platform:** plain HTML, CSS and JavaScript. No frameworks, no build step. It runs from a link.
