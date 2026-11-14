@@ -13,6 +13,36 @@ The core loop takes about five minutes: choose an objective, build the spacecraf
 - **Scenario:** an Earth-observation satellite with three orbit choices.
 - **Give this whole doc to your AI** at the start of every session, so all six assistants build the same game.
 
+## How we are judged
+
+Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026). Every judge scores five criteria from 1 to 5, with equal weight. Submission closes **Sunday, November 15 at 11:59 p.m. local time**.
+
+| Criterion | What a 5 looks like | Where we stand | What we change |
+| --- | --- | --- | --- |
+| **Impact** | A significant problem, a large audience, inspiring | Teaches mission design to anyone with a browser; wildfire and sea ice are real, current problems | The debrief ties each result to the real problem ("your satellite would have reported X of last year's fires") |
+| **Creativity** | Original, improves on existing ideas | Adds what the NASA telescope game lacks: hard limits, random events and a debrief explaining *why* | Play the mission against real NASA observations of last year's Earth, which no comparable game does |
+| **Validity** | Scientifically sound, feasible, usable | Eight real formulas with hand-worked tests; parts from NASA's Small Spacecraft State of the Art report | Put the formula tests on `main` and cite them on the project page; one sourcing pass before submission (Data task 3) |
+| **Relevance** | NASA data is a **core component**, not an add-on | **Weakest.** NASA documents shape the part numbers, but no NASA *data set* drives the game | Add real NASA Earth data that drives the simulation month by month (below) |
+| **Presentation** | Clear, engaging story; the demo and the whole project are judged | No QA owner yet, so no one owns the demo | Assign the demo now; script it around the core loop: build, fail, read the debrief, fix, succeed |
+
+**Hard requirements for global judging** (from the same guide):
+
+- Every team member registered for the same Local Event and listed on the team page; at most six members.
+- A demo: **a video of 30 seconds or less**, or **at most 7 slides** including the title. Everything in English; a video in another language needs English subtitles.
+- Every external resource (code, text, images, data, even open source) listed in the **References** field. `SOURCES.md` becomes that list, so it must be complete, including the AI tools used.
+- No copyrighted material we lack permission to use.
+
+**Global awards worth aiming at:** Best Use of Data (real NASA data driving the game), Best Mission Concept (plausible concept and design), Best Storytelling (the debrief), Most Inspirational.
+
+### NASA data in the game
+
+To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else (no `fetch`).
+
+- **Wildfire: NASA FIRMS** (Fire Information for Resource Management System) active-fire detections from VIIRS, by month and by latitude band, for the last full year. Each mission month earns science in proportion to real fire activity that month, and the boreal share shows why low orbit misses northern fires. The debrief reports how many real detections the player's design would have caught.
+- **Sea ice: NSIDC Sea Ice Index** (a NASA DAAC), Arctic extent by month, plus polar-night months. The optical camera earns nothing in the dark months while radar keeps working, so the player sees *why* sea-ice missions fly radar.
+
+This needs the data owner's approval for one new data file, and the build environment needs access to the FIRMS and NSIDC download sites.
+
 ## Game progression
 
 A mission is seven screens in a fixed order. Each screen teaches one idea, and the player can go back to any earlier screen before launch.
@@ -572,6 +602,13 @@ Balancing will change most numbers, so the current estimates stand until then. N
 4. *Stretch:* shareable design codes, which encode the design so a link replays the same mission.
 5. *Stretch:* the money-making sub-missions for the Impossible mode in `STRETCH.md`.
 
+**Judging (all roles)**
+
+1. **NASA data in the game** (see "How we are judged"): Data adds the FIRMS and Sea Ice Index file; Simulation weights each month by it; the debrief reports the real-world comparison. Highest priority after integration, because Relevance is our weakest criterion.
+2. **Demo owner:** someone takes QA now. The demo is a 30-second video or at most 7 slides, scripted around build, fail, debrief, fix, succeed.
+3. **References:** `SOURCES.md` lists every external resource and the AI tools used, ready to paste into the submission form.
+4. **Validity evidence:** the formula tests go on `main`, and the project page says how the numbers were sourced and which are game values.
+
 **Integration with Design screens**
 
 The back end on `main` supplies everything the section "Player interaction, screen by screen" asks for. Design screens builds against it; any missing number or behaviour goes to Rules or Simulation as a GitHub issue, never as maths in the front end.
@@ -623,7 +660,7 @@ Times are local. Submissions open Saturday at 9:00 AM and close Sunday at 11:59 
 4. **Saturday 20:00, first full playthrough.** One mission runs from Briefing to Debrief. Anything in the must-haves that still fails is simplified or cut tonight.
 5. **Sunday 10:00, balanced.** QA confirms Tier 1 is winnable and a careless design fails. Debrief text is final.
 6. **Sunday 14:00, code freeze.** Bug fixes only from here.
-7. **Sunday 17:00, demo recorded.** The video and project page are drafted from the frozen build.
+7. **Sunday 17:00, demo recorded.** A video of 30 seconds or less, or at most 7 slides, in English, plus the project page and the References list, all from the frozen build.
 8. **Sunday 20:00, submit.** That leaves four hours of buffer before the deadline.
 
 ## Out of scope
@@ -670,4 +707,4 @@ Today I need: <one specific task>.
 <paste the spec here>
 ```
 
-**Open question:** does Space Apps 2026 require teams to disclose AI use, and in what form? QA confirms this on the official site at kickoff.
+**Open question:** does Space Apps 2026 require teams to disclose AI use, and in what form? The Judging & Awards Guide does not say; it does require every external resource to be listed in the References field. Until QA confirms otherwise, we list the AI tools used there too.
