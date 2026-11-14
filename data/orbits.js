@@ -20,7 +20,7 @@ const ORBITS = [
     name: "Low Earth orbit",
     science_mult: 1.0,
     downlink_mult: 0.025,
-    lifetime_months: 24,
+    lifetime_months: 36,      // GAME VALUE: drag brings a 500 km smallsat down in a few years
     blurb: "Close and sharp, and the cheapest to reach. Short ground passes, and it never flies over the poles.",
     altitude_km: 500,
     dv_needed_ms: 0

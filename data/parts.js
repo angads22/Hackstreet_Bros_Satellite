@@ -294,7 +294,7 @@ const PARTS = [
     storage_gb: 0,
     science: 0,
     tags: [],
-    protects: ["debris"],
+    protects: [],            // too little thrust (1 mN) to dodge debris in time
     blurb: "Ten times more efficient than chemical thrusters, but draws 70 W while it runs.",
     source: "Busek BIT-3 RF ion thruster, iodine: 1.0 mN, Isp 1,960 s, total impulse 31.7 kN-s, 2.9 kg wet, 70 W. SOA p.133, Table 4-9. Fuel = 31700 / (1960 x 9.81) = 1.65 kg.",
     isp_s: 1960,

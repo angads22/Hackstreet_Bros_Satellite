@@ -9,6 +9,6 @@ const CAMPAIGN = {
   end_year: 1969,             // the campaign ends here, or earlier on a win
   repeat_floor_musd: 0.3,     // minimum payout for any finished mission
   win: { topics_known: 3, knowledge: 0.6 },   // win when this many topics (or all, if fewer) reach this share
-  grant_musd: 4,              // agency grant added to the treasury after each mission
+  grant_musd: 1,              // agency grant after each mission: small, so money still matters
   save_version: 1             // bump when the saved shape changes; an older save is discarded
 };
