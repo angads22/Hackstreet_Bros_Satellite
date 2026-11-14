@@ -360,9 +360,9 @@ Each person owns one aspect of the game and the files that go with it. The data 
 | Aspect | Owner | AI | Owns | Job |
 | --- | --- | --- | --- | --- |
 | Data | Yareem | Fable (or equal) | `data/parts.js`, `launchers.js`, `orbits.js`, `objectives.js`, `tiers.js`, `SOURCES.md` | Real numbers with checked sources and the data format. Sets up the starting repo with stub functions. Approves any change to a data field. |
-| Rules | (name) | Opus | `js/game.js` | Totals, the eight formulas, blockers and warnings, orbit facts. |
-| Simulation | (name) | Opus | `js/mission.js` | The month-by-month mission, random events and their effects, scoring, stars and the limiting factor. |
-| Design screens | (name) | Fable (or equal) | `index.html`, `css/`, `js/ui-design.js` | Briefing, Orbit, Build, Launch vehicle and Readiness review, the four resource bars, and the shared layout. |
+| Rules | angads22 | Opus | `js/game.js` | Totals, the eight formulas, blockers and warnings, orbit facts. |
+| Simulation | angads22 | Opus | `js/mission.js` | The month-by-month mission, random events and their effects, scoring, stars and the limiting factor. |
+| Design screens | angads22 | Fable (or equal) | `index.html`, `css/`, `js/ui-design.js` | Briefing, Orbit, Build, Launch vehicle and Readiness review, the four resource bars, and the shared layout. |
 | Story | (name) | Opus | `js/ui-mission.js`, `data/events.js`, `data/debrief.js` | The Mission and Debrief screens, the event and debrief writing, and tutorial hints. |
 | QA | (name) | Opus | `tests/`, `README.md`, project page, demo video | Plays every merged build, files issues, requests tuning, keeps the record of AI use, and submits. |
 
