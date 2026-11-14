@@ -394,6 +394,7 @@ button:disabled { cursor: not-allowed; }
 .tagline { font-size: 30px; max-width: 640px; }
 
 .empty { color: var(--text-dim); font-style: italic; }
+.foot { margin-top: 28px; color: var(--text-dim); font-size: 18px; text-align: right; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 
 /* ---------------------------------------------------------------- base map */
