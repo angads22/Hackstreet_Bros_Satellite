@@ -15,3 +15,16 @@ One row per resource used. QA copies this into the project page.
 | Falcon 9 | SpaceX | https://www.spacex.com/vehicles/falcon-9/ | `data/launchers.js`: medium-lift rocket | No |
 | RADARSAT Constellation Mission | CSA | https://www.asc-csa.gc.ca/eng/satellites/radarsat/ | `data/objectives.js`: sea-ice real mission (outside source) | No |
 | GOES-R series | NOAA / NASA | https://www.goes-r.gov/ | `data/objectives.js`: wildfire real mission and 2 km resolution need (outside source) | No |
+
+## Tools and other resources
+
+The submission form's References field must list every external resource, including code, text, images and data, even if open source. Paste this file into that field.
+
+| Name | Type | Link | Used for |
+| --- | --- | --- | --- |
+| Claude (Anthropic), via Claude Code | AI assistant | https://claude.ai/code | Drafting data files, game logic (`js/game.js`, `js/mission.js`), tests and spec text; every number was reviewed by a team member |
+| NASA Space Apps 2026 Judging & Awards Guide | Rules | https://www.spaceappschallenge.org | Judging criteria and submission requirements (SPEC.md, "How we are judged") |
+| A Learning Game About Telescopes | NASA | https://science.nasa.gov/mission/webb/game-build-it-yourself/ | Design reference only; no code or art reused |
+| Digital Games and Activities | CSA | https://www.asc-csa.gc.ca/eng/youth-educators/digital-games-and-activities.asp | Tone and style reference only |
+
+No third-party code libraries, fonts, images or music are used. Teammates add any other AI tools they used (QA keeps the record).
