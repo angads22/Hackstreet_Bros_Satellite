@@ -18,6 +18,222 @@
 // The spacecraft structure, attitude control and wiring are not modelled.
 
 const PARTS = [
+  // ======================================================== 1957-1960 era parts
+  // The campaign starts with these (SPEC.md, "The 1957 campaign"). Research unlocks the rest.
+  // Sources: NASA's Explorer 1 history page (E1), NASA NSSDCA records for Vanguard 2 (V2,
+  // https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A) and TIROS 1 (T1,
+  // https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Figures the
+  // records do not give are ESTIMATE. Era prices are GAME VALUES in the game's money.
+  {
+    id: "cosmic-ray-counter",
+    name: "Geiger counter package",
+    category: "instrument",
+    mass_kg: 2.3,            // ESTIMATE
+    power_draw_w: 0.05,      // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.3,          // GAME VALUE
+    data_gb_day: 0.00002,    // ESTIMATE: a few counts a second, sent in real time
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 4,              // GAME VALUE
+    tags: ["radiation"],
+    protects: [],
+    blurb: "James Van Allen's cosmic-ray counter. On Explorer 1 it went strangely quiet high up: the counter was swamped.",
+    source: "NASA, Explorer 1 overview: the main instrument was a cosmic-ray detection package designed by James Van Allen. https://www.nasa.gov/history/explorer-1-overview/ Mass and power are ESTIMATES."
+  },
+  {
+    id: "cloud-photocell",
+    name: "Cloud-cover photocells",
+    category: "instrument",
+    mass_kg: 3,              // ESTIMATE (the whole Vanguard 2 satellite was 10.75 kg)
+    power_draw_w: 0.3,       // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.4,          // GAME VALUE
+    data_gb_day: 0.00002,    // ESTIMATE: two photocell readings, sent in real time
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 3,              // GAME VALUE
+    tags: ["imaging"],
+    protects: [],
+    blurb: "Two photocells that measure sunlight reflected from clouds: the first attempt to see weather from orbit.",
+    source: "NASA NSSDCA, Vanguard 2 (1959): designed to measure cloud-cover distribution; 10.75 kg sphere. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A Part mass and power are ESTIMATES."
+  },
+  {
+    id: "vidicon-camera",
+    name: "Vidicon TV cameras",
+    category: "instrument",
+    mass_kg: 10,             // ESTIMATE
+    power_draw_w: 6,         // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 1.5,          // GAME VALUE
+    data_gb_day: 0.02,       // ESTIMATE: TV frames
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 6,              // GAME VALUE
+    tags: ["imaging"],
+    protects: [],
+    blurb: "Two small TV cameras, one wide and one narrow. TIROS-1 sent the first television pictures of Earth's clouds.",
+    source: "NASA NSSDCA, TIROS 1 (1960): two 1.27 cm vidicon TV cameras, pictures sent live or stored on tape. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B Mass and power are ESTIMATES."
+  },
+  {
+    id: "solar-xray-photometer",
+    name: "Solar X-ray photometer",
+    category: "instrument",
+    mass_kg: 4,              // ESTIMATE
+    power_draw_w: 0.5,       // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.6,          // GAME VALUE
+    data_gb_day: 0.00005,    // ESTIMATE
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 5,              // GAME VALUE
+    tags: ["solar"],
+    protects: [],
+    blurb: "Watches the Sun's X-ray flares, which only show above the atmosphere. Busiest when the Sun is.",
+    source: "Modelled on the US Navy's SOLRAD 1 (1960), the first satellite to observe solar X-rays. NEEDS A CHECKED SOURCE; all numbers are ESTIMATES."
+  },
+  {
+    id: "mercury-battery",
+    name: "Mercury batteries",
+    category: "power",
+    mass_kg: 2,              // ESTIMATE
+    power_draw_w: 0,
+    power_gen_w: 0,
+    cost_musd: 0.05,         // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 0,
+    tags: [],
+    protects: [],
+    blurb: "Explorer 1's power. No recharging: when they run down, the satellite falls silent.",
+    source: "Explorer 1 ran on mercury batteries; its transmitters lasted 31 and 105 days (secondary sources summarising NASA records; NEEDS HUMAN CHECK). Energy and mass are ESTIMATES.",
+    battery_wh: 100          // ESTIMATE
+  },
+  {
+    id: "silver-zinc-battery",
+    name: "Silver-zinc batteries",
+    category: "power",
+    mass_kg: 51,             // Sputnik 1's batteries (secondary source)
+    power_draw_w: 0,
+    power_gen_w: 0,
+    cost_musd: 0.1,          // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 0,
+    tags: [],
+    protects: [],
+    blurb: "Sputnik 1's batteries: plenty of energy, but heavy. Sputnik fell silent after about 21 days.",
+    source: "Sputnik 1 (83.6 kg) carried three silver-zinc batteries and transmitted for about 21 days (secondary sources; NEEDS HUMAN CHECK). Energy is an ESTIMATE.",
+    battery_wh: 1000         // ESTIMATE
+  },
+  {
+    id: "silicon-cells",
+    name: "Early silicon solar cells",
+    category: "power",
+    mass_kg: 3,              // ESTIMATE
+    power_draw_w: 0,
+    power_gen_w: 0,          // computed by game.js: 1361 x 0.2 x 0.08 = 21.8 W
+    cost_musd: 0.5,          // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 0,
+    tags: [],
+    protects: [],
+    blurb: "The first satellite solar cells. Vanguard 1's kept transmitting for more than six years.",
+    source: "Vanguard 1 (1958) was the first solar-powered satellite; TIROS 1 (1960) carried about 9000 1 x 2 cm silicon cells (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Lit area and efficiency are ESTIMATES (1950s silicon cells: about 8-10%).",
+    panel_area_m2: 0.2,      // ESTIMATE: the share of body-mounted cells facing the Sun at once
+    efficiency: 0.08
+  },
+  {
+    id: "nicad-battery",
+    name: "Nickel-cadmium batteries",
+    category: "power",
+    mass_kg: 5,              // ESTIMATE
+    power_draw_w: 0,
+    power_gen_w: 0,
+    cost_musd: 0.1,          // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 0,
+    tags: [],
+    protects: [],
+    blurb: "Rechargeable batteries: with solar cells they carry the satellite through Earth's shadow.",
+    source: "TIROS 1 (1960) carried 21 nickel-cadmium batteries charged by its solar cells (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Energy and mass are ESTIMATES.",
+    battery_wh: 120          // ESTIMATE
+  },
+  {
+    id: "minitrack-beacon",
+    name: "108 MHz Minitrack beacon",
+    category: "comms",
+    mass_kg: 0.3,            // ESTIMATE
+    power_draw_w: 0.06,      // Explorer 1's higher-power transmitter: about 60 mW (secondary source)
+    power_gen_w: 0,
+    cost_musd: 0.02,         // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0.001,  // ESTIMATE: a few bits a second, all day
+    storage_gb: 0,
+    science: 0,
+    tags: [],
+    protects: [],
+    blurb: "A tiny radio the ground can track and listen to. Enough for a counter, hopeless for pictures.",
+    source: "Explorer 1 and the Vanguards transmitted near 108 MHz for the Minitrack tracking network (secondary sources; NEEDS HUMAN CHECK). Data rate is an ESTIMATE."
+  },
+  {
+    id: "vhf-telemetry",
+    name: "235 MHz telemetry link",
+    category: "comms",
+    mass_kg: 3,              // ESTIMATE
+    power_draw_w: 5,         // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.3,          // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0.5,    // ESTIMATE: TV pictures to a receiving station
+    storage_gb: 0,
+    science: 0,
+    tags: [],
+    protects: [],
+    blurb: "A stronger radio that can send TV pictures to the ground.",
+    source: "TIROS 1 used 235 MHz telemetry antennas and sent TV pictures to ground stations (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Rate, mass and power are ESTIMATES."
+  },
+  {
+    id: "command-timer",
+    name: "Clock and command receiver",
+    category: "computer",
+    mass_kg: 0.5,            // ESTIMATE
+    power_draw_w: 0.02,      // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.02,         // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0,
+    storage_gb: 0,
+    science: 0,
+    tags: [],
+    protects: [],
+    blurb: "Before computers: a clock and a radio receiver that switch things on and off.",
+    source: "Early satellites used timers and ground commands rather than computers (TIROS 1 carried a command receiver; NSSDCA). All numbers are ESTIMATES."
+  },
+  {
+    id: "tape-recorder",
+    name: "Miniature tape recorder",
+    category: "computer",
+    mass_kg: 1,              // ESTIMATE
+    power_draw_w: 0.5,       // ESTIMATE
+    power_gen_w: 0,
+    cost_musd: 0.2,          // GAME VALUE
+    data_gb_day: 0,
+    downlink_gb_day: 0,
+    storage_gb: 0.001,       // ESTIMATE
+    science: 0,
+    tags: [],
+    protects: [],
+    blurb: "Records a whole orbit and plays it back over a station. Explorer 3 carried one to explain Explorer 1's silent counter.",
+    source: "Explorer 3 (1958) added a tape recorder, and its data confirmed the radiation belts (secondary sources; NEEDS HUMAN CHECK). All numbers are ESTIMATES."
+  },
+
   // ---------------------------------------------------------------- instruments
   {
     id: "thermal-imager",
