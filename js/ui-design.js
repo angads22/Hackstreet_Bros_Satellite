@@ -58,6 +58,8 @@
     bin: "instrument",   // which parts bin is open on Build
     hover: null,         // part id being previewed on Build
     hintOpen: false,
+    touch: false,        // last press on a part card was a finger
+    armed: false,        // that part was already previewed when the finger went down
     locked: false        // true from launch until the debrief buttons
   };
 
@@ -517,9 +519,21 @@
     function preview() { state.hover = p.id; refreshPreview(); }
     return el("button", {
       type: "button", class: "part" + (note ? " dim" : ""), "aria-pressed": on ? "true" : "false", "data-key": "part-" + p.id,
-      onclick: function () { if (on) removePart(d, p.id); else addPart(d, p.id); redraw(); },
-      onmouseenter: preview, onfocus: preview,
-      onmouseleave: function () { state.hover = null; refreshPreview(); }
+      onpointerdown: function (e) {
+        // Read before the tap focuses the card (focus also previews).
+        state.touch = e.pointerType === "touch";
+        state.armed = state.hover === p.id;
+      },
+      onclick: function () {
+        // On touch screens there is no hover: the first tap previews, a second tap toggles.
+        if (state.touch && !state.armed) { preview(); state.armed = true; return; }
+        if (on) removePart(d, p.id); else addPart(d, p.id);
+        redraw();
+      },
+      onfocus: preview,
+      // Real mouse only: a phone tap also fires mouse enter/leave, which would undo the tap preview.
+      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); },
+      onpointerleave: function (e) { if (e.pointerType === "mouse") { state.hover = null; refreshPreview(); } }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost", text: money(p.cost_musd) })]),
       el("span", { class: "part-stats", text: partStats(p) }),
@@ -606,7 +620,7 @@
       el("h2", { text: "MISSION OVERVIEW" }),
       resourceBars(d),
       el("h2", { class: "divided", text: "PROBLEMS" }),
-      checkList(d, { short: true, skip: ["no-launcher", "launcher-reach", "mass", "mass-margin"] })
+      checkList(d, { short: true, skip: ["no-launcher"] })
     ]);
 
     var cat = byId(CATEGORIES, state.bin) || CATEGORIES[0];
