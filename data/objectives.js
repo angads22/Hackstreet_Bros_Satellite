@@ -34,8 +34,8 @@ const OBJECTIVES = [
     name: "First weather pictures",
     briefing: "Forecasters see only what weather stations report, and most of Earth is ocean. A satellite could see every cloud. Prove it can be done.",
     wants: ["imaging"],
-    science_target: 120,         // GAME VALUE
-    orbit_fit: { leo: 0.8, sso: 1.0, geo: 0.6 },   // GAME VALUES
+    science_target: 100,         // GAME VALUE: TV cameras alone (as on TIROS-1) or cameras plus photocells
+    orbit_fit: { leo: 0.8, sso: 1.0, geo: 0.6 },   // both reach it: more than one way to succeed
     value_musd: 25,              // GAME VALUE
     knowledge_scale: 150,        // GAME VALUE
     requires_research: "cloud-photometry",

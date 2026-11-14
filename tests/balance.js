@@ -36,7 +36,7 @@ function play(d) {
   return m;
 }
 
-var stats = {}, adviceBad = [], threeBelowTarget = 0, threeSeen = 0;
+var stats = {}, adviceBad = [], threeBelowTarget = 0, threeSeen = 0, threeDesigns = {};
 var orbitWins = { era: { leo: 0, sso: 0, geo: 0 }, modern: { leo: 0, sso: 0, geo: 0 } };
 G.TIERS.forEach(function (t) {
   G.OBJECTIVES.forEach(function (o) {
@@ -49,7 +49,12 @@ G.TIERS.forEach(function (t) {
           parts.forEach(function (p) { G.addPart(d, p); });
           if (G.runChecks(d).blockers.length) return;
           var m = play(d), db = G.getDebrief(m);
-          if (db.stars === 3) { three++; threeSeen++; if (db.science < db.science_target) threeBelowTarget++; }
+          if (db.stars === 3) {
+            three++; threeSeen++; if (db.science < db.science_target) threeBelowTarget++;
+            // Distinct ways to succeed: a different orbit or different instruments (a bigger rocket alone does not count).
+            var inst = d.parts.filter(function (p) { return G.getPart(p).category === "instrument"; }).sort().join("+");
+            (threeDesigns[o.id] = threeDesigns[o.id] || {})[orb.id + "/" + inst] = true;
+          }
           if (db.score > best.score) best = { score: db.score, stars: db.stars, orbit: orb.id };
           if (!bestByOrbit[orb.id] || db.score > bestByOrbit[orb.id]) bestByOrbit[orb.id] = db.score;
           // Advice must never ask for a part that is already fitted.
@@ -103,6 +108,13 @@ var WHY = {
     else if (WHY[k]) warn("4 " + k + " never wins", WHY[k]);
     else check("4 " + k + " wins at least once", false, "no tier x objective");
   });
+});
+
+// 4b. "There is rarely a single perfect solution" (challenge text): every objective has at
+// least two genuinely different 3-star designs (different orbit or instruments).
+G.OBJECTIVES.forEach(function (o) {
+  var ways = Object.keys(threeDesigns[o.id] || {});
+  check("4b " + o.id + " has more than one way to 3 stars", ways.length >= 2, ways.length + " ways, e.g. " + ways.slice(0, 3).join(", "));
 });
 
 // 5. Advice never names a part that is already fitted; missions fly a copy.
