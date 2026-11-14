@@ -40,7 +40,20 @@ function pickWeighted(pool, orbitId, rand) {
 }
 
 // ------------------------------------------------------------------ mission
+var missionCounter = 0;
+
+// A copy of the design as it was at launch. Later edits to the player's design
+// never change a mission that has already flown.
+function copyDesign(design) {
+  return { tier: design.tier, objective: design.objective, orbit: design.orbit,
+           launcher: design.launcher, parts: design.parts.slice() };
+}
+
+// Returns null if the design still has blockers: nothing launches past the readiness review.
 function startMission(design) {
+  if (!design || runChecks(design).blockers.length) return null;
+  design = copyDesign(design);
+  missionCounter += 1;
   var orbit = getOrbit(design.orbit);
   var tier = getTier(design.tier);
   var lifetime = orbit ? orbit.lifetime_months : 12;
@@ -65,7 +78,8 @@ function startMission(design) {
              (totals.margins.power !== null && totals.margins.power < LOW_MARGIN);
 
   return {
-    design: design,
+    id: "m" + missionCounter + "-" + designSeed(design).toString(36),
+    design: design,           // the copy taken at launch
     rand: rand,
     month: 0,
     lifetime_months: lifetime,
@@ -84,7 +98,8 @@ function startMission(design) {
     real: { fires_in_view: 0, fires_reported: 0, months_mapped: 0, dark_months_mapped: 0 },
     ended: false,
     ended_early: false,
-    end_reason: null
+    end_reason: null,
+    recorded: null            // the result of recordResult, once called
   };
 }
 
@@ -101,6 +116,8 @@ function missingRequired(mission) {
     var cat = REQUIRED_CATEGORIES[i];
     if (!working.some(function (p) { return p.category === cat; })) return cat;
   }
+  // A battery alone cannot keep a spacecraft alive: it needs a working generator.
+  if (!working.some(function (p) { return p.category === "power" && solarPowerW(p) > 0; })) return "power";
   return null;
 }
 
@@ -165,7 +182,10 @@ function tallyRealWorld(mission, rate, cal, observing) {
   var e = earthFor(mission.design.objective);
   if (!e) return;
   var useful = rate.instruments.some(function (i) { return i.points > 0; });
-  var quality = rate.data_share * rate.power_share * mission.science_mult;
+  // How well the best working instrument suits the topic: a camera counts fires
+  // at half the rate of a thermal imager (it cannot see through smoke or at night).
+  var match = rate.instruments.reduce(function (m, i) { return i.points > 0 ? Math.max(m, i.match) : m; }, 0);
+  var quality = rate.data_share * rate.power_share * mission.science_mult * match;
   if (e.monthly_share) {
     var view = e.orbit_view ? (e.orbit_view[mission.design.orbit] || 0) : 1;
     var objective = getObjective(mission.design.objective);
@@ -193,11 +213,11 @@ function realWorldSummary(mission) {
       share_in_view: view,
       fires_reported: Math.round(reported),
       share_reported: seen > 0 ? round(reported / (e.detections * years), 3) : 0,
-      text: "In " + e.year + ", NASA's MODIS instruments detected " + e.detections.toLocaleString("en-US") +
-        " active fires worldwide. From this orbit your satellite could see " + Math.round(view * 100) +
+      text: "In " + e.year + ", NASA's MODIS instruments made " + e.detections.toLocaleString("en-US") +
+        " active-fire detections worldwide. From this orbit your satellite could see " + Math.round(view * 100) +
         "% of them. Over " + mission.month + " months it would have reported about " +
-        Math.round(reported).toLocaleString("en-US") + " fires, " +
-        Math.round(100 * reported / (e.detections * Math.max(years, 1 / 12))) + "% of all the fires that burned."
+        Math.round(reported).toLocaleString("en-US") + " fire detections, " +
+        Math.round(100 * reported / (e.detections * Math.max(years, 1 / 12))) + "% of all those NASA recorded."
     };
   }
   if (e.extent_mkm2) {
@@ -209,11 +229,13 @@ function realWorldSummary(mission) {
       months_mapped: mission.real.months_mapped,
       dark_months_mapped: mission.real.dark_months_mapped,
       text: "In September " + e.year + ", Arctic sea ice shrank to " + e.extent_mkm2[sep] +
-        " million km2, " + drop + "% below the 1981-2010 average (NSIDC). Your satellite mapped the ice in " +
-        mission.real.months_mapped + " of " + mission.month + " months, " +
-        (mission.real.dark_months_mapped
-          ? "including " + mission.real.dark_months_mapped + " months of polar night, when only radar can see."
-          : "but none in the " + dark + " months of polar night each year, when only radar can see.")
+        " million km2, " + drop + "% below the 1981-2010 average (NSIDC). " +
+        (mission.real.months_mapped === 0
+          ? "Your satellite never mapped the ice."
+          : "Your satellite mapped the ice in " + mission.real.months_mapped + " of " + mission.month + " months, " +
+            (mission.real.dark_months_mapped
+              ? "including " + mission.real.dark_months_mapped + " months of polar night, when only radar can see."
+              : "but none in the " + dark + " months of polar night each year, when only radar can see."))
     };
   }
   return null;
@@ -225,14 +247,16 @@ function realWorldSummary(mission) {
 function chooseEvent(mission, choice) {
   var event = mission.pending_event;
   if (!event) return null;
-  var picked = event.choices[choice] || event.choices[0];
+  // An index outside the list counts as the first choice, and is recorded as such.
+  if (typeof choice !== "number" || !event.choices[choice]) choice = 0;
+  var picked = event.choices[choice];
   var effect = picked.effect || {};
   var prot = isProtected(mission.design, event.id);
-  var record = { id: event.id, title: event.title, choice: choice, label: picked.label,
-                 protected: prot, failed_part: null };
 
   // Protection cancels the penalty of the riskiest choice (the one with a fail_chance).
-  var riskiest = prot && effect.fail_chance;
+  var riskiest = !!(prot && effect.fail_chance);
+  var record = { id: event.id, title: event.title, choice: choice, label: picked.label,
+                 protected: riskiest, failed_part: null };   // true only when protection applied
 
   if (!riskiest) {
     if (effect.lose_months) mission.lost_months += effect.lose_months;
@@ -316,14 +340,27 @@ function getDebrief(mission) {
 }
 
 // The single thing that most limited the mission, and one concrete change.
+// Every suggestion must be something the player can actually do: never a part
+// that is already fitted, and the orbit is named when the orbit is the problem.
 function limitingFactor(mission, totals, scienceShare) {
   var design = mission.design;
+  var fitted = function (id) { return design.parts.indexOf(id) !== -1; };
+  var objective = getObjective(design.objective);
+  var orbit = getOrbit(design.orbit);
+
   if (mission.ended_early) {
     var r = mission.end_reason;
-    var guard = PARTS.filter(function (p) { return p.protects.indexOf(r.event) !== -1; })[0];
-    return { key: "event", suggestion: "The " + r.title.toLowerCase() + " knocked out your only " + r.category +
+    var guard = PARTS.filter(function (p) { return p.protects.indexOf(r.event) !== -1 && !fitted(p.id); })[0];
+    return { key: "event", suggestion: "The " + r.title.toLowerCase() + " knocked out your only working " + r.category +
       " part. " + (guard ? "Fly the " + guard.name.toLowerCase() + ", which guards against it, or carry a spare."
                          : "Carry a spare " + r.category + " part, or pick the safer option next time.") };
+  }
+
+  // An orbit that cannot see the target at all comes before everything else.
+  if (objective && orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
+    var better = bestOrbitFor(objective);
+    return { key: "design", suggestion: "From " + orbit.name.toLowerCase() + " the spacecraft cannot see what " +
+      objective.name.toLowerCase() + " needs. Fly in " + better.name.toLowerCase() + " instead." };
   }
 
   var lost = mission.lost;
@@ -331,11 +368,25 @@ function limitingFactor(mission, totals, scienceShare) {
   var potential = mission.science + lost.data + lost.power + lost.event;
   if (biggest > 0.05 * potential && scienceShare < 1) {
     if (biggest === lost.data) {
-      return { key: "data", suggestion: "Only " + totals.data_returned_gb_day + " of " + totals.data_gb_day +
-        " GB a day reached the ground. Fit a faster radio, such as X-band, or fly an orbit with longer ground contact." };
+      var fastest = PARTS.filter(function (p) { return p.category === "comms"; })
+        .sort(function (a, b) { return b.downlink_gb_day - a.downlink_gb_day; })[0];
+      var head = "Only " + totals.data_returned_gb_day + " of " + totals.data_gb_day + " GB a day reached the ground. ";
+      return { key: "data", suggestion: head + (fitted(fastest.id)
+        ? "Your " + fastest.name + " is already the fastest radio, so fly an orbit with longer ground contact, or carry fewer data-hungry instruments."
+        : "Fit the " + fastest.name + ", or fly an orbit with longer ground contact.") };
     }
     if (biggest === lost.power) {
-      return { key: "power", suggestion: "Your instruments switched off in Earth's shadow. Add a battery big enough to carry them through the eclipse." };
+      var battery = PARTS.filter(function (p) { return p.battery_wh; })
+        .sort(function (a, b) { return b.battery_wh - a.battery_wh; })[0];
+      var short = totals.power_gen_w < totals.power_draw_w;
+      if (short) {
+        return { key: "power", suggestion: "Your panels make " + totals.power_gen_w + " W but the parts draw " +
+          totals.power_draw_w + " W. Add or enlarge a solar panel, or cut the draw." };
+      }
+      return { key: "power", suggestion: battery && !fitted(battery.id)
+        ? "Your instruments switched off in Earth's shadow. Add the " + battery.name.toLowerCase() + " to carry them through the eclipse."
+        : "Your battery is the largest available but still too small for a " + totals.power_draw_w +
+          " W spacecraft in shadow. Cut the draw: drop an instrument, or choose lighter-drawing parts." };
     }
     return { key: "event", suggestion: "Events cost you months of observing. Protective parts, or the safer choice, keep the mission running." };
   }
@@ -354,16 +405,34 @@ function limitingFactor(mission, totals, scienceShare) {
       return { key: "design", suggestion: "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it." };
     }
     // A wanted instrument type nobody carries is the cheapest way to more science.
-    var objective = getObjective(design.objective);
     var carried = designParts(design).filter(function (p) { return p.category === "instrument"; })
       .reduce(function (tags, p) { return tags.concat(p.tags); }, []);
     var missingTag = objective ? objective.wants.filter(function (t) { return carried.indexOf(t) === -1; })[0] : null;
     var extra = missingTag ? PARTS.filter(function (p) { return p.category === "instrument" && p.tags.indexOf(missingTag) !== -1; })[0] : null;
-    return { key: "design", suggestion: extra
-      ? "Nothing ran short, but one instrument was not enough. Add the " + extra.name.toLowerCase() + " as well; this objective counts it too."
-      : "Nothing ran short, but the science fell below target. Try an orbit that suits the objective better." };
+    if (extra) {
+      return { key: "design", suggestion: "Nothing ran short, but one instrument was not enough. Add the " +
+        extra.name.toLowerCase() + " as well; this objective counts it too." };
+    }
+    var best = bestOrbitFor(objective);
+    return { key: "design", suggestion: best.id !== design.orbit
+      ? "Nothing ran short, but the science fell below target. " + best.name + " suits this objective better."
+      : "Nothing ran short, and this is already the best orbit for this objective. A longer-lived or sharper design is the only way up." };
   }
   return { key: "none", suggestion: "Target reached. Try the next tier, or reach it on a smaller budget." };
+}
+
+// The orbit where instruments earn the most for this objective: science
+// multiplier x how often it looks x share of real targets in view.
+function bestOrbitFor(objective) {
+  var e = objective ? earthFor(objective.id) : null;
+  return ORBITS.slice().sort(function (a, b) {
+    function value(o) {
+      var fit = objective && objective.orbit_fit ? (objective.orbit_fit[o.id] || 0) : 1;
+      var view = e && e.orbit_view && e.orbit_view[o.id] !== undefined ? e.orbit_view[o.id] : 1;
+      return o.science_mult * fit * view * o.lifetime_months;
+    }
+    return value(b) - value(a);
+  })[0];
 }
 
 // ------------------------------------------------------------------ progress
@@ -400,6 +469,8 @@ function isTierUnlocked(tierId) {
 // Call once when a mission ends. Returns { stars, best_stars, unlocked }
 // where `unlocked` is the id of a tier this result just opened, or null.
 function recordResult(mission) {
+  if (!mission || !mission.ended) return null;           // only finished missions count
+  if (mission.recorded) return mission.recorded;         // a second call changes nothing
   var tierId = mission.design.tier;
   var d = getDebrief(mission);
   var p = getProgress();
@@ -409,8 +480,9 @@ function recordResult(mission) {
   p.best_stars[tierId] = Math.max(p.best_stars[tierId] || 0, d.stars);
   p.best_score[tierId] = Math.max(p.best_score[tierId] || 0, d.score);
   saveProgress(p);
-  return { stars: d.stars, best_stars: p.best_stars[tierId],
-           unlocked: nextId && wasLocked && isTierUnlocked(nextId) ? nextId : null };
+  mission.recorded = { stars: d.stars, best_stars: p.best_stars[tierId],
+                       unlocked: nextId && wasLocked && isTierUnlocked(nextId) ? nextId : null };
+  return mission.recorded;
 }
 
 function resetProgress() { saveProgress(emptyProgress()); }
