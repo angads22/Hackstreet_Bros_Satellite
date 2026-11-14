@@ -52,6 +52,7 @@ function copyDesign(design) {
   var copy = { tier: design.tier, objective: design.objective, orbit: design.orbit,
                launcher: design.launcher, parts: design.parts.slice() };
   if (design.campaign) copy.campaign = true;
+  if (design.year) { copy.year = design.year; copy.era = design.era; }
   return copy;
 }
 
@@ -64,7 +65,7 @@ function startMission(design) {
 
   // Campaign: pay at launch, count the flight, and give each flight fresh luck.
   var flight = 0, scienceBefore = 0;
-  var startYear = typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : null;
+  var startYear = design.year || (typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : null);
   if (design.campaign) {
     var c = getCampaign();
     if (!c || c.finished) return null;
@@ -595,7 +596,7 @@ function bestOrbitFor(objective) {
 var PROGRESS_KEY = "smdg-progress-v1";
 var memoryProgress = null;
 
-function emptyProgress() { return { best_stars: {}, best_score: {} }; }
+function emptyProgress() { return { best_stars: {}, best_score: {}, best_stars_by_era: {} }; }
 
 function getProgress() {
   try {
@@ -631,10 +632,19 @@ function recordResult(mission) {
   var nextId = TIERS[i + 1] ? TIERS[i + 1].id : null;
   var wasLocked = nextId ? !isTierUnlocked(nextId) : false;
   p.best_stars[tierId] = Math.max(p.best_stars[tierId] || 0, d.stars);
+  if (mission.design.era) {
+    p.best_stars_by_era = p.best_stars_by_era || {};
+    var eraWasOpen = getEras().map(function (e) { return e.unlocked; });
+    p.best_stars_by_era[mission.design.era] = Math.max(p.best_stars_by_era[mission.design.era] || 0, d.stars);
+  }
   p.best_score[tierId] = Math.max(p.best_score[tierId] || 0, d.score);
   saveProgress(p);
   mission.recorded = { stars: d.stars, best_stars: p.best_stars[tierId],
-                       unlocked: nextId && wasLocked && isTierUnlocked(nextId) ? nextId : null };
+                       unlocked: nextId && wasLocked && isTierUnlocked(nextId) ? nextId : null,
+                       era_unlocked: null };
+  if (mission.design.era) {
+    getEras().forEach(function (e, i) { if (e.unlocked && !eraWasOpen[i]) mission.recorded.era_unlocked = e.id; });
+  }
   if (mission.campaign_flight) settleCampaign(mission, d, mission.recorded);
   return mission.recorded;
 }
@@ -722,10 +732,10 @@ function cheapestLaunchCost(c) {
   // Structure and attitude join the search once they are required: their cheapest
   // part is always the cheapest choice that keeps a design launchable, so take it.
   var extras = [];
-  ["structure", "attitude"].forEach(function (cat) {
-    if (requiredCategories().indexOf(cat) !== -1) { var cheapest = avail(cat)[0]; if (cheapest) extras.push(cheapest); }
-  });
+  if (requiredCategories().indexOf("attitude") !== -1 && avail("attitude")[0]) extras.push(avail("attitude")[0]);
   var extraCost = extras.reduce(function (t, p) { return t + p.cost_musd; }, 0);
+  // Bodies are tried cheapest first; a design must fit in its body.
+  var bodiesToTry = requiredCategories().indexOf("structure") !== -1 ? avail("structure") : [null];
   var launchers = byCost(LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id); }));
   var best = Infinity;
   OBJECTIVES.forEach(function (o) {
@@ -746,12 +756,15 @@ function cheapestLaunchCost(c) {
               for (var g = 0; g < prop.length; g++) {
                 var c5 = c4 + (prop[g] ? prop[g].cost_musd : 0); if (c5 >= best) continue;
                 for (var h = 0; h < launchers.length; h++) {
-                  var cost = c5 + launchers[h].cost_musd; if (cost >= best) break;
-                  var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: launchers[h].id,
-                            parts: [ins[a].id, power[b].id, comms[e].id, comp[f].id].concat(prop[g] ? [prop[g].id] : [],
-                                   extras.map(function (x) { return x.id; })) };
-                  var blockers = runChecks(d).blockers.filter(function (x) { return x.id !== "budget"; });
-                  if (!blockers.length && scienceRate(d, []).per_month > 0) { best = cost; break; }
+                  var cost0 = c5 + launchers[h].cost_musd; if (cost0 >= best) break;
+                  for (var k = 0; k < bodiesToTry.length; k++) {
+                    var body = bodiesToTry[k], cost = cost0 + (body ? body.cost_musd : 0); if (cost >= best) break;
+                    var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: launchers[h].id,
+                              parts: [ins[a].id, power[b].id, comms[e].id, comp[f].id].concat(prop[g] ? [prop[g].id] : [],
+                                     extras.map(function (x) { return x.id; }), body ? [body.id] : []) };
+                    var blockers = runChecks(d).blockers.filter(function (x) { return x.id !== "budget"; });
+                    if (!blockers.length && scienceRate(d, []).per_month > 0) { best = cost; break; }
+                  }
                 }
               }
             }
@@ -939,9 +952,6 @@ function lessonsFrom(mission, debrief, c) {
   return out;
 }
 
-function researchById(id) {
-  return typeof RESEARCH === "undefined" ? null : RESEARCH.filter(function (r) { return r.id === id; })[0] || null;
-}
 
 // What still stands between the player and this research, as { kind, text } items.
 function researchMissing(r, c) {
@@ -1049,4 +1059,22 @@ function segmentLines(mission, t, k) {
     text: "Scientists received " + Math.round(mission.science) + " science points against a target of " +
       (objective ? objective.science_target : "?") + (mission.campaign_flight ? "; the programme was paid $" + k.payout_musd + "M for what was new." : ".") });
   return lines;
+}
+
+// ------------------------------------------------------------------ research tree for a tree component
+// Nodes and edges only, so a reusable tree component can draw it without the rules.
+function getResearchTree() {
+  var c = getCampaign();
+  var nodes = (typeof RESEARCH === "undefined" ? [] : RESEARCH).map(function (r) {
+    var owned = !!(c && c.research.indexOf(r.id) !== -1);
+    var missing = c && !owned ? researchMissing(r, c).map(function (m) { return m.text; }) : [];
+    return { id: r.id, name: r.name, year: r.year, depth: researchDepth(r.id), cost_musd: r.cost_musd, blurb: r.blurb,
+             unlocks_names: unlockNames(r), owned: owned, can_buy: !!(c && !owned && !c.finished && missing.length === 0),
+             missing: missing };
+  });
+  var edges = [];
+  (typeof RESEARCH === "undefined" ? [] : RESEARCH).forEach(function (r) {
+    (r.requires || []).forEach(function (q) { edges.push({ from: q, to: r.id }); });
+  });
+  return { nodes: nodes, edges: edges };
 }
