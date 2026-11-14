@@ -4,7 +4,7 @@
 var fs = require("fs"), vm = require("vm"), path = require("path");
 
 var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js", "data/campaign.js", "data/research.js",
-             "data/tiers.js", "data/events.js", "data/debrief.js", "data/missions.js", "data/earth.js", "js/game.js", "js/mission.js"];
+             "data/tiers.js", "data/events.js", "data/debrief.js", "data/missions.js", "data/hints.js", "data/earth.js", "js/game.js", "js/mission.js"];
 
 module.exports = function load() {
   var root = path.join(__dirname, "..");

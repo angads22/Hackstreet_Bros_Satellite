@@ -553,3 +553,29 @@ function previewToggle(design, partId) {
     causes: ca.blockers.concat(ca.warnings).filter(function (c) { return before.indexOf(c.id) === -1; })
   };
 }
+
+// ------------------------------------------------------------------ hints
+// Tips for a screen (data/hints.js), led by advice for the design's current
+// problems. The tier's hints field sets the mode: "off" returns no tips.
+var HINT_SCREENS = ["hub", "briefing", "orbit", "build", "launch", "readiness", "mission", "debrief"];
+
+function getHints(screen, design) {
+  var tierId = design ? design.tier : (typeof getCampaign === "function" && getCampaign() ? getCampaign().tier : null);
+  var tier = getTier(tierId) || TIERS[0];
+  var mode = tier && tier.hints ? tier.hints : "on";
+  var h = typeof HINTS !== "undefined" ? HINTS : { screens: {}, tutorial: {}, checks: {} };
+  var out = { mode: mode, tutorial: mode === "on" ? (h.tutorial[screen] || "") : "", tips: [] };
+  if (mode === "off" || HINT_SCREENS.indexOf(screen) === -1) return out;
+  if (design && ["build", "launch", "readiness"].indexOf(screen) !== -1) {
+    var c = runChecks(design), seen = {};
+    c.blockers.concat(c.warnings).forEach(function (x) {
+      var key = x.id.indexOf("resolution-") === 0 ? "resolution" : x.id.indexOf("empty-") === 0 ? "empty" : x.id;
+      if (seen[key] || !h.checks[key]) return;
+      if (screen === "build" && ["no-launcher", "launcher-reach", "launcher-locked"].indexOf(key) !== -1) return;
+      seen[key] = true;
+      out.tips.push(h.checks[key]);
+    });
+  }
+  out.tips = out.tips.concat(h.screens[screen] || []);
+  return out;
+}
