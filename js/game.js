@@ -39,8 +39,10 @@ function round(x, places) {
 
 // ------------------------------------------------------------------ design edits
 function newDesign(tierId) {
+  // Unknown tier ids fall back to the first tier, so the budget check always applies.
+  if (!getTier(tierId)) tierId = TIERS.length ? TIERS[0].id : "training";
   return {
-    tier: tierId || "training",
+    tier: tierId,
     objective: null,
     orbit: null,
     parts: [],        // list of part ids
@@ -111,12 +113,58 @@ function margin(capacity, used) {
   return (capacity - used) / capacity;
 }
 
+// ------------------------------------------------------------------ budget and locks
+// A campaign design spends from the treasury; anything else uses the tier's budget.
+function budgetFor(design) {
+  if (design.campaign && typeof getCampaign === "function") {
+    var c = getCampaign();
+    if (c) return c.treasury_musd;
+  }
+  var tier = getTier(design.tier);
+  return tier ? tier.budget_musd : null;
+}
+
+// Research (data/research.js) locks a part, launcher or objective only while a
+// campaign is running and the research that unlocks it has not been bought.
+function researchUnlocking(kind, id) {
+  if (typeof RESEARCH === "undefined") return null;
+  for (var i = 0; i < RESEARCH.length; i++) {
+    var u = RESEARCH[i].unlocks || {};
+    if (u[kind] && u[kind].indexOf(id) !== -1) return RESEARCH[i];
+  }
+  return null;
+}
+function isUnlocked(kind, id) {
+  var r = researchUnlocking(kind, id);
+  if (!r) return true;
+  var c = typeof getCampaign === "function" ? getCampaign() : null;
+  return !c || c.research.indexOf(r.id) !== -1;
+}
+function researchNameFor(kind, id) {
+  var r = researchUnlocking(kind, id);
+  if (!r && kind === "objectives" && typeof RESEARCH !== "undefined") {
+    var o = getObjective(id);
+    if (o && o.requires_research) r = RESEARCH.filter(function (x) { return x.id === o.requires_research; })[0];
+  }
+  return r ? r.name : "";
+}
+function isPartAvailable(id)      { return isUnlocked("parts", id); }
+function isLauncherAvailable(id)  { return isUnlocked("launchers", id); }
+function isObjectiveAvailable(id) {
+  var o = getObjective(id);
+  if (o && o.requires_research) {
+    var c = typeof getCampaign === "function" ? getCampaign() : null;
+    if (c && c.research.indexOf(o.requires_research) === -1) return false;
+  }
+  return isUnlocked("objectives", id);
+}
+
 // ------------------------------------------------------------------ totals
 function getTotals(design) {
   var parts = designParts(design);
   var orbit = getOrbit(design.orbit);
   var launcher = getLauncher(design.launcher);
-  var tier = getTier(design.tier);
+  var budget = budgetFor(design);
 
   var mass = sum(parts, function (p) { return p.mass_kg; });
   var draw = sum(parts, function (p) { return p.power_draw_w; });
@@ -149,13 +197,13 @@ function getTotals(design) {
     margins: {
       mass: capacity ? round(margin(capacity, mass), 3) : null,
       power: gen ? round(margin(gen, draw), 3) : null,
-      budget: tier ? round(margin(tier.budget_musd, cost), 3) : null
+      budget: budget ? round(margin(budget, cost), 3) : null
     },
     // Extra values so the screens never do maths:
     data_returned_gb_day: round(returned, 2),
     battery_wh: batteryWh,
     capacity_kg: capacity,
-    budget_musd: tier ? tier.budget_musd : 0
+    budget_musd: budget
   };
 }
 
@@ -181,15 +229,48 @@ function getOrbitFacts(design) {
     eclipse_min: round(f * periodS / 60, 1),
     speed_kms: round(orbitalSpeedMs(h) / 1000, 2),
     resolution_m: res,  // per instrument id; null = radar (formula does not apply)
+    target_in_view: targetInView(design),  // share of the objective's real targets in view, or null
     battery_needed_wh: round(batteryNeededWh(getTotals(design).power_draw_w, h), 0)
   };
+}
+
+// Share of the objective's real-world targets this orbit can see (NASA data), or null.
+function targetInView(design) {
+  var e = earthFor(design.objective);
+  if (!e || !e.orbit_view || !design.orbit || e.orbit_view[design.orbit] === undefined) return null;
+  return e.orbit_view[design.orbit];
 }
 
 // ------------------------------------------------------------------ science rate
 // Science per month for a design, before events. mission.js uses this too.
 // `brokenIds` lists parts that have failed during a mission.
-function scienceRate(design, brokenIds) {
+// Real NASA data (data/earth.js) for this objective, or null.
+function earthFor(objectiveId) {
+  return (typeof EARTH !== "undefined" && EARTH[objectiveId]) ? EARTH[objectiveId] : null;
+}
+function mean(list) { return list.reduce(function (a, b) { return a + b; }, 0) / list.length; }
+
+// How the real world changes an instrument's science this month.
+//   view:   share of the real targets this orbit can see (wildfire: NASA FIRMS)
+//   season: this month's share of the year's targets, scaled so the year averages 1
+//   light:  cameras see nothing in polar night (sea ice: Sun at 75 degrees north)
+// calMonth 0..11, or null for the yearly average (the Build screen preview).
+function earthFactor(objectiveId, orbitId, part, calMonth) {
+  var e = earthFor(objectiveId);
+  if (!e) return 1;
+  var view = (e.orbit_view && e.orbit_view[orbitId] !== undefined) ? e.orbit_view[orbitId] : 1;
+  var season = 1;
+  if (e.monthly_share && calMonth !== null && calMonth !== undefined) season = e.monthly_share[calMonth] * 12;
+  var light = 1;
+  if (e.daylight_share && part.tags.indexOf("imaging") !== -1) {
+    light = (calMonth === null || calMonth === undefined) ? mean(e.daylight_share) : e.daylight_share[calMonth];
+  }
+  return view * season * light;
+}
+
+function scienceRate(design, brokenIds, calMonth) {
   brokenIds = brokenIds || [];
+  if (calMonth === undefined) calMonth = null;
   var orbit = getOrbit(design.orbit);
   var objective = getObjective(design.objective);
   var result = { per_month: 0, ideal_per_month: 0, data_share: 1, power_share: 1, instruments: [] };
@@ -205,10 +286,19 @@ function scienceRate(design, brokenIds) {
   var returned = dataReturnedGbDay(produced, downlink, orbit.downlink_mult);
   var dataShare = produced > 0 ? returned / produced : 0;
 
-  // Power: too small a battery switches instruments off in shadow (formula 5).
+  // Power, from the parts still working:
+  //  - in sunlight, if the panels make less than the parts draw, instruments run
+  //    only that share of the time (a broken panel matters in flight);
+  //  - in shadow (formula 5), the battery covers its share of what is needed;
+  //    the rest of the shadow time the instruments are off.
   var draw = sum(parts, function (p) { return p.power_draw_w; });
+  var gen = sum(parts, function (p) { return p.category === "power" ? solarPowerW(p) : 0; });
   var battery = sum(parts, function (p) { return p.battery_wh; });
-  var powerShare = battery >= batteryNeededWh(draw, h) ? 1 : 1 - eclipseFraction(h);
+  var f = eclipseFraction(h);
+  var need = batteryNeededWh(draw, h);
+  var sunShare = draw > 0 ? Math.min(1, gen / draw) : 1;
+  var shadowCovered = need > 0 ? Math.min(1, battery / need) : 1;
+  var powerShare = sunShare * (1 - f * (1 - shadowCovered));
 
   var ideal = 0;
   parts.forEach(function (p) {
@@ -219,7 +309,8 @@ function scienceRate(design, brokenIds) {
     });
     var x = resolutionM(p, h);
     var sharpEnough = !objective.needs_resolution_m || x === null || x <= objective.needs_resolution_m;
-    var pts = p.science * orbit.science_mult * fit * match * (sharpEnough ? 1 : 0);
+    var pts = p.science * orbit.science_mult * fit * match * (sharpEnough ? 1 : 0) *
+              earthFactor(objective.id, orbit.id, p, calMonth);
     result.instruments.push({ id: p.id, match: match, sharp_enough: sharpEnough, points: round(pts, 2) });
     ideal += pts;
   });
@@ -245,6 +336,19 @@ function runChecks(design) {
   function warn(id, text) { warnings.push({ id: id, text: text }); }
 
   if (!objective) block("no-objective", "Pick a science objective on the Briefing screen.");
+
+  // Research locks (campaign only; with no research data nothing is locked).
+  if (design.campaign) {
+    if (objective && !isObjectiveAvailable(objective.id)) {
+      block("objective-locked", objective.name + " needs research first: " + researchNameFor("objectives", objective.id) + ".");
+    }
+    parts.forEach(function (p) {
+      if (!isPartAvailable(p.id)) block("part-locked", p.name + " needs research first: " + researchNameFor("parts", p.id) + ".");
+    });
+    if (launcher && !isLauncherAvailable(launcher.id)) {
+      block("launcher-locked", launcher.name + " needs research first: " + researchNameFor("launchers", launcher.id) + ".");
+    }
+  }
   if (!orbit) block("no-orbit", "Pick an orbit.");
   if (!launcher) block("no-launcher", "Pick a launch vehicle.");
 
@@ -265,8 +369,9 @@ function runChecks(design) {
     }
   }
 
-  if (tier && t.cost_musd > tier.budget_musd) {
-    block("budget", "Cost is $" + round(t.cost_musd, 2) + "M but the budget is $" + tier.budget_musd + "M.");
+  if (t.budget_musd !== null && t.cost_musd > t.budget_musd) {
+    block("budget", "Cost is $" + round(t.cost_musd, 2) + "M but " +
+      (design.campaign ? "the treasury holds $" : "the budget is $") + round(t.budget_musd, 2) + "M.");
   }
 
   if (t.power_draw_w > t.power_gen_w) {
@@ -385,7 +490,7 @@ function previewToggle(design, partId) {
   if (!getPart(partId)) return null;
   var adding = design.parts.indexOf(partId) === -1;
   var after = { tier: design.tier, objective: design.objective, orbit: design.orbit,
-                launcher: design.launcher, parts: design.parts.slice() };
+                launcher: design.launcher, parts: design.parts.slice(), campaign: design.campaign };
   if (adding) addPart(after, partId); else removePart(after, partId);
 
   function snapshot(d) {

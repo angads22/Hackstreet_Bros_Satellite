@@ -3,12 +3,12 @@
 // Usage: var G = require("./load")();
 var fs = require("fs"), vm = require("vm"), path = require("path");
 
-var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js",
-             "data/tiers.js", "data/events.js", "data/debrief.js", "js/game.js", "js/mission.js"];
+var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js", "data/campaign.js",
+             "data/tiers.js", "data/events.js", "data/debrief.js", "data/earth.js", "js/game.js", "js/mission.js"];
 
 module.exports = function load() {
   var root = path.join(__dirname, "..");
-  var ctx = vm.createContext({ console: console, Math: Math });
+  var ctx = vm.createContext({ console: console, Math: Math, btoa: btoa, atob: atob });   // browser globals the game uses
   var names = [];
   FILES.forEach(function (f) {
     var src = fs.readFileSync(path.join(root, f), "utf8");

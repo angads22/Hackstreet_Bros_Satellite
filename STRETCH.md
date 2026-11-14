@@ -63,3 +63,27 @@ Before the Briefing screen, the player picks one or two strategies. Each is a ga
 - Is the wager a mini-game on screen (Design screens) or one decision with a seeded roll (Simulation)? One decision is far cheaper to build.
 - Does money earned in orbit count toward the 15 "budget left" points, or get a score line of its own?
 - New data files likely needed: `data/strategies.js` and perhaps `data/submissions.js`. These are new data fields, so the data person must approve them.
+
+## 4. Research labs
+
+Some research could build a **lab** rather than unlock a part: a lasting facility that changes the rules for every later mission. Each lab is a real institution of the era, which keeps the history lesson going.
+
+| Lab | Real model | Effect |
+| --- | --- | --- |
+| Tracking network | Minitrack (1958), later NASA's Deep Space Network | Raises every orbit's ground contact (`downlink_mult`) |
+| Environmental test chamber | Goddard's vacuum chambers | Lowers every `fail_chance` (testing before flight finds faults) |
+| Data centre | NSSDC (1966), now NSSDCA | Raises science from data already returned (better analysis) |
+| Mission control | Goddard (1959) | One free "safe" choice per mission |
+
+**Needs:** a `lab` object on research records (`{ effect, amount }`), approved by the data owner, and lab effects applied in `game.js` and `mission.js`. A lab is a long-term choice against buying a new part, which adds strategy without adding screens.
+
+## 5. Difficulty and replayability
+
+The content is small, so practice is the hook: the player learns by flying again.
+
+- **Weighted tiers** (section 1) give each tier a different feel, not just a smaller budget.
+- **Different paths through the research tree.** Because research is gated by lessons and knowledge, two campaigns can reach modern parts by different routes.
+- **Fresh luck per flight** (done): the same design faces different events in a campaign.
+- **Historical challenge mode:** "beat history". For each era topic, match or beat the real mission's year and cost, for example reaching radiation-belt knowledge before Explorer 3's March 1958.
+- **Daily seed:** everyone gets the same events today, to compare scores (local only; no server).
+- **Medals for best practices:** the lesson ids double as achievements on the hub, so practising good engineering is visible.
