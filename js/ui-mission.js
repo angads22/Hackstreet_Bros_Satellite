@@ -235,7 +235,7 @@
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
       campaignBlock(done.design, d, result),
       d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
-        el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text })]) : null,
+        el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
       segmentRows(d),
       closestLine(d),
       d.real_mission ? el("p", { class: "bar-note", text: "Real-world cousin: " + d.real_mission }) : null,
@@ -279,6 +279,13 @@
       el("dl", { class: "facts wide" }, rows.map(function (s) {
         return el("div", null, [el("dt", { text: s.name || s.id }), el("dd", { text: s.text })]);
       }))]);
+  }
+
+  // "Right now": today's open data, when the live calls worked (real_world.now). Not repeated if it is the whole summary.
+  function rightNowLine(d) {
+    var rw = d.real_world;
+    if (!rw || !rw.now || rw.now === rw.text) return null;
+    return el("p", { class: "nasa-line right-now" }, [el("strong", { text: "RIGHT NOW: " }), rw.now]);
   }
 
   // "Closest real mission: Explorer 1 (1958, NASA / JPL). ... Like yours: same orbit; battery power."

@@ -294,6 +294,24 @@
   // ---------------------------------------------------------------- shell: header, objective line, minimap, hints
   function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
 
+  // LIVE DATA or SNAPSHOT: which data the game is using. The status comes from getLiveData();
+  // js/live-data.js announces a finished fetch with a "livedata" event on window.
+  function setDataBadge() {
+    var node = document.getElementById("data-badge");
+    if (!node) return;
+    var live = typeof getLiveData === "function" ? getLiveData() : null;
+    if (!live) { node.hidden = true; return; }
+    var status = live.status || "snapshot";
+    node.hidden = false;
+    node.className = "data-badge " + (["live", "partial", "snapshot", "loading"].indexOf(status) !== -1 ? status : "snapshot");
+    node.textContent = status === "live" ? "LIVE DATA" : status === "partial" ? "PARTLY LIVE" : status === "loading" ? "CHECKING DATA" : "SNAPSHOT";
+    var sources = list(live.sources).map(function (s) { return s.name + ": " + (s.ok ? "live" : "snapshot"); }).join(". ");
+    var title = status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
+      : sources + (live.fetched_at ? ". Fetched " + live.fetched_at.slice(0, 16).replace("T", " ") + " UTC." : "");
+    node.title = title;
+    node.setAttribute("aria-label", node.textContent + ". " + title);
+  }
+
   function setStatus(text) {
     var node = document.getElementById("status");
     if (node) node.textContent = text;
@@ -1397,6 +1415,8 @@
     var mini = document.getElementById("minimap");
     if (mini) mini.addEventListener("click", openMap);
     document.addEventListener("keydown", onKey);
+    setDataBadge();
+    window.addEventListener("livedata", setDataBadge);
     // A double-click whose first click changed the screen must not also click
     // whatever appeared under the pointer. Later clicks on the new screen are fine.
     document.addEventListener("click", function (e) {
