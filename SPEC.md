@@ -292,6 +292,17 @@ const CAMPAIGN = {
 
 Matching: same topic first, then the same orbit, shared instrument types, the same kind of power, and the nearest mass (by ratio). The debrief names the closest mission and says what the two designs share.
 
+**Hints** in `data/hints.js` (approved by the data owner): one global, `HINTS`. Draft text for Story to rewrite freely; the keys are fixed.
+
+```js
+const HINTS = {
+  screens: { hub: [...], briefing: [...], orbit: [...], build: [...], launch: [...],
+             readiness: [...], mission: [...], debrief: [...] },   // general tips, one sentence each
+  tutorial: { hub: "...", briefing: "...", ... },                  // one first-visit line per screen
+  checks: { "battery-only": "...", "power": "...", ... }           // a tip for each runChecks id
+};
+```
+
 **Tier field:** `grant_musd`, optional, overrides `CAMPAIGN.grant_musd` for that tier. In a campaign, `budget_musd` is the **starting treasury**.
 
 **Event field:** `objectives`, an optional array of objective ids. If present, the event fires only on missions for those topics.
@@ -560,6 +571,10 @@ getHubInfo()                    // { year, treasury_musd, lessons: [ids earned],
 buyResearch(id)                 // { ok, reason }
 isPartAvailable(id), isLauncherAvailable(id), isObjectiveAvailable(id)   // false only when locked by research
 previewPayout(design)           // { expected_payout_musd, knowledge_before, knowledge_after, novelty, cost_musd, net_musd }
+getHints(screen, design)        // { mode: "on" | "request" | "off", tutorial, tips: [...] }  screen = "hub", "briefing",
+                                // "orbit", "build", "launch", "readiness", "mission" or "debrief". tips lead with advice
+                                // for the design's current problems (from runChecks), then general tips. mode comes from
+                                // the tier's hints field: "off" returns no tips. design may be null.
 exportSave()                    // the whole save (campaign and tier progress) as one text code; may be long
 importSave(code)                // { ok, reason }; a bad code never crashes and never overwrites a good save
 ```
@@ -597,7 +612,7 @@ Tier select -> Base map -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle 
 - **One design object.** Create it with `newDesign(tierId)` at tier select. Every screen edits the same object. Going back never clears a choice; if an earlier change breaks a later one (for example a new orbit the chosen rocket cannot reach), the Readiness review reports it.
 - **A base map** is the hub between the five design screens (Design screens owns it, in `js/ui-design.js`). It is a pixel map of a space centre with one numbered place per screen: 1 Mission Control (Briefing), 2 Tracking Station (Orbit), 3 Workshop (Build), 4 Rocket Yard (Launch vehicle), 5 Launch Pad (Readiness). The player walks between places with the arrow keys or WASD and presses E to go in, or clicks a place and walks there. Each place is marked next, done, open or locked; a place opens once the one before it has been visited and its choice made, and every place already visited stays open before launch. A gold route and an "OBJECTIVE" line point to the next place with work left, judged from `runChecks` (for example back to the Workshop while a NO GO there remains). Inside a place, the header shows the objective and a minimap; M, Esc or a click on the minimap opens the map, and "GO TO <place>" walks to the next place. From launch on, the map is locked until the Debrief.
 - **The four resource bars** (mass, power, budget, data) appear from Build onward, on Build, Launch vehicle and Readiness. Refresh them after every change with `getTotals(design)`.
-- **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Story writes the hint text.
+- **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Call `getHints(screen, design)`; the text lives in `data/hints.js`.
 
 ### Campaign hub (campaign only, outside the base map)
 
