@@ -1,491 +1,412 @@
-// js/game.js — owned by Rules.
-// The rules of the game: design totals, the eight formulas from the Math
-// model in SPEC.md, orbit facts, and the blockers and warnings shown at the
-// readiness review.
+// js/game.js — Rules: totals, the eight formulas, blockers and warnings.
 //
 // This file must never touch the page: no `document`, no HTML.
-// It reads the data globals (PARTS, LAUNCHERS, ORBITS, OBJECTIVES, TIERS)
-// and copes with any of them being empty or missing.
-// A missing number in the data counts as 0 and a missing list as [].
+// Test it from the browser console, for example:
+//   var d = newDesign("training"); setOrbit(d, "sso"); addPart(d, "sar-radar"); getTotals(d)
 
-// ---------- Constants (tune here) ----------
+// ------------------------------------------------------------------ constants
+var MU = 3.986e14;          // Earth's gravitational parameter, m^3/s^2
+var R_EARTH_KM = 6371;      // Earth's radius, km
+var G0 = 9.81;              // standard gravity, m/s^2
+var SUN_W_M2 = 1361;        // sunlight above the atmosphere, W/m^2
+var DOD = 0.3;              // battery depth of discharge (formula 5)
+var LOW_MARGIN = 0.10;      // margins under 10% raise a warning
+var REQUIRED_CATEGORIES = ["instrument", "power", "comms", "computer"];
 
-const EARTH_MU_M3_S2 = 3.986e14;     // Earth's gravitational parameter, m^3/s^2
-const EARTH_RADIUS_M = 6371000;      // Earth's radius, metres
-const STANDARD_GRAVITY_MS2 = 9.81;   // g0, m/s^2
-const SOLAR_CONSTANT_W_M2 = 1361;    // sunlight at Earth, W/m^2
-const DEPTH_OF_DISCHARGE = 0.3;      // share of a battery that may be used
-const LOW_MARGIN_WARNING = 0.10;             // margins under this give a warning
-const RESOLUTION_FACTOR = 1.22;      // diffraction limit factor, formula 6
-const MINUTES_PER_DAY = 1440;
-const DEFAULT_TIER_ID = "training";
-const REQUIRED_CATEGORIES = ["instrument", "power", "comms", "computer"];
-
-// ---------- Small helpers ----------
-
-// A usable number, or 0 when the field is missing or not a number.
-function toNumber(value) {
-  return (typeof value === "number" && isFinite(value)) ? value : 0;
-}
-
-// A list, or [] when the field is missing.
-function toList(value) {
-  return Array.isArray(value) ? value : [];
-}
-
-// Rounds for display inside check sentences.
-function roundTo(value, decimals) {
-  const factor = Math.pow(10, decimals);
-  return Math.round(value * factor) / factor;
-}
-
-// The data globals. Each returns [] if its data file is not loaded.
-function allParts()      { return (typeof PARTS !== "undefined") ? toList(PARTS) : []; }
-function allLaunchers()  { return (typeof LAUNCHERS !== "undefined") ? toList(LAUNCHERS) : []; }
-function allOrbits()     { return (typeof ORBITS !== "undefined") ? toList(ORBITS) : []; }
-function allObjectives() { return (typeof OBJECTIVES !== "undefined") ? toList(OBJECTIVES) : []; }
-function allTiers()      { return (typeof TIERS !== "undefined") ? toList(TIERS) : []; }
-
-// Finds the item with this id in a list. Returns null if there is none.
+// ------------------------------------------------------------------ lookups
 function findById(list, id) {
-  const items = toList(list);
-  for (let i = 0; i < items.length; i++) {
-    if (items[i] && items[i].id === id) return items[i];
-  }
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
   return null;
 }
+function getPart(id)      { return findById(PARTS, id); }
+function getOrbit(id)     { return findById(ORBITS, id); }
+function getLauncher(id)  { return findById(LAUNCHERS, id); }
+function getObjective(id) { return findById(OBJECTIVES, id); }
+function getTier(id)      { return findById(TIERS, id); }
 
-// The chosen things as full objects, or null when not chosen or not found.
-function getDesignOrbit(design)     { return design ? findById(allOrbits(), design.orbit) : null; }
-function getDesignLauncher(design)  { return design ? findById(allLaunchers(), design.launcher) : null; }
-function getDesignObjective(design) { return design ? findById(allObjectives(), design.objective) : null; }
-function getDesignTier(design)      { return design ? findById(allTiers(), design.tier) : null; }
-
-// The design's parts as full objects. Unknown ids are skipped.
-function getDesignParts(design) {
-  const ids = design ? toList(design.parts) : [];
-  const parts = [];
-  for (let i = 0; i < ids.length; i++) {
-    const part = findById(allParts(), ids[i]);
-    if (part) parts.push(part);
-  }
-  return parts;
+function designParts(design) {
+  return design.parts.map(getPart).filter(function (p) { return p; });
+}
+function sum(list, fn) {
+  var t = 0;
+  for (var i = 0; i < list.length; i++) t += fn(list[i]) || 0;
+  return t;
+}
+function round(x, places) {
+  var f = Math.pow(10, places || 0);
+  return Math.round(x * f) / f;
 }
 
-// Adds up one number field over a list of parts.
-function sumField(parts, field) {
-  let total = 0;
-  for (let i = 0; i < parts.length; i++) total += toNumber(parts[i][field]);
-  return total;
-}
-
-// The orbit's altitude in metres (the data stores kilometres).
-function orbitAltitudeM(orbit) {
-  return toNumber(orbit.altitude_km) * 1000;
-}
-
-// ---------- Building a design ----------
-
+// ------------------------------------------------------------------ design edits
 function newDesign(tierId) {
-  const tiers = allTiers();
-  const firstTierId = (tiers.length > 0 && tiers[0]) ? tiers[0].id : null;
   return {
-    tier: tierId || firstTierId || DEFAULT_TIER_ID,
+    tier: tierId || "training",
     objective: null,
     orbit: null,
     parts: [],        // list of part ids
     launcher: null
   };
 }
-
-function setObjective(design, id) {
-  design.objective = id;
-  return design;
-}
-
-function setOrbit(design, id) {
-  design.orbit = id;
-  return design;
-}
-
+function setObjective(design, id) { design.objective = id; return design; }
+function setOrbit(design, id)     { design.orbit = id; return design; }
+function setLauncher(design, id)  { design.launcher = id; return design; }
 function addPart(design, partId) {
-  design.parts = toList(design.parts);
-  if (!design.parts.includes(partId)) design.parts.push(partId);
+  if (getPart(partId) && design.parts.indexOf(partId) === -1) design.parts.push(partId);
   return design;
 }
-
 function removePart(design, partId) {
-  design.parts = toList(design.parts).filter(function (id) { return id !== partId; });
+  design.parts = design.parts.filter(function (id) { return id !== partId; });
   return design;
 }
 
-function setLauncher(design, id) {
-  design.launcher = id;
-  return design;
+// ------------------------------------------------------------------ the eight formulas
+
+// 1. Rocket equation: dv = Isp g0 ln(m_full / m_empty)
+function rocketDeltaV(ispS, mFullKg, fuelKg) {
+  if (!ispS || fuelKg <= 0 || mFullKg <= fuelKg) return 0;
+  return ispS * G0 * Math.log(mFullKg / (mFullKg - fuelKg));
 }
 
-// ---------- The eight formulas ----------
-
-// Formula 1, rocket equation: delta-v in m/s.
-// m_full is the total spacecraft mass, m_empty is that minus all fuel.
-// With several propulsion parts, Isp is the fuel-weighted average of
-// their isp_s, so a big tank counts for more than a small one.
-// No propulsion or no fuel gives 0.
-function rocketDeltaV(parts) {
-  const massFull = sumField(parts, "mass_kg");
-  let fuel = 0;
-  let ispTimesFuel = 0;
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i].category !== "propulsion") continue;
-    const partFuel = toNumber(parts[i].fuel_kg);
-    fuel += partFuel;
-    ispTimesFuel += toNumber(parts[i].isp_s) * partFuel;
-  }
-  const massEmpty = massFull - fuel;
-  // massEmpty <= 0 would mean the fuel weighs more than the spacecraft: bad data.
-  if (fuel <= 0 || massEmpty <= 0) return 0;
-  const isp = ispTimesFuel / fuel;
-  return isp * STANDARD_GRAVITY_MS2 * Math.log(massFull / massEmpty);
+// 2. Orbital speed and period, r = R + h
+function orbitRadiusM(altitudeKm) { return (R_EARTH_KM + altitudeKm) * 1000; }
+function orbitalSpeedMs(altitudeKm) { return Math.sqrt(MU / orbitRadiusM(altitudeKm)); }
+function orbitalPeriodS(altitudeKm) {
+  var r = orbitRadiusM(altitudeKm);
+  return 2 * Math.PI * Math.sqrt(r * r * r / MU);
 }
 
-// Formula 2, orbital period in seconds for an altitude in metres.
-function orbitPeriodS(altitudeM) {
-  const r = EARTH_RADIUS_M + altitudeM;
-  return 2 * Math.PI * Math.sqrt(r * r * r / EARTH_MU_M3_S2);
+// 3. Solar power: P = S A eta cos(theta), theta = 0
+function solarPowerW(part) {
+  if (!part.panel_area_m2 || !part.efficiency) return part.power_gen_w || 0;
+  return SUN_W_M2 * part.panel_area_m2 * part.efficiency;
 }
 
-// Formula 3, solar panel output in watts in full sun (theta = 0).
-function solarPowerW(areaM2, efficiency) {
-  return SOLAR_CONSTANT_W_M2 * areaM2 * efficiency;
+// 4. Eclipse fraction: f = (1/pi) asin(R / (R + h))
+function eclipseFraction(altitudeKm) {
+  return Math.asin(R_EARTH_KM / (R_EARTH_KM + altitudeKm)) / Math.PI;
 }
 
-// Formula 4, worst-case share of each lap spent in Earth's shadow.
-function eclipseFraction(altitudeM) {
-  return Math.asin(EARTH_RADIUS_M / (EARTH_RADIUS_M + altitudeM)) / Math.PI;
+// 5. Battery size: E = P_load t_eclipse / DoD   (Wh, with t in hours)
+function batteryNeededWh(loadW, altitudeKm) {
+  var eclipseH = eclipseFraction(altitudeKm) * orbitalPeriodS(altitudeKm) / 3600;
+  return loadW * eclipseH / DOD;
 }
 
-// Formula 5, battery energy in watt-hours needed to run through one eclipse.
-function batteryNeededWh(loadW, eclipseS) {
-  return loadW * (eclipseS / 3600) / DEPTH_OF_DISCHARGE;
+// 6. Image resolution: x = 1.22 lambda h / D. Radar builds a synthetic aperture,
+//    so the formula does not apply to it and we return null.
+function resolutionM(part, altitudeKm) {
+  if (!part.aperture_m || !part.wavelength_m) return null;
+  if (part.tags.indexOf("radar") !== -1) return null;
+  return 1.22 * part.wavelength_m * altitudeKm * 1000 / part.aperture_m;
 }
 
-// Formula 6, smallest detail in metres an instrument sees from this altitude.
-function imageResolutionM(wavelengthM, altitudeM, apertureM) {
-  return RESOLUTION_FACTOR * wavelengthM * altitudeM / apertureM;
+// 7. Data budget: returned = min(produced, downlink x c)
+function dataReturnedGbDay(producedGb, downlinkGb, contactShare) {
+  return Math.min(producedGb, downlinkGb * contactShare);
 }
 
-// Formula 7, data that reaches the ground, GB per day.
-function dataReturned(producedGbDay, downlinkGbDay, downlinkMult) {
-  return Math.min(producedGbDay, downlinkGbDay * downlinkMult);
-}
-
-// Formula 8, margin as a share of capacity. Negative means over capacity.
-// Returns null when the capacity is unknown or 0.
-function marginOf(capacity, used) {
-  if (!(capacity > 0)) return null;
+// 8. Margin = (capacity - used) / capacity
+function margin(capacity, used) {
+  if (!capacity) return null;
   return (capacity - used) / capacity;
 }
 
-// ---------- Per-part numbers ----------
-
-// What one part generates in watts. Solar panels (parts with a panel area
-// and an efficiency) are computed by formula 3. Anything else uses its own
-// power_gen_w.
-function partPowerGenW(part) {
-  const area = toNumber(part.panel_area_m2);
-  const efficiency = toNumber(part.efficiency);
-  if (area > 0 && efficiency > 0) return solarPowerW(area, efficiency);
-  return toNumber(part.power_gen_w);
-}
-
-// One instrument's resolution in metres from this orbit, or null when the
-// part has no aperture or wavelength, or there is no orbit.
-function partResolutionM(part, orbit) {
-  const aperture = toNumber(part.aperture_m);
-  const wavelength = toNumber(part.wavelength_m);
-  if (!orbit || aperture <= 0 || wavelength <= 0) return null;
-  return imageResolutionM(wavelength, orbitAltitudeM(orbit), aperture);
-}
-
-// Facts for one part card, in the design's orbit. The part does not have
-// to be in the design yet. Each value is null where it does not apply.
-function getPartFacts(design, partId) {
-  const part = findById(allParts(), partId);
-  const facts = { power_gen_w: null, resolution_m: null };
-  if (!part) return facts;
-  if (part.category === "power") facts.power_gen_w = partPowerGenW(part);
-  if (part.category === "instrument") {
-    facts.resolution_m = partResolutionM(part, getDesignOrbit(design));
-  }
-  return facts;
-}
-
-// ---------- Totals ----------
-
-// The launcher's capacity in kg for the chosen orbit.
-// Null when launcher or orbit is not chosen. 0 means "cannot reach".
-function launchCapacityKg(design) {
-  const launcher = getDesignLauncher(design);
-  const orbit = getDesignOrbit(design);
-  if (!launcher || !orbit) return null;
-  const capacities = launcher.capacity_kg || {};
-  return toNumber(capacities[orbit.id]);
-}
-
+// ------------------------------------------------------------------ totals
 function getTotals(design) {
-  const parts = getDesignParts(design);
-  const orbit = getDesignOrbit(design);
-  const launcher = getDesignLauncher(design);
-  const tier = getDesignTier(design);
+  var parts = designParts(design);
+  var orbit = getOrbit(design.orbit);
+  var launcher = getLauncher(design.launcher);
+  var tier = getTier(design.tier);
 
-  const mass = sumField(parts, "mass_kg");
-  const powerDraw = sumField(parts, "power_draw_w");
-  let powerGen = 0;
-  for (let i = 0; i < parts.length; i++) powerGen += partPowerGenW(parts[i]);
-  const cost = sumField(parts, "cost_musd") + (launcher ? toNumber(launcher.cost_musd) : 0);
-  const dataMade = sumField(parts, "data_gb_day");
-  const downlink = sumField(parts, "downlink_gb_day");
+  var mass = sum(parts, function (p) { return p.mass_kg; });
+  var draw = sum(parts, function (p) { return p.power_draw_w; });
+  var gen = sum(parts, function (p) { return p.category === "power" ? solarPowerW(p) : 0; });
+  var partsCost = sum(parts, function (p) { return p.cost_musd; });
+  var cost = partsCost + (launcher ? launcher.cost_musd : 0);
+  var produced = sum(parts, function (p) { return p.data_gb_day; });
+  var downlink = sum(parts, function (p) { return p.downlink_gb_day; });
+  var batteryWh = sum(parts, function (p) { return p.battery_wh; });
 
-  // Capacities for the margins. A null or 0 capacity gives a null margin.
-  const massCapacity = launchCapacityKg(design);
-  const budget = tier ? toNumber(tier.budget_musd) : null;
-  const dataCapacity = orbit ? downlink * toNumber(orbit.downlink_mult) : null;
+  // Rocket equation with every propulsion part burning together:
+  // effective Isp = total impulse / (total fuel x g0).
+  var props = parts.filter(function (p) { return p.category === "propulsion"; });
+  var fuel = sum(props, function (p) { return p.fuel_kg; });
+  var impulse = sum(props, function (p) { return p.fuel_kg * p.isp_s * G0; });
+  var ispEff = fuel > 0 ? impulse / (fuel * G0) : 0;
+  var deltaV = rocketDeltaV(ispEff, mass, fuel);
+
+  var capacity = (launcher && orbit) ? launcher.capacity_kg[orbit.id] : 0;
+  var returned = orbit ? dataReturnedGbDay(produced, downlink, orbit.downlink_mult) : 0;
 
   return {
-    mass_kg: mass,
-    power_draw_w: powerDraw,
-    power_gen_w: powerGen,
-    cost_musd: cost,
-    data_gb_day: dataMade,
-    downlink_gb_day: downlink,          // raw sum, not multiplied by the orbit
-    delta_v_ms: rocketDeltaV(parts),
+    mass_kg: round(mass, 2),
+    power_draw_w: round(draw, 1),
+    power_gen_w: round(gen, 1),
+    cost_musd: round(cost, 3),
+    data_gb_day: round(produced, 2),
+    downlink_gb_day: round(downlink, 2),
+    delta_v_ms: round(deltaV, 0),
     margins: {
-      mass: marginOf(massCapacity, mass),
-      power: marginOf(powerGen, powerDraw),
-      budget: marginOf(budget, cost),
-      data: marginOf(dataCapacity, dataMade)
-    }
+      mass: capacity ? round(margin(capacity, mass), 3) : null,
+      power: gen ? round(margin(gen, draw), 3) : null,
+      budget: tier ? round(margin(tier.budget_musd, cost), 3) : null
+    },
+    // Extra values so the screens never do maths:
+    data_returned_gb_day: round(returned, 2),
+    battery_wh: batteryWh,
+    capacity_kg: capacity,
+    budget_musd: tier ? tier.budget_musd : 0
   };
 }
 
-// ---------- Orbit facts ----------
-
+// ------------------------------------------------------------------ orbit facts
 function getOrbitFacts(design) {
-  const orbit = getDesignOrbit(design);
-  if (!orbit) {
-    return { period_min: null, laps_per_day: null, eclipse_fraction: null };
-  }
-  const altitudeM = orbitAltitudeM(orbit);
-  const periodMin = orbitPeriodS(altitudeM) / 60;
+  var orbit = getOrbit(design.orbit);
+  if (!orbit) return { period_min: null, laps_per_day: null, eclipse_fraction: null };
+  var h = orbit.altitude_km;
+  var periodS = orbitalPeriodS(h);
+  var f = eclipseFraction(h);
+  var res = {};
+  designParts(design).forEach(function (p) {
+    if (p.category === "instrument") {
+      var x = resolutionM(p, h);
+      res[p.id] = x === null ? null : round(x, x < 10 ? 1 : 0);
+    }
+  });
   return {
-    period_min: periodMin,
-    laps_per_day: MINUTES_PER_DAY / periodMin,
-    eclipse_fraction: eclipseFraction(altitudeM)
+    period_min: round(periodS / 60, 1),
+    laps_per_day: round(86400 / periodS, 1),
+    eclipse_fraction: round(f, 3),
+    // Extra values for the orbit and instrument cards:
+    eclipse_min: round(f * periodS / 60, 1),
+    speed_kms: round(orbitalSpeedMs(h) / 1000, 2),
+    resolution_m: res,  // per instrument id; null = radar (formula does not apply)
+    battery_needed_wh: round(batteryNeededWh(getTotals(design).power_draw_w, h), 0)
   };
 }
 
-// ---------- Science rate (used by the simulation) ----------
+// ------------------------------------------------------------------ science rate
+// Science per month for a design, before events. mission.js uses this too.
+// `brokenIds` lists parts that have failed during a mission.
+function scienceRate(design, brokenIds) {
+  brokenIds = brokenIds || [];
+  var orbit = getOrbit(design.orbit);
+  var objective = getObjective(design.objective);
+  var result = { per_month: 0, ideal_per_month: 0, data_share: 1, power_share: 1, instruments: [] };
+  if (!orbit || !objective) return result;
 
-// True if the two tag lists share at least one tag.
-function sharesTag(tagsA, tagsB) {
-  const a = toList(tagsA);
-  const b = toList(tagsB);
-  for (let i = 0; i < a.length; i++) {
-    if (b.includes(a[i])) return true;
-  }
-  return false;
+  var parts = designParts(design).filter(function (p) { return brokenIds.indexOf(p.id) === -1; });
+  var h = orbit.altitude_km;
+  var fit = objective.orbit_fit ? (objective.orbit_fit[orbit.id] || 0) : 1;
+
+  // Data: science counts in proportion to data returned (formula 7).
+  var produced = sum(parts, function (p) { return p.data_gb_day; });
+  var downlink = sum(parts, function (p) { return p.downlink_gb_day; });
+  var returned = dataReturnedGbDay(produced, downlink, orbit.downlink_mult);
+  var dataShare = produced > 0 ? returned / produced : 0;
+
+  // Power: too small a battery switches instruments off in shadow (formula 5).
+  var draw = sum(parts, function (p) { return p.power_draw_w; });
+  var battery = sum(parts, function (p) { return p.battery_wh; });
+  var powerShare = battery >= batteryNeededWh(draw, h) ? 1 : 1 - eclipseFraction(h);
+
+  var ideal = 0;
+  parts.forEach(function (p) {
+    if (p.category !== "instrument") return;
+    var match = 0;   // first wanted tag counts fully, later ones half
+    objective.wants.forEach(function (tag, i) {
+      if (p.tags.indexOf(tag) !== -1) match = Math.max(match, i === 0 ? 1 : 0.5);
+    });
+    var x = resolutionM(p, h);
+    var sharpEnough = !objective.needs_resolution_m || x === null || x <= objective.needs_resolution_m;
+    var pts = p.science * orbit.science_mult * fit * match * (sharpEnough ? 1 : 0);
+    result.instruments.push({ id: p.id, match: match, sharp_enough: sharpEnough, points: round(pts, 2) });
+    ideal += pts;
+  });
+
+  result.ideal_per_month = ideal;
+  result.data_share = dataShare;
+  result.power_share = powerShare;
+  result.per_month = ideal * dataShare * powerShare;
+  return result;
 }
 
-// Science points per month for this design, and what went into the number.
-// Depends only on the design and the data, so it can be called on a copy
-// of the design with failed parts removed.
-function getScienceRate(design) {
-  const parts = getDesignParts(design);
-  const orbit = getDesignOrbit(design);
-  const objective = getDesignObjective(design);
-
-  // Formula 7: share of the data produced that reaches the ground.
-  const dataMade = sumField(parts, "data_gb_day");
-  const downlink = sumField(parts, "downlink_gb_day");
-  const downlinkMult = orbit ? toNumber(orbit.downlink_mult) : 1;
-  let dataShare = 1;
-  if (dataMade > 0) {
-    dataShare = dataReturned(dataMade, downlink, downlinkMult) / dataMade;
-  }
-
-  // Formulas 4 and 5: if the batteries cannot carry the load through the
-  // eclipse, the instruments switch off in shadow.
-  let eclipseMult = 1;
-  if (orbit) {
-    const altitudeM = orbitAltitudeM(orbit);
-    const fraction = eclipseFraction(altitudeM);
-    const eclipseS = fraction * orbitPeriodS(altitudeM);
-    const needed = batteryNeededWh(sumField(parts, "power_draw_w"), eclipseS);
-    if (sumField(parts, "battery_wh") < needed) eclipseMult = 1 - fraction;
-  }
-
-  const rate = {
-    science_per_month: 0,
-    data_share: dataShare,
-    eclipse_mult: eclipseMult,
-    counted_parts: []
-  };
-  if (!orbit || !objective) return rate;
-
-  // How well this orbit suits the objective. 1 if the objective does not say.
-  let orbitFit = 1;
-  if (objective.orbit_fit && typeof objective.orbit_fit[orbit.id] === "number") {
-    orbitFit = objective.orbit_fit[orbit.id];
-  }
-  const neededResolution = toNumber(objective.needs_resolution_m);
-
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (part.category !== "instrument") continue;
-    if (!sharesTag(part.tags, objective.wants)) continue;
-    if (neededResolution > 0) {
-      // Formula 6: an instrument that cannot see the needed detail earns nothing.
-      const resolution = partResolutionM(part, orbit);
-      if (resolution === null || resolution > neededResolution) continue;
-    }
-    rate.science_per_month += toNumber(part.science) * toNumber(orbit.science_mult) *
-      orbitFit * dataShare * eclipseMult;
-    rate.counted_parts.push(part.id);
-  }
-  return rate;
-}
-
-// ---------- Readiness review ----------
-
-// How many of the design's parts are in this category.
-function countCategory(parts, category) {
-  let count = 0;
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i].category === category) count++;
-  }
-  return count;
-}
-
+// ------------------------------------------------------------------ checks
 function runChecks(design) {
-  const blockers = [];
-  const warnings = [];
-  const parts = getDesignParts(design);
-  const totals = getTotals(design);
-  const orbit = getDesignOrbit(design);
-  const launcher = getDesignLauncher(design);
-  const objective = getDesignObjective(design);
-  const tier = getDesignTier(design);
+  var blockers = [];
+  var warnings = [];
+  var t = getTotals(design);
+  var parts = designParts(design);
+  var orbit = getOrbit(design.orbit);
+  var launcher = getLauncher(design.launcher);
+  var objective = getObjective(design.objective);
+  var tier = getTier(design.tier);
+  function block(id, text) { blockers.push({ id: id, text: text }); }
+  function warn(id, text) { warnings.push({ id: id, text: text }); }
 
-  // --- Blockers ---
+  if (!objective) block("no-objective", "Pick a science objective on the Briefing screen.");
+  if (!orbit) block("no-orbit", "Pick an orbit.");
+  if (!launcher) block("no-launcher", "Pick a launch vehicle.");
 
-  if (!objective) {
-    blockers.push({ id: "no-objective", text: "No objective chosen. Pick one on the Briefing screen." });
-  }
-  if (!orbit) {
-    blockers.push({ id: "no-orbit", text: "No orbit chosen. Pick one on the Orbit screen." });
-  }
-  if (!launcher) {
-    blockers.push({ id: "no-launcher", text: "No launch vehicle chosen. Pick one on the Launch vehicle screen." });
-  }
+  REQUIRED_CATEGORIES.forEach(function (cat) {
+    var has = parts.some(function (p) { return p.category === cat; });
+    if (!has) block("empty-" + cat, "No " + cat + " part. The spacecraft needs at least one.");
+  });
 
-  for (let i = 0; i < REQUIRED_CATEGORIES.length; i++) {
-    const category = REQUIRED_CATEGORIES[i];
-    if (countCategory(parts, category) === 0) {
-      blockers.push({
-        id: "empty-" + category,
-        text: "No " + category + " part. The spacecraft needs at least one."
-      });
+  if (launcher && orbit) {
+    if (!t.capacity_kg) {
+      block("launcher-reach", launcher.name + " cannot reach " + orbit.name + ".");
+    } else if (t.mass_kg > t.capacity_kg) {
+      block("mass", "Spacecraft is " + t.mass_kg + " kg but the " + launcher.name +
+        " can carry only " + t.capacity_kg + " kg to " + orbit.name + ".");
+    } else if (t.margins.mass < LOW_MARGIN) {
+      warn("mass-margin", "Mass margin is only " + Math.round(t.margins.mass * 100) +
+        "%. Events will hit harder.");
     }
   }
 
-  const capacity = launchCapacityKg(design);
-  if (capacity !== null && capacity <= 0) {
-    blockers.push({
-      id: "unreachable",
-      text: "The " + launcher.name + " cannot reach " + orbit.name + ". Pick a bigger rocket or another orbit."
-    });
-  } else if (capacity !== null && totals.mass_kg > capacity) {
-    blockers.push({
-      id: "mass",
-      text: "The spacecraft is " + roundTo(totals.mass_kg, 1) + " kg but the " + launcher.name +
-        " can only lift " + roundTo(capacity, 1) + " kg to " + orbit.name + "."
-    });
+  if (tier && t.cost_musd > tier.budget_musd) {
+    block("budget", "Cost is $" + round(t.cost_musd, 2) + "M but the budget is $" + tier.budget_musd + "M.");
   }
 
-  if (tier && totals.cost_musd > toNumber(tier.budget_musd)) {
-    blockers.push({
-      id: "budget",
-      text: "The mission costs $" + roundTo(totals.cost_musd, 1) + "M but the budget is $" +
-        roundTo(toNumber(tier.budget_musd), 1) + "M."
-    });
+  if (t.power_draw_w > t.power_gen_w) {
+    block("power", "Parts draw " + t.power_draw_w + " W but the solar panels make only " + t.power_gen_w + " W.");
+  } else if (t.power_gen_w > 0 && t.margins.power < LOW_MARGIN) {
+    warn("power-margin", "Power margin is only " + Math.round(t.margins.power * 100) +
+      "%. Events will hit harder.");
   }
 
-  if (totals.power_draw_w > totals.power_gen_w) {
-    blockers.push({
-      id: "power",
-      text: "The parts draw " + roundTo(totals.power_draw_w, 1) + " W but the spacecraft only generates " +
-        roundTo(totals.power_gen_w, 1) + " W."
-    });
+  if (orbit && t.delta_v_ms < orbit.dv_needed_ms) {
+    block("delta-v", orbit.name + " needs " + orbit.dv_needed_ms + " m/s of thrust from the spacecraft, but it has only " +
+      t.delta_v_ms + " m/s. Add propulsion or cut mass.");
   }
 
-  // Formula 1: the spacecraft's own propulsion must cover what the orbit needs.
-  const dvNeeded = orbit ? toNumber(orbit.dv_needed_ms) : 0;
-  if (dvNeeded > 0 && totals.delta_v_ms < dvNeeded) {
-    blockers.push({
-      id: "delta-v",
-      text: "The propulsion gives " + roundTo(totals.delta_v_ms, 0) + " m/s of speed change but " +
-        orbit.name + " needs " + roundTo(dvNeeded, 0) + " m/s."
-    });
+  if (orbit && t.data_gb_day > t.data_returned_gb_day) {
+    warn("data", "Instruments make " + t.data_gb_day + " GB a day but only " + t.data_returned_gb_day +
+      " GB reaches the ground. The rest is lost.");
   }
 
-  // --- Warnings ---
-  // A margin below zero is already a blocker, so it does not also warn.
-
-  const massMargin = totals.margins.mass;
-  if (massMargin !== null && massMargin >= 0 && massMargin < LOW_MARGIN_WARNING) {
-    warnings.push({
-      id: "mass-margin",
-      text: "Mass margin is only " + roundTo(massMargin * 100, 1) + "%, under " +
-        roundTo(LOW_MARGIN_WARNING * 100, 0) + "%. Events will hit harder."
-    });
-  }
-
-  const powerMargin = totals.margins.power;
-  if (powerMargin !== null && powerMargin >= 0 && powerMargin < LOW_MARGIN_WARNING) {
-    warnings.push({
-      id: "power-margin",
-      text: "Power margin is only " + roundTo(powerMargin * 100, 1) + "%, under " +
-        roundTo(LOW_MARGIN_WARNING * 100, 0) + "%. Events will hit harder."
-    });
-  }
-
-  // Formula 7. Before an orbit is chosen, compare with the raw downlink.
-  const downlinkMult = orbit ? toNumber(orbit.downlink_mult) : 1;
-  const canSend = totals.downlink_gb_day * downlinkMult;
-  if (totals.data_gb_day > canSend) {
-    warnings.push({
-      id: "data",
-      text: "Instruments make " + roundTo(totals.data_gb_day, 1) + " GB/day but comms can send down " +
-        roundTo(canSend, 1) + ". The excess is lost."
-    });
-  }
-
-  // Only when there is an objective and at least one instrument to judge.
-  if (objective && countCategory(parts, "instrument") > 0) {
-    let matches = false;
-    for (let i = 0; i < parts.length; i++) {
-      if (parts[i].category === "instrument" && sharesTag(parts[i].tags, objective.wants)) {
-        matches = true;
-      }
+  if (orbit && t.power_draw_w > 0) {
+    var need = batteryNeededWh(t.power_draw_w, orbit.altitude_km);
+    if (t.battery_wh < need) {
+      warn("battery", "Riding through Earth's shadow needs a " + Math.round(need) + " Wh battery; you have " +
+        t.battery_wh + " Wh. Instruments will switch off in shadow.");
     }
-    if (!matches) {
-      warnings.push({
-        id: "no-match",
-        text: "No instrument matches what " + objective.name + " needs (" +
-          toList(objective.wants).join(", ") + "). It will earn no science."
+  }
+
+  if (objective) {
+    var instruments = parts.filter(function (p) { return p.category === "instrument"; });
+    var matches = instruments.some(function (p) {
+      return p.tags.some(function (tag) { return objective.wants.indexOf(tag) !== -1; });
+    });
+    if (instruments.length && !matches) {
+      warn("no-match", "No instrument suits " + objective.name + ".");
+    }
+    if (orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
+      warn("orbit-fit", orbit.name + " cannot see what " + objective.name + " needs.");
+    }
+    if (orbit && objective.needs_resolution_m) {
+      instruments.forEach(function (p) {
+        var x = resolutionM(p, orbit.altitude_km);
+        if (x !== null && x > objective.needs_resolution_m) {
+          warn("resolution-" + p.id, p.name + " sees " + Math.round(x) + " m detail from " + orbit.name +
+            "; this objective needs " + objective.needs_resolution_m + " m. It will earn no science.");
+        }
       });
     }
   }
 
   return { blockers: blockers, warnings: warnings };
+}
+
+// ------------------------------------------------------------------ science preview
+// What the Build screen shows before launch: expected science over the whole
+// mission if nothing goes wrong. Function name to be confirmed with Design screens.
+function previewScience(design) {
+  var orbit = getOrbit(design.orbit);
+  var objective = getObjective(design.objective);
+  var rate = scienceRate(design, []);
+  var months = orbit ? orbit.lifetime_months : 0;
+  var target = objective ? objective.science_target : 0;
+  var total = rate.per_month * months;
+  return {
+    per_month: round(rate.per_month, 2),
+    months: months,
+    total: round(total, 1),
+    target: target,
+    share: target ? round(Math.min(1, total / target), 3) : 0,
+    data_share: round(rate.data_share, 3),     // share of data that reaches the ground
+    power_share: round(rate.power_share, 3),   // share of time instruments stay on
+    instruments: rate.instruments.map(function (i) {
+      return { id: i.id, name: getPart(i.id).name, per_month: round(i.points * rate.data_share * rate.power_share, 2),
+               counts: i.match > 0, sharp_enough: i.sharp_enough };
+    })
+  };
+}
+
+// ------------------------------------------------------------------ part card facts
+// Numbers a part card shows that are computed, not read from the data:
+// solar output, resolution from the chosen orbit, and the science this
+// instrument would earn in this design. Works for parts not yet added.
+function getPartFacts(design, partId) {
+  var p = getPart(partId);
+  if (!p) return null;
+  var orbit = getOrbit(design.orbit);
+  var objective = getObjective(design.objective);
+  var facts = {
+    power_gen_w: p.category === "power" ? round(solarPowerW(p), 1) : 0,
+    resolution_m: null,      // instruments only, once an orbit is chosen; null for radar
+    sharp_enough: null,      // true/false when the objective sets needs_resolution_m
+    counts: null,            // true when this instrument's type counts for the objective
+    science_per_month: null  // instruments only, before data and power losses
+  };
+  if (p.category !== "instrument") return facts;
+  if (orbit) {
+    var x = resolutionM(p, orbit.altitude_km);
+    facts.resolution_m = x === null ? null : round(x, x < 10 ? 1 : 0);
+    if (objective && objective.needs_resolution_m && x !== null) facts.sharp_enough = x <= objective.needs_resolution_m;
+  }
+  if (objective) {
+    facts.counts = p.tags.some(function (t) { return objective.wants.indexOf(t) !== -1; });
+    if (orbit) {
+      var probe = { tier: design.tier, objective: design.objective, orbit: design.orbit, launcher: design.launcher, parts: [partId] };
+      var row = scienceRate(probe, []).instruments[0];
+      facts.science_per_month = row ? row.points : 0;
+    }
+  }
+  return facts;
+}
+
+// ------------------------------------------------------------------ hover preview
+// What toggling one part would change, for the hover preview on a Build card.
+// If the part is in the design this previews removing it, otherwise adding it.
+// The design itself is not changed.
+function previewToggle(design, partId) {
+  if (!getPart(partId)) return null;
+  var adding = design.parts.indexOf(partId) === -1;
+  var after = { tier: design.tier, objective: design.objective, orbit: design.orbit,
+                launcher: design.launcher, parts: design.parts.slice() };
+  if (adding) addPart(after, partId); else removePart(after, partId);
+
+  function snapshot(d) {
+    var t = getTotals(d);
+    return { mass_kg: t.mass_kg, power_draw_w: t.power_draw_w, power_gen_w: t.power_gen_w,
+             cost_musd: t.cost_musd, data_gb_day: t.data_gb_day,
+             data_returned_gb_day: t.data_returned_gb_day, delta_v_ms: t.delta_v_ms,
+             battery_wh: t.battery_wh, science_total: previewScience(d).total };
+  }
+  var b = snapshot(design), a = snapshot(after), delta = {};
+  Object.keys(b).forEach(function (k) { delta[k] = round(a[k] - b[k], 2); });
+
+  function ids(list) { return list.map(function (c) { return c.id; }); }
+  var cb = runChecks(design), ca = runChecks(after);
+  var before = ids(cb.blockers).concat(ids(cb.warnings)), afterIds = ids(ca.blockers).concat(ids(ca.warnings));
+  return {
+    adding: adding,
+    before: b,
+    after: a,
+    delta: delta,                                   // after minus before, per number
+    fixes: cb.blockers.concat(cb.warnings).filter(function (c) { return afterIds.indexOf(c.id) === -1; }),
+    causes: ca.blockers.concat(ca.warnings).filter(function (c) { return before.indexOf(c.id) === -1; })
+  };
 }

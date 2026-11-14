@@ -1,0 +1,14 @@
+# Each path is reviewed by its owner. See "Team roles" in SPEC.md.
+# Default: Data owner (also covers Story and QA files until those roles have owners).
+*                   @yarmee
+
+# Data
+/data/              @yarmee
+/SOURCES.md         @yarmee
+
+# Rules and Simulation: yarmee. Design screens: angads22.
+/js/game.js         @yarmee
+/js/mission.js      @yarmee
+/js/ui-design.js    @angads22
+/index.html         @angads22
+/css/               @angads22

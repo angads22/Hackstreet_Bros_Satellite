@@ -13,6 +13,36 @@ The core loop takes about five minutes: choose an objective, build the spacecraf
 - **Scenario:** an Earth-observation satellite with three orbit choices.
 - **Give this whole doc to your AI** at the start of every session, so all six assistants build the same game.
 
+## How we are judged
+
+Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026). Every judge scores five criteria from 1 to 5, with equal weight. Submission closes **Sunday, November 15 at 11:59 p.m. local time**.
+
+| Criterion | What a 5 looks like | Where we stand | What we change |
+| --- | --- | --- | --- |
+| **Impact** | A significant problem, a large audience, inspiring | Teaches mission design to anyone with a browser; wildfire and sea ice are real, current problems | The debrief ties each result to the real problem ("your satellite would have reported X of last year's fires") |
+| **Creativity** | Original, improves on existing ideas | Adds what the NASA telescope game lacks: hard limits, random events and a debrief explaining *why* | Play the mission against real NASA observations of last year's Earth, which no comparable game does |
+| **Validity** | Scientifically sound, feasible, usable | Eight real formulas with hand-worked tests; parts from NASA's Small Spacecraft State of the Art report | Put the formula tests on `main` and cite them on the project page; one sourcing pass before submission (Data task 3) |
+| **Relevance** | NASA data is a **core component**, not an add-on | **Weakest.** NASA documents shape the part numbers, but no NASA *data set* drives the game | Add real NASA Earth data that drives the simulation month by month (below) |
+| **Presentation** | Clear, engaging story; the demo and the whole project are judged | No QA owner yet, so no one owns the demo | Assign the demo now; script it around the core loop: build, fail, read the debrief, fix, succeed |
+
+**Hard requirements for global judging** (from the same guide):
+
+- Every team member registered for the same Local Event and listed on the team page; at most six members.
+- A demo: **a video of 30 seconds or less**, or **at most 7 slides** including the title. Everything in English; a video in another language needs English subtitles.
+- Every external resource (code, text, images, data, even open source) listed in the **References** field. `SOURCES.md` becomes that list, so it must be complete, including the AI tools used.
+- No copyrighted material we lack permission to use.
+
+**Global awards worth aiming at:** Best Use of Data (real NASA data driving the game), Best Mission Concept (plausible concept and design), Best Storytelling (the debrief), Most Inspirational.
+
+### NASA data in the game
+
+To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else (no `fetch`).
+
+- **Wildfire: NASA FIRMS** (Fire Information for Resource Management System) active-fire detections from VIIRS, by month and by latitude band, for the last full year. Each mission month earns science in proportion to real fire activity that month, and the boreal share shows why low orbit misses northern fires. The debrief reports how many real detections the player's design would have caught.
+- **Sea ice: NSIDC Sea Ice Index** (a NASA DAAC), Arctic extent by month, plus polar-night months. The optical camera earns nothing in the dark months while radar keeps working, so the player sees *why* sea-ice missions fly radar.
+
+This needs the data owner's approval for one new data file, and the build environment needs access to the FIRMS and NSIDC download sites.
+
 ## Game progression
 
 A mission is seven screens in a fixed order. Each screen teaches one idea, and the player can go back to any earlier screen before launch.
@@ -36,6 +66,8 @@ Tiers reuse the same screens and parts. Only the numbers in the data file change
 | 3. Expert | Tightest | 3 | Off |
 
 Tier 1 is a must-have. Tiers 2 and 3 are the first stretch items, because they add replay value for an hour of work.
+
+Later, each tier will carry its own weights for every calculation, in the style of Plague Inc's difficulty selection, and a fourth Impossible mode is planned. Both are described in `STRETCH.md` and are not part of the first build.
 
 ## Content choices
 
@@ -115,8 +147,11 @@ These field names are fixed. Nobody renames or adds a field without the data per
   id: "wildfire",
   name: "Wildfire monitoring",
   briefing: "Two or three sentences the player reads first.",
-  wants: ["thermal", "imaging"],  // instrument tags that count
-  science_target: 100
+  wants: ["thermal", "imaging"],  // instrument tags that count; the first counts fully, later ones half
+  science_target: 180,
+  needs_resolution_m: 2000,       // optional: instruments blurrier than this earn nothing
+  orbit_fit: { leo: 0.5, sso: 0.5, geo: 1.0 },  // multiplies science by orbit; 0 = cannot see the target
+  real_mission: "One line naming a real mission with a similar design."
 }
 ```
 
@@ -125,6 +160,7 @@ These field names are fixed. Nobody renames or adds a field without the data per
 ```js
 {
   id: "solar-storm",
+  orbit_weight: { leo: 1, sso: 1.5, geo: 2 },  // optional: how likely in each orbit; missing = 1
   title: "Solar storm",
   text: "What happens, in two sentences.",
   choices: [
@@ -136,9 +172,11 @@ These field names are fixed. Nobody renames or adds a field without the data per
 
 Allowed effect keys are `lose_months`, `science_mult`, `cost_musd`, `fail_chance` and `fails`. A part whose `protects` list names the event cancels the worst choice's penalty.
 
-**Tiers** in `data/tiers.js`: `{ id, name, budget_musd, events, hints }`.
+**Tiers** in `data/tiers.js`: `{ id, name, budget_musd, events, hints }`. `hints` is `"on"` (hints plus a short tutorial), `"request"` (a hint button) or `"off"`.
 
-**Debrief text** in `data/debrief.js`: one short paragraph per limiting factor, keyed `mass`, `power`, `budget`, `data`, `event` and `none`.
+**Debrief text** in `data/debrief.js`: one short paragraph per limiting factor, keyed `mass`, `power`, `budget`, `data`, `event`, `design` and `none`. `design` means nothing ran short but the instruments or orbit did not suit the objective; `none` means the target was reached.
+
+Radar skips the resolution check (formula 6), because radar builds a synthetic aperture far larger than its antenna. This stays unless radar resolution starts to matter in play.
 
 The Math model section below adds a few fields to parts, orbits and objectives. Solar panels leave `power_gen_w` at 0, because the game computes it.
 
@@ -329,29 +367,198 @@ Two rules keep the layers apart:
 
 ### Functions the front end may call
 
+The front end holds one `design` object while the player builds, and one `mission` object after launch. It changes them only through these functions, and reads the data globals (`PARTS`, `ORBITS`, `LAUNCHERS`, `OBJECTIVES`, `TIERS`, `EVENTS`, `DEBRIEF`) only to show names, blurbs and plain field values.
+
 ```javascript
 // js/game.js (Rules)
-newDesign(tierId)               // returns an empty design
+newDesign(tierId)               // returns an empty design: { tier, objective, orbit, parts: [], launcher }
 setObjective(design, id)
 setOrbit(design, id)
-addPart(design, partId)
+addPart(design, partId)         // ignores unknown ids and duplicates
 removePart(design, partId)
 setLauncher(design, id)
-getTotals(design)               // { mass_kg, power_draw_w, power_gen_w, cost_musd,
-                                //   data_gb_day, downlink_gb_day, delta_v_ms, margins }
-getOrbitFacts(design)           // { period_min, laps_per_day, eclipse_fraction }
-runChecks(design)               // { blockers: [...], warnings: [...] }
+getTotals(design)               // { mass_kg, power_draw_w, power_gen_w, cost_musd, data_gb_day,
+                                //   downlink_gb_day, delta_v_ms, margins: { mass, power, budget },
+                                //   data_returned_gb_day, battery_wh, capacity_kg, budget_musd }
+                                // A margin is null until its limit exists (no launcher, no panels).
+getOrbitFacts(design)           // { period_min, laps_per_day, eclipse_fraction, eclipse_min, speed_kms,
+                                //   resolution_m: { partId: metres or null }, battery_needed_wh }
+                                // All null until an orbit is chosen.
+getPartFacts(design, partId)    // { power_gen_w, resolution_m, sharp_enough, counts, science_per_month }
+                                // Computed numbers for one part card, added or not. null fields = not applicable yet.
+previewScience(design)          // { per_month, months, total, target, share, data_share, power_share,
+                                //   instruments: [{ id, name, per_month, counts, sharp_enough }] }
+                                // Expected science if nothing goes wrong.
+previewToggle(design, partId)   // { adding, before, after, delta, fixes: [{ id, text }], causes: [{ id, text }] }
+                                // Hover preview: what clicking this part would change. Does not change the design.
+                                // before/after/delta hold mass_kg, power_draw_w, power_gen_w, cost_musd, data_gb_day,
+                                // data_returned_gb_day, delta_v_ms, battery_wh, science_total.
+runChecks(design)               // { blockers: [{ id, text }], warnings: [{ id, text }] }
 
 // js/mission.js (Simulation)
-startMission(design)            // returns a mission
+startMission(design)            // returns a mission; readable fields: month, lifetime_months, science
 stepMonth(mission)              // { month, science, event or null, ended }
-chooseEvent(mission, choice)    // applies the player's decision
-getDebrief(mission)             // { score, stars, limiting, suggestion }
+                                // While an event waits for a choice it returns the same state and does not advance.
+chooseEvent(mission, choice)    // choice = index into event.choices. Returns { id, title, label, protected,
+                                //   failed_part (part id or null), ended, ended_early }
+getDebrief(mission)             // { score, stars, limiting, suggestion, breakdown: { science, budget, margins, events },
+                                //   science, science_target, paragraph, real_mission, events, ended_early }
+recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null) }
+getProgress()                   // { best_stars: { tierId: n }, best_score: { tierId: n } }
+isTierUnlocked(tierId)          // true for Training, and for any tier after one with 2+ stars
+resetProgress()
 ```
 
-The data person commits both files as stubs returning fake but realistic values in the first half hour. Every other owner builds against them straight away, and the real maths replaces the fake values without any screen changing.
+All of these are live on `main` with real maths. Every one can be tried in the browser console (F12) before any screen exists.
 
 A real server is only needed for an online leaderboard, which is out of scope. If it is ever added, `game.js` moves to it unchanged.
+
+## Player interaction, screen by screen
+
+This section tells the screens exactly what the player does on each screen, which call drives each element, and what to show. The front end never computes a number itself; every number below comes from a call.
+
+### The loop
+
+```
+Tier select -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readiness --GO--> 6 Mission -> 7 Debrief
+                  ^____________ back to any earlier screen, any time before launch ____|                        |
+                                                   3 Build  <------------- "Redesign" (same design) ------------|
+                                                   1 Briefing <----------- "New mission" (newDesign) ----------|
+```
+
+- **One design object.** Create it with `newDesign(tierId)` at tier select. Every screen edits the same object. Going back never clears a choice; if an earlier change breaks a later one (for example a new orbit the chosen rocket cannot reach), the Readiness review reports it.
+- **A step bar** across the top shows the seven screens. Before launch, every earlier screen is clickable. From launch on, the bar is locked until the Debrief.
+- **The four resource bars** (mass, power, budget, data) appear from Build onward, on Build, Launch vehicle and Readiness. Refresh them after every change with `getTotals(design)`.
+- **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Story writes the hint text.
+
+### Tier select (before Briefing)
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| One card per tier | `TIERS`: `name`, `budget_musd`, `events` | Locked cards are greyed out with "Earn 2 stars on the previous tier". |
+| Lock state | `isTierUnlocked(tier.id)` | Only unlocked cards can be clicked. |
+| Best result | `getProgress().best_stars[tier.id]` | Show 0 to 3 stars on the card. |
+| Click a card | `design = newDesign(tier.id)` | Go to Briefing. |
+
+### 1. Briefing
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| One card per objective | `OBJECTIVES`: `name`, `briefing`, `science_target` | Click to select; the chosen card is highlighted. |
+| "What counts" line | `objective.wants`, shown as instrument names from `PARTS` with matching `tags` | The first type counts fully, the others half. |
+| Select | `setObjective(design, id)` | Next is enabled once an objective is chosen. |
+
+### 2. Orbit
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| One card per orbit | `ORBITS`: `name`, `altitude_km`, `blurb`, `lifetime_months` | Click to select. |
+| Card facts | `getOrbitFacts(probe)`, where `probe` is a fresh `newDesign` with `setOrbit(probe, orbit.id)` | Show `period_min`, `laps_per_day`, `eclipse_min`. |
+| Suits the objective? | `objective.orbit_fit[orbit.id]` | 0 shows a red "cannot see the target" badge; under 1 shows "partial view". The card stays clickable: choosing badly is allowed and teaches. |
+| Select | `setOrbit(design, id)` | Next is enabled once an orbit is chosen. |
+
+### 3. Build
+
+Building is a chain of trade-offs: each part fixes one problem and creates the next, and the bars make that chain visible. The player clicks part cards to add or remove them.
+
+**Rules of building**
+
+- **Click to toggle.** Clicking a card adds the part; clicking it again removes it. No drag and drop.
+- **Several parts per category, one of each part.** Two instruments, or a spare computer, are allowed and useful. The same part cannot be added twice.
+- **Four categories are required:** instrument, power, comms and computer. Propulsion is optional, but polar and geostationary orbits need its speed change.
+- **Bad choices are allowed.** Nothing is disabled on this screen. A part that does not suit the objective or orbit is greyed out with its reason, but stays clickable; the player learns from the result.
+- **Problems show up here, live.** Under the bars, list `runChecks(design)` blockers and warnings as they change, so the player does not discover them only at the Readiness review.
+- **Orbit comes first.** Resolution, ground contact and the speed change needed all depend on the orbit, so part cards show different numbers in different orbits. The launcher comes after, so the mass bar shows "pick a rocket" until then.
+
+**How the categories depend on each other**
+
+| Category | Gives | Costs elsewhere |
+| --- | --- | --- |
+| Instrument | Science, if its type suits the objective and it is sharp enough from this orbit | Power, data, mass, the most money |
+| Power: solar panels | Power in sunlight | Mass |
+| Power: battery | Keeps instruments on in Earth's shadow; without one, science drops by roughly a third | Mass |
+| Comms | Sends data home. The radio's rate is cut to the orbit's contact time (2.5% of the day in low orbit, 7% polar, 100% geostationary), and science counts only for data that arrives | Power, mass |
+| Computer | Runs the spacecraft. The radiation-tolerant one survives solar storms; a second computer is a spare | Power |
+| Propulsion | Speed change: 0 m/s needed in low orbit, 80 polar, 260 geostationary. Any thruster also dodges debris | Mass and power. The heavier the spacecraft, the less speed change the same fuel gives |
+
+**Screen elements**
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| Five columns | `PARTS` grouped by `category`: instrument, power, comms, computer, propulsion | Mark each required column until it has a part. |
+| Part card | Data fields: `name`, `blurb`, `mass_kg`, `power_draw_w`, `cost_musd`, `data_gb_day`, `downlink_gb_day`, `battery_wh` | Show only fields that are not 0. Selected cards are highlighted. |
+| Computed card numbers | `getPartFacts(design, part.id)` | Solar panels: `power_gen_w`. Instruments: `science_per_month` and `resolution_m`. Grey out with "does not count for this objective" when `counts` is false, or "too blurry from this orbit" when `sharp_enough` is false. |
+| Hover preview | `previewToggle(design, part.id)` on hover (on touch screens, a first tap shows it and a second tap toggles) | Show the change before clicking: each non-zero `delta` as "+0.8 kg, +15 W, +$0.15M, data home +5.45 GB/day, science +188", and one line each for `fixes` (green, "Fixes: ...") and `causes` (red, "Causes: ..."). If `adding` is false, title it "Remove". The design does not change until the click. |
+| Click | `addPart` / `removePart`, then refresh bars, preview and checks | |
+| Four bars | `getTotals(design)` | **Mass**: `mass_kg` against `capacity_kg` ("pick a rocket" while 0). **Power**: `power_draw_w` against `power_gen_w`. **Budget**: `cost_musd` against `budget_musd`. **Data**: `data_returned_gb_day` against `data_gb_day`; for data a full bar is good. Amber when a margin is under 10%, red when over the limit. |
+| Live problems | `runChecks(design)` | Blockers in red and warnings in amber, under the bars. Ignore `no-launcher` here; it belongs to the next screen. |
+| Science preview | `previewScience(design)` | "About `total` of `target` over `months` months", with a small row per instrument. An estimate, not a promise. |
+
+**Example: sea ice in polar orbit, Standard tier.** These are the real numbers the back end returns after each click; the screen should make this story readable.
+
+| Player does | Mass kg | Power W (draw / made) | Budget $M | Data GB/day (home / made) | Science (preview / 200) | Still blocking |
+| --- | --- | --- | --- | --- | --- | --- |
+| Adds the radar | 45 | 200 / 0 | 6 | 0 / 10 | 0 | no power, comms, computer |
+| Adds the large solar panel | 53 | 200 / 365 | 6.8 | 0 / 10 | 0 | no comms, computer |
+| Adds the S-band radio | 53 | 210 / 365 | 6.8 | 4.55 / 10 | 101 | no computer; data warning |
+| Adds the basic computer | 53 | 210 / 365 | 6.8 | 4.55 / 10 | 101 | not enough speed change |
+| Adds the battery | 59 | 210 / 365 | 7.0 | 4.55 / 10 | 157 | not enough speed change |
+| Swaps S-band for X-band | 59 | 215 / 365 | 7.1 | 10 / 10 | 346 | not enough speed change |
+| Adds the small green thruster | 64 | 230 / 365 | 7.6 | 10 / 10 | 346 | 52 of 80 m/s, still short |
+| Swaps to the large thruster | 74 | 265 / 365 | 8.6 | 10 / 10 | 346 | needs a launcher (next screen) |
+| On Launch vehicle, picks the rideshare | 74 / 50 | | 9.0 | | | too heavy |
+| Picks the small launcher instead | 74 / 200 | | 16.1 / 20 | | | ready to launch |
+
+### 4. Launch vehicle
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| One card per rocket | `LAUNCHERS`: `name`, `cost_musd`, `blurb` | Click to select. |
+| Capacity to this orbit | `launcher.capacity_kg[design.orbit]` | 0: card disabled, "cannot reach this orbit". Below `getTotals(design).mass_kg`: red "too small". Otherwise "fits". |
+| Select | `setLauncher(design, id)` | Bars refresh: the mass bar now has a limit and the budget bar includes the rocket. |
+
+### 5. Readiness review
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| Go / no-go list | `runChecks(design)` | Blockers in red, warnings in amber, each with its `text`. Each line has a "Fix" link to the screen in the table below. |
+| Launch button | `blockers.length === 0` | Disabled while there are blockers. With warnings only, it reads "Launch anyway". |
+| Launch | `mission = startMission(design)` | Go to Mission. |
+
+Where each check is fixed:
+
+| Check `id` | Go to |
+| --- | --- |
+| `no-objective` | 1 Briefing |
+| `no-orbit`, `orbit-fit` | 2 Orbit |
+| `empty-instrument`, `empty-power`, `empty-comms`, `empty-computer`, `power`, `power-margin`, `delta-v`, `data`, `battery`, `no-match`, `resolution-<partId>` | 3 Build |
+| `no-launcher`, `launcher-reach`, `mass`, `mass-margin`, `budget` | 4 Launch vehicle (mass and budget can also be fixed on Build) |
+
+### 6. Mission
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| Month ticker | `s = stepMonth(mission)` on a timer, about 300 ms per month | Show "Month `s.month` of `mission.lifetime_months`". A pause button stops the timer; a fast-forward button shortens it. |
+| Science bar | `s.science` against the objective's `science_target` | Fills toward the target; it may pass it. |
+| Event | `s.event` is not null | Stop the timer. Show `event.title`, `event.text` and one button per `event.choices[i].label`. |
+| Player's choice | `out = chooseEvent(mission, i)` | Show one outcome line: "A part on board protected you" if `out.protected`; "`PARTS` name FAILED" if `out.failed_part`; "Mission over" if `out.ended_early`. Then resume the timer. |
+| End | `s.ended` or `out.ended` | Go to Debrief. |
+
+### 7. Debrief
+
+| Element | Source | Behaviour |
+| --- | --- | --- |
+| Save the result | `r = recordResult(mission)`, once | If `r.unlocked`, show a banner: "Standard unlocked". |
+| Score and stars | `d = getDebrief(mission)`: `score`, `stars` | Stars at 50, 70 and 90 points. |
+| Score breakdown | `d.breakdown`: science (of 60), budget (of 15), margins (of 15), events (of 10) | Four short rows. |
+| Science | `d.science` against `d.science_target` | |
+| What limited you | `d.limiting` as the heading, then `d.paragraph` | The heading names one factor: mass, power, budget, data, event, design or none. |
+| Try this | `d.suggestion` | One concrete change. This is the most important line on the screen. |
+| Real-world cousin | `d.real_mission` | One line. |
+| Events log | `d.events`: `title`, `label`, `failed_part` | What happened and what the player chose. |
+| Buttons | | **Redesign**: back to Build with the same `design`. **New mission**: Briefing with a fresh `newDesign(tier)`. **Change tier**: tier select. |
+
+The same design always replays the same mission (the seed comes from the design), so the player can see exactly what their change did.
 
 ## Team roles
 
@@ -360,13 +567,51 @@ Each person owns one aspect of the game and the files that go with it. The data 
 | Aspect | Owner | AI | Owns | Job |
 | --- | --- | --- | --- | --- |
 | Data | Yareem | Fable (or equal) | `data/parts.js`, `launchers.js`, `orbits.js`, `objectives.js`, `tiers.js`, `SOURCES.md` | Real numbers with checked sources and the data format. Sets up the starting repo with stub functions. Approves any change to a data field. |
-| Rules | angads22 | Opus | `js/game.js` | Totals, the eight formulas, blockers and warnings, orbit facts. |
-| Simulation | angads22 | Opus | `js/mission.js` | The month-by-month mission, random events and their effects, scoring, stars and the limiting factor. |
+| Rules | Yareem | Opus | `js/game.js` | Totals, the eight formulas, blockers and warnings, orbit facts. |
+| Simulation | Yareem | Opus | `js/mission.js` | The month-by-month mission, random events and their effects, scoring, stars and the limiting factor. |
 | Design screens | angads22 | Fable (or equal) | `index.html`, `css/`, `js/ui-design.js` | Briefing, Orbit, Build, Launch vehicle and Readiness review, the four resource bars, and the shared layout. |
 | Story | (name) | Opus | `js/ui-mission.js`, `data/events.js`, `data/debrief.js` | The Mission and Debrief screens, the event and debrief writing, and tutorial hints. |
 | QA | (name) | Opus | `tests/`, `README.md`, project page, demo video | Plays every merged build, files issues, requests tuning, keeps the record of AI use, and submits. |
 
 Owners change only their own files. Anything else goes through a GitHub issue to that file's owner.
+
+### Current tasks: Data, Rules and Simulation
+
+Yareem holds all three back-end roles. The first build is done: real data, all eight formulas, the seeded simulation, scoring and the debrief, checked by `tests/simulate.js`. These are next, in order within each role. Anything marked *stretch* starts only after the first full playthrough works on screen.
+
+**Data**
+
+Balancing will change most numbers, so the current estimates stand until then. No more sourcing work before balancing.
+
+1. ~~Decide the debrief `design` key and radar resolution~~ Done: `design` key added; radar keeps skipping the resolution check.
+2. *Stretch:* propose the data fields for per-tier weights and part variance (see `STRETCH.md`). The data person approves any new field before code uses it.
+3. *After balancing, before submission:* one quick pass over the numbers that survived. Spot-check three by hand, mark them Checked in `SOURCES.md`, and label the rest as estimates or game values on the project page.
+
+**Rules (`js/game.js`)**
+
+1. ~~Hand-worked tests for the eight formulas~~ Done (`tests/formulas.js` on the working branch).
+2. ~~Science preview for the Build screen~~ Done: `previewScience` and `getPartFacts`.
+3. *Stretch:* apply per-tier weights to each calculation once the fields are approved.
+4. *Stretch:* seeded per-part variance, so the same part performs slightly differently from mission to mission.
+
+**Simulation (`js/mission.js`)**
+
+1. ~~Tune wildfire~~ Done: a single thermal imager earns 2 stars; 3 stars needs thermal plus camera and a fast radio.
+2. ~~Weight events by orbit~~ Done: `orbit_weight` on events.
+3. ~~Unlock tiers and save progress~~ Done: `recordResult`, `getProgress`, `isTierUnlocked`.
+4. *Stretch:* shareable design codes, which encode the design so a link replays the same mission.
+5. *Stretch:* the money-making sub-missions for the Impossible mode in `STRETCH.md`.
+
+**Judging (all roles)**
+
+1. **NASA data in the game** (see "How we are judged"): Data adds the FIRMS and Sea Ice Index file; Simulation weights each month by it; the debrief reports the real-world comparison. Highest priority after integration, because Relevance is our weakest criterion.
+2. **Demo owner:** someone takes QA now. The demo is a 30-second video or at most 7 slides, scripted around build, fail, debrief, fix, succeed.
+3. **References:** `SOURCES.md` lists every external resource and the AI tools used, ready to paste into the submission form.
+4. **Validity evidence:** the formula tests go on `main`, and the project page says how the numbers were sourced and which are game values.
+
+**Integration with Design screens**
+
+The back end on `main` supplies everything the section "Player interaction, screen by screen" asks for. Design screens builds against it; any missing number or behaviour goes to Rules or Simulation as a GitHub issue, never as maths in the front end.
 
 ## Workflow
 
@@ -415,7 +660,7 @@ Times are local. Submissions open Saturday at 9:00 AM and close Sunday at 11:59 
 4. **Saturday 20:00, first full playthrough.** One mission runs from Briefing to Debrief. Anything in the must-haves that still fails is simplified or cut tonight.
 5. **Sunday 10:00, balanced.** QA confirms Tier 1 is winnable and a careless design fails. Debrief text is final.
 6. **Sunday 14:00, code freeze.** Bug fixes only from here.
-7. **Sunday 17:00, demo recorded.** The video and project page are drafted from the frozen build.
+7. **Sunday 17:00, demo recorded.** A video of 30 seconds or less, or at most 7 slides, in English, plus the project page and the References list, all from the frozen build.
 8. **Sunday 20:00, submit.** That leaves four hours of buffer before the deadline.
 
 ## Out of scope
@@ -462,4 +707,4 @@ Today I need: <one specific task>.
 <paste the spec here>
 ```
 
-**Open question:** does Space Apps 2026 require teams to disclose AI use, and in what form? QA confirms this on the official site at kickoff.
+**Open question:** does Space Apps 2026 require teams to disclose AI use, and in what form? The Judging & Awards Guide does not say; it does require every external resource to be listed in the References field. Until QA confirms otherwise, we list the AI tools used there too.
