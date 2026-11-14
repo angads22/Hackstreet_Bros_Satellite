@@ -1,5 +1,6 @@
 // js/ui-design.js — owned by Design screens.
-// The shared layout (header, step bar, hints) and the screens before launch:
+// The shared layout (header, minimap, objective line, hints), the base map that
+// players walk around to reach each screen, and the screens before launch:
 // Tier select, 1 Briefing, 2 Orbit, 3 Build, 4 Launch vehicle, 5 Readiness review.
 // Every number shown comes from a game.js / mission.js call or a plain data field;
 // this file only formats numbers and draws the page.
@@ -12,15 +13,6 @@
   "use strict";
 
   // ---------------------------------------------------------------- setup
-  var STEPS = [
-    { id: "briefing", label: "BRIEF" },
-    { id: "orbit",    label: "ORBIT" },
-    { id: "build",    label: "BUILD" },
-    { id: "launcher", label: "ROCKET" },
-    { id: "review",   label: "REVIEW" },
-    { id: "mission",  label: "MISSION" },
-    { id: "debrief",  label: "DEBRIEF" }
-  ];
   var DESIGN_STEPS = ["briefing", "orbit", "build", "launcher", "review"];
 
   var CATEGORIES = [
@@ -34,6 +26,7 @@
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
     title:    "Earn 2 stars on a tier to unlock the next one.",
+    map:      "Walk with the arrow keys or WASD, press E to go in. Or click a marker and you walk there yourself. The gold route leads to your next job.",
     briefing: "Decide the goal before the hardware. The objective says which instruments count.",
     orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
     build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
@@ -51,9 +44,50 @@
     "mass-margin": "launcher", "budget": "launcher"
   };
 
+  // ---------------------------------------------------------------- the base map
+  // Each design screen is a place on the map. The map is 200 x 120 units; roads
+  // join the nodes below, and the player walks from node to node.
+  var PLACES = [
+    { id: "briefing", num: 1, name: "MISSION CONTROL",  does: "Pick a job for the satellite" },
+    { id: "orbit",    num: 2, name: "TRACKING STATION", does: "Choose where it flies" },
+    { id: "build",    num: 3, name: "WORKSHOP",         does: "Build the spacecraft" },
+    { id: "launcher", num: 4, name: "ROCKET YARD",      does: "Pick a rocket" },
+    { id: "review",   num: 5, name: "LAUNCH PAD",       does: "Readiness review and launch" }
+  ];
+  var MAP_W = 200, MAP_H = 120;
+  var NODES = {
+    gate: { x: 10, y: 63 },  j1: { x: 40, y: 63 },  j2: { x: 100, y: 63 }, j3: { x: 160, y: 63 },
+    briefing: { x: 40, y: 40 }, orbit: { x: 100, y: 40 }, review: { x: 160, y: 40 },
+    build: { x: 40, y: 86 },    launcher: { x: 100, y: 86 }, ground: { x: 160, y: 86 }
+  };
+  var EDGES = [["gate", "j1"], ["j1", "j2"], ["j2", "j3"], ["j1", "briefing"], ["j1", "build"],
+               ["j2", "orbit"], ["j2", "launcher"], ["j3", "review"], ["j3", "ground"]];
+  var GO_TEXT = {
+    briefing: "Go to Mission Control and pick a job.",
+    orbit:    "Go to the Tracking Station and choose an orbit.",
+    build:    "Go to the Workshop and build the satellite.",
+    launcher: "Go to the Rocket Yard and pick a rocket.",
+    review:   "Go to the Launch Pad for the readiness review."
+  };
+  var DO_TEXT = {
+    briefing: "Pick a job for the satellite.",
+    orbit:    "Choose an orbit that can see the target.",
+    build:    "Fit an instrument, power, a radio and a computer.",
+    launcher: "Pick a rocket that can lift your satellite.",
+    review:   "Clear every NO GO line, then launch."
+  };
+  var WALK_MS = 9;   // milliseconds per map unit walked (0 if the player asks for less motion)
+  var KEY_DIRS = { ArrowUp: [0, -1], w: [0, -1], W: [0, -1], ArrowDown: [0, 1], s: [0, 1], S: [0, 1],
+                   ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0], ArrowRight: [1, 0], d: [1, 0], D: [1, 0] };
+
   var state = {
     design: null,        // the one design object
     screen: "title",
+    player: "gate",      // map node the player stands on
+    walking: false,      // true while the player arrow is moving
+    walkTimer: null,
+    mapNote: "",         // one-off message on the map ("Locked: ...")
+    map: null,           // live map elements, while the map is showing
     reached: 0,          // furthest design step visited, as an index into DESIGN_STEPS
     bin: "instrument",   // which parts bin is open on Build
     hover: null,         // part id being previewed on Build
@@ -237,27 +271,30 @@
     return t.name.toUpperCase() + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
   }
 
+  // The header shows the current objective and a minimap (instead of a step bar).
   function setStep(screen) {
-    var nav = document.getElementById("steps");
-    if (!nav) return;
-    while (nav.firstChild) nav.removeChild(nav.firstChild);
-    var current = -1;
-    STEPS.forEach(function (s, i) { if (s.id === screen) current = i; });
-    STEPS.forEach(function (s, i) {
-      var designIndex = DESIGN_STEPS.indexOf(s.id);
-      var clickable = !state.locked && state.design && designIndex !== -1 && designIndex <= state.reached && s.id !== screen;
-      var done = current !== -1 && i < current;
-      var b = el("button", {
-        type: "button",
-        class: "step" + (done ? " done" : ""),
-        "aria-current": s.id === screen ? "step" : null,
-        disabled: !clickable,
-        "aria-label": "Step " + (i + 1) + ": " + s.label.toLowerCase(),
-        onclick: function () { go(s.id); }
-      }, [el("span", { class: "step-num", text: String(i + 1) }), el("span", { class: "step-label", text: s.label })]);
-      nav.appendChild(el("li", null, [b]));
-      if (i < STEPS.length - 1) nav.appendChild(el("li", { "aria-hidden": "true" }, [el("span", { class: "step-link" + (done ? " done" : "") })]));
-    });
+    var line = document.getElementById("objective");
+    var mini = document.getElementById("minimap");
+    var text = "";
+    if (screen === "mission") text = "Keep the satellite alive.";
+    else if (screen === "debrief") text = "Read what limited you, then fly again.";
+    else if (state.design && screen !== "title") {
+      var next = waypoint();
+      text = next === screen ? DO_TEXT[screen] : GO_TEXT[next];
+    }
+    if (line) {
+      line.textContent = text ? "OBJECTIVE: " + text : "";
+      line.hidden = !text;
+    }
+    if (mini) {
+      while (mini.firstChild) mini.removeChild(mini.firstChild);
+      var show = !!state.design && DESIGN_STEPS.indexOf(screen) !== -1 && !state.locked;
+      mini.hidden = !show;
+      if (show) {
+        mini.appendChild(mapSvg(true, screen));
+        mini.appendChild(el("span", { class: "minimap-key", text: "MAP [M]" }));
+      }
+    }
   }
 
   function setHint(screen) {
@@ -295,6 +332,8 @@
   function go(screen) {
     var i = DESIGN_STEPS.indexOf(screen);
     if (i > state.reached) state.reached = i;
+    if (i !== -1) state.player = screen;   // you are standing in that building
+    stopWalking();
     state.hover = null;
     state.hintOpen = false;
     draw(screen);
@@ -307,6 +346,7 @@
     if (screen === "title" || !state.design) return mount("title", drawTitle());
     state.screen = screen;   // set first: the check list reads it while drawing
     setStatus(designStatus());
+    if (screen === "map") { mount(screen, drawMap()); return updateMap(true); }
     if (screen === "briefing") return mount(screen, drawBriefing());
     if (screen === "orbit") return mount(screen, drawOrbit());
     if (screen === "build") return mount(screen, drawBuild());
@@ -319,10 +359,13 @@
     return el("div", { class: "screen-head" }, [el("h1", { text: title }), text ? el("p", { text: text }) : null]);
   }
 
-  function navRow(backTo, nextTo, nextOk, nextLabel) {
+  // Every place has a way out to the map. CONTINUE walks you to the next place.
+  function navRow(nextTo, nextOk) {
+    var next = byId(PLACES, nextTo);
     return el("div", { class: "nav-row" }, [
-      backTo ? button(["< ", "BACK"], function () { go(backTo); }) : el("span"),
-      nextTo ? button([nextLabel || "CONTINUE", " >"], function () { go(nextTo); }, { primary: true, disabled: !nextOk }) : null
+      button(["< ", "MAP [M]"], openMap, { aria: "Back to the base map" }),
+      next ? button(["GO TO " + next.name, " >"], function () { travel(nextTo); },
+        { primary: true, disabled: !nextOk, aria: "Walk to the " + next.name.toLowerCase() }) : null
     ]);
   }
 
@@ -394,7 +437,8 @@
         onclick: function () {
           state.design = newDesign(t.id);
           state.reached = 0;
-          go("briefing");
+          state.player = "gate";
+          go("map");
         }
       }, [
         el("div", { class: "card-title" }, [el("h3", { text: t.name.toUpperCase() }),
@@ -456,7 +500,7 @@
         ])
       ]),
       objectives.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No objectives in the data yet." }),
-      navRow("title", "orbit", !!d.objective)
+      navRow("orbit", !!d.objective)
     ]);
   }
 
@@ -491,7 +535,7 @@
     return el("section", { class: "screen" }, [
       head("2 · ORBIT", objective ? "Where should a satellite for " + objective.name.toLowerCase() + " fly?" : "Where you fly changes everything else."),
       cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No orbits in the data yet." }),
-      navRow("briefing", "build", !!d.orbit)
+      navRow("build", !!d.orbit)
     ]);
   }
 
@@ -635,7 +679,7 @@
       head("3 · BUILD", "Click a part to add it, click again to remove it. Several parts per bin are allowed."),
       el("div", { class: "workshop" }, [bins, bench, el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
       shelf,
-      navRow("orbit", "launcher", true)
+      navRow("launcher", true)
     ]);
   }
 
@@ -672,7 +716,7 @@
         cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No rockets in the data yet." }),
         el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])
       ]),
-      navRow("build", "review", true)
+      navRow("review", true)
     ]);
   }
 
@@ -709,8 +753,350 @@
         el("div", { class: "stack" }, [padArt(!blocked), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])]),
         control
       ]),
-      navRow("launcher", null)
+      navRow(null)
     ]);
+  }
+
+  // ---------------------------------------------------------------- the base map: rules
+  function neighbours(id) {
+    var out = [];
+    EDGES.forEach(function (e) { if (e[0] === id) out.push(e[1]); else if (e[1] === id) out.push(e[0]); });
+    return out;
+  }
+
+  // Shortest road route between two nodes (breadth-first search over the road graph).
+  function route(from, to) {
+    var prev = {}, queue = [from], seen = {};
+    seen[from] = true;
+    while (queue.length) {
+      var at = queue.shift();
+      if (at === to) break;
+      neighbours(at).forEach(function (n) { if (!seen[n]) { seen[n] = true; prev[n] = at; queue.push(n); } });
+    }
+    if (!seen[to]) return [from];
+    var path = [to];
+    while (path[0] !== from) path.unshift(prev[path[0]]);
+    return path;
+  }
+
+  function hasRequiredParts(d) {
+    var have = {};
+    list(d.parts).forEach(function (id) { var p = byId(data("PARTS"), id); if (p) have[p.category] = true; });
+    return CATEGORIES.every(function (c) { return !c.required || have[c.id]; });
+  }
+
+  // The GPS target: the first job not done yet.
+  function waypoint() {
+    var d = state.design;
+    if (!d || !d.objective) return "briefing";
+    if (!d.orbit) return "orbit";
+    if (!hasRequiredParts(d)) return "build";
+    if (!d.launcher) return "launcher";
+    return "review";
+  }
+
+  // A place opens once you have reached the one before it and made the choice it needs.
+  function placeOpen(id) {
+    var d = state.design, i = DESIGN_STEPS.indexOf(id);
+    if (!d || i === -1) return false;
+    if (id === "orbit" && !d.objective) return false;
+    if (id === "build" && !d.orbit) return false;
+    return i <= state.reached + 1;
+  }
+
+  function placeDone(id) {
+    var d = state.design;
+    if (!d) return false;
+    if (id === "briefing") return !!d.objective;
+    if (id === "orbit") return !!d.orbit;
+    if (id === "build") return hasRequiredParts(d);
+    if (id === "launcher") return !!d.launcher;
+    return false;
+  }
+
+  function placeStatus(id) {
+    if (!placeOpen(id)) return "locked";
+    if (id === waypoint()) return "next";
+    return placeDone(id) ? "done" : "open";
+  }
+
+  var STATUS_TEXT = { locked: "LOCKED", next: "NEXT", done: "DONE", open: "OPEN" };
+
+  function lockedReason(id) {
+    if (id === "orbit" && !state.design.objective) return "Pick a job at Mission Control first.";
+    if (id === "build" && !state.design.orbit) return "Choose an orbit at the Tracking Station first.";
+    var before = PLACES[DESIGN_STEPS.indexOf(id) - 1];
+    return before ? "Visit the " + before.name.toLowerCase() + " first." : "";
+  }
+
+  // ---------------------------------------------------------------- the base map: drawing
+  function mapRects() {
+    var C = { ground: "#16152f", lot: "#1f1e40", road: "#2a2957", dash: "#4b4a8a", sea: "#24349e" };
+    var r = [
+      [0, 0, MAP_W, MAP_H, C.ground],
+      // sea along the east coast, with a few waves
+      [184, 0, 16, MAP_H, C.sea], [182, 0, 2, MAP_H, PAL.cyan],
+      [188, 14, 6, 1, PAL.blue], [190, 46, 7, 1, PAL.blue], [187, 78, 6, 1, PAL.blue], [191, 104, 6, 1, PAL.blue],
+      // building lots
+      [20, 8, 40, 30, C.lot], [80, 8, 40, 30, C.lot], [146, 6, 34, 32, C.lot],
+      [18, 90, 44, 24, C.lot], [78, 90, 44, 24, C.lot], [144, 90, 34, 24, C.lot],
+      // roads: the main road and three side roads
+      [0, 60, 182, 7, C.road], [37, 37, 7, 54, C.road], [97, 37, 7, 54, C.road], [157, 37, 7, 54, C.road]
+    ];
+    for (var x = 2; x < 180; x += 8) r.push([x, 63, 4, 1, C.dash]);
+    r.push(
+      // main gate: booth and barrier
+      [2, 51, 7, 7, PAL.line], [3, 52, 5, 2, PAL.cyan], [9, 57, 10, 1, PAL.gold],
+      // Mission Control: long building, window rows, roof aerial
+      [24, 14, 32, 22, PAL.muted], [24, 14, 32, 3, PAL.line],
+      [27, 20, 4, 3, PAL.cyan], [33, 20, 4, 3, PAL.cyan], [43, 20, 4, 3, PAL.cyan], [49, 20, 4, 3, PAL.cyan],
+      [27, 26, 4, 3, PAL.cyan], [33, 26, 4, 3, PAL.cyan], [43, 26, 4, 3, PAL.cyan], [49, 26, 4, 3, PAL.cyan],
+      [38, 31, 5, 5, PAL.gold], [50, 8, 1, 6, PAL.ink], [49, 7, 3, 1, PAL.red],
+      // Tracking Station: two dishes on a low block
+      [84, 28, 32, 8, PAL.line], [86, 14, 10, 2, PAL.ink], [85, 16, 12, 3, PAL.ink], [87, 19, 8, 2, PAL.muted],
+      [90, 21, 2, 7, PAL.muted], [104, 10, 12, 2, PAL.ink], [103, 12, 14, 4, PAL.ink], [105, 16, 10, 2, PAL.muted],
+      [109, 18, 2, 10, PAL.muted], [98, 31, 5, 5, PAL.gold],
+      // Launch Pad: pad, tower, rocket
+      [150, 12, 28, 24, C.road], [150, 12, 28, 1, PAL.line], [150, 35, 28, 1, PAL.line],
+      [170, 8, 3, 27, PAL.line], [166, 14, 4, 1, PAL.line], [166, 24, 4, 1, PAL.line], [171, 6, 1, 2, PAL.red],
+      [160, 9, 4, 3, PAL.red], [159, 12, 6, 20, PAL.ink], [163, 12, 2, 20, PAL.muted], [160, 17, 2, 2, PAL.cyan],
+      [157, 28, 2, 5, PAL.red], [165, 28, 2, 5, PAL.red],
+      // Workshop: hangar with a striped roof and a big door
+      [22, 92, 36, 20, PAL.muted], [22, 92, 36, 2, PAL.ink],
+      [22, 96, 36, 1, PAL.line], [22, 100, 36, 1, PAL.line], [32, 104, 16, 8, PAL.line], [33, 105, 14, 7, PAL.gold],
+      // Rocket Yard: fence and three rockets of three sizes
+      [82, 92, 36, 1, PAL.line], [82, 112, 36, 1, PAL.line], [82, 92, 1, 21, PAL.line], [117, 92, 1, 21, PAL.line],
+      [86, 102, 2, 8, PAL.ink], [86, 100, 2, 2, PAL.red],
+      [96, 98, 3, 12, PAL.ink], [96, 96, 3, 2, PAL.red],
+      [107, 94, 5, 16, PAL.ink], [111, 94, 1, 16, PAL.muted], [107, 92, 5, 2, PAL.red], [105, 106, 2, 4, PAL.red], [112, 106, 2, 4, PAL.red],
+      // Ground station: one big dish
+      [150, 94, 22, 3, PAL.ink], [148, 97, 26, 4, PAL.ink], [152, 101, 18, 3, PAL.muted], [160, 104, 2, 8, PAL.muted],
+      // street lights
+      [24, 58, 1, 1, PAL.gold], [70, 58, 1, 1, PAL.gold], [130, 58, 1, 1, PAL.gold], [176, 58, 1, 1, PAL.gold],
+      [24, 68, 1, 1, PAL.gold], [70, 68, 1, 1, PAL.gold], [130, 68, 1, 1, PAL.gold], [176, 68, 1, 1, PAL.gold]
+    );
+    return r;
+  }
+
+  function routePoints(path) {
+    return path.map(function (id) { return NODES[id].x + "," + NODES[id].y; }).join(" ");
+  }
+
+  // The map art. `mini` = the header minimap, with the player and the route drawn in.
+  function mapSvg(mini, here) {
+    var svg = art("0 0 " + MAP_W + " " + MAP_H, mapRects(),
+      mini ? null : "Pixel map of the space centre: Mission Control, the Tracking Station, the Workshop, the Rocket Yard and the Launch Pad, joined by roads",
+      mini ? "minimap-art" : "map-art");
+    var NS = "http://www.w3.org/2000/svg";
+    var line = document.createElementNS(NS, "polyline");
+    line.setAttribute("class", "map-route");
+    line.setAttribute("fill", "none");
+    svg.appendChild(line);
+    if (mini) {
+      var at = NODES[here] || NODES[state.player] || NODES.gate;
+      var next = NODES[waypoint()];
+      line.setAttribute("points", routePoints(route(here in NODES ? here : state.player, waypoint())));
+      [[next.x - 4, next.y - 4, 8, 8, PAL.gold], [at.x - 3, at.y - 3, 6, 6, PAL.ink], [at.x - 2, at.y - 2, 4, 4, PAL.sky]].forEach(function (q) {
+        var rect = document.createElementNS(NS, "rect");
+        rect.setAttribute("x", q[0]); rect.setAttribute("y", q[1]);
+        rect.setAttribute("width", q[2]); rect.setAttribute("height", q[3]); rect.setAttribute("fill", q[4]);
+        svg.appendChild(rect);
+      });
+    }
+    return svg;
+  }
+
+  function pct(node) { return { left: (node.x / MAP_W * 100) + "%", top: (node.y / MAP_H * 100) + "%" }; }
+
+  function drawMap() {
+    var d = state.design;
+    var refs = { markers: {}, legend: {} };
+    var board = el("div", { class: "map", id: "map", tabindex: "0", "aria-label": "Base map. Arrow keys or WASD to walk, E to go in." });
+    refs.svg = mapSvg(false);
+    refs.route = refs.svg.querySelector(".map-route");
+    board.appendChild(refs.svg);
+
+    PLACES.forEach(function (p) {
+      var at = pct(NODES[p.id]);
+      var b = el("button", {
+        type: "button", class: "blip", "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
+        onclick: function () { walkTo(p.id, true); }
+      }, [el("span", { class: "blip-num", text: String(p.num) }), el("span", { class: "blip-name", text: p.name })]);
+      refs.markers[p.id] = b;
+      board.appendChild(b);
+    });
+    ["gate", "ground"].forEach(function (id) {
+      var at = pct(NODES[id]);
+      board.appendChild(el("span", { class: "map-label", style: "left: " + at.left + "; top: " + at.top,
+        text: id === "gate" ? "MAIN GATE" : "GROUND STATION", "aria-hidden": "true" }));
+    });
+
+    refs.player = el("div", { class: "player", "aria-hidden": "true" }, [art("0 0 7 7",
+      [[3, 0, 1, 1, PAL.ink], [2, 1, 3, 1, PAL.ink], [1, 2, 5, 1, PAL.ink], [0, 3, 7, 2, PAL.ink], [2, 5, 3, 2, PAL.ink],
+       [3, 2, 1, 3, PAL.red]], null)]);
+    board.appendChild(refs.player);
+
+    refs.promptText = el("span", { class: "map-prompt-text" });
+    refs.enter = el("button", { type: "button", class: "btn primary", onclick: act, "data-key": "map-enter" }, "ENTER [E]");
+    // Below the map, never on top of it, so it cannot cover a marker.
+    refs.prompt = el("div", { class: "map-prompt", "aria-live": "polite" }, [refs.promptText, refs.enter]);
+
+    var legend = el("ul", { class: "legend" }, PLACES.map(function (p) {
+      var status = el("span", { class: "tag" });
+      var item = el("li", null, [el("button", {
+        type: "button", class: "legend-item", "data-key": "legend-" + p.id, onclick: function () { walkTo(p.id, true); },
+        "aria-label": "Walk to the " + p.name.toLowerCase()
+      }, [el("span", { class: "blip-num", text: String(p.num) }),
+          el("span", { class: "legend-text" }, [el("span", { text: p.name }), el("span", { class: "legend-does", text: p.does })]),
+          status])]);
+      refs.legend[p.id] = { item: item, status: status };
+      return item;
+    }));
+
+    refs.objective = el("p", { class: "map-objective" });
+    state.map = refs;
+    return el("section", { class: "screen" }, [
+      head("BASE MAP", null),
+      el("div", { class: "map-layout" }, [
+        el("div", { class: "stack" }, [board, refs.prompt]),
+        el("aside", { class: "panel" }, [
+          el("h2", { text: "OBJECTIVE" }), refs.objective,
+          el("h2", { class: "divided", text: "PLACES" }), legend,
+          el("h2", { class: "divided", text: "CONTROLS" }),
+          el("p", { class: "bar-note", text: "Arrow keys or WASD: walk. E or Enter: go in, or follow the gold route. Click a marker: walk there. M: map." }),
+          el("div", null, [button("CHANGE TIER", function () { showDesignScreen("title"); })])
+        ])
+      ])
+    ]);
+  }
+
+  function placePlayer(nodeId, ms, from) {
+    var refs = state.map;
+    if (!refs) return;
+    var to = NODES[nodeId], at = pct(to);
+    if (from) {
+      var dx = to.x - from.x, dy = to.y - from.y;
+      var angle = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 90 : -90) : (dy > 0 ? 180 : 0);
+      refs.player.style.setProperty("--face", angle + "deg");
+    }
+    refs.player.style.transitionDuration = ms + "ms";
+    if (ms) void refs.player.offsetWidth;   // commit the start point so the move animates
+    refs.player.style.left = at.left;
+    refs.player.style.top = at.top;
+  }
+
+  // Refreshes markers, route, prompt and legend in place (the map is not redrawn while you walk).
+  function updateMap(snap) {
+    var refs = state.map;
+    if (!refs || state.screen !== "map") return;
+    if (snap) placePlayer(state.player, 0);
+    var next = waypoint();
+    PLACES.forEach(function (p) {
+      var st = placeStatus(p.id);
+      refs.markers[p.id].className = "blip " + st + (state.player === p.id ? " here" : "");
+      refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + p.does + ".");
+      refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
+      refs.legend[p.id].status.textContent = STATUS_TEXT[st];
+    });
+    refs.route.setAttribute("points", routePoints(route(state.player, next)));
+    refs.objective.textContent = GO_TEXT[next];
+
+    var here = byId(PLACES, state.player);
+    var text, canEnter = false;
+    if (state.mapNote) text = state.mapNote;
+    else if (state.walking) text = "Walking...";
+    else if (here && placeOpen(here.id)) { text = here.name + ": " + here.does + "."; canEnter = true; }
+    else if (here) text = here.name + " is locked. " + lockedReason(here.id);
+    else text = "Follow the gold route. " + GO_TEXT[next];
+    refs.promptText.textContent = text;
+    refs.enter.textContent = canEnter ? "ENTER [E]" : "FOLLOW ROUTE [E]";
+    refs.enter.disabled = state.walking || (!!here && !canEnter && here.id === next);
+    setStep("map");
+  }
+
+  function stopWalking() {
+    if (state.walkTimer) clearTimeout(state.walkTimer);
+    state.walkTimer = null;
+    state.walking = false;
+  }
+
+  // Walks the player along a list of nodes, one road at a time, then calls done().
+  function walkPath(path, done) {
+    stopWalking();
+    state.walking = true;
+    state.mapNote = "";
+    var i = 1;
+    function next() {
+      if (i >= path.length || state.screen !== "map") { state.walking = false; state.walkTimer = null; updateMap(); if (done) done(); return; }
+      var from = NODES[path[i - 1]], to = NODES[path[i]];
+      var ms = (Math.abs(to.x - from.x) + Math.abs(to.y - from.y)) * WALK_MS;
+      state.player = path[i];
+      placePlayer(path[i], ms, from);
+      i++;
+      state.walkTimer = setTimeout(next, ms);
+    }
+    updateMap();
+    next();
+  }
+
+  function enterPlace(id) {
+    if (!placeOpen(id)) {
+      state.mapNote = byId(PLACES, id).name + " is locked. " + lockedReason(id);
+      updateMap();
+      state.mapNote = "";
+      return;
+    }
+    go(id);
+  }
+
+  function walkTo(id, enterOnArrival) {
+    if (state.walking) return;
+    walkPath(route(state.player, id), function () { if (enterOnArrival) enterPlace(id); });
+  }
+
+  // E / Enter on the map: go into the building you stand at, or follow the route.
+  function act() {
+    if (state.walking) return;
+    var here = byId(PLACES, state.player);
+    if (here && placeOpen(here.id)) return go(here.id);
+    walkTo(waypoint(), false);
+  }
+
+  function stepToward(dir) {
+    if (state.walking) return;
+    var at = NODES[state.player], best = null, bestScore = 0.5;
+    neighbours(state.player).forEach(function (n) {
+      var dx = NODES[n].x - at.x, dy = NODES[n].y - at.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var score = (dx * dir[0] + dy * dir[1]) / len;
+      if (score > bestScore) { bestScore = score; best = n; }
+    });
+    if (best) walkPath([state.player, best]);
+  }
+
+  function openMap() {
+    if (state.locked || !state.design) return;
+    if (DESIGN_STEPS.indexOf(state.screen) !== -1) state.player = state.screen;
+    go("map");
+  }
+
+  // CONTINUE: step outside, walk the road to the next place and go in.
+  function travel(id) {
+    openMap();
+    walkTo(id, true);
+  }
+
+  function onKey(e) {
+    if (e.altKey || e.ctrlKey || e.metaKey || !state.design || state.locked) return;
+    var k = e.key, active = document.activeElement;
+    var onMap = state.screen === "map";
+    if (onMap && KEY_DIRS[k]) { e.preventDefault(); return stepToward(KEY_DIRS[k]); }
+    if (onMap && (k === "e" || k === "E")) { e.preventDefault(); return act(); }
+    // Enter is left to a focused button; otherwise it acts on the map.
+    if (onMap && k === "Enter" && !(active && active.tagName === "BUTTON")) { e.preventDefault(); return act(); }
+    if (!onMap && DESIGN_STEPS.indexOf(state.screen) !== -1 && (k === "m" || k === "M" || k === "Escape")) {
+      e.preventDefault();
+      openMap();
+    }
   }
 
   function launch() {
@@ -725,11 +1111,11 @@
   function showDesignScreen(screenName, design) {
     if (design) state.design = design;
     state.locked = false;
-    if (screenName === "title") { state.design = null; state.reached = 0; }
+    if (screenName === "title") { state.design = null; state.reached = 0; state.player = "gate"; }
     var i = DESIGN_STEPS.indexOf(screenName);
     if (i !== -1 && i > state.reached) state.reached = i;
-    // A fresh design starts over; coming back to redesign, every step has been visited.
-    if (design && screenName === "briefing") state.reached = 0;
+    // A fresh design starts over at the gate; coming back to redesign, every place is open.
+    if (design && (screenName === "briefing" || screenName === "map")) { state.reached = 0; state.player = "gate"; }
     else if (design) state.reached = DESIGN_STEPS.length - 1;
     go(screenName || "briefing");
   }
@@ -756,6 +1142,10 @@
   function start() {
     var help = document.getElementById("help-btn");
     if (help) help.addEventListener("click", function () { state.hintOpen = !state.hintOpen; setHint(state.screen); });
+    var mini = document.getElementById("minimap");
+    if (mini) mini.addEventListener("click", openMap);
+    document.addEventListener("keydown", onKey);
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) WALK_MS = 0;
     draw("title");
   }
 

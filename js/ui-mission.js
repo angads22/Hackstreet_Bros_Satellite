@@ -196,7 +196,7 @@
       events.length ? el("ul", { class: "log" }, events) : null,
       el("div", { class: "choices" }, [
         UI.button(["REDESIGN", " >"], function () { window.showDesignScreen("build", done.design); }, { primary: true }),
-        UI.button("NEW MISSION", function () { window.showDesignScreen("briefing", newDesign(done.design.tier)); }),
+        UI.button("NEW MISSION", function () { window.showDesignScreen("map", newDesign(done.design.tier)); }),
         UI.button("CHANGE TIER", function () { window.showDesignScreen("title"); })
       ])
     ]);
