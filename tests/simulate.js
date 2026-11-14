@@ -2,13 +2,7 @@
 // Run from the repo root:  node tests/simulate.js
 // Loads the same files as index.html, in the same order, then plays every
 // design to the end, always taking the first (safe) choice at each event.
-var fs = require("fs"), vm = require("vm"), path = require("path");
-var root = path.join(__dirname, "..");
-var files = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js",
-             "data/tiers.js", "data/events.js", "data/debrief.js", "js/game.js", "js/mission.js"];
-var src = files.map(function (f) { return fs.readFileSync(path.join(root, f), "utf8"); }).join("\n;\n") +
-  "\n;({PARTS,LAUNCHERS,ORBITS,OBJECTIVES,TIERS,newDesign,setObjective,setOrbit,setLauncher,addPart,getTotals,runChecks,startMission,stepMonth,chooseEvent,getDebrief,getOrbitFacts})";
-var G = vm.runInNewContext(src, { Math: Math });
+var G = require("./load")();
 
 function byCat(c) { return G.PARTS.filter(function (p) { return p.category === c; }).map(function (p) { return p.id; }); }
 function subsets(list, min) {
