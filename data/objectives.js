@@ -8,9 +8,11 @@ const OBJECTIVES = [
     name: "Wildfire monitoring",
     briefing: "Fires are spreading faster and burning longer every year. Firefighters need to know where new fires start, and they need to know quickly. Design a satellite that spots fire heat from orbit and gets that news to the ground.",
     wants: ["thermal", "imaging"],
-    science_target: 150,
+    science_target: 180,
     needs_resolution_m: 2000,   // GOES-R ABI finds fires with 2 km infrared pixels
-    orbit_fit: { leo: 0.6, sso: 0.8, geo: 1.0 },  // GEO watches constantly; low orbits have gaps
+    // GEO watches constantly. SSO crosses each place at the same morning hour, missing
+    // the afternoon fire peak. LEO drifts through all hours but never sees the boreal forests.
+    orbit_fit: { leo: 0.5, sso: 0.5, geo: 1.0 },
     real_mission: "NOAA's GOES-R satellites watch fires from geostationary orbit, and OroraTech's FOREST smallsats hunt them from low orbit."
   },
   {

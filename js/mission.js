@@ -247,8 +247,17 @@ function limitingFactor(mission, totals, scienceShare) {
     }
     var rate = scienceRate(design, []);
     var weak = rate.instruments.filter(function (i) { return i.match === 0 || !i.sharp_enough; });
-    return { key: "none", suggestion: weak.length
-      ? "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it."
+    if (weak.length) {
+      return { key: "none", suggestion: "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it." };
+    }
+    // A wanted instrument type nobody carries is the cheapest way to more science.
+    var objective = getObjective(design.objective);
+    var carried = designParts(design).filter(function (p) { return p.category === "instrument"; })
+      .reduce(function (tags, p) { return tags.concat(p.tags); }, []);
+    var missingTag = objective ? objective.wants.filter(function (t) { return carried.indexOf(t) === -1; })[0] : null;
+    var extra = missingTag ? PARTS.filter(function (p) { return p.category === "instrument" && p.tags.indexOf(missingTag) !== -1; })[0] : null;
+    return { key: "none", suggestion: extra
+      ? "Nothing ran short, but one instrument was not enough. Add the " + extra.name.toLowerCase() + " as well; this objective counts it too."
       : "Nothing ran short, but the science fell below target. Try an orbit that suits the objective better." };
   }
   return { key: "none", suggestion: "Target reached. Try the next tier, or reach it on a smaller budget." };
