@@ -104,12 +104,25 @@ has(G.recordResult(cm), ["stars", "best_stars", "unlocked", "payout_musd", "know
 check("exportSave returns a string", typeof G.exportSave() === "string");
 has(G.importSave("not a code"), ["ok", "reason"], "importSave");
 
+// ---- hints
+var hd = G.newDesign("training"); G.setObjective(hd, "radiation"); G.setOrbit(hd, "leo");
+["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"].forEach(function (p) { G.addPart(hd, p); });
+var hb = G.getHints("build", hd);
+has(hb, ["mode", "tutorial", "tips"], "getHints");
+check("getHints leads with the design's own problem", /Sputnik|batter/i.test(hb.tips[0] || ""), hb.tips[0]);
+check("getHints is silent when the tier says off", G.getHints("build", G.newDesign("expert")).tips.length === 0);
+// Every check id the game can raise has a hint.
+var ids = {}, src = fs.readFileSync(path.join(__dirname, "..", "js", "game.js"), "utf8"), mm, re2 = /(?:block|warn)\("([a-z-]+)/g;
+while ((mm = re2.exec(src))) ids[mm[1].replace(/-$/, "")] = true;
+var noHint = Object.keys(ids).filter(function (k) { return !G.HINTS.checks[k]; });
+check("every readiness check has a hint", noHint.length === 0, noHint.join(", "));
+
 // ---- robustness: bad input never throws
 var threw = [];
 [["getTotals", [G.newDesign()]], ["runChecks", [G.newDesign()]], ["previewScience", [G.newDesign()]],
  ["getOrbitFacts", [G.newDesign()]], ["previewToggle", [G.newDesign(), "no-such-part"]], ["getPartFacts", [G.newDesign(), "no-such-part"]],
  ["startMission", [null]], ["stepMonth", [cm]], ["stepMonth", [null]], ["chooseEvent", [null, 0]], ["getDebrief", [null]], ["chooseEvent", [cm, 99]], ["recordResult", [null]], ["buyResearch", ["nope"]],
- ["importSave", [""]], ["newDesign", ["nonsense"]]].forEach(function (c) {
+ ["importSave", [""]], ["newDesign", ["nonsense"]], ["getHints", ["nowhere", null]], ["getHints", ["build", null]]].forEach(function (c) {
   try { G[c[0]].apply(null, c[1]); } catch (e) { threw.push(c[0] + ": " + e.message); }
 });
 check("bad input never throws", threw.length === 0, threw.join("; "));
