@@ -11,18 +11,13 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **`getCategories()`** returns the Build screen's part bins in order, with display names and which are required.
 - **Debrief:** `limiting_name` (the NASA Mission Design Lab discipline) and `segments` (one line each for the launch, space, ground and user segments).
 - **Tier names** from JPL's Concept Maturity Levels: Initial Feasibility, Trade Space, Point Design.
-
-- **Eras for standalone play** (back end; no screen yet): 1958 International Geophysical Year, 1964 Nimbus, 1999 Earth Observing System, 2026 New Space. A mission set in an era offers only the parts, rockets and topics that existed by then; two stars in an era opens the next. `getEras()`, `setEra(design, eraId)`, `getAvailability(design)`; `recordResult` returns `era_unlocked`. The solar topic uses the real sunspot count for the era's year.
+- **Eras for standalone play** (back end; the screen is the era grid on tier select, below): 1958 International Geophysical Year, 1964 Nimbus, 1999 Earth Observing System, 2026 New Space. A mission set in an era offers only the parts, rockets and topics that existed by then; two stars in an era opens the next. `getEras()`, `setEra(design, eraId)`, `getAvailability(design)`; `recordResult` returns `era_unlocked`. The solar topic uses the real sunspot count for the era's year.
 - **Satellite bodies** with a payload limit and slots per part type: Explorer-style cylinder, TIROS-style drum, Nimbus-class bus, modern smallsat bus, 12U CubeSat frame. Readiness checks for too heavy, too many parts of a kind, and more than one body. `getTotals` returns `body`.
 - **`getResearchTree()`**: nodes and edges for a research-tree screen.
 - **Build screen.** Seven parts bins, in the back end's order: the satellite's body (structure) and how it points (attitude) join the five that were there. With a body fitted, each bin shows how many of its slots are used ("2 / 3 slots"), and a body card shows the payload carried against what the body can hold. The two new bins stay optional until the switch-over.
 - **Tier select: eras.** A grid with the four eras across (1958, 1964, 1999, 2026) and the three levels down. The first era is open; two stars in an era opens the next. A mission is set in its era: topics, parts and rockets that did not exist yet are greyed out with when they arrive ("Arrives in 1964"), the header shows the year, and the debrief announces a newly opened era.
 - **Campaign.** The campaign can now be played. The title screen starts or continues one; the Campaign hub shows the year, the treasury, how much is known about each topic and what its next mission would pay, the lessons shown in flight, the missions flown, and save codes to export and import. In a campaign the Briefing lists only open topics with their payout, Build and Launch vehicle show the expected payout against the cost, locked parts say which research they need, and the debrief shows the payout, the knowledge gained, new lessons and the way back to the hub.
 - **Research tree.** The hub draws the research tree: boxes in columns by depth joined by their prerequisites, filled when owned and bright when they can be bought. Picking a box shows what it unlocks and what it still needs, with a Buy button. The drawing is a separate, reusable piece (`js/ui-tree.js`) that only needs nodes and edges.
-
-### Not in this version yet
-
-- Structure and attitude are still optional. The Build screen now has their two bins, but turning on `NEW_CATEGORIES_REQUIRED` in `js/game.js` makes the tests that load the game without the option fail (their sample satellites have no body), so the switch waits for `tests/load.js` to set the flag from its option.
 
 ### Changed
 
@@ -36,7 +31,12 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Base map.** Holding an arrow key no longer scrolls the page at a dead end or carries the arrow one road too far.
 - **Phones held sideways.** The header no longer sticks to the top and covers the map.
 - **Build.** Part prices no longer spill out of their cards when the web fonts fail to load.
-- **Orbit.** The NASA line now reads "In view: 92% of the world's fires", so it no longer seems to contradict the "partial view" badge, which is about how often the orbit looks.
+- **Orbit.** The NASA line now reads "In view: 92% of the world's fire detections", so it no longer seems to contradict the "partial view" badge, which is about how often the orbit looks.
+
+### Not in this version yet
+
+- Structure and attitude are still optional. The Build screen now has their two bins, but turning on `NEW_CATEGORIES_REQUIRED` in `js/game.js` makes the tests that load the game without the option fail (their sample satellites have no body), so the switch waits for `tests/load.js` to set the flag from its option.
+- **Story, art and risk.** The Gravitron story, a drawing for each part on the satellite, fewer words per screen and launch failures are planned and not built.
 
 ## 0.5 beta (November 14, 2026)
 
