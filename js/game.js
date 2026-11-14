@@ -39,8 +39,10 @@ function round(x, places) {
 
 // ------------------------------------------------------------------ design edits
 function newDesign(tierId) {
+  // Unknown tier ids fall back to the first tier, so the budget check always applies.
+  if (!getTier(tierId)) tierId = TIERS.length ? TIERS[0].id : "training";
   return {
-    tier: tierId || "training",
+    tier: tierId,
     objective: null,
     orbit: null,
     parts: [],        // list of part ids
@@ -238,10 +240,19 @@ function scienceRate(design, brokenIds, calMonth) {
   var returned = dataReturnedGbDay(produced, downlink, orbit.downlink_mult);
   var dataShare = produced > 0 ? returned / produced : 0;
 
-  // Power: too small a battery switches instruments off in shadow (formula 5).
+  // Power, from the parts still working:
+  //  - in sunlight, if the panels make less than the parts draw, instruments run
+  //    only that share of the time (a broken panel matters in flight);
+  //  - in shadow (formula 5), the battery covers its share of what is needed;
+  //    the rest of the shadow time the instruments are off.
   var draw = sum(parts, function (p) { return p.power_draw_w; });
+  var gen = sum(parts, function (p) { return p.category === "power" ? solarPowerW(p) : 0; });
   var battery = sum(parts, function (p) { return p.battery_wh; });
-  var powerShare = battery >= batteryNeededWh(draw, h) ? 1 : 1 - eclipseFraction(h);
+  var f = eclipseFraction(h);
+  var need = batteryNeededWh(draw, h);
+  var sunShare = draw > 0 ? Math.min(1, gen / draw) : 1;
+  var shadowCovered = need > 0 ? Math.min(1, battery / need) : 1;
+  var powerShare = sunShare * (1 - f * (1 - shadowCovered));
 
   var ideal = 0;
   parts.forEach(function (p) {
