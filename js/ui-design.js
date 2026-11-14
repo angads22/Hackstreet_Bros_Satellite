@@ -105,6 +105,14 @@
     locked: false        // true from launch until the debrief buttons
   };
 
+  // STORY-BEGIN  (everything between these two markers is the director's lines; Story rewrites the text freely)
+  // storyLine(key, design, extra) -> one short line for the director to say, or "".
+  // Keys: intro (returns STORY.intro, a list of short beats), map, briefing, orbit, build,
+  // launcher, review, mission-start, mission-end, debrief (extra = the getDebrief result).
+  var STORY = { intro: [] };
+  function storyLine(key, design, extra) { return key === "intro" ? STORY.intro : ""; }
+  // STORY-END
+
   // ---------------------------------------------------------------- small helpers
   function list(x) { return Array.isArray(x) ? x : []; }
   function byId(items, id) {
@@ -198,8 +206,11 @@
               red: "--pal-red", blue: "--pal-cell", navy: "--pal-cell-dark", sky: "--pal-dark", skin: "--pal-skin",
               hair: "--pal-hair", mouth: "--pal-mouth", portrait: "--pal-portrait", night: "--pal-night" };
 
+  // SAT-BEGIN  (everything between these two markers draws the satellite)
+  // satelliteArt(design, change) -> an element showing the satellite built so far.
+  // `change` is optional: { id: partId, kind: "add" | "remove" }, the click that just happened.
   // The satellite on the bench grows as each category gets a part.
-  function satelliteArt(design) {
+  function satelliteArt(design, change) {
     var has = {};
     list(design.parts).forEach(function (id) {
       var p = byId(data("PARTS"), id);
@@ -226,6 +237,7 @@
       CATEGORIES.map(function (c) { return (has[c.id] ? "" : "no ") + c.name.toLowerCase(); }).join(", ");
     return art("0 0 24 13", r, label, "sat");
   }
+  // SAT-END
 
   // Mission control, who briefs the player.
   function directorArt() {
