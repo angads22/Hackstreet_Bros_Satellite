@@ -52,6 +52,18 @@ What a strict judge would mark down today, and what we do about it. Recheck this
 | **Orbit choice is solved** (polar orbit wins both objectives, red team B2). | Creativity | Retuned: low orbit now wins wildfire on every tier and polar orbit wins sea ice (`tests/balance.js`). **Still open:** geostationary wins nothing, because its real advantage, minutes-fast fire detection, is not scored yet (red team N5). |
 | **New topics without NASA data would weaken Relevance.** | Relevance | Phase F topics are chosen by what NASA data we can actually download (for example NASA Ozone Watch), not by era. Any topic without real data is labelled as game values. |
 
+### The 1957 campaign: content plan
+
+The campaign opens in the International Geophysical Year. The player starts with sourced 1957-58 technology and buys their way forward through research, in roughly the order history did it.
+
+- **Era topics** (open at the start or early in the tree): *radiation belts* (Explorer 1 and 3 found the Van Allen belts in 1958), *solar activity* (the IGY was timed for the solar maximum), and *first weather pictures* (Vanguard 2 in 1959, TIROS-1 in 1960).
+- **Modern topics** stay, locked behind late research: wildfire (thermal infrared) and sea ice (synthetic aperture radar, first flown on Seasat in 1978).
+- **Era parts and rockets** are new rows in the existing formats: a Geiger-counter package, mercury and silver-zinc batteries, Vanguard's first silicon solar cells, a 108 MHz Minitrack beacon, a vidicon TV camera with tape recorder, and the Juno I, Vanguard and Thor launchers. Numbers come from NASA NSSDCA records, NASA history pages and other cited sources; anything else is labelled ESTIMATE or GAME VALUE.
+- **Real era data:** monthly sunspot numbers from SILSO (Royal Observatory of Belgium, CC BY-NC 4.0) for 1957 onward. They drive the solar-activity topic month by month and how often solar storms strike in each campaign year: 1957-58 was the strongest solar maximum on record, 1964 the quietest year.
+- **Modern NASA data** (FIRMS, NSIDC) stays for the modern topics, always framed as what today's satellites see.
+
+Research ends at today's parts, so the tree itself is a timeline of satellite technology.
+
 ### NASA data in the game
 
 To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else (no `fetch`).
@@ -237,6 +249,29 @@ const CAMPAIGN = {
   blurb: "One line the hub shows."
 }
 ```
+
+**Research fields** (approved by the data owner), in addition to the record above:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `year` | number | When this technology really arrived. Shown on the node as history ("1958: Vanguard 1"); buying it earlier is allowed. |
+| `requires_lessons` | array of lesson ids | Best practices the player must have **shown in flight** before buying. The back end detects them from the campaign's mission history. |
+| `requires_knowledge` | object, topic id to share | Data from earlier satellites: how much the player must already know about a topic (for example `{ "radiation": 0.3 }`), just as Explorer 3 followed up Explorer 1's puzzling data. |
+
+**Lessons** (fixed ids, detected by `js/mission.js` when a campaign mission is recorded):
+
+| Id | Earned when a recorded mission... |
+| --- | --- |
+| `margins` | flew with mass and power margins of 10% or more |
+| `all_data` | sent home all the data its instruments made |
+| `three_stars` | earned 3 stars |
+| `storm_survived` | met a solar storm and lost no part |
+| `protected` | had a part on board cancel an event's penalty |
+| `spare` | carried two or more parts in a required category |
+| `batteries_ran_out` | ended because its batteries ran down (the lesson that leads to solar cells) |
+| `new_topic` | flew on a second topic |
+
+**Battery-only satellites.** A spacecraft with a battery and no solar panel may launch, as Sputnik 1 and Explorer 1 did. It runs until the battery is spent (battery energy divided by power draw), then the mission ends: Sputnik 1 fell silent after about 21 days, Vanguard 1's solar-powered transmitter ran for more than six years. The readiness review shows this as a warning, not a blocker.
 
 **Tier field:** `grant_musd`, optional, overrides `CAMPAIGN.grant_musd` for that tier. In a campaign, `budget_musd` is the **starting treasury**.
 
@@ -495,9 +530,12 @@ newCampaignDesign()             // an empty design that belongs to the campaign 
                                 // null if there is no campaign or it has finished. newDesign() stays a standalone mission.
 getCampaign()                   // the saved state, or null
 resetCampaign()
-getHubInfo()                    // { year, treasury_musd, topics: [{ id, name, available, knowledge, science_so_far,
-                                //   next_payout_estimate_musd, locked_reason }], research: [{ id, name, cost_musd,
-                                //   owned, affordable, requires_met, blurb }], finished, won }
+getHubInfo()                    // { year, treasury_musd, lessons: [ids earned], topics: [{ id, name, available, knowledge,
+                                //   science_so_far, next_payout_estimate_musd, locked_reason }],
+                                //   research: [{ id, name, year, depth, cost_musd, blurb, owned, affordable, requires_met,
+                                //   missing: [plain-English reasons it cannot be bought yet], unlocks_names: [...] }],
+                                //   missions, finished, won }
+                                // depth = longest chain of prerequisites, so a tree screen can place each node in a column.
 buyResearch(id)                 // { ok, reason }
 isPartAvailable(id), isLauncherAvailable(id), isObjectiveAvailable(id)   // false only when locked by research
 previewPayout(design)           // { expected_payout_musd, knowledge_before, knowledge_after, novelty, cost_musd, net_musd }
@@ -511,7 +549,7 @@ Changes in a campaign:
 - `runChecks` adds `part-locked`, `launcher-locked` and `objective-locked` blockers.
 - `startMission` returns null if there are blockers, takes a copy of the design (later edits never change a flown mission), and deducts the cost from the treasury.
 - `stepMonth`'s `event` carries each choice's real odds: `choices[i].fail_chance_now`, which includes the thin-margin penalty.
-- `recordResult` rejects an unfinished mission and pays only once. It also returns `{ payout_musd, knowledge_before, knowledge_after, novelty, treasury_musd, year, bailout, campaign_over, won }`.
+- `recordResult` rejects an unfinished mission and pays only once. It also returns `{ payout_musd, knowledge_before, knowledge_after, novelty, treasury_musd, year, bailout, campaign_over, won, lessons_new }` (`lessons_new`: lesson ids first earned on this mission).
 - `getDebrief` adds `payout_musd`, `knowledge_before`, `knowledge_after`, `novelty`, `best_next_topic` and `knowledge_paragraph` (the `saturated` or `breakthrough` text, or empty), and `breakdown` has `efficiency` and `novelty` instead of `budget`.
 - Campaign rules apply only to designs from `newCampaignDesign()`. A design from `newDesign()` is always a standalone mission, even while a campaign is saved.
 - The seed: without a campaign, the same design replays the same mission exactly. In a campaign, the mission number is added, so each flight has fresh luck.
