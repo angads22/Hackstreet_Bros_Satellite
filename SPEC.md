@@ -66,6 +66,17 @@ The campaign opens in the International Geophysical Year. The player starts with
 
 Research ends at today's parts, so the tree itself is a timeline of satellite technology.
 
+### Challenge text: what we cover and what is still open
+
+From the official challenge text (Details tab, saved 2026-11-14). Covered: objective before engineering; consequences across mass, power, budget and data; launch vehicle, orbit and mass compatibility; instruments with mass, power, cost, data and science; plain-language orbit trade-offs; why a mission succeeded or failed; scoring for science, efficiency and decisions; difficulty levels; random events; redesign and rerun; save codes; real-mission comparison; tutorials and hints.
+
+Open, in order of weight in the challenge text:
+
+1. **Team play for up to four**, with roles that pull against each other. It is in the Objectives, not only the extras. Proposed: pass-and-play, one subsystem per player, a goal per role, and a readiness review everyone signs. Needs a data file for roles: data owner to approve.
+2. **Time as a resource** (development time, not only lifetime). Proposed: a build time per part, shown on the readiness review and advancing the campaign calendar. Needs a new part field: data owner to approve.
+3. **Structure and attitude control** are named components but are not parts yet. Proposed: two new part categories with one or two simple parts each. Changes the data format: data owner to approve.
+4. **"No single perfect solution."** Checked by `tests/balance.js`: at least two different designs earn three stars for every objective.
+
 ### NASA data in the game
 
 To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else (no `fetch`).
@@ -93,15 +104,19 @@ In a campaign, the seven screens sit between visits to the **Campaign hub**, whi
 6. **Mission.** The simulation runs month by month. Two or three events interrupt it, and the player makes one decision per event. *Teaches: designs get tested by things you did not plan.*
 7. **Debrief.** The game shows the score, names the one thing that limited the mission, and suggests one change. A button sends the player back to Build with the same design loaded. *Teaches: iterate.*
 
+**The four mission segments** (Resources tab: NASA's *Design and Develop Science Missions*) label the screens and the debrief: the Launch vehicle screen is the **launch segment**; Build is the **space segment** (spacecraft and instruments); the data budget and downlink are the **ground segment**; the science returned is the **user segment**. The debrief gives one line per segment.
+
 ### Difficulty tiers
 
 Tiers reuse the same screens and parts. Only the numbers in the data file change, so they cost almost no extra code. Earning two stars unlocks the next tier.
 
-| Tier | Budget | Events per mission | Hints |
-| --- | --- | --- | --- |
-| 1. Training | Generous | 1 | On, with a short tutorial |
-| 2. Standard | Tight | 2 | On request |
-| 3. Expert | Tightest | 3 | Off |
+| Tier (`id`) | Name shown | Budget | Events per mission | Hints |
+| --- | --- | --- | --- | --- |
+| 1 (`training`) | Initial Feasibility | Generous | 1 | On, with a short tutorial |
+| 2 (`standard`) | Trade Space | Tight | 2 | On request |
+| 3 (`expert`) | Point Design | Tightest | 3 | Off |
+
+The names are JPL's Concept Maturity Levels 2, 3 and 4, the stages where a real mission concept is shaped, which is exactly what the game simulates (Resources tab: "Concept Maturity Levels"; NASA "Mission Development 101: CMLs"). CML 1, "Cocktail Napkin", is free for a tutorial. The ids stay `training`, `standard` and `expert` so saves and unlocks keep working.
 
 Tier 1 is a must-have. Tiers 2 and 3 are the first stretch items, because they add replay value for an hour of work.
 
@@ -307,7 +322,7 @@ const HINTS = {
 
 **Event field:** `objectives`, an optional array of objective ids. If present, the event fires only on missions for those topics.
 
-**Debrief text** in `data/debrief.js`: one short paragraph per limiting factor, keyed `mass`, `power`, `budget`, `data`, `event`, `design` and `none`, plus two campaign keys: `saturated` (this mission's knowledge gain was under 15% of a first mission's on the topic) and `breakthrough` (over 60%: a first look at a new topic). `design` means nothing ran short but the instruments or orbit did not suit the objective; `none` means the target was reached.
+**Debrief text** in `data/debrief.js`: one short paragraph per limiting factor, keyed `mass`, `power`, `budget`, `data`, `event`, `design` and `none`, plus two campaign keys: `saturated` (this mission's knowledge gain was under 15% of a first mission's on the topic) and `breakthrough` (over 60%: a first look at a new topic). One more key, `disciplines` (approved by the data owner), maps each limiting factor to the name NASA Goddard's Mission Design Lab uses for that discipline (Resources tab: "Mission Design Lab"): mass to Structures, power to Power, data to Communications, budget to Cost, event to Risk; a wrong orbit to Orbit and trajectory and a wrong instrument to Science instruments. `design` means nothing ran short but the instruments or orbit did not suit the objective; `none` means the target was reached.
 
 Radar skips the resolution check (formula 6), because radar builds a synthetic aperture far larger than its antenna. This stays unless radar resolution starts to matter in play.
 
@@ -550,7 +565,9 @@ chooseEvent(mission, choice)    // choice = index into event.choices. Returns { 
 getDebrief(mission)             // { score, stars, limiting, suggestion, breakdown: { science, efficiency, margins, events, novelty },
                                 //   science, science_target, paragraph, real_mission, events, ended_early,
                                 //   real_world: { text, ...numbers } comparing the mission with NASA data, or null,
-                                //   closest_mission: { id, name, year, agency, blurb, shared: [plain-English reasons] } or null }
+                                //   closest_mission: { id, name, year, agency, blurb, shared: [plain-English reasons] } or null,
+                                //   limiting_name: the Mission Design Lab discipline, for example "Power" or "Cost",
+                                //   segments: [{ id: "launch" | "space" | "ground" | "user", name, text }] one line each }
 recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null) }
 getProgress()                   // { best_stars: { tierId: n }, best_score: { tierId: n } }
 isTierUnlocked(tierId)          // true for Training, and for any tier after one with 2+ stars
@@ -755,7 +772,8 @@ Where each check is fixed:
 | Score and stars | `d = getDebrief(mission)`: `score`, `stars` | Stars at 50, 70 and 90 points. |
 | Score breakdown | `d.breakdown`: science (of 50), efficiency (of 15), margins (of 15), events (of 10), novelty (of 10) | Five short rows. |
 | Science | `d.science` against `d.science_target` | |
-| What limited you | `d.limiting` as the heading, then `d.paragraph` | The heading names one factor: mass, power, budget, data, event, design or none. |
+| What limited you | `d.limiting_name` as the heading ("Power limited this mission"), then `d.paragraph` | `d.limiting` stays the stable key for code. |
+| The four segments | `d.segments` | One short line each for launch, space, ground and user. |
 | Try this | `d.suggestion` | One concrete change. This is the most important line on the screen. |
 | Against the real Earth | `d.real_world.text` | The paragraph comparing the mission with NASA data, for example how many of 2025's real fires the design would have reported. Show it prominently: it is our strongest link to NASA data. |
 | Your design's real twin | `d.closest_mission` | "Your design is closest to TIROS-1 (1960, NASA)", then its `shared` reasons ("both carried TV cameras", "both flew in low orbit") and its `blurb`. |
