@@ -54,15 +54,9 @@ def daylight(lat_deg=75):
         out.append(round(math.degrees(math.acos(c)) / 180, 2))
     print("daylight_share", out)
 
-if __name__ == "__main__":
-    fires(sys.argv[1])
-    sea_ice(sys.argv[2])
-    if len(sys.argv) > 3:
-        sunspots(sys.argv[3])
-    daylight()
 
 
-def sunspots(csv_path, first=1957, last=1990):
+def sunspots(csv_path, first=1957, last=2025):
     """Monthly mean total sunspot number, version 2, from SILSO
     (https://www.sidc.be/SILSO/INFO/snmtotcsv.php, CC BY-NC 4.0)."""
     rows = {}
@@ -74,3 +68,11 @@ def sunspots(csv_path, first=1957, last=1990):
     print("sunspots start_year", first)
     for y in range(first, last + 1):
         print("  ", rows[y], "//", y)
+
+
+if __name__ == "__main__":
+    fires(sys.argv[1])
+    sea_ice(sys.argv[2])
+    if len(sys.argv) > 3:
+        sunspots(sys.argv[3])
+    daylight()
