@@ -14,7 +14,11 @@
   <div class="wrap">
     <header class="topbar">
       <div class="brand">
-        <span class="brand-name">STARLINE</span>
+        <div class="brand-top">
+          <span class="brand-name">STARLINE</span>
+          <!-- LIVE DATA or SNAPSHOT: which data the game is using (getLiveData). Filled in by js/ui-design.js. -->
+          <span class="data-badge" id="data-badge" role="status" hidden></span>
+        </div>
         <span class="brand-status" id="status">Space Mission Design Game</span>
       </div>
       <p class="objective" id="objective" aria-live="polite" hidden></p>
