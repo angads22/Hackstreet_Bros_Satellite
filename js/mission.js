@@ -30,9 +30,13 @@ function makeRandom(seed) {                 // mulberry32
 }
 
 // Index of a random event, weighted by its orbit_weight for this orbit.
-function pickWeighted(pool, orbitId, rand) {
+function pickWeighted(pool, orbitId, rand, year) {
+  var sn = sunspots(year, null);
   var weights = pool.map(function (e) {
-    return (e.orbit_weight && orbitId && e.orbit_weight[orbitId] !== undefined) ? e.orbit_weight[orbitId] : 1;
+    var w = (e.orbit_weight && orbitId && e.orbit_weight[orbitId] !== undefined) ? e.orbit_weight[orbitId] : 1;
+    // Solar storms follow the real solar cycle (SILSO): common in 1958, rare in 1964.
+    if (e.id === "solar-storm" && sn !== null) w *= solarActivityFactor(sn);
+    return w;
   });
   var total = weights.reduce(function (a, b) { return a + b; }, 0), r = rand() * total;
   for (var i = 0; i < weights.length; i++) { r -= weights[i]; if (r < 0) return i; }
@@ -60,9 +64,11 @@ function startMission(design) {
 
   // Campaign: pay at launch, count the flight, and give each flight fresh luck.
   var flight = 0, scienceBefore = 0;
+  var startYear = typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : null;
   if (design.campaign) {
     var c = getCampaign();
     if (!c || c.finished) return null;
+    startYear = c.year;
     c.treasury_musd = round(c.treasury_musd - launchTotals.cost_musd, 3);
     c.flights = (c.flights || 0) + 1;
     flight = c.flights;
@@ -73,17 +79,22 @@ function startMission(design) {
   var orbit = getOrbit(design.orbit);
   var tier = getTier(design.tier);
   var lifetime = orbit ? orbit.lifetime_months : 12;
+  // Battery-only satellites fall silent when the battery is spent (Sputnik 1: about 21 days).
+  var batteryMonths = batteryLifeMonths(design);
+  var batteryLimited = batteryMonths !== null && batteryMonths < lifetime;
+  if (batteryLimited) lifetime = Math.max(1, Math.round(batteryMonths));
   var seed = designSeed(design);
   if (flight) seed = (seed ^ Math.imul(flight, 2654435761)) >>> 0;
   var rand = makeRandom(seed);
 
   // Pick distinct events and distinct months (never month 1 or the last month).
-  var pool = EVENTS.slice();
+  // Events tied to topics (the optional `objectives` field) fire only on those missions.
+  var pool = EVENTS.filter(function (e) { return !e.objectives || e.objectives.indexOf(design.objective) !== -1; });
   var count = Math.min(tier ? tier.events : 1, pool.length, Math.max(0, lifetime - 2));
   var schedule = [];
   var usedMonths = {};
   for (var i = 0; i < count; i++) {
-    var ev = pool.splice(pickWeighted(pool, orbit ? orbit.id : null, rand), 1)[0];
+    var ev = pool.splice(pickWeighted(pool, orbit ? orbit.id : null, rand, startYear), 1)[0];
     var month;
     do { month = 2 + Math.floor(rand() * (lifetime - 2)); } while (usedMonths[month]);
     usedMonths[month] = true;
@@ -104,6 +115,8 @@ function startMission(design) {
     rand: rand,
     month: 0,
     lifetime_months: lifetime,
+    battery_limited: batteryLimited,   // true: the mission ends when the battery runs down
+    start_year: startYear,
     science: 0,
     schedule: schedule,
     pending_event: null,
@@ -159,6 +172,7 @@ function eventWithOdds(mission, event) {
 }
 
 function stepMonth(mission) {
+  if (!mission) return null;
   if (mission.ended || mission.pending_event) {
     return { month: mission.month, science: round(mission.science, 1),
              event: eventWithOdds(mission, mission.pending_event), ended: mission.ended };
@@ -167,7 +181,8 @@ function stepMonth(mission) {
   var cal = calendarMonth(mission.month);
 
   // Earn this month's science, unless an event cost us the month.
-  var rate = scienceRate(mission.design, mission.broken, cal);
+  var year = mission.start_year === null ? null : mission.start_year + Math.floor((mission.month - 1) / 12);
+  var rate = scienceRate(mission.design, mission.broken, cal, year);
   var observing = mission.lost_months === 0;
   tallyRealWorld(mission, rate, cal, observing);
   if (!observing) {
@@ -186,9 +201,13 @@ function stepMonth(mission) {
   }
   if (event) mission.pending_event = event;
 
-  if (!event && mission.month >= mission.lifetime_months) mission.ended = true;
+  if (!event && mission.month >= mission.lifetime_months) {
+    mission.ended = true;
+    if (mission.battery_limited) mission.end_cause = "batteries";
+  }
   return { month: mission.month, science: round(mission.science, 1), event: eventWithOdds(mission, event), ended: mission.ended,
-           calendar_month: cal, month_name: MONTH_NAMES[cal], real: realThisMonth(mission.design.objective, cal) };
+           calendar_month: cal, month_name: MONTH_NAMES[cal], year: year,
+           real: realThisMonth(mission.design.objective, cal, year) };
 }
 
 // ------------------------------------------------------------------ real NASA data
@@ -202,9 +221,13 @@ function calendarMonth(missionMonth) {
 }
 
 // What the real Earth looked like this calendar month, for the Mission screen.
-function realThisMonth(objectiveId, cal) {
+function realThisMonth(objectiveId, cal, year) {
   var e = earthFor(objectiveId);
   if (!e) return null;
+  if (e.sunspots) {
+    var sn = sunspots(year, cal);
+    return sn === null ? null : { sunspots: sn, year: year };
+  }
   if (e.monthly_share) {
     return { fires: Math.round(e.detections * e.monthly_share[cal]), year: e.year };
   }
@@ -241,6 +264,18 @@ function tallyRealWorld(mission, rate, cal, observing) {
 function realWorldSummary(mission) {
   var e = earthFor(mission.design.objective);
   if (!e) return null;
+  if (e.sunspots && mission.start_year !== null) {
+    var y0 = mission.start_year, sn0 = sunspots(y0, null), all = [];
+    e.sunspots.monthly.forEach(function (row) { all.push(mean(row)); });
+    var peak = Math.max.apply(null, all), quiet = Math.min.apply(null, all);
+    return {
+      year: y0, sunspots: round(sn0, 0),
+      text: "In " + y0 + " the Sun averaged " + Math.round(sn0) + " sunspots a month (SILSO, Royal Observatory of Belgium). " +
+        "Between " + e.sunspots.start_year + " and " + (e.sunspots.start_year + all.length - 1) + " the yearly average ran from " +
+        Math.round(quiet) + " to " + Math.round(peak) + ": the Sun has an 11-year cycle, so when you fly decides how much there is to see. " +
+        "The International Geophysical Year was timed for the 1957-58 maximum, the strongest on record."
+    };
+  }
   if (e.monthly_share) {
     var years = mission.month / 12;
     var seen = mission.real.fires_in_view, reported = mission.real.fires_reported;
@@ -282,6 +317,7 @@ function realWorldSummary(mission) {
 // Returns what happened: { id, title, choice, label, protected, failed_part,
 // ended, ended_early }. failed_part is a part id or null.
 function chooseEvent(mission, choice) {
+  if (!mission) return null;
   var event = mission.pending_event;
   if (!event) return null;
   // An index outside the list counts as the first choice, and is recorded as such.
@@ -326,6 +362,7 @@ function chooseEvent(mission, choice) {
     mission.end_reason = { event: event.id, title: event.title, category: missing };
   } else if (mission.month >= mission.lifetime_months) {
     mission.ended = true;
+    if (mission.battery_limited) mission.end_cause = "batteries";
   }
   return { id: record.id, title: record.title, choice: record.choice, label: record.label,
            protected: record.protected, failed_part: record.failed_part,
@@ -339,6 +376,7 @@ function chooseEvent(mission, choice) {
 var EVENT_PENALTY = { part: 4, month: 1, per_musd: 2 };   // points off the 10 event points
 
 function getDebrief(mission) {
+  if (!mission) return null;
   var design = mission.design;
   var objective = getObjective(design.objective);
   var totals = mission.launch_totals || getTotals(design);
@@ -383,6 +421,7 @@ function getDebrief(mission) {
     paragraph: DEBRIEF[lim.key] || "",
     real_mission: objective ? objective.real_mission : "",
     real_world: realWorldSummary(mission),
+    closest_mission: closestMission(design),
     events: mission.events_seen,
     ended_early: mission.ended_early,
     payout_musd: k.payout_musd,
@@ -452,6 +491,14 @@ function limitingFactor(mission, totals, scienceShare) {
     return { key: "event", suggestion: "The " + r.title.toLowerCase() + " knocked out your only working " + r.category +
       " part. " + (guard ? "Fly the " + guard.name.toLowerCase() + ", which guards against it, or carry a spare."
                          : "Carry a spare " + r.category + " part, or pick the safer option next time.") };
+  }
+
+  // A battery-only satellite that fell silent: the history lesson that leads to solar cells.
+  if (mission.end_cause === "batteries" && scienceShare < 1) {
+    var cells = PARTS.filter(function (p) { return p.category === "power" && solarPowerW(p) > 0 && isPartAvailable(p.id); })[0];
+    return { key: "power", suggestion: "Your batteries ran down after " + mission.month + " month" + (mission.month > 1 ? "s" : "") +
+      " and the satellite fell silent, as Sputnik 1 did after 21 days. " +
+      (cells ? "Fit the " + cells.name.toLowerCase() + " so the Sun keeps it running." : "Solar cells would keep it running: research them.") };
   }
 
   // An orbit that cannot see the target at all comes before everything else.
@@ -630,6 +677,7 @@ function newCampaign(tierId) {
     treasury_musd: tier.budget_musd,
     knowledge_science: knowledge,
     research: [],
+    lessons: [],
     missions: [],
     flights: 0,
     finished: false,
@@ -653,38 +701,50 @@ function grantFor(c) {
   return typeof CAMPAIGN !== "undefined" ? CAMPAIGN.grant_musd : 0;
 }
 
-// The cheapest design that can launch for any open topic, found by trying the
-// cheapest combinations (never a hard-coded number). Used to prevent soft locks.
+// The cheapest design that can launch for any open topic, found by search (never a
+// hard-coded number). Used to prevent soft locks. Parts are tried in price order and a
+// branch stops as soon as it cannot beat the best design found, so it stays fast
+// (a few milliseconds) even with every part unlocked. Battery-only designs count.
 function cheapestLaunchCost(c) {
   var key = c.research.slice().sort().join(",");
   if (cheapestCache[key] !== undefined) return cheapestCache[key];
-  function avail(cat) { return PARTS.filter(function (p) { return p.category === cat && isPartAvailable(p.id); }); }
+  function byCost(list) { return list.slice().sort(function (a, b) { return a.cost_musd - b.cost_musd; }); }
+  function avail(cat) { return byCost(PARTS.filter(function (p) { return p.category === cat && isPartAvailable(p.id); })); }
+  var power = avail("power"), comms = avail("comms"), comp = avail("computer"), prop = [null].concat(avail("propulsion"));
+  var launchers = byCost(LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id); }));
   var best = Infinity;
   OBJECTIVES.forEach(function (o) {
     if (!isObjectiveAvailable(o.id)) return;
+    var ins = avail("instrument").filter(function (p) {
+      return p.tags.some(function (t) { return o.wants.indexOf(t) !== -1; });
+    });
     ORBITS.forEach(function (orb) {
       if (o.orbit_fit && !o.orbit_fit[orb.id]) return;
-      avail("instrument").forEach(function (ins) {
-        avail("power").filter(function (p) { return solarPowerW(p) > 0; }).forEach(function (pw) {
-          avail("comms").forEach(function (cm) {
-            avail("computer").forEach(function (cp) {
-              [null].concat(avail("propulsion")).forEach(function (pr) {
-                LAUNCHERS.forEach(function (l) {
-                  if (!isLauncherAvailable(l.id)) return;
-                  var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: l.id,
-                            parts: [ins.id, pw.id, cm.id, cp.id].concat(pr ? [pr.id] : []) };
-                  var cost = getTotals(d).cost_musd;
-                  if (cost >= best) return;
-                  var blockers = runChecks(d).blockers.filter(function (b) { return b.id !== "budget"; });
-                  if (!blockers.length && scienceRate(d, []).per_month > 0) best = cost;
-                });
-              });
-            });
-          });
-        });
-      });
+      for (var a = 0; a < ins.length; a++) {
+        var c1 = ins[a].cost_musd; if (c1 >= best) break;
+        for (var b = 0; b < power.length; b++) {
+          var c2 = c1 + power[b].cost_musd; if (c2 >= best) break;
+          for (var e = 0; e < comms.length; e++) {
+            var c3 = c2 + comms[e].cost_musd; if (c3 >= best) break;
+            for (var f = 0; f < comp.length; f++) {
+              var c4 = c3 + comp[f].cost_musd; if (c4 >= best) break;
+              for (var g = 0; g < prop.length; g++) {
+                var c5 = c4 + (prop[g] ? prop[g].cost_musd : 0); if (c5 >= best) continue;
+                for (var h = 0; h < launchers.length; h++) {
+                  var cost = c5 + launchers[h].cost_musd; if (cost >= best) break;
+                  var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: launchers[h].id,
+                            parts: [ins[a].id, power[b].id, comms[e].id, comp[f].id].concat(prop[g] ? [prop[g].id] : []) };
+                  var blockers = runChecks(d).blockers.filter(function (x) { return x.id !== "budget"; });
+                  if (!blockers.length && scienceRate(d, []).per_month > 0) { best = cost; break; }
+                }
+              }
+            }
+          }
+        }
+      }
     });
   });
+  best = round(best, 3);
   cheapestCache[key] = best;
   return best;
 }
@@ -699,6 +759,8 @@ function settleCampaign(mission, debrief, result) {
   c.treasury_musd = round(c.treasury_musd + debrief.payout_musd + grant - mission.extra_cost_musd, 3);
   var yearFlown = c.year;
   c.year += typeof CAMPAIGN !== "undefined" ? CAMPAIGN.years_per_mission : 1;
+  var newLessons = lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
+  c.lessons = c.lessons.concat(newLessons);
   c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
                     spent_musd: debrief.spent_musd, science: round(mission.science, 1),
                     payout_musd: debrief.payout_musd, stars: debrief.stars });
@@ -733,6 +795,7 @@ function settleCampaign(mission, debrief, result) {
   result.bailout_musd = bailout;
   result.campaign_over = c.finished;
   result.won = c.won;
+  result.lessons_new = newLessons;
 }
 
 function getHubInfo() {
@@ -752,11 +815,14 @@ function getHubInfo() {
         locked_reason: open ? null : "Needs " + researchNameFor("objectives", o.id)
       };
     }),
+    lessons: c.lessons.map(function (id) { return { id: id, name: LESSONS[id] || id }; }),
     research: (typeof RESEARCH === "undefined" ? [] : RESEARCH).map(function (r) {
       var owned = c.research.indexOf(r.id) !== -1;
-      var met = (r.requires || []).every(function (q) { return c.research.indexOf(q) !== -1; });
-      return { id: r.id, name: r.name, cost_musd: r.cost_musd, blurb: r.blurb, owned: owned,
-               requires_met: met, affordable: !owned && met && c.treasury_musd >= r.cost_musd };
+      var missing = researchMissing(r, c);
+      var met = missing.filter(function (m) { return m.kind !== "money"; }).length === 0;
+      return { id: r.id, name: r.name, year: r.year, depth: researchDepth(r.id), cost_musd: r.cost_musd, blurb: r.blurb,
+               owned: owned, requires: r.requires || [], requires_met: met, affordable: !owned && missing.length === 0,
+               missing: owned ? [] : missing.map(function (m) { return m.text; }), unlocks_names: unlockNames(r) };
     }),
     missions: c.missions,
     finished: c.finished,
@@ -771,9 +837,8 @@ function buyResearch(id) {
   var r = typeof RESEARCH === "undefined" ? null : RESEARCH.filter(function (x) { return x.id === id; })[0];
   if (!r) return { ok: false, reason: "No such research." };
   if (c.research.indexOf(id) !== -1) return { ok: false, reason: "Already owned." };
-  var missing = (r.requires || []).filter(function (q) { return c.research.indexOf(q) === -1; });
-  if (missing.length) return { ok: false, reason: "Needs " + missing.join(", ") + " first." };
-  if (c.treasury_musd < r.cost_musd) return { ok: false, reason: "Not enough money." };
+  var missing = researchMissing(r, c);
+  if (missing.length) return { ok: false, reason: missing.map(function (m) { return m.text; }).join(" ") };
   c.treasury_musd = round(c.treasury_musd - r.cost_musd, 3);
   c.research.push(id);
   saveCampaign(c);
@@ -824,4 +889,109 @@ function importSave(code) {
   } catch (e) {
     return { ok: false, reason: "The code could not be read." };
   }
+}
+
+// ------------------------------------------------------------------ research tree and lessons
+// Best practices the player must show in flight before some research opens (SPEC.md, "Lessons").
+var LESSONS = {
+  margins: "Flew with 10% mass and power margins",
+  all_data: "Sent home all the data its instruments made",
+  three_stars: "Earned 3 stars",
+  storm_survived: "Met a solar storm and lost no part",
+  "protected": "A part on board cancelled an event's penalty",
+  spare: "Carried a spare in a required category",
+  batteries_ran_out: "Watched a satellite fall silent when its batteries ran down",
+  new_topic: "Flew on a second topic"
+};
+
+// The lessons one recorded mission demonstrates.
+function lessonsFrom(mission, debrief, c) {
+  var out = [], t = mission.launch_totals;
+  if (t.margins.mass !== null && t.margins.mass >= LOW_MARGIN && t.margins.power !== null && t.margins.power >= LOW_MARGIN) out.push("margins");
+  if (t.data_gb_day > 0 && t.data_returned_gb_day >= t.data_gb_day) out.push("all_data");
+  if (debrief.stars === 3) out.push("three_stars");
+  if (mission.events_seen.some(function (e) { return e.id === "solar-storm" && !e.failed_part; })) out.push("storm_survived");
+  if (mission.events_seen.some(function (e) { return e.protected; })) out.push("protected");
+  var counts = {};
+  designParts(mission.design).forEach(function (p) { counts[p.category] = (counts[p.category] || 0) + 1; });
+  if (REQUIRED_CATEGORIES.some(function (cat) { return (counts[cat] || 0) >= 2; })) out.push("spare");
+  if (mission.end_cause === "batteries") out.push("batteries_ran_out");
+  var topics = {};
+  c.missions.forEach(function (m) { topics[m.objective] = true; });
+  topics[mission.design.objective] = true;
+  if (Object.keys(topics).length >= 2) out.push("new_topic");
+  return out;
+}
+
+function researchById(id) {
+  return typeof RESEARCH === "undefined" ? null : RESEARCH.filter(function (r) { return r.id === id; })[0] || null;
+}
+
+// What still stands between the player and this research, as { kind, text } items.
+function researchMissing(r, c) {
+  var out = [];
+  (r.requires || []).forEach(function (q) {
+    if (c.research.indexOf(q) === -1) { var rq = researchById(q); out.push({ kind: "research", text: "Needs " + (rq ? rq.name : q) + "." }); }
+  });
+  (r.requires_lessons || []).forEach(function (l) {
+    if (c.lessons.indexOf(l) === -1) out.push({ kind: "lesson", text: "Show in flight: " + (LESSONS[l] || l) + "." });
+  });
+  var rk = r.requires_knowledge || {};
+  Object.keys(rk).forEach(function (topic) {
+    var o = getObjective(topic), k = knowledgeOf(o, c.knowledge_science[topic] || 0);
+    if (k < rk[topic]) out.push({ kind: "knowledge", text: "Know " + Math.round(rk[topic] * 100) + "% of the topic " +
+      (o ? o.name : topic) + " (now " + Math.round(k * 100) + "%)." });
+  });
+  if (c.treasury_musd < r.cost_musd) out.push({ kind: "money", text: "Costs $" + r.cost_musd + "M." });
+  return out;
+}
+
+// Longest chain of prerequisites, so a tree screen can put each node in a column.
+function researchDepth(id, seen) {
+  seen = seen || {};
+  if (seen[id]) return 0;            // guards against a cycle in the data
+  seen[id] = true;
+  var r = researchById(id);
+  if (!r || !(r.requires || []).length) return 0;
+  return 1 + Math.max.apply(null, r.requires.map(function (q) { return researchDepth(q, Object.assign({}, seen)); }));
+}
+
+function unlockNames(r) {
+  var u = r.unlocks || {}, out = [];
+  (u.parts || []).forEach(function (id) { var p = getPart(id); out.push(p ? p.name : id); });
+  (u.launchers || []).forEach(function (id) { var l = getLauncher(id); out.push(l ? l.name : id); });
+  (u.objectives || []).forEach(function (id) { var o = getObjective(id); out.push(o ? "Topic: " + o.name : id); });
+  OBJECTIVES.forEach(function (o) { if (o.requires_research === r.id) out.push("Topic: " + o.name); });
+  return out;
+}
+
+// ------------------------------------------------------------------ real twin
+function lcFirst(text) { return text ? text.charAt(0).toLowerCase() + text.slice(1) : ""; }
+// The real satellite most like the player's design (data/missions.js): same topic
+// first, then orbit, instrument types, kind of power and mass. Returns
+// { id, name, year, agency, blurb, shared: [reasons] } or null.
+function closestMission(design) {
+  if (typeof MISSIONS === "undefined" || !MISSIONS.length) return null;
+  var parts = designParts(design);
+  var tags = parts.filter(function (p) { return p.category === "instrument"; })
+                  .reduce(function (t, p) { return t.concat(p.tags); }, []);
+  var hasSolar = parts.some(function (p) { return p.category === "power" && solarPowerW(p) > 0; });
+  var mass = sum(parts, function (p) { return p.mass_kg; });
+  var orbit = getOrbit(design.orbit);
+  var best = null;
+  MISSIONS.forEach(function (m) {
+    var shared = [], score = 0;
+    if (m.objective === design.objective) { score += 10; shared.push("both studied " + lcFirst((getObjective(m.objective) || {}).name || m.objective)); }
+    if (m.orbit === design.orbit) { score += 4; shared.push("both flew in " + (orbit ? lcFirst(orbit.name) : m.orbit)); }
+    var common = m.tags.filter(function (t) { return tags.indexOf(t) !== -1; });
+    if (common.length) { score += 3 * common.length; shared.push("both carried " + common.join(" and ") + " instruments"); }
+    if ((m.power === "solar") === hasSolar) { score += 2; shared.push(hasSolar ? "both ran on solar power" : "both ran on batteries alone"); }
+    var ratio = mass > 0 ? Math.max(mass, m.mass_kg) / Math.min(mass, m.mass_kg) : 1000;
+    score += Math.max(0, 3 - Math.log(ratio) / Math.log(3));   // within a factor of 3 scores well
+    if (ratio < 2) shared.push("about the same mass (" + Math.round(mass) + " kg against " + m.mass_kg + " kg)");
+    if (!best || score > best.score) best = { score: score, m: m, shared: shared };
+  });
+  if (!best) return null;
+  return { id: best.m.id, name: best.m.name, year: best.m.year, agency: best.m.agency,
+           blurb: best.m.blurb, shared: best.shared };
 }

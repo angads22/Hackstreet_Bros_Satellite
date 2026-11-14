@@ -17,6 +17,11 @@ One row per resource used. QA copies this into the project page.
 | GOES-R series | NOAA / NASA | https://www.goes-r.gov/ | `data/objectives.js`: wildfire real mission and 2 km resolution need (outside source) | No |
 | NASA FIRMS, MODIS active-fire detections, all countries, 2025 | NASA | https://firms.modaps.eosdis.nasa.gov/country/ | `data/earth.js`: monthly fire counts, share of fires each orbit can see (built by `tools/earth_data.py`) | Downloaded and processed |
 | NSIDC Sea Ice Index, version 4 (G02135), Arctic monthly extent | NSIDC (NASA DAAC) / NOAA | https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/ | `data/earth.js`: 2025 monthly extent and 1981-2010 average | Downloaded and processed |
+| NSSDCA Master Catalog: Vanguard 2 (1959-001A) and TIROS 1 (1960-002B) | NASA | https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A and ?id=1960-002B | `data/parts.js` era parts (photocells, vidicon cameras, silicon cells, NiCd batteries, 235 MHz link), `data/launchers.js` (Vanguard, Thor-Able) | Opened by the AI; NEEDS HUMAN CHECK |
+| Explorer 1 overview | NASA | https://www.nasa.gov/history/explorer-1-overview/ | `data/parts.js` (Geiger counter package), `data/launchers.js` (Juno I), `data/objectives.js` (radiation topic) | Opened by the AI; NEEDS HUMAN CHECK |
+| SILSO monthly mean total sunspot number, version 2 | Royal Observatory of Belgium (CC BY-NC 4.0) | https://www.sidc.be/SILSO/datafiles | `data/earth.js` solar entry (1957-1990), drives the solar topic and solar-storm odds (built by `tools/earth_data.py`) | Downloaded and processed |
+| Explorer 1, Vanguard 1 and Sputnik 1 figures (mass, batteries, transmitters, operating days) | Secondary sources found by web search | see `data/parts.js` source fields | Era battery and beacon parts | NEEDS HUMAN CHECK against NSSDCA |
+| Real missions for the debrief comparison (Explorer 1 and 3, Vanguard 2, TIROS-1, SOLRAD 1, SDO, GOES-R, Terra, FOREST, PlanetScope, Seasat, RADARSAT Constellation, ICEYE) | NASA, NOAA, CSA, Planet, ICEYE, OroraTech | see the `source` field of each record in `data/missions.js` | Debrief "your design's real twin" | NEEDS HUMAN CHECK (masses marked) |
 
 ## Tools and other resources
 

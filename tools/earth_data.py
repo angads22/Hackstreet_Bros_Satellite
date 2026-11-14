@@ -5,7 +5,8 @@ Not part of the game (the game needs no build step). Run with Python 3:
   1. Download https://firms.modaps.eosdis.nasa.gov/data/country/zips/modis_2025_all_countries.zip
   2. Download https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/N_MM_extent_v4.0.csv
      for MM = 01..12 into one folder.
-  3. python3 tools/earth_data.py modis_2025_all_countries.zip path/to/nsidc_folder
+  3. Download https://www.sidc.be/SILSO/INFO/snmtotcsv.php (monthly sunspot numbers).
+  4. python3 tools/earth_data.py modis_2025_all_countries.zip path/to/nsidc_folder SN_m_tot_V2.0.csv
 """
 import csv, io, math, os, sys, zipfile
 
@@ -56,4 +57,20 @@ def daylight(lat_deg=75):
 if __name__ == "__main__":
     fires(sys.argv[1])
     sea_ice(sys.argv[2])
+    if len(sys.argv) > 3:
+        sunspots(sys.argv[3])
     daylight()
+
+
+def sunspots(csv_path, first=1957, last=1990):
+    """Monthly mean total sunspot number, version 2, from SILSO
+    (https://www.sidc.be/SILSO/INFO/snmtotcsv.php, CC BY-NC 4.0)."""
+    rows = {}
+    with open(csv_path) as f:
+        for r in csv.reader(f, delimiter=";"):
+            y, m, v = int(r[0]), int(r[1]), float(r[3])
+            if first <= y <= last:
+                rows.setdefault(y, [0] * 12)[m - 1] = round(v, 1)
+    print("sunspots start_year", first)
+    for y in range(first, last + 1):
+        print("  ", rows[y], "//", y)

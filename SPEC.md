@@ -8,6 +8,8 @@ A browser game where the player designs a satellite mission under tight limits, 
 
 The core loop takes about five minutes: choose an objective, build the spacecraft, check the margins, launch, read the debrief, redesign. Everything we build serves that loop. One mission that plays start to finish beats three half-built ones.
 
+KEY: At least one data set from the resources provided under the challenge has to be used. There are no data-sets in the resource tab, so resources will be used for other purposes.
+
 Missions sit inside a **campaign**. The player runs their own space programme: nobody tells them what to measure. Money and knowledge carry from one satellite to the next, money is spent at launch, and the payout is for **new** knowledge, so repeating a topic pays less each time. Sometimes the best move is a fresh topic rather than a better satellite for the same one. A single mission must still play on its own, with no campaign, at every commit.
 
 - **Platform:** plain HTML, CSS and JavaScript. No frameworks, no build step. It runs from a link.
@@ -48,7 +50,7 @@ What a strict judge would mark down today, and what we do about it. Recheck this
 | **No screens yet; the campaign adds a hub.** A half-built interface hurts usability and the demo. | Validity, Presentation | A single mission plays without a campaign at every commit. Research (Phase E) and new content (Phase F) start only once the seven screens and the hub play end to end. |
 | **The economy could bury the lesson.** | Impact | The debrief leads with what limited the mission and one concrete change; the payout comes second. |
 | **Event choices barely matter** (red team B5). | Creativity, Impact | Done: 3 stars need the science target (0 of 327 three-star missions below it); lost months and event costs count against everything they affect; each choice shows its odds (`fail_chance_now`). |
-| **With two topics, winning forces repeats.** The win needs every topic known to 60%, so a player must fly wildfire about four times, earning 1 star each as novelty falls. | Impact, Creativity | Content, not tuning: Phase F topics give the player somewhere new to go. If Phase F slips, lower `win.knowledge` for two topics. |
+| **With two topics, winning forces repeats.** *(Fixed by the 1957 content: five topics, win on three.)* The win needs every topic known to 60%, so a player must fly wildfire about four times, earning 1 star each as novelty falls. | Impact, Creativity | Content, not tuning: Phase F topics give the player somewhere new to go. If Phase F slips, lower `win.knowledge` for two topics. |
 | **Orbit choice is solved** (polar orbit wins both objectives, red team B2). | Creativity | Retuned: low orbit now wins wildfire on every tier and polar orbit wins sea ice (`tests/balance.js`). **Still open:** geostationary wins nothing, because its real advantage, minutes-fast fire detection, is not scored yet (red team N5). |
 | **New topics without NASA data would weaken Relevance.** | Relevance | Phase F topics are chosen by what NASA data we can actually download (for example NASA Ozone Watch), not by era. Any topic without real data is labelled as game values. |
 
@@ -273,6 +275,34 @@ const CAMPAIGN = {
 
 **Battery-only satellites.** A spacecraft with a battery and no solar panel may launch, as Sputnik 1 and Explorer 1 did. It runs until the battery is spent (battery energy divided by power draw), then the mission ends: Sputnik 1 fell silent after about 21 days, Vanguard 1's solar-powered transmitter ran for more than six years. The readiness review shows this as a warning, not a blocker.
 
+**Real missions** in `data/missions.js` (approved by the data owner): one global, `MISSIONS`, about a dozen real satellites the debrief can compare the player's design with, from Explorer 1 to RADARSAT. Like the NASA telescope game's results screen, but matched on the actual design.
+
+```js
+{
+  id: "explorer-1", name: "Explorer 1", year: 1958, agency: "NASA / JPL",
+  objective: "radiation",          // the topic it served
+  orbit: "leo",                    // nearest of the game's three orbits
+  tags: ["radiation"],             // its instrument types, as in parts.js
+  mass_kg: 13.97,
+  power: "battery",                // "battery" (no solar cells) or "solar"
+  blurb: "One line on what it did.",
+  source: "A page a person opened."
+}
+```
+
+Matching: same topic first, then the same orbit, shared instrument types, the same kind of power, and the nearest mass (by ratio). The debrief names the closest mission and says what the two designs share.
+
+**Hints** in `data/hints.js` (approved by the data owner): one global, `HINTS`. Draft text for Story to rewrite freely; the keys are fixed.
+
+```js
+const HINTS = {
+  screens: { hub: [...], briefing: [...], orbit: [...], build: [...], launch: [...],
+             readiness: [...], mission: [...], debrief: [...] },   // general tips, one sentence each
+  tutorial: { hub: "...", briefing: "...", ... },                  // one first-visit line per screen
+  checks: { "battery-only": "...", "power": "...", ... }           // a tip for each runChecks id
+};
+```
+
 **Tier field:** `grant_musd`, optional, overrides `CAMPAIGN.grant_musd` for that tier. In a campaign, `budget_musd` is the **starting treasury**.
 
 **Event field:** `objectives`, an optional array of objective ids. If present, the event fires only on missions for those topics.
@@ -480,7 +510,7 @@ Two rules keep the layers apart:
 
 ### Functions the front end may call
 
-The front end holds one `design` object while the player builds, and one `mission` object after launch. It changes them only through these functions, and reads the data globals (`PARTS`, `ORBITS`, `LAUNCHERS`, `OBJECTIVES`, `TIERS`, `EVENTS`, `DEBRIEF`) only to show names, blurbs and plain field values.
+The front end holds one `design` object while the player builds, and one `mission` object after launch. It changes them only through these functions, and reads the data globals (`PARTS`, `ORBITS`, `LAUNCHERS`, `OBJECTIVES`, `TIERS`, `EVENTS`, `DEBRIEF`, `CAMPAIGN`, `RESEARCH`, `EARTH`) only to show names, blurbs and plain field values. Every mission function returns `null`, never an error, when given `null` (for example after `startMission` refused a launch). `node tests/api.js` checks this whole block against the code.
 
 ```javascript
 // js/game.js (Rules)
@@ -511,14 +541,16 @@ runChecks(design)               // { blockers: [{ id, text }], warnings: [{ id, 
 
 // js/mission.js (Simulation)
 startMission(design)            // returns a mission; readable fields: month, lifetime_months, science
-stepMonth(mission)              // { month, science, event or null, ended, calendar_month (0-11), month_name,
-                                //   real: { fires, year } or { ice_extent_mkm2, ice_average_mkm2, daylight_share, year } }
+stepMonth(mission)              // { month, science, event or null, ended, calendar_month (0-11), month_name, year,
+                                //   real: { fires, year } or { ice_extent_mkm2, ice_average_mkm2, daylight_share, year }
+                                //   or { sunspots, year } or null }
                                 // While an event waits for a choice it returns the same state and does not advance.
 chooseEvent(mission, choice)    // choice = index into event.choices. Returns { id, title, label, protected,
                                 //   failed_part (part id or null), ended, ended_early }
-getDebrief(mission)             // { score, stars, limiting, suggestion, breakdown: { science, budget, margins, events },
+getDebrief(mission)             // { score, stars, limiting, suggestion, breakdown: { science, efficiency, margins, events, novelty },
                                 //   science, science_target, paragraph, real_mission, events, ended_early,
-                                //   real_world: { text, ...numbers } comparing the mission with NASA data, or null }
+                                //   real_world: { text, ...numbers } comparing the mission with NASA data, or null,
+                                //   closest_mission: { id, name, year, agency, blurb, shared: [plain-English reasons] } or null }
 recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null) }
 getProgress()                   // { best_stars: { tierId: n }, best_score: { tierId: n } }
 isTierUnlocked(tierId)          // true for Training, and for any tier after one with 2+ stars
@@ -539,6 +571,10 @@ getHubInfo()                    // { year, treasury_musd, lessons: [ids earned],
 buyResearch(id)                 // { ok, reason }
 isPartAvailable(id), isLauncherAvailable(id), isObjectiveAvailable(id)   // false only when locked by research
 previewPayout(design)           // { expected_payout_musd, knowledge_before, knowledge_after, novelty, cost_musd, net_musd }
+getHints(screen, design)        // { mode: "on" | "request" | "off", tutorial, tips: [...] }  screen = "hub", "briefing",
+                                // "orbit", "build", "launch", "readiness", "mission" or "debrief". tips lead with advice
+                                // for the design's current problems (from runChecks), then general tips. mode comes from
+                                // the tier's hints field: "off" returns no tips. design may be null.
 exportSave()                    // the whole save (campaign and tier progress) as one text code; may be long
 importSave(code)                // { ok, reason }; a bad code never crashes and never overwrites a good save
 ```
@@ -550,7 +586,7 @@ Changes in a campaign:
 - `startMission` returns null if there are blockers, takes a copy of the design (later edits never change a flown mission), and deducts the cost from the treasury.
 - `stepMonth`'s `event` carries each choice's real odds: `choices[i].fail_chance_now`, which includes the thin-margin penalty.
 - `recordResult` rejects an unfinished mission and pays only once. It also returns `{ payout_musd, knowledge_before, knowledge_after, novelty, treasury_musd, year, bailout, campaign_over, won, lessons_new }` (`lessons_new`: lesson ids first earned on this mission).
-- `getDebrief` adds `payout_musd`, `knowledge_before`, `knowledge_after`, `novelty`, `best_next_topic` and `knowledge_paragraph` (the `saturated` or `breakthrough` text, or empty), and `breakdown` has `efficiency` and `novelty` instead of `budget`.
+- `getDebrief` always returns `payout_musd`, `knowledge_before`, `knowledge_after`, `novelty`, `best_next_topic` and `knowledge_paragraph` (without a campaign they describe a first mission on the topic, and `best_next_topic` is null); in a campaign `knowledge_paragraph` holds the `saturated` or `breakthrough` text when it applies.
 - Campaign rules apply only to designs from `newCampaignDesign()`. A design from `newDesign()` is always a standalone mission, even while a campaign is saved.
 - The seed: without a campaign, the same design replays the same mission exactly. In a campaign, the mission number is added, so each flight has fresh luck.
 
@@ -576,7 +612,7 @@ Tier select -> Base map -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle 
 - **One design object.** Create it with `newDesign(tierId)` at tier select. Every screen edits the same object. Going back never clears a choice; if an earlier change breaks a later one (for example a new orbit the chosen rocket cannot reach), the Readiness review reports it.
 - **A base map** is the hub between the five design screens (Design screens owns it, in `js/ui-design.js`). It is a pixel map of a space centre with one numbered place per screen: 1 Mission Control (Briefing), 2 Tracking Station (Orbit), 3 Workshop (Build), 4 Rocket Yard (Launch vehicle), 5 Launch Pad (Readiness). The player walks between places with the arrow keys or WASD and presses E to go in, or clicks a place and walks there. Each place is marked next, done, open or locked; a place opens once the one before it has been visited and its choice made, and every place already visited stays open before launch. A gold route and an "OBJECTIVE" line point to the next place with work left, judged from `runChecks` (for example back to the Workshop while a NO GO there remains). Inside a place, the header shows the objective and a minimap; M, Esc or a click on the minimap opens the map, and "GO TO <place>" walks to the next place. From launch on, the map is locked until the Debrief.
 - **The four resource bars** (mass, power, budget, data) appear from Build onward, on Build, Launch vehicle and Readiness. Refresh them after every change with `getTotals(design)`.
-- **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Story writes the hint text.
+- **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Call `getHints(screen, design)`; the text lives in `data/hints.js`.
 
 ### Campaign hub (campaign only, outside the base map)
 
@@ -722,6 +758,7 @@ Where each check is fixed:
 | What limited you | `d.limiting` as the heading, then `d.paragraph` | The heading names one factor: mass, power, budget, data, event, design or none. |
 | Try this | `d.suggestion` | One concrete change. This is the most important line on the screen. |
 | Against the real Earth | `d.real_world.text` | The paragraph comparing the mission with NASA data, for example how many of 2025's real fires the design would have reported. Show it prominently: it is our strongest link to NASA data. |
+| Your design's real twin | `d.closest_mission` | "Your design is closest to TIROS-1 (1960, NASA)", then its `shared` reasons ("both carried TV cameras", "both flew in low orbit") and its `blurb`. |
 | Real-world cousin | `d.real_mission` | One line. |
 | Events log | `d.events`: `title`, `label`, `failed_part` | What happened and what the player chose. |
 | Buttons | | **Redesign**: back to Build with the same `design`. **New mission**: the base map with a fresh `newDesign(tier)`, Mission Control next. **Change tier**: tier select. |
@@ -753,9 +790,9 @@ Yareem holds all three back-end roles. The full ordered plan, with the timeline 
 4. **Phase E.** Research and unlocks, once the seven screens and the hub play end to end.
 5. **Phase F.** New topics chosen by available NASA data, plus era events.
 
-**Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the tests are on `main` as validity evidence: `node tests/formulas.js` (the eight formulas), `node tests/campaign.js` (the economy), `node tests/balance.js` (balance guarantees), plus the red-team harness in `tests/redteam/`.
+**Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the tests are on `main` as validity evidence: `node tests/formulas.js` (the eight formulas), `node tests/campaign.js` (the economy and research tree), `node tests/balance.js` (balance guarantees), `node tests/api.js` (the contract with the screens), `node tests/speed.js` (nothing freezes a browser), plus the red-team harness in `tests/redteam/`.
 
-**Status (Saturday night):** Phases A to D are done and on `main`. Phase E (research) waits for the screens; Phase F (new topics) next.
+**Status (Saturday night):** Phases A to F are on `main`. The 1957 campaign plays end to end in text (`node tests/play.js --campaign` on the working branch): 3 era topics plus 2 modern ones, 27 parts, 7 rockets and a 15-node research tree from 1958 solar cells to reusable rockets. A greedy campaign bot wins Training around 1963 and Standard around 1969, and times out on Expert, so a thoughtful player has room to do better. Known gaps, reported by `tests/balance.js` rather than hidden: the 1957 era flies low orbit only, as in history (polar orbits need thrusters from modern research); geostationary never wins, because fast fire detection is not scored yet (red team N5).
 
 ## Workflow
 
