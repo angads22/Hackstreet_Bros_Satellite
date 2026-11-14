@@ -268,5 +268,108 @@ function interactive() {
   });
 }
 
-if (process.argv.indexOf("-i") !== -1 || process.argv.indexOf("--interactive") !== -1) interactive();
+// ------------------------------------------------------------------ campaign mode
+// node tests/play.js --campaign      (hub -> seven screens -> payout -> hub, saved between runs in memory)
+function showHub() {
+  var h = G.getHubInfo();
+  header("H", "Campaign hub");
+  console.log("   Year " + h.year + "     Treasury $" + h.treasury_musd + "M" + (h.finished ? (h.won ? "     CAMPAIGN WON" : "     CAMPAIGN OVER") : ""));
+  console.log("\n TOPICS");
+  h.topics.forEach(function (t) {
+    var n = Math.round(t.knowledge * 20);
+    console.log("  " + pad(t.id, 10) + "[" + new Array(n + 1).join("#") + new Array(21 - n).join(".") + "] " +
+      Math.round(t.knowledge * 100) + "% known   next mission pays about $" + t.next_payout_estimate_musd + "M" +
+      (t.available ? "" : "   LOCKED: " + t.locked_reason));
+  });
+  if (h.research.length) {
+    console.log("\n RESEARCH");
+    h.research.forEach(function (r) {
+      console.log("  " + (r.owned ? "[x] " : r.affordable ? "[$] " : "[ ] ") + pad(r.id, 18) + "$" + r.cost_musd + "M  " + r.name +
+        (r.requires_met ? "" : "  (needs earlier research)"));
+    });
+  }
+  if (h.missions.length) {
+    console.log("\n MISSIONS FLOWN");
+    h.missions.forEach(function (m) {
+      console.log("   " + m.year + "  " + pad(m.objective, 9) + pad(m.orbit, 4) + " spent $" + m.spent_musd + "M, science " + m.science +
+        ", payout $" + m.payout_musd + "M, " + m.stars + " stars");
+    });
+  }
+  return h;
+}
+
+function campaign() {
+  var rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  function ask(q, cb) { rl.question("\n   ? " + q + " ", function (a) { cb(a.trim()); }); }
+  function pick(q, list, cb) {
+    ask(q + " [" + list.join(" / ") + "]", function (a) {
+      if (list.indexOf(a) === -1) { console.log("   Please type one of: " + list.join(", ")); return pick(q, list, cb); }
+      cb(a);
+    });
+  }
+  function start() {
+    if (G.getCampaign()) return hub();
+    pick("New campaign on which tier?", G.TIERS.map(function (t) { return t.id; }), function (t) { G.newCampaign(t); hub(); });
+  }
+  function hub() {
+    var h = showHub();
+    var cmds = h.finished ? ["export", "new", "quit"] : ["fly", "buy", "export", "import", "quit"];
+    pick("Hub", cmds, function (c) {
+      if (c === "quit") return rl.close();
+      if (c === "new") { G.resetCampaign(); return start(); }
+      if (c === "export") { console.log("\n   Save code:\n   " + G.exportSave()); return hub(); }
+      if (c === "import") return ask("Paste a save code:", function (code) { var r = G.importSave(code); console.log("   " + (r.ok ? "Loaded." : r.reason)); hub(); });
+      if (c === "buy") return ask("Research id:", function (id) { var r = G.buyResearch(id); console.log("   " + (r.ok ? "Bought." : r.reason)); hub(); });
+      fly();
+    });
+  }
+  function fly() {
+    var d = G.newCampaignDesign();
+    var open = G.OBJECTIVES.filter(function (o) { return G.isObjectiveAvailable(o.id); }).map(function (o) { return o.id; });
+    showBriefing();
+    pick("Objective?", open, function (obj) {
+      G.setObjective(d, obj);
+      showOrbits(d);
+      pick("Orbit?", G.ORBITS.map(function (o) { return o.id; }), function (orb) { G.setOrbit(d, orb); build(); });
+    });
+    function build() {
+      showBuild(d);
+      var pp = G.previewPayout(d);
+      console.log("   Expected payout $" + pp.expected_payout_musd + "M, cost $" + pp.cost_musd + "M, net $" + pp.net_musd + "M" +
+        "   (knowledge " + Math.round(pp.knowledge_before * 100) + "% -> " + Math.round(pp.knowledge_after * 100) + "%)");
+      ask("Type a part id to add or remove it, or press Enter when done:", function (a) {
+        if (!a) return launch();
+        if (!G.getPart(a)) console.log("   No part called '" + a + "'.");
+        else if (!G.isPartAvailable(a)) console.log("   Locked: needs " + G.researchNameFor("parts", a) + ".");
+        else if (d.parts.indexOf(a) === -1) G.addPart(d, a); else G.removePart(d, a);
+        build();
+      });
+    }
+    function launch() {
+      showLaunchers(d);
+      pick("Launcher?", G.LAUNCHERS.map(function (l) { return l.id; }), function (l) {
+        G.setLauncher(d, l);
+        if (!showReadiness(d)) return pick("Go back to", ["build", "launcher", "hub"], function (w) { w === "build" ? build() : w === "launcher" ? launch() : hub(); });
+        ask("Press Enter to launch (the cost leaves the treasury now).", function () {
+          runMission(d, function (ev, cb) {
+            pick("Your call:", ev.choices.map(function (_, i) { return String(i); }), function (c) { cb(Number(c)); });
+          }, function (m) {
+            var r = G.recordResult(m);
+            var db = showDebrief(m);
+            if (db.knowledge_paragraph) { console.log(""); console.log(wrap(db.knowledge_paragraph)); }
+            console.log("\n   Paid $" + r.payout_musd + "M + grant $" + r.grant_musd + "M" +
+              (r.event_costs_musd ? " - event costs $" + r.event_costs_musd + "M" : "") + ". Treasury now $" + r.treasury_musd + "M." +
+              (r.bailout ? " Emergency grant: $" + r.bailout_musd + "M." : "") +
+              (db.best_next_topic && db.best_next_topic !== m.design.objective ? " Best next topic: " + db.best_next_topic + "." : ""));
+            ask("Press Enter to return to the hub.", function () { hub(); });
+          });
+        });
+      });
+    }
+  }
+  start();
+}
+
+if (process.argv.indexOf("--campaign") !== -1) campaign();
+else if (process.argv.indexOf("-i") !== -1 || process.argv.indexOf("--interactive") !== -1) interactive();
 else scripted();
