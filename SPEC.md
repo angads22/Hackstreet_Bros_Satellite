@@ -376,12 +376,11 @@ Yareem holds all three back-end roles. The first build is done: real data, all e
 
 **Data**
 
-1. Spot-check three numbers in the NASA Small Spacecraft State of the Art PDF by hand, and mark those rows Checked in `SOURCES.md`.
-2. Confirm the three launch prices and capacities on the official SpaceX and Rocket Lab pages. They are marked NEEDS HUMAN CHECK.
-3. Replace the instrument estimates (mass, power, data, cost) with sourced figures from eoPortal or NASA pages.
-4. Decide two open questions: whether `data/debrief.js` gets a `design` key for "wrong instrument or orbit", and whether radar gets a resolution check.
-5. Research real-world conditions that could weight the maths: part failure rates, radiation by orbit and solar cycle, cloud cover by region, ground-station contact times. Results go in `STRETCH.md` with sources.
-6. *Stretch:* propose the data fields for per-tier weights and part variance (see `STRETCH.md`). The data person approves any new field before code uses it.
+Balancing will change most numbers, so the current estimates stand until then. No more sourcing work before balancing.
+
+1. Decide two open questions: whether `data/debrief.js` gets a `design` key for "wrong instrument or orbit", and whether radar gets a resolution check.
+2. *Stretch:* propose the data fields for per-tier weights and part variance (see `STRETCH.md`). The data person approves any new field before code uses it.
+3. *After balancing, before submission:* one quick pass over the numbers that survived. Spot-check three by hand, mark them Checked in `SOURCES.md`, and label the rest as estimates or game values on the project page.
 
 **Rules (`js/game.js`)**
 
