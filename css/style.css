@@ -81,8 +81,12 @@ button:disabled { cursor: not-allowed; }
   .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
   html { scroll-padding-top: 240px; }   /* the header wraps to about 230px between 761 and 899px */
 }
-@media (min-width: 900px) {
+@media (min-width: 930px) {
   html { scroll-padding-top: 144px; }
+}
+@media (max-height: 500px) {   /* landscape phones: a sticky header would eat the screen */
+  .topbar { position: static; }
+  html { scroll-padding-top: 0; }
 }
 .brand-name {
   font-family: var(--pixel);
@@ -315,7 +319,7 @@ button:disabled { cursor: not-allowed; }
 }
 .part:hover, .part:focus-visible { border-color: var(--text-dim); }
 .part[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); }
-.part-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.part-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; align-items: baseline; }
 .part-name { font-size: 24px; line-height: 1; }
 .part-cost { color: var(--accent-ink); white-space: nowrap; }
 .part-stats { font-size: 19px; color: var(--text-dim); }
@@ -390,7 +394,7 @@ button:disabled { cursor: not-allowed; }
 /* ---------------------------------------------------------------- title (tier select) */
 .title { display: flex; flex-direction: column; gap: 22px; padding: 24px 0; }
 .kicker { font-size: 24px; letter-spacing: 4px; color: var(--info-ink); }
-.big-title { font-family: var(--pixel); font-weight: 700; font-size: clamp(64px, 12vw, 128px); line-height: 1; color: var(--accent-ink); text-shadow: 8px 8px 0 var(--stamp); }
+.big-title { font-family: var(--pixel); font-weight: 700; font-size: clamp(48px, 12vw, 128px); line-height: 1; color: var(--accent-ink); text-shadow: 8px 8px 0 var(--stamp); }
 .tagline { font-size: 30px; max-width: 640px; }
 
 .empty { color: var(--text-dim); font-style: italic; }
