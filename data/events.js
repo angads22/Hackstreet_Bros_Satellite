@@ -2,10 +2,13 @@
 // Story rewrites the text freely. Allowed effect keys (SPEC.md): lose_months,
 // science_mult, cost_musd, fail_chance, fails. `fails` names a part category.
 // A part whose `protects` list names an event cancels the riskiest choice's penalty.
+// orbit_weight: how likely the event is in each orbit, relative to 1 (GAME VALUES).
+// A missing orbit_weight counts as 1 everywhere.
 
 const EVENTS = [
   {
     id: "solar-storm",
+    orbit_weight: { leo: 1, sso: 1.5, geo: 2 },   // poles and GEO are less shielded by Earth's magnetic field
     title: "Solar storm",
     text: "The Sun has flung a cloud of charged particles toward Earth. Electronics left running could be scrambled.",
     choices: [
@@ -15,6 +18,7 @@ const EVENTS = [
   },
   {
     id: "debris",
+    orbit_weight: { leo: 1.5, sso: 2, geo: 0.3 },   // the 700-900 km band is the most crowded
     title: "Debris warning",
     text: "Tracking stations warn that a piece of old rocket will pass within 200 metres. A hit would be catastrophic.",
     choices: [
