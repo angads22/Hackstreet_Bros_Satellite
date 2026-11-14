@@ -73,7 +73,8 @@ if (outcome) has(outcome, ["id", "title", "label", "protected", "failed_part", "
 var db = G.getDebrief(m);
 has(db, ["score", "stars", "limiting", "suggestion", "breakdown", "science", "science_target", "paragraph", "real_mission",
          "events", "ended_early", "real_world", "payout_musd", "knowledge_before", "knowledge_after", "novelty",
-         "best_next_topic", "knowledge_paragraph", "closest_mission"], "getDebrief");
+         "best_next_topic", "knowledge_paragraph", "closest_mission", "limiting_name", "segments"], "getDebrief");
+check("getDebrief.segments has launch, space, ground and user", (db.segments || []).map(function (x) { return x.id; }).join(",") === "launch,space,ground,user");
 has(db.closest_mission, ["id", "name", "year", "agency", "blurb", "shared"], "getDebrief.closest_mission");
 has(db.breakdown, ["science", "efficiency", "margins", "events", "novelty"], "getDebrief.breakdown");
 var rr = G.recordResult(m);
