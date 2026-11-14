@@ -162,6 +162,11 @@ var bids = G.runChecks(bd).blockers.map(function (b) { return b.id; });
 check("a radar does not fit Explorer's body", bids.indexOf("body-payload") !== -1, bids.join(","));
 G.addPart(bd, "drum-body");
 check("two bodies are blocked", G.runChecks(bd).blockers.some(function (b) { return b.id === "body-count"; }));
+var av = G.getAvailability(ed);
+has(av, ["parts", "launchers", "objectives"], "getAvailability");
+has(av.parts["vidicon-camera"], ["available", "year", "reason"], "getAvailability.parts[id]");
+check("getAvailability explains a 1958 lock", av.parts["vidicon-camera"].available === false && av.parts["vidicon-camera"].reason === "Arrives in 1960",
+  JSON.stringify(av.parts["vidicon-camera"]));
 var tree = G.getResearchTree();
 has(tree, ["nodes", "edges"], "getResearchTree");
 has(tree.nodes[0], ["id", "name", "year", "depth", "cost_musd", "blurb", "unlocks_names", "owned", "can_buy", "missing"], "getResearchTree.nodes[]");

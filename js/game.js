@@ -199,6 +199,21 @@ function isPartAvailable(id, design)      { return isUnlocked("parts", id, desig
 function isLauncherAvailable(id, design)  { return isUnlocked("launchers", id, design); }
 function isObjectiveAvailable(id, design) { return isUnlocked("objectives", id, design); }
 
+// Availability of every part, rocket and topic for this design, with the year each
+// arrived and a reason to show when it is not available. One call per screen refresh.
+function getAvailability(design) {
+  function entry(kind, id) {
+    var ok = isUnlocked(kind, id, design), y = itemYear(kind, id), reason = null;
+    if (!ok) reason = design && design.campaign ? "Needs research: " + researchNameFor(kind, id) : "Arrives in " + y;
+    return { available: ok, year: y, reason: reason };
+  }
+  var out = { parts: {}, launchers: {}, objectives: {} };
+  PARTS.forEach(function (p) { out.parts[p.id] = entry("parts", p.id); });
+  LAUNCHERS.forEach(function (l) { out.launchers[l.id] = entry("launchers", l.id); });
+  OBJECTIVES.forEach(function (o) { out.objectives[o.id] = entry("objectives", o.id); });
+  return out;
+}
+
 // ------------------------------------------------------------------ eras
 function getEra(id) { return typeof ERAS === "undefined" ? null : findById(ERAS, id); }
 

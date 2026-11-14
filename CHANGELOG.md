@@ -12,8 +12,13 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Debrief:** `limiting_name` (the NASA Mission Design Lab discipline) and `segments` (one line each for the launch, space, ground and user segments).
 - **Tier names** from JPL's Concept Maturity Levels: Initial Feasibility, Trade Space, Point Design.
 
+- **Eras for standalone play** (back end; no screen yet): 1958 International Geophysical Year, 1964 Nimbus, 1999 Earth Observing System, 2026 New Space. A mission set in an era offers only the parts, rockets and topics that existed by then; two stars in an era opens the next. `getEras()`, `setEra(design, eraId)`, `getAvailability(design)`; `recordResult` returns `era_unlocked`. The solar topic uses the real sunspot count for the era's year.
+- **Satellite bodies** with a payload limit and slots per part type: Explorer-style cylinder, TIROS-style drum, Nimbus-class bus, modern smallsat bus, 12U CubeSat frame. Readiness checks for too heavy, too many parts of a kind, and more than one body. `getTotals` returns `body`.
+- **`getResearchTree()`**: nodes and edges for a research-tree screen.
+
 ### Not in this version yet
 
+- Eras, bodies and the research tree have no screens yet (see `HANDOFF.md`).
 - Structure and attitude are optional until the Build screen has their two bins: Design screens turns on `NEW_CATEGORIES_REQUIRED` in `js/game.js` in the same change (`node tests/api.js` already tests the game with it on).
 
 ### Fixed
