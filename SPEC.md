@@ -77,6 +77,16 @@ Open, in order of weight in the challenge text:
 3. **Structure and attitude control** are named components but are not parts yet. Proposed: two new part categories with one or two simple parts each. Changes the data format: data owner to approve.
 4. **"No single perfect solution."** Checked by `tests/balance.js`: at least two different designs earn three stars for every objective.
 
+### Progression proposal (awaiting the data owner's approval)
+
+Today every part can be fitted from the first mission, because the screens play standalone missions and research only locks parts inside a campaign. Proposed progression, in three layers that share one data set:
+
+1. **Satellite bodies.** The `structure` category becomes a ladder of real bodies, each with a payload limit and a number of slots per category, so a body decides what can fit: Explorer 1's cylinder (1958, a few kilograms, one instrument, spin only); Vanguard's sphere; TIROS-1's drum (1960, about 100 kg, two cameras, solar cells and batteries); a Nimbus-class three-axis bus (1964, room for propulsion); a modern smallsat bus (about 150 kg, every slot); a 12U CubeSat frame (cheap, tiny). A 45 kg radar simply will not fit a 1958 body. **Needs two new part fields on bodies: `payload_kg` and `slots` ({ instrument: n, ... }).**
+2. **Mission year for standalone play.** A standalone mission picks a year (for example 1958, 1964, 1978, 1999, 2026). Only parts, bodies, rockets and topics whose research `year` has arrived are offered, so tier select becomes "pick an era and a maturity level", and each era is a different puzzle with the same screens. Uses the research `year` field that already exists; the design gains a `year`. **Needs approval for the design's `year`.**
+3. **Campaign research tree.** Unchanged in shape: research unlocks bodies as well as parts, so buying a body is the big milestone of each era. `getResearchTree()` returns nodes (with `year`, `depth`, owned or missing) and edges (prerequisites) so a reusable tree component can draw it without knowing the rules.
+
+Replayability comes from: different eras with different constraints; the campaign's research paths gated by lessons; fresh luck per flight; the real solar cycle by year; and the CML tiers changing the budget and events. "Beat history" (match Explorer 1's year and mass) is the first challenge mode to add.
+
 ### NASA data in the game
 
 To move Relevance from add-on to core, two small real data sets drive the mission, one per objective. Each is a dozen monthly numbers, stored in a data file like everything else (no `fetch`).
@@ -151,7 +161,7 @@ These field names are fixed. Nobody renames or adds a field without the data per
 {
   id: "cam-hires",
   name: "High-resolution camera",
-  category: "instrument",  // instrument | power | comms | computer | propulsion
+  category: "instrument",  // instrument | power | comms | computer | propulsion | structure | attitude
   mass_kg: 40,
   power_draw_w: 120,       // 0 for power parts
   power_gen_w: 0,          // only power parts generate
@@ -163,9 +173,19 @@ These field names are fixed. Nobody renames or adds a field without the data per
   tags: ["imaging"],       // which objectives it counts toward
   protects: [],            // event ids this part defends against
   blurb: "Sharp images, but heavy and data-hungry.",
-  source: "https://..."    // a page a human opened and checked
+  source: "https://...",   // a page a human opened and checked
+  build_months: 6          // approved: months to build and test this part (time as a resource)
 }
 ```
+
+**Structure and attitude control** (approved by the data owner; the challenge names both as spacecraft components). Two more part categories in the same format:
+
+- **`structure`**: the satellite's body. Mass and cost, like any part.
+- **`attitude`**: how the satellite points. Its `tags` say how: `"spin"` (spin-stabilised, as Explorer 1 and TIROS-1 were) or `"three-axis"` (held steady, from Nimbus 1 in 1964). Cameras, thermal imagers and radar on a spinning satellite smear their pictures: their science counts at 60%.
+
+**Switch-over.** While the Build screen has bins for only the first five categories, the two new ones are optional and a design without them behaves exactly as before. `game.js` holds the switch, `NEW_CATEGORIES_REQUIRED`; Design screens turns it on in the same change that adds the two bins. The list of categories, with display names and whether each is required, comes from `getCategories()`, so the screens need not hard-code it.
+
+**Time as a resource** (the challenge names development time and operating lifetime). Development time = the longest `build_months` among the parts, plus one month of integration and testing for every three parts. `getTotals` returns it as `dev_months`. In a campaign the calendar moves on by the development time (at least one year per mission), so a complex satellite costs years the programme may not have; a design that could not launch before `end_year` is blocked (`too-late`). Explorer 1 was built in about three months.
 
 **Launch vehicles** in `data/launchers.js`, three in total:
 
@@ -537,7 +557,8 @@ removePart(design, partId)
 setLauncher(design, id)
 getTotals(design)               // { mass_kg, power_draw_w, power_gen_w, cost_musd, data_gb_day,
                                 //   downlink_gb_day, delta_v_ms, margins: { mass, power, budget },
-                                //   data_returned_gb_day, battery_wh, capacity_kg, budget_musd }
+                                //   data_returned_gb_day, battery_wh, capacity_kg, budget_musd, dev_months }
+getCategories()                 // [{ id, name, sub, required }] in display order: the Build screen's bins
                                 // A margin is null until its limit exists (no launcher, no panels).
 getOrbitFacts(design)           // { period_min, laps_per_day, eclipse_fraction, eclipse_min, speed_kms,
                                 //   resolution_m: { partId: metres or null }, battery_needed_wh,
