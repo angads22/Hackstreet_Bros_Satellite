@@ -594,7 +594,10 @@ getTotals(design)               // { mass_kg, power_draw_w, power_gen_w, cost_mu
                                 //   data_returned_gb_day, battery_wh, capacity_kg, budget_musd, dev_months,
                                 //   body: { id, name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null }
 getCategories()                 // [{ id, name, sub, required }] in display order: the Build screen's bins
-getEras()                       // [{ id, name, year, blurb, unlocked, best_stars, topics: [objective ids open in that era] }]
+getEras()                       // [{ id, name, year, blurb, real_missions, unlocked, best_stars, topics: [objective ids open in that era] }]
+getAvailability(design)         // { parts: { id: { available, year, reason } }, launchers: {...}, objectives: {...} }
+                                // One call per screen refresh: grey out a card when available is false and show reason
+                                // ("Arrives in 1964", or "Needs research: Television from orbit" in a campaign).
 setEra(design, eraId)           // sets design.era and design.year; only what existed by then is offered
 getResearchTree()               // { nodes: [{ id, name, year, depth, cost_musd, blurb, unlocks_names, owned, can_buy,
                                 //   missing }], edges: [{ from, to }] }; owned and can_buy are false outside a campaign
@@ -628,7 +631,8 @@ getDebrief(mission)             // { score, stars, limiting, suggestion, breakdo
                                 //   closest_mission: { id, name, year, agency, blurb, shared: [plain-English reasons] } or null,
                                 //   limiting_name: the Mission Design Lab discipline, for example "Power" or "Cost",
                                 //   segments: [{ id: "launch" | "space" | "ground" | "user", name, text }] one line each }
-recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null) }
+recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null),
+                                //   era_unlocked (era id or null) }
 getProgress()                   // { best_stars: { tierId: n }, best_score: { tierId: n } }
 isTierUnlocked(tierId)          // true for Training, and for any tier after one with 2+ stars
 resetProgress()
@@ -688,7 +692,7 @@ Tier select -> Base map -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle 
 ```
 
 - **One design object.** Create it with `newDesign(tierId)` at tier select. Every screen edits the same object. Going back never clears a choice; if an earlier change breaks a later one (for example a new orbit the chosen rocket cannot reach), the Readiness review reports it.
-- **A base map** is the hub between the five design screens (Design screens owns it, in `js/ui-design.js`). It is a pixel map of a space centre with one numbered place per screen: 1 Mission Control (Briefing), 2 Tracking Station (Orbit), 3 Workshop (Build), 4 Rocket Yard (Launch vehicle), 5 Launch Pad (Readiness). The player walks between places with the arrow keys or WASD and presses E to go in, or clicks a place and walks there. Each place is marked next, done, open or locked; a place opens once the one before it has been visited and its choice made, and every place already visited stays open before launch. A gold route and an "OBJECTIVE" line point to the next place with work left, judged from `runChecks` (for example back to the Workshop while a NO GO there remains). Inside a place, the header shows the objective and a minimap; M, Esc or a click on the minimap opens the map, and "GO TO <place>" walks to the next place. From launch on, the map is locked until the Debrief.
+- **A base map** is the hub between the five design screens (Design screens owns it, in `js/ui-design.js`). It is a pixel map of a space centre with one numbered place per screen: 1 Mission Control (Briefing), 2 Tracking Station (Orbit), 3 Workshop (Build), 4 Rocket Yard (Launch vehicle), 5 Launch Pad (Readiness). The player walks between places with the arrow keys or WASD and presses E to go in, or clicks a place and walks there. Each place is marked next, done, open or locked; Mission Control is open from the start, the Tracking Station opens once a job is picked, the Workshop once an orbit is chosen, and each later place once the one before it has been visited; every place already visited stays open before launch. A gold route and an "OBJECTIVE" line point to the next place with work left, judged from `runChecks` (for example back to the Workshop while a NO GO there remains). Inside a place, the header shows the objective and a minimap; M, Esc or a click on the minimap opens the map, and "GO TO <place>" walks to the place the gold route points at, which can be an earlier one. From launch on, the map is locked until the Debrief.
 - **The four resource bars** (mass, power, budget, data) appear from Build onward, on Build, Launch vehicle and Readiness. Refresh them after every change with `getTotals(design)`.
 - **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Call `getHints(screen, design)`; the text lives in `data/hints.js`.
 

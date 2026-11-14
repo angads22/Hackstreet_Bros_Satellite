@@ -385,9 +385,9 @@
 
   // Every place has a way out to the map. CONTINUE walks you to the next place.
   function navRow(nextTo, nextOk) {
-    // If the gold route points further on (after a redesign or a FIX link), go there instead.
+    // The button follows the gold route, forwards or back (after a redesign, a FIX link or a new NO GO).
     var gps = waypoint();
-    if (nextTo && DESIGN_STEPS.indexOf(gps) > DESIGN_STEPS.indexOf(state.screen)) nextTo = gps;
+    if (nextTo && gps !== state.screen) nextTo = gps;
     var next = byId(PLACES, nextTo);
     return el("div", { class: "nav-row" }, [
       button(["< ", "MAP [M]"], openMap, { aria: "Map: back to the base map" }),
@@ -532,12 +532,13 @@
   }
 
   // ---------------------------------------------------------------- 2 Orbit
-  // "Sees 69% of the world's fires (NASA FIRMS 2025)": the share comes from getOrbitFacts.
+  // "In view: 69% of the world's fires (NASA FIRMS 2025)": the share comes from getOrbitFacts.
+  // (The badge beside it is about how often the orbit looks, which is a different thing.)
   function inViewText(objectiveId, share) {
     var e = typeof EARTH !== "undefined" && EARTH ? EARTH[objectiveId] : null;
     var what = objectiveId === "wildfire" ? "of the world's fires" : objectiveId === "sea-ice" ? "of the Arctic sea ice" : "of the target";
     var src = e && e.source ? " (" + (objectiveId === "wildfire" ? "NASA FIRMS" : objectiveId === "sea-ice" ? "NSIDC Sea Ice Index" : "NASA data") + (e.year ? " " + e.year : "") + ")" : "";
-    return "Sees " + Math.round(share * 100) + "% " + what + src;
+    return "In view: " + Math.round(share * 100) + "% " + what + src;
   }
   function drawOrbit() {
     var d = state.design;
@@ -850,6 +851,7 @@
   function doText(screen) {
     var d = state.design;
     if (screen === "build" && hasRequiredParts(d)) return "Clear the [X] problems under the bars.";
+    if (screen === "launcher" && d.launcher && blockedAt(d).launcher) return "Still NO GO: try another rocket, or cut mass or cost at the Workshop.";
     if (screen === "review" && !runChecks(d).blockers.length) return "Launch when ready.";
     return DO_TEXT[screen];
   }
@@ -1112,7 +1114,8 @@
       state.mapNote = byId(PLACES, id).name + " is locked. " + lockedReason(id);
       updateMap();
       state.mapNote = "";
-      if (state.map) state.map.prompt.scrollIntoView({ block: "nearest" });
+      // Arm the double-click guard first: the scroll moves the list under the pointer.
+      if (state.map) { state.swappedAt = Date.now(); state.map.prompt.scrollIntoView({ block: "nearest" }); }
       return;
     }
     go(id);
@@ -1133,8 +1136,9 @@
   }
 
   // Returns true if the key did something (so the page should not scroll).
-  function stepToward(dir) {
-    if (state.walking) { if (state.stepping) state.queued = dir; return true; }
+  function stepToward(dir, repeat) {
+    // A held key keeps walking but is never queued, so the arrow stops where you let go.
+    if (state.walking) { if (state.stepping && !repeat) state.queued = dir; return true; }
     var at = NODES[state.player], best = null, bestScore = 0.5;
     neighbours(state.player).forEach(function (n) {
       var dx = NODES[n].x - at.x, dy = NODES[n].y - at.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1168,7 +1172,7 @@
     if (e.altKey || e.ctrlKey || e.metaKey || !state.design || state.locked) return;
     var k = e.key, active = document.activeElement;
     var onMap = state.screen === "map";
-    if (onMap && KEY_DIRS[k]) { if (stepToward(KEY_DIRS[k])) e.preventDefault(); return; }
+    if (onMap && KEY_DIRS[k]) { if (stepToward(KEY_DIRS[k], e.repeat) || e.repeat) e.preventDefault(); return; }
     if (onMap && (k === "m" || k === "M" || k === "Escape")) {
       e.preventDefault();
       if (!e.repeat && !state.walking && placeOpen(state.player)) go(state.player);   // back inside

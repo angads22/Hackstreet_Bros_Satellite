@@ -16,6 +16,14 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 - Structure and attitude are optional until the Build screen has their two bins: Design screens turns on `NEW_CATEGORIES_REQUIRED` in `js/game.js` in the same change (`node tests/api.js` already tests the game with it on).
 
+### Fixed
+
+- **Base map.** The GO TO button now follows the gold route in both directions, so it never points past a NO GO that is fixed at an earlier place.
+- **Base map.** Holding an arrow key no longer scrolls the page at a dead end or carries the arrow one road too far.
+- **Phones held sideways.** The header no longer sticks to the top and covers the map.
+- **Build.** Part prices no longer spill out of their cards when the web fonts fail to load.
+- **Orbit.** The NASA line now reads "In view: 92% of the world's fires", so it no longer seems to contradict the "partial view" badge, which is about how often the orbit looks.
+
 ## 0.5 beta (November 14, 2026)
 
 The first playable build. One mission plays from start to finish in a browser: pick a topic, pick an orbit, build the satellite, pick a rocket, pass the readiness review, fly, and read the debrief. The campaign is built in the back end but has no screens yet, so it cannot be played.
