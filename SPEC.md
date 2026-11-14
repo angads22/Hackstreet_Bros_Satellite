@@ -275,6 +275,23 @@ const CAMPAIGN = {
 
 **Battery-only satellites.** A spacecraft with a battery and no solar panel may launch, as Sputnik 1 and Explorer 1 did. It runs until the battery is spent (battery energy divided by power draw), then the mission ends: Sputnik 1 fell silent after about 21 days, Vanguard 1's solar-powered transmitter ran for more than six years. The readiness review shows this as a warning, not a blocker.
 
+**Real missions** in `data/missions.js` (approved by the data owner): one global, `MISSIONS`, about a dozen real satellites the debrief can compare the player's design with, from Explorer 1 to RADARSAT. Like the NASA telescope game's results screen, but matched on the actual design.
+
+```js
+{
+  id: "explorer-1", name: "Explorer 1", year: 1958, agency: "NASA / JPL",
+  objective: "radiation",          // the topic it served
+  orbit: "leo",                    // nearest of the game's three orbits
+  tags: ["radiation"],             // its instrument types, as in parts.js
+  mass_kg: 13.97,
+  power: "battery",                // "battery" (no solar cells) or "solar"
+  blurb: "One line on what it did.",
+  source: "A page a person opened."
+}
+```
+
+Matching: same topic first, then the same orbit, shared instrument types, the same kind of power, and the nearest mass (by ratio). The debrief names the closest mission and says what the two designs share.
+
 **Tier field:** `grant_musd`, optional, overrides `CAMPAIGN.grant_musd` for that tier. In a campaign, `budget_musd` is the **starting treasury**.
 
 **Event field:** `objectives`, an optional array of objective ids. If present, the event fires only on missions for those topics.
@@ -521,7 +538,8 @@ chooseEvent(mission, choice)    // choice = index into event.choices. Returns { 
                                 //   failed_part (part id or null), ended, ended_early }
 getDebrief(mission)             // { score, stars, limiting, suggestion, breakdown: { science, efficiency, margins, events, novelty },
                                 //   science, science_target, paragraph, real_mission, events, ended_early,
-                                //   real_world: { text, ...numbers } comparing the mission with NASA data, or null }
+                                //   real_world: { text, ...numbers } comparing the mission with NASA data, or null,
+                                //   closest_mission: { id, name, year, agency, blurb, shared: [plain-English reasons] } or null }
 recordResult(mission)           // call once per finished mission; returns { stars, best_stars, unlocked (tier id or null) }
 getProgress()                   // { best_stars: { tierId: n }, best_score: { tierId: n } }
 isTierUnlocked(tierId)          // true for Training, and for any tier after one with 2+ stars
@@ -725,6 +743,7 @@ Where each check is fixed:
 | What limited you | `d.limiting` as the heading, then `d.paragraph` | The heading names one factor: mass, power, budget, data, event, design or none. |
 | Try this | `d.suggestion` | One concrete change. This is the most important line on the screen. |
 | Against the real Earth | `d.real_world.text` | The paragraph comparing the mission with NASA data, for example how many of 2025's real fires the design would have reported. Show it prominently: it is our strongest link to NASA data. |
+| Your design's real twin | `d.closest_mission` | "Your design is closest to TIROS-1 (1960, NASA)", then its `shared` reasons ("both carried TV cameras", "both flew in low orbit") and its `blurb`. |
 | Real-world cousin | `d.real_mission` | One line. |
 | Events log | `d.events`: `title`, `label`, `failed_part` | What happened and what the player chose. |
 | Buttons | | **Redesign**: back to Build with the same `design`. **New mission**: the base map with a fresh `newDesign(tier)`, Mission Control next. **Change tier**: tier select. |
