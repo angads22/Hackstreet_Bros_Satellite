@@ -88,7 +88,8 @@ function startMission(design) {
   var rand = makeRandom(seed);
 
   // Pick distinct events and distinct months (never month 1 or the last month).
-  var pool = EVENTS.slice();
+  // Events tied to topics (the optional `objectives` field) fire only on those missions.
+  var pool = EVENTS.filter(function (e) { return !e.objectives || e.objectives.indexOf(design.objective) !== -1; });
   var count = Math.min(tier ? tier.events : 1, pool.length, Math.max(0, lifetime - 2));
   var schedule = [];
   var usedMonths = {};
