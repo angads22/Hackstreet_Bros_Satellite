@@ -43,7 +43,7 @@
   };
 
   // This file's screen names -> the screen names getHints uses.
-  var HINT_KEYS = { briefing: "briefing", orbit: "orbit", build: "build", launcher: "launch",
+  var HINT_KEYS = { hub: "hub", briefing: "briefing", orbit: "orbit", build: "build", launcher: "launch",
                     review: "readiness", mission: "mission", debrief: "debrief" };
 
   // Where each readiness check is fixed (SPEC: "Where each check is fixed").
@@ -303,6 +303,10 @@
     var t = tier();
     if (!t) return "Space Mission Design Game";
     var totals = getTotals(state.design);
+    if (inCampaign()) {
+      var info = hubInfo();
+      return "CAMPAIGN" + (info ? " · " + info.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
+    }
     return t.name.toUpperCase() + (state.design.year ? " · " + state.design.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
   }
 
@@ -313,7 +317,7 @@
     var text = "";
     if (screen === "mission") text = "Keep the satellite alive.";
     else if (screen === "debrief") text = "Read what limited you, then fly again.";
-    else if (state.design && screen !== "title") {
+    else if (state.design && screen !== "title" && screen !== "hub") {
       var next = waypoint();
       text = next === screen ? doText(screen) : GO_TEXT[next];
     }
@@ -340,7 +344,7 @@
     var text = HINTS[screen] || "";
     // Story's hints come from getHints (data/hints.js): the tutorial line, then the first tip.
     var key = HINT_KEYS[screen];
-    if (key && typeof getHints === "function" && state.design) {
+    if (key && typeof getHints === "function" && (state.design || key === "hub")) {
       var h = getHints(key, state.design);
       mode = h.mode || mode;
       var lines = [h.tutorial].concat(list(h.tips).slice(0, 1)).filter(Boolean);
@@ -485,6 +489,42 @@
     return x && x.available === false ? (x.reason || "Not available yet") : null;
   }
 
+  // ---- campaign: the same screens between visits to the Campaign hub (js/ui-campaign.js)
+  function inCampaign() { return !!(state.design && state.design.campaign); }
+  function hubInfo() { return typeof getHubInfo === "function" ? getHubInfo() : null; }
+
+  // "Expected payout $X M, cost $Y M, net $Z M": all three numbers from previewPayout().
+  function payoutLine(d) {
+    if (!d || !d.campaign || typeof previewPayout !== "function") return null;
+    var p = previewPayout(d);
+    if (!p) return null;
+    return el("p", { class: "nasa-line payout-line", text: "Expected payout " + money(p.expected_payout_musd) +
+      ", cost " + money(p.cost_musd) + ", net " + (p.net_musd < 0 ? "-" : "") + money(Math.abs(p.net_musd)) });
+  }
+
+  function campaignPanel(tiers) {
+    if (typeof newCampaign !== "function" || typeof window.showCampaignHub !== "function") return null;
+    var info = hubInfo();
+    return el("div", { class: "panel campaign-panel" }, [
+      el("h2", { text: "CAMPAIGN" }),
+      el("p", { class: "card-blurb", text: "Start in 1957. Money and knowledge carry from one satellite to the next, and research opens new parts." }),
+      info ? button(["CONTINUE: " + info.year + ", " + money(info.treasury_musd), " >"], function () { window.showCampaignHub(); },
+        { primary: true, aria: "Continue the campaign" }) : null,
+      el("div", { class: "tier-list row" }, tiers.map(function (t) {
+        return el("button", {
+          type: "button", class: "tier-btn", "data-key": "campaign-" + t.id,
+          "aria-label": "New campaign, " + t.name,
+          onclick: function () {
+            if (info && !window.confirm("Start a new campaign? It replaces the one you have saved.")) return;
+            newCampaign(t.id);
+            window.showCampaignHub();
+          }
+        }, [el("span", { class: "tier-name", text: "NEW: " + t.name.toUpperCase() }),
+            el("span", { class: "tier-facts", text: "Treasury " + money(t.budget_musd) + " · " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission" })]);
+      }))
+    ]);
+  }
+
   function startMissionDesign(tierId, eraId) {
     state.design = newDesign(tierId);
     if (eraId && typeof setEra === "function") setEra(state.design, eraId);
@@ -548,6 +588,7 @@
       el("h2", { class: "subhead", text: eras.length ? "CHOOSE AN ERA AND A LEVEL" : "CHOOSE A LEVEL" }),
       tiers.length ? grid : el("p", { class: "empty", text: "No tiers in the data yet." }),
       tiers.length ? best : null,
+      tiers.length ? campaignPanel(tiers) : null,
       el("div", null, [button("RESET PROGRESS", function () {
         if (typeof resetProgress === "function" && window.confirm("Forget every star you have earned?")) { resetProgress(); draw("title"); }
       })])
@@ -569,8 +610,11 @@
     var objectives = data("OBJECTIVES");
     var chosen = byId(objectives, d.objective);
     var avail = availability(d);
+    var info = inCampaign() ? hubInfo() : null;
+    if (info) objectives = objectives.filter(function (o) { return !lockReason(avail.objectives, o.id); });
     var cards = objectives.map(function (o) {
       var locked = lockReason(avail.objectives, o.id);
+      var topic = info ? byId(list(info.topics), o.id) : null;
       if (locked) {
         return el("button", { type: "button", class: "card locked", disabled: true, "data-key": "obj-" + o.id }, [
           el("div", { class: "card-title" }, [el("h3", { text: o.name.toUpperCase() }), el("span", { class: "tag bad", text: locked.toUpperCase() })])
@@ -583,7 +627,8 @@
         el("div", { class: "card-title" }, [el("h3", { text: o.name.toUpperCase() }),
           d.objective === o.id ? el("span", { class: "tag on", text: "CHOSEN" }) : null]),
         el("p", { text: o.briefing }),
-        facts([["Science target", num(o.science_target, 0) + " points"], ["What counts", wantsLine(o)]])
+        facts([["Science target", num(o.science_target, 0) + " points"], ["What counts", wantsLine(o)],
+          topic ? ["Pays about", money(topic.next_payout_estimate_musd)] : null])
       ]);
     });
     return el("section", { class: "screen" }, [
@@ -818,6 +863,7 @@
     return el("section", { class: "screen" }, [
       head("3 · BUILD", "Click a part to add it, click again to remove it. Several parts per bin are allowed."),
       el("div", { class: "workshop" }, [bins, bench, el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
+      payoutLine(d),
       shelf,
       navRow("launcher", true)
     ]);
@@ -861,7 +907,7 @@
       head("4 · LAUNCH VEHICLE", "A bigger rocket solves mass and eats the budget."),
       el("div", { class: "pad" }, [
         cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No rockets in the data yet." }),
-        el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])
+        el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d), payoutLine(d)])
       ]),
       navRow("review", true)
     ]);
@@ -1139,7 +1185,9 @@
           el("h2", { class: "divided", text: "PLACES" }), legend,
           el("h2", { class: "divided", text: "CONTROLS" }),
           el("p", { class: "bar-note", text: "Arrow keys or WASD: walk. E or Enter: go in, or follow the gold route. Click a marker: walk there. M or Esc: back inside." }),
-          el("div", null, [button("CHANGE TIER", function () { showDesignScreen("title"); })])
+          el("div", null, [inCampaign()
+            ? button("BACK TO THE HUB", function () { window.showCampaignHub(); })
+            : button("CHANGE TIER", function () { showDesignScreen("title"); })])
         ])
       ])
     ]);
@@ -1326,6 +1374,9 @@
     byId: byId, data: data, list: list, directorArt: directorArt,
     setStep: setStep, setHint: setHint, setStatus: setStatus,
     lock: function () { state.locked = true; },
+    bar: bar,
+    // Leaving the design and mission screens for the Campaign hub: no design in hand, nothing locked.
+    leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; },
     mount: function (screen, node) {
       state.screen = screen;
       state.swappedAt = Date.now();
