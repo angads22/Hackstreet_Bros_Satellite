@@ -253,3 +253,52 @@ function limitingFactor(mission, totals, scienceShare) {
   }
   return { key: "none", suggestion: "Target reached. Try the next tier, or reach it on a smaller budget." };
 }
+
+// ------------------------------------------------------------------ progress
+// Two stars on a tier unlocks the next one (SPEC.md, "Difficulty tiers").
+// Saved in localStorage when the browser allows it; otherwise kept in memory
+// for this visit only, so the game still runs in a private window or in Node.
+var PROGRESS_KEY = "smdg-progress-v1";
+var memoryProgress = null;
+
+function emptyProgress() { return { best_stars: {}, best_score: {} }; }
+
+function getProgress() {
+  try {
+    if (typeof localStorage !== "undefined") {
+      var raw = localStorage.getItem(PROGRESS_KEY);
+      if (raw) return JSON.parse(raw);
+    }
+  } catch (e) { /* storage blocked: fall through to memory */ }
+  return memoryProgress || emptyProgress();
+}
+
+function saveProgress(p) {
+  memoryProgress = p;
+  try { if (typeof localStorage !== "undefined") localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }
+  catch (e) { /* storage blocked: memory copy still works */ }
+}
+
+function isTierUnlocked(tierId) {
+  var i = TIERS.map(function (t) { return t.id; }).indexOf(tierId);
+  if (i <= 0) return i === 0;
+  return (getProgress().best_stars[TIERS[i - 1].id] || 0) >= 2;
+}
+
+// Call once when a mission ends. Returns { stars, best_stars, unlocked }
+// where `unlocked` is the id of a tier this result just opened, or null.
+function recordResult(mission) {
+  var tierId = mission.design.tier;
+  var d = getDebrief(mission);
+  var p = getProgress();
+  var i = TIERS.map(function (t) { return t.id; }).indexOf(tierId);
+  var nextId = TIERS[i + 1] ? TIERS[i + 1].id : null;
+  var wasLocked = nextId ? !isTierUnlocked(nextId) : false;
+  p.best_stars[tierId] = Math.max(p.best_stars[tierId] || 0, d.stars);
+  p.best_score[tierId] = Math.max(p.best_score[tierId] || 0, d.score);
+  saveProgress(p);
+  return { stars: d.stars, best_stars: p.best_stars[tierId],
+           unlocked: nextId && wasLocked && isTierUnlocked(nextId) ? nextId : null };
+}
+
+function resetProgress() { saveProgress(emptyProgress()); }
