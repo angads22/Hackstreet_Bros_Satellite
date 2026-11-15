@@ -4,11 +4,42 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 0.9 beta (November 15, 2026)
+
+Two game modes and the whole game in low-poly 3D. Part 1 is Austin's guided 1958 walkthrough; Part 2 is Ajay's comeback, a race to pay back a debt by flying satellites for paying customers. The home page is a console-style title screen, every screen is drawn in faceted low poly, and the bugs a full playtest sweep confirmed are fixed.
+
 ### Added
 
-- **Home page: two modes.** Part 1, Austin's first satellite (1958): three short steps with story beats, stars and an epilogue that leads into Part 2. Tiny power and data values now read in watts and kB a day.
+- **A console-style home page.** The low-poly Earth and a satellite fill the first screen behind a drawn GRAVITRON logo; the two modes are a two-item menu, each showing its state (Part 1's step stars, Part 2's CONTINUE). Without the 3D art it falls back to a pixel sky.
+- **Part 1, Austin's first satellite (1958).** Three short steps with story beats, stars and an epilogue that leads into Part 2. Tiny power and data values now read in watts and kB a day.
 - **Part 2, Ajay's comeback.** Austin's grandson owes the lenders for a company that never flew. Pick Easy, Normal or Hard (the three tiers set the cash, the debt and the deadline), then run the workshop: a debt meter, the cash, and the months left counting down; three contracts on a job board, each from a client with a reason, a price, a 3-star bonus, a minimum of data and sometimes an orbit; PAY BACK in a few safe amounts, or PAY ALL once the cash covers the debt. FLY THIS opens the usual screens with the topic (and the orbit, when the client names one) set by the contract; Build shows what the contract pays and what the flight costs with the cheapest rocket; the Readiness review warns in large type when a flight would land after the deadline. The debrief tells the money story so it adds up (cash before, launch, what the client paid and why, the bonus, event costs, cash now; debt before, interest, debt now) with a PAID stamp and the months left. A win (debt paid) or a loss (out of time, out of cash) ends on a short chronicle with TRY AGAIN. Ajay's story is rewritten for it. `js/ui-comeback.js`; `newComeback`, `getComeback`, `newComebackDesign`, `payDebt`, `getComebackEnding`.
 - **The rest of the low-poly art is in the game.** The satellite on the Build bench is a 3D model of the parts on board (it turns slowly, a part you add flies in and a part you remove slides out, and a design with no body sits on an assembly cradle); the speakers are faceted busts; the Readiness review shows your rocket on the pad, and LAUNCH shows its lift-off for a moment (a click or a key skips it); the mission screen shows Earth with your orbit; the base map and the minimap are a low-poly space centre. With reduced motion nothing moves and there is no lift-off; if the 3D art cannot load, the pixel art is used.
+- **Eleven new events,** so every topic has its own stories, and some are chances rather than dangers.
+- **Every satellite needs a body and an attitude part** (the switch-over, `NEW_CATEGORIES_REQUIRED`, is on).
+
+### Changed
+
+- **Only two modes on the home page.** The era grid, the three levels as a separate choice, the 1957 campaign and its lab leave the page (their code stays). The three levels live on as Part 2's Easy, Normal and Hard.
+- **Build:** the IF YOU CLICK preview shows its Fixes and Causes lines and can be scrolled; on a phone the parts sit right under the bins, a bin tap brings them into view and the first tap says TAP AGAIN TO ADD; Build opens on the first empty bin and FIX opens the bin it names.
+- **Readiness review:** the science forecast against the target is shown before LAUNCH, and LAUNCH comes before the warnings when nothing blocks.
+- **Advice you can follow:** TRY THIS only suggests parts, rockets and orbits the design can actually use (its era, its body's room, rockets that reach the orbit, the contract's orbit).
+- **Events** show what each choice costs, and no choice is styled as the answer.
+- **Fewer words:** the base map says its instruction once; the bins say "1 / 1 slot".
+- **A better opening:** Explorer-sized mercury batteries last about 50 days, as Explorer 1's did.
+
+### Fixed
+
+- A battery-only satellite now flies until its battery is spent instead of ending at the first event.
+- A flight lost to a reload or a closed tab gives its launch money back.
+- A save code is checked field by field before it is accepted.
+- The mission log and the debrief agree with the verdict; the pause button's name follows RESUME; fast-forward looks pressed when on; the limiting-factor icon fits the cause.
+- The battery-only POWER bar is amber with how long the battery lasts; small values no longer read 0; the MASS bar says why there is no limit.
+
+### Not in this version yet
+
+- **Launch failures** are planned and not built.
+- **Suppliers, countries and travel costs** are a proposal in `SPEC.md`, not agreed.
+- The calibration event's 80% science is a game value still to agree with the Simulation owner.
 
 ## 0.8 beta (November 15, 2026)
 
@@ -19,18 +50,6 @@ The home page opens on low-poly art: a faceted Earth with a satellite above it, 
 - **A low-poly home page.** The title screen opens on a faceted low-poly Earth with a satellite above it, drawn by the game's own small renderer (`js/lowpoly.js`, `js/lp-earth.js`). If the art cannot load or draw, the page works without it.
 - **More screen icons and an assembly preview.** Place headers, the map legend, minimap, part statistics and debrief use the shared flat icons. The Readiness satellite assembles part by part; reduced-motion settings show it immediately.
 - **Flat icons beside the words.** The parts bins, the four resource bars (mass, power, budget, data) and the problem lists now carry a simple one-colour icon; a blocker shows a cross, a warning a triangle. The words stay next to every icon.
-- **The ending: the programme chronicle.** When a campaign ends (won or out of time), the game tells the player's own story: a front page with a rating (Architects of the space age, Pioneers, An established programme, A promising start, Lessons learned), what each topic taught and what history says, and a year-by-year timeline of every flight (named G-1, G-2…, with a headline and its real twin), research and upgrade. `getChronicle()`; `js/ui-ending.js`.
-- **Offers.** Each year the hub shows up to two open offers from customers ("the Weather Bureau wants cloud pictures from a polar orbit by 1960"). A flight that returns enough data, some of it new, claims the bonus in money and science (no new data, no reward); a topic at its data cap gets no offers. The Build screen says whether the design you are building meets one, and the debrief says when one was met. `getHubInfo().offers`, `previewPayout().offers`, `recordResult().offers_claimed`.
-- **Every satellite needs a body and an attitude part** (the switch-over, `NEW_CATEGORIES_REQUIRED`, is now on). Explorer-style cylinder and spin stabilisation are the cheap, historical starting pair. Point Design starts with $18M (was $16M) so a radar on the small launcher still fits.
-- **Eleven new events,** so every topic has its own stories: Alouette's lopsided antennas, auroral radio noise and a blizzard at Resolute Bay (ionosphere); a rival reporting the same belts and a belt bigger than predicted (radiation); a hurricane under the camera and a jammed tape recorder (weather); a giant sunspot group (solar); smoke over the target (wildfire); the ice edge moving (sea ice); and a rare alignment for any mission. Several are chances, not just dangers: spend money or take a risk for more science.
-
-### Changed
-
-- **The Build screen no longer fights the mouse.** The "IF YOU CLICK" panel used to grow with its text and push every card away from the pointer, so hovering made cards flicker and clicks miss. It now has a fixed height. The part cards moved up under the satellite, and the bins and the four bars stay in view while you scroll, so you see what each click did.
-- **Pause and fast-forward can no longer cancel the walk to the debrief** when pressed as the mission ends.
-- **A better opening.** Explorer-sized mercury batteries now last about 50 days (Explorer 1's transmitters lasted 31 and 105), so the first flight earns real data, and Silicon solar cells cost 4 science: one flight pays for them, so the opening no longer needs the same dud flight twice. Winning a campaign now needs three topics at 80% known (was 60%), so a campaign lasts longer.
-- **The title leads with the campaign,** the core loop; a single mission is the quick alternative below it. The Build screen opens on the instrument bin. In a campaign, the debrief points to the lab instead of "the next tier".
-- **The campaign test and the balance sweep now include a body and an attitude part** in every design.
 
 ### Changed
 
