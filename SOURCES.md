@@ -30,6 +30,7 @@ One row per resource used. QA copies this into the project page.
 | Canadian Wildland Fire Information System, satellite hotspots in the last 24 hours | Natural Resources Canada (from NASA MODIS and VIIRS) | https://cwfis.cfs.nrcan.gc.ca/ | `js/live-data.js`: "right now" fire-detection count in the debrief | Called live |
 | Explorer 1, Vanguard 1 and Sputnik 1 figures (mass, batteries, transmitters, operating days) | Secondary sources found by web search | see `data/parts.js` source fields | Era battery and beacon parts | NEEDS HUMAN CHECK against NSSDCA |
 | Real missions for the debrief comparison (Explorer 1 and 3, Vanguard 2, TIROS-1, SOLRAD 1, SDO, GOES-R, Terra, FOREST, PlanetScope, Seasat, RADARSAT Constellation, ICEYE) | NASA, NOAA, CSA, Planet, ICEYE, OroraTech | see the `source` field of each record in `data/missions.js` | Debrief "your design's real twin" | NEEDS HUMAN CHECK (masses marked) |
+| Sputnik 1: it orbited in October 1957 and its radio beeps were heard around the world | NASA history pages (not opened: nasa.gov was unreachable from the session that wrote the story; link to be added by a teammate) | NASA History, Sputnik 1 (page to confirm) | `js/ui-design.js` STORY.austin.intro: the opening beats ("A radio on the bench will not stop beeping", "Sputnik, passing over our roof"). The step 3 beat where the counter falls silent at altitude retells, as fiction, the Explorer 1 radiation finding listed above. Voss, Austin, Ajay, Priya and Iron Eclipse are invented | NOT OPENED; NEEDS HUMAN CHECK |
 
 ## Tools and other resources
 

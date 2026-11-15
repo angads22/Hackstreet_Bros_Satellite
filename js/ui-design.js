@@ -154,10 +154,27 @@
   // extra: debrief and closing take the getDebrief result; mission-end takes it too (or the chooseEvent
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
+  //
+  // THE ARC (fiction; Voss, Austin, Ajay, Priya and Iron Eclipse are invented, and no line below states a game number).
+  //   Part 1: Austin hears Sputnik beep over his workshop, builds three satellites by the rules in his notebook, and
+  //   his counter falls silent at altitude (the discovery). His rival Marcus Voss takes the credit, blames him when
+  //   the bigger satellite is lost on the pad, leaves to found Iron Eclipse. The notebook goes into a box.
+  //   Part 2: Ajay opens the box. His motives arrive as the run goes on: the lenders and the workshop (start), Mum's
+  //   house (after-1), Iron Eclipse and the buyout (offer, refused), Austin's last page and his name (after-3),
+  //   the stakes restated (final). `why` is read by the number of flights, so it follows the same order.
+  //
+  // NEW KEYS (read by js/ui-story.js; every beat is { who, text }, one sentence, a scene is at most six beats):
+  //   STORY.austin.endings.box = { title, kicker, beats, line }
+  //   STORY.ajay.interludes = { start, "after-1", offer, refused, "after-3", final }: lists of beats. `offer` is a list
+  //     that also carries .sell, .refuse, .sell_hint and .refuse_hint (the labels and one-line hints of its two buttons).
+  //     `start` repeats `intro` (the same six beats); show only one of them.
+  //   STORY.ajay.endings = { legend, comeback, close, sold, timeout, broke }, each { title, kicker, beats, line }.
+  //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), mum.
   var STORY = {
     title: "GRAVITRON",
     subtitle: "The Gravitronical Odyssey",
-    speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK" },
+    speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK",
+                rival: "IRON ECLIPSE", mum: "MUM" },
 
     // The home page: one card per mode. No game numbers here (every number on screen comes from the back end).
     modes: {
@@ -172,32 +189,55 @@
       who: { map: "team", briefing: "team", orbit: "team", build: "team", launcher: "team", review: "team",
              "mission-start": "team", "mission-end": "team", debrief: "team", closing: "notebook",
              notebook: "notebook", "event-calibration": "notebook" },
-      // Shown once, before step 1 of the walkthrough (then the step's own opening beats).
+      // Shown once, before step 1 of the walkthrough, in the same scene as step 1's opening beats: together they stay
+      // within six beats. The year is spelled out (no digits in story text).
       intro: [
-        { who: "team", text: "1958. You are Austin Albert, NASA engineer, building the first satellites." }
+        { who: "team", text: "October, nineteen fifty-seven. A radio on the bench will not stop beeping." },
+        { who: "team", text: "Sputnik, passing over our roof. Someone else got there first." },
+        { who: "team", text: "You are Austin Albert, a young rocket engineer. Marcus Voss runs the programme." },
+        { who: "team", text: "The money pays for one launch window. Miss it, and we never fly." }
       ],
-      // Part 1, the walkthrough: three short missions in 1958, one idea each. name is the step's label on the
-      // home page; open is shown before the step (one or two beats); close is the debrief's last line once it passes.
+      // Part 1, the walkthrough: three short missions, one idea each. name is the step's label on the home page;
+      // open is shown before the step; close is the debrief's last line once it passes. The opening beats double as the
+      // how-to-play hints, so each rule of the notebook says what to do.
       steps: {
         "1": { name: "THE BASICS",
-               open: [{ who: "team", text: "The rocket and the orbit are set. You build the satellite." },
-                      { who: "team", text: "One of each part. Fit solar cells: batteries alone soon run down." }],
-               close: { who: "notebook", text: "It works. The counter heard radiation nobody expected." } },
+               open: [{ who: "team", text: "Tonight we build. A body, a counter for cosmic rays, power, a radio, a computer." },
+                      { who: "notebook", text: "Rule one: no power, no signal. Fit solar cells, or the batteries die." }],
+               close: { who: "notebook", text: "It beeps from orbit, and the counter heard something nobody expected." } },
         "2": { name: "POWER AND DATA",
-               open: [{ who: "team", text: "Vanguard is smaller. You choose the orbit, then build." },
-                      { who: "team", text: "Cells go dark in Earth's shadow. Data must reach the ground." }],
-               close: { who: "notebook", text: "Power through the shadow, and data home. It keeps talking." } },
+               open: [{ who: "team", text: "Another window, a smaller rocket. This time you choose the orbit, then build." },
+                      { who: "notebook", text: "Rule two: every orbit has a night. The cells go dark and the battery carries us." },
+                      { who: "notebook", text: "Rule three: data that never comes home proves nothing. Voss will ask for proof." }],
+               close: { who: "notebook", text: "It talks through the dark. Voss is reading our data over my shoulder." } },
         "3": { name: "YOUR MISSION",
-               open: [{ who: "team", text: "Your mission now: the job, the orbit, the parts, the rocket." }],
-               close: { who: "notebook", text: "Every choice was mine, and it flew. I write it all down." } }
+               open: [{ who: "team", text: "Voss wants a launch for the cameras. The job, orbit, parts and rocket are yours." },
+                      { who: "notebook", text: "My name goes on this design. If it fails, it fails on my page." },
+                      { who: "team", text: "Listen at the top of the climb. Nobody knows what the counter will say." }],
+               close: { who: "notebook", text: "At the top, the counter went silent. Not broken: drowned. Radiation, all round the Earth." } }
       },
-      // After step 3 passes. Name no real launch here unless SOURCES.md has a page for it.
+      // After step 3 passes (six beats, the last one fixed). Fiction: no real launch is named here.
       epilogue: [
-        { who: "team", text: "His biggest satellite is lost on the launch pad, as many of the first rockets were." },
-        { who: "team", text: "The programme is cut. Rivals call his vision impractical." },
-        { who: "notebook", text: "His notebook goes into a box." },
+        { who: "team", text: "Voss walks up to the cameras and says the discovery is his." },
+        { who: "team", text: "Nineteen sixty. Austin's biggest satellite is lost on the pad, as many early rockets were." },
+        { who: "team", text: "Voss tells the board the design was Austin's fault. The programme is cut." },
+        { who: "team", text: "Voss leaves with the credit and starts a company. He calls it Iron Eclipse." },
+        { who: "notebook", text: "Austin writes one last page, shuts the notebook, and puts it in a box." },
         { who: "notebook", text: "Decades later, his grandson Ajay opens it." }
       ],
+      // The ending screen of Part 1, shown after the epilogue: it looks forward, it does not recap.
+      endings: {
+        box: {
+          title: "THE BOX",
+          kicker: "AUSTIN'S STORY ENDS HERE",
+          beats: [
+            { who: "notebook", text: "Every rule he learned is in that book, in his own hand." },
+            { who: "notebook", text: "The credit went to Voss. The truth went into a cardboard box." },
+            { who: "notebook", text: "The workshop falls quiet. The years pass. The tape on the lid goes yellow." }
+          ],
+          line: "Someone has to open it."
+        }
+      },
       map: {
         start: ["Five stops, one mission. Begin at Mission Control.", "Begin at Mission Control. The gold route leads the way."],
         design: ["Follow the gold route. Each stop builds on the last."],
@@ -306,22 +346,23 @@
       who: { map: "partner", briefing: "customer", orbit: "partner", build: "partner", launcher: "partner", review: "partner",
              "mission-start": "partner", "mission-end": "partner", debrief: "partner", closing: "partner",
              notebook: "notebook", "event-calibration": "notebook", why: "partner", hub: "partner", contract: "customer" },
-      // Shown once, when a comeback starts (after the difficulty), then the workshop.
+      // Shown once, when a comeback starts (after the difficulty), then the workshop. interludes.start repeats it.
       intro: [
         { who: "partner", text: "Ajay Albert. Last year you borrowed a fortune to start Albert Orbital." },
         { who: "partner", text: "It never flew. The money went on a launch party, a logo and an office with a slide." },
         { who: "partner", text: "The lenders want it back by the deadline, or they take your grandfather's workshop." },
         { who: "notebook", text: "To whoever opens this: build it cheap, build it right, and bring the data home." },
-        { who: "customer", text: "Iron Eclipse charges a fortune for data. Bring it cheaper and we will pay." },
-        { who: "partner", text: "Pick a contract. Every satellite that delivers pays down the debt." }
+        { who: "customer", text: "Iron Eclipse sells data for a fortune. Bring it cheaper and we will pay." },
+        { who: "partner", text: "Pick a contract. Every satellite that delivers pays the debt down." }
       ],
-      // The workshop (the hub): why Ajay keeps going, one line, chosen by the number of flights so far.
+      // The workshop (the hub): why Ajay keeps going, one line, chosen by the number of flights so far. The order is the
+      // order of the story: the lenders, Mum, Iron Eclipse, Austin's name, then the lines that repeat.
       why: [
-        "The lenders don't want satellites. They want their money.",
-        "Your mum co-signed the loan with her house. No pressure.",
+        "The lenders don't want satellites. They want the workshop.",
+        "Mum co-signed the loan with her house. No pressure.",
         "Iron Eclipse bought your patents for pocket change. They're laughing.",
-        "Your grandfather was right about all of this. Somebody has to prove it.",
-        "Albert Orbital was a joke. Albert Orbital 2 doesn't have to be.",
+        "Grandpa's name belongs on that door. Put it back.",
+        "Albert Orbital was a joke. Albert Orbital Two doesn't have to be.",
         "Customers are tired of Iron Eclipse prices. That's your opening."
       ],
       // The workshop's situation lines: before the first flight, after a paid one, under half the debt, and when a
@@ -340,9 +381,109 @@
       },
       // The ending: won, or lost by time or by cash.
       ending: {
-        won: [{ who: "partner", text: "Debt paid. The workshop is yours." }, { who: "notebook", text: "Well done. Now build the next one." }],
+        won: [{ who: "partner", text: "Debt paid. The workshop is yours." }, { who: "notebook", text: "Well done, Ajay. Now build the next one." }],
         deadline: [{ who: "partner", text: "The deadline passed. The lenders took the keys." }, { who: "notebook", text: "Failure is a lesson. Try again." }],
         cash: [{ who: "partner", text: "Nothing left to launch with. The lenders took the keys." }, { who: "notebook", text: "Build cheaper. Try again." }]
+      },
+      // Part 2's story scenes. Each interlude is shown once per run, between a debrief and the workshop. See the header
+      // for which one comes when and what it reveals. The `offer` carries its buttons (set after this object).
+      interludes: {
+        start: [],   // filled from `intro` after this object
+        "after-1": [
+          { who: "mum", text: "Ajay? A man from the bank came to the house today. He was very polite." },
+          { who: "mum", text: "I signed that loan with you, love. With the house. Our house." },
+          { who: "partner", text: "You did tell her it was safe, right?" },
+          { who: "mum", text: "I believe in you. Please don't make me regret it." }
+        ],
+        offer: [
+          { who: "rival", text: "Ajay Albert. Iron Eclipse has been watching your little flights." },
+          { who: "rival", text: "We bought your old patents for almost nothing. Now we will clear your whole debt." },
+          { who: "rival", text: "In return: the workshop, and your grandfather's notebook. Every page." },
+          { who: "partner", text: "Nobody wanted that old notebook until you started winning. Ask yourself why." }
+        ],
+        refused: [
+          { who: "rival", text: "Suit yourself. We will see who owns that workshop at the deadline." },
+          { who: "partner", text: "Good. Now you have to actually win. Pick a contract." }
+        ],
+        "after-3": [
+          { who: "notebook", text: "If you reached this page, you have flown farther than I was allowed to." },
+          { who: "notebook", text: "My first design was right. Marcus Voss changed it the night before launch." },
+          { who: "notebook", text: "I let him. Don't let them bury it. Put my name back on the door." },
+          { who: "partner", text: "Voss founded Iron Eclipse. This was never only about the debt, Ajay. It is his name." }
+        ],
+        final: [
+          { who: "partner", text: "Almost there. The workshop, Mum's house and Austin's name ride on one more flight." }
+        ]
+      },
+      // The seven endings are Part 1's `box` (STORY.austin.endings) and these six. Each stands alone: `sold` can come
+      // before the last page is found, `legend` can come on Easy before it, and `broke` before Mum has called.
+      endings: {
+        legend: {
+          title: "HIS NAME, RESTORED",
+          kicker: "THE DEBT IS PAID. THE WORKSHOP IS YOURS.",
+          beats: [
+            { who: "partner", text: "The last payment clears. The lenders go quiet. The workshop is yours." },
+            { who: "notebook", text: "The last page, folded small: his design was right. Marcus Voss changed it." },
+            { who: "mum", text: "Your grandfather would have cried, love. Then he would have asked what is next." },
+            { who: "partner", text: "Fresh paint over the workshop door: AUSTIN ALBERT, ROCKET ENGINEER." }
+          ],
+          line: "Voss took the credit. You took it back."
+        },
+        comeback: {
+          title: "BACK IN BUSINESS",
+          kicker: "THE DEBT IS PAID",
+          beats: [
+            { who: "partner", text: "The last payment clears. The lenders send a very polite letter." },
+            { who: "mum", text: "The house is safe, love. Please, no more launch parties." },
+            { who: "customer", text: "Another contract? Iron Eclipse is starting to notice you." },
+            { who: "notebook", text: "Well done, Ajay. Now build the next one." }
+          ],
+          line: "The workshop lights stay on. Albert Orbital is open for business."
+        },
+        close: {
+          title: "BY A HAIR",
+          kicker: "THE LAST DAY",
+          beats: [
+            { who: "partner", text: "The last payment lands with hours to spare. The lenders' van is already outside." },
+            { who: "mum", text: "I had started packing the kitchen, love. Then your message came." },
+            { who: "partner", text: "They drive off empty-handed. The whole street watches from its windows." },
+            { who: "notebook", text: "Margins. It is the first thing I wrote and the last thing you learned." }
+          ],
+          line: "You made it by a hair. Next time, leave more room."
+        },
+        sold: {
+          title: "SOLD OUT",
+          kicker: "THE DEBT IS GONE",
+          beats: [
+            { who: "rival", text: "Debt cleared, as promised. The workshop, the patents and the notebook are ours now." },
+            { who: "rival", text: "We will thank your grandfather in the small print. Very small." },
+            { who: "mum", text: "You saved the house, love. I know what it cost you." },
+            { who: "partner", text: "The van pulls away with the box. You watch until the street is empty." }
+          ],
+          line: "There was one page at the bottom of the box. Nobody will ever read it."
+        },
+        timeout: {
+          title: "THE KEYS ARE TAKEN",
+          kicker: "THE DEADLINE PASSED",
+          beats: [
+            { who: "partner", text: "The deadline passes. The lenders do not wait for your next launch." },
+            { who: "partner", text: "Two men in grey coats change the lock on your grandfather's workshop." },
+            { who: "mum", text: "My name is on that loan, love. So is the house. We will manage." },
+            { who: "notebook", text: "The calendar never read my notebook either." }
+          ],
+          line: "The calendar won. Next time, so will you."
+        },
+        broke: {
+          title: "NOTHING LEFT TO LAUNCH",
+          kicker: "THE CASH IS GONE",
+          beats: [
+            { who: "partner", text: "The account is empty. There is no rocket left that you can pay for." },
+            { who: "partner", text: "The lenders have a word for this: default. They say it very politely." },
+            { who: "mum", text: "My name is on that loan, love, and so is the house. Please don't say sorry." },
+            { who: "notebook", text: "Every part costs money and weight. I wrote that on page one." }
+          ],
+          line: "Build cheaper, build right, and try again."
+        }
       },
       map: {
         start: ["Nothing costs money until launch. Try ideas freely."],
@@ -471,6 +612,13 @@
       }
     }
   };
+
+  // The `offer` interlude carries its two buttons, and `start` is the intro again (one source for the words).
+  STORY.ajay.interludes.offer.sell = "SELL";
+  STORY.ajay.interludes.offer.refuse = "REFUSE";
+  STORY.ajay.interludes.offer.sell_hint = "The whole debt is cleared. The workshop and the notebook are gone.";
+  STORY.ajay.interludes.offer.refuse_hint = "The debt stays. The workshop and the notebook stay yours.";
+  STORY.ajay.interludes.start = STORY.ajay.intro.map(function (b) { return { who: b.who, text: b.text }; });
 
   // ---- the code that picks a line (no text below this point) ----
   // Every name here starts with "story" so it cannot clash with the rest of this file.
