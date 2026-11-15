@@ -1169,7 +1169,7 @@ var OFFER_CLIENTS = {
 };
 
 function offerText(o, topic, orbit) {
-  return o.client + " wants " + lcFirst(topic.name) + " data" + (orbit ? " from " + lcFirst(orbit.name) : "") +
+  return o.client + " wants " + inText(topic.name) + " data" + (orbit ? " from " + inText(orbit.name) : "") +
     ": at least " + o.min_science + " points by " + o.year_to + ". Bonus $" + o.bonus_musd + "M and " + o.bonus_sci + " science.";
 }
 
@@ -1284,7 +1284,7 @@ function getChronicle() {
     var o = getObjective(m.objective), orbit = getOrbit(m.orbit);
     var orbitName = orbit ? orbit.name : m.orbit;
     var parts = [];
-    parts.push("G-" + (m.flight || i + 1) + " flew in " + lcFirst(orbitName) + " for " + (m.months || "?") + (m.months === 1 ? " month" : " months"));
+    parts.push("G-" + (m.flight || i + 1) + " flew in " + inText(orbitName) + " for " + (m.months || "?") + (m.months === 1 ? " month" : " months"));
     parts.push(round(m.science, 0) + " points of data" + (m.new_data < m.science ? " (" + round(m.new_data, 0) + " of it new)" : ""));
     parts.push((m.stars || 0) + (m.stars === 1 ? " star" : " stars"));
     parts.push("paid $" + round(m.payout_musd, 1) + "M");
@@ -1692,8 +1692,8 @@ function closestMission(design) {
   var best = null;
   MISSIONS.forEach(function (m) {
     var shared = [], score = 0;
-    if (m.objective === design.objective) { score += 10; shared.push("both studied " + lcFirst((getObjective(m.objective) || {}).name || m.objective)); }
-    if (m.orbit === design.orbit) { score += 4; shared.push("both flew in " + (orbit ? lcFirst(orbit.name) : m.orbit)); }
+    if (m.objective === design.objective) { score += 10; shared.push("both studied " + inText((getObjective(m.objective) || {}).name || m.objective)); }
+    if (m.orbit === design.orbit) { score += 4; shared.push("both flew in " + (orbit ? inText(orbit.name) : m.orbit)); }
     var common = m.tags.filter(function (t) { return tags.indexOf(t) !== -1; });
     if (common.length) { score += 3 * common.length; shared.push("both carried " + common.join(" and ") + " instruments"); }
     if ((m.power === "solar") === hasSolar) { score += 2; shared.push(hasSolar ? "both ran on solar power" : "both ran on batteries alone"); }
@@ -1730,15 +1730,17 @@ function segmentLines(mission, t, k, cpay) {
   var lines = [];
   lines.push({ id: "launch", name: "Launch segment",
     text: (launcher ? launcher.name : "The rocket") + " carried " + round(t.mass_kg, 1) + " kg to " +
-      (orbit ? lcFirst(orbit.name) : "orbit") + (spare !== null ? ", with " + spare + "% of its capacity to spare." : ".") });
+      (orbit ? inText(orbit.name) : "orbit") + (spare !== null ? ", with " + spare + "% of its capacity to spare." : ".") });
   lines.push({ id: "space", name: "Space segment",
     text: parts.length + " parts drawing " + round(t.power_draw_w, 1) + " W" +
       (t.power_gen_w > 0 ? " from " + round(t.power_gen_w, 1) + " W of solar cells" : " from batteries alone") +
       "; it worked for " + mission.month + " of " + mission.lifetime_months + " months planned" +
       (mission.ended_early ? ", then a failure ended it." : mission.end_cause === "batteries" ? ", until the batteries ran down." : ".") });
-  var share = t.data_gb_day > 0 ? Math.round(100 * t.data_returned_gb_day / t.data_gb_day) : 100;
+  // The share as a person would say it: never "0%" beside data that did reach the ground, never "100%" when some was lost.
+  var pct = t.data_gb_day > 0 ? 100 * t.data_returned_gb_day / t.data_gb_day : 100;
+  var share = pct >= 100 ? "100%" : pct > 0 && pct < 1 ? "under 1%" : Math.min(99, Math.round(pct)) + "%";
   lines.push({ id: "ground", name: "Ground segment",
-    text: formatData(t.data_returned_gb_day) + " of the " + formatData(t.data_gb_day) + " made each day reached the ground (" + share + "%)" +
+    text: formatData(t.data_returned_gb_day) + " of the " + formatData(t.data_gb_day) + " made each day reached the ground (" + share + ")" +
       (orbit ? ", in contact with a ground station " + round(orbit.downlink_mult * 100, orbit.downlink_mult < 0.1 ? 1 : 0) + "% of the time." : ".") });
   lines.push({ id: "user", name: "User segment",
     text: "Scientists received " + Math.round(mission.science) + " science points against a target of " +
@@ -1817,7 +1819,7 @@ function cheapestRocketTo(orbitId) {
     .reduce(function (m, l) { return Math.min(m, l.cost_musd); }, Infinity);
 }
 function contractText(k, topic, orbit) {
-  return k.client + ": " + topic.name + (orbit ? ", from " + lcFirst(orbit.name) : "") + ". $" + k.price_musd +
+  return k.client + ": " + topic.name + (orbit ? ", from " + inText(orbit.name) : "") + ". $" + k.price_musd +
     "M for at least " + k.min_science + " points of data, less for less; 3 stars adds $" + k.bonus_musd +
     "M. Open until month " + k.expires_month + ".";
 }
@@ -1965,10 +1967,10 @@ function comebackChecks(design, t) {
   } else {
     var topic = getObjective(k.topic), orb = k.orbit ? getOrbit(k.orbit) : null;
     if (design.objective && design.objective !== k.topic) {
-      out.blockers.push({ id: "contract-topic", text: k.client + " is paying for " + lcFirst(topic ? topic.name : k.topic) + " data, not this." });
+      out.blockers.push({ id: "contract-topic", text: k.client + " is paying for " + inText(topic ? topic.name : k.topic) + " data, not this." });
     }
     if (orb && design.orbit && design.orbit !== k.orbit) {
-      out.blockers.push({ id: "contract-orbit", text: k.client + " wants the data from " + lcFirst(orb.name) + "." });
+      out.blockers.push({ id: "contract-orbit", text: k.client + " wants the data from " + inText(orb.name) + "." });
     }
   }
   var months = flightMonths(design), left = c.deadline_month - c.month;
@@ -2164,7 +2166,7 @@ function getComebackEnding() {
     var o = getObjective(m.objective), orbit = getOrbit(m.orbit);
     var k = (c.offers || []).filter(function (x) { return x.id === m.contract; })[0];
     timeline.push({ month: m.month, title: "G-" + (m.flight || i + 1) + ": " + flightHeadline(m, o, orbit ? orbit.name : m.orbit),
-      text: "Flown for " + (k ? lcFirst(k.client) : "no client") + " from " + lcFirst(orbit ? orbit.name : m.orbit) + ": " +
+      text: "Flown for " + (k ? lcFirst(k.client) : "no client") + " from " + inText(orbit ? orbit.name : m.orbit) + ": " +
         round(m.science, 0) + " points of data, " + (m.stars || 0) + (m.stars === 1 ? " star" : " stars") + ", paid " + money(m.payout_musd || 0) + "." +
         (m.real ? " Its real twin: " + m.real.name + " (" + m.real.year + ")." : "") });
   });

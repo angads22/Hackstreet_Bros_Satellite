@@ -165,6 +165,22 @@ function adviceProblems(g, m, lim, label) {
   if (ch.thruster && text.toLowerCase().indexOf(g.getPart(ch.thruster).name.toLowerCase()) === -1) out.push("the text does not name the thruster: " + text);
   return out.map(function (x) { return label + ": " + x; });
 }
+// Every string the back end returns for a flight (getDebrief, and recordResult's result when given): readable
+// sentences and numbers. No doubled article ("The a hurricane"), no raw number ("0.000025 of 0.00004 GB"), no
+// proper noun lower-cased ("arctic sea-ice", "sun-synchronous"), no "0%" beside an amount that is not 0.
+function textProblems(obj, label) {
+  var out = [];
+  (function walk(v, at) {
+    if (typeof v === "string") {
+      if (/\b(?:the|a|an) (?:a|an|the)\b/i.test(v)) out.push(at + " article: " + v);
+      if (/\d\.\d{4,}|\b0\.0\d{3,}/.test(v)) out.push(at + " raw number: " + v);
+      if (/\b(?:arctic|sun-synchronous)\b/.test(v)) out.push(at + " lower-cased name: " + v);
+      if (/\b0\.0*[1-9][\d.]* ?[kMGT]?B\b[^.]*\(0%\)|\b[1-9][\d.]* ?[kMGT]?B\b[^.]*\(0%\)/.test(v)) out.push(at + " 0% of something: " + v);
+      if (/undefined|NaN|\bnull\b|Infinity/.test(v)) out.push(at + " broken text: " + v);
+    } else if (v && typeof v === "object") Object.keys(v).forEach(function (k) { walk(v[k], at + "." + k); });
+  })(obj, "");
+  return out.map(function (x) { return label + ": " + x; });
+}
 // Part 1: every launchable 1958 design, on each rocket, under each event choice; steps 1 and 2 preset the rocket.
 (function () {
   var base = G.newDesign("training"); G.setEra(base, "igy");
@@ -180,7 +196,8 @@ function adviceProblems(g, m, lim, label) {
       [0, 1, 2].forEach(function (choice) {
         var m = fly(d, choice), lim = adviceOf(G, m);
         flights++; kinds[lim.key] = (kinds[lim.key] || 0) + 1;
-        problems = problems.concat(adviceProblems(G, m, lim, ps.join("+") + " " + l + " choice " + choice));
+        problems = problems.concat(adviceProblems(G, m, lim, ps.join("+") + " " + l + " choice " + choice),
+                                   textProblems(G.getDebrief(m), ps.join("+") + " " + l + " choice " + choice));
         if (lim.suggestion !== G.getDebrief(m).suggestion) problems.push("getDebrief and limitingFactor disagree");
       });
     }); });
@@ -200,6 +217,22 @@ function adviceProblems(g, m, lim, label) {
   var lb = adviceOf(G, b);
   check("3 the eclipse advice fits the Explorer body and the 1958 rocket", lb.key === "power" && !/silver-zinc/.test(lb.suggestion) &&
     lb.change && adviceProblems(G, b, lb, "").length === 0, lb.suggestion);
+})();
+// The bug report's flights (flight-06): an event that ends the mission is named as written, and data in readable units.
+(function () {
+  var hur = fly(eraDesign("nimbus", "expert", "weather", "leo", "thor-able",
+    ["nimbus-bus", "reaction-wheels", "vidicon-camera", "n-on-p-cells", "nicad-battery", "vhf-telemetry", "tape-recorder"]), 0);
+  var ion = fly(eraDesign("nimbus", "expert", "ionosphere", "leo", "thor-agena",
+    ["drum-body", "spin-stabilised", "topside-sounder", "n-on-p-cells", "mercury-battery", "pcm-telemetry", "tape-recorder"]), 0);
+  var fire = fly(eraDesign("new-space", "expert", "wildfire", "leo", "rideshare",
+    ["cubesat-12u", "spin-stabilised", "optical-camera", "solar-small", "radio-uhf", "obc-basic"]), 0);
+  var dh = G.getDebrief(hur), di = G.getDebrief(ion), df = G.getDebrief(fire);
+  check("3 an event that ends a flight is named as written, never 'The a hurricane' or 'The the long antennas'",
+    hur.ended_early && ion.ended_early && dh.suggestion.indexOf(hur.end_reason.title + ":") === 0 && di.suggestion.indexOf(ion.end_reason.title + ":") === 0 &&
+    textProblems([dh, di], "").length === 0, dh.suggestion + " | " + di.suggestion);
+  var ground = df.segments.filter(function (x) { return x.id === "ground"; })[0].text;
+  check("3 a sliver of data reaching the ground reads 'under 1%' in readable units, not 0% or 0.01025 GB",
+    /MB of the 15 GB/.test(df.suggestion) && /under 1%/.test(ground) && textProblems(df, "").length === 0, df.suggestion + " | " + ground);
 })();
 // The other eras (standalone): random designs, random choices. Nothing from a later year, nothing that cannot launch.
 (function () {
@@ -223,7 +256,8 @@ function adviceProblems(g, m, lim, label) {
       if (G.runChecks(d).blockers.length) continue;
       var m = fly(d, function (ev) { return Math.floor(rnd() * ev.choices.length); });
       flights++;
-      problems = problems.concat(adviceProblems(G, m, adviceOf(G, m), era + " " + d.objective + " " + d.orbit + " " + d.launcher));
+      problems = problems.concat(adviceProblems(G, m, adviceOf(G, m), era + " " + d.objective + " " + d.orbit + " " + d.launcher),
+                                 textProblems(G.getDebrief(m), era + " " + d.objective + " " + d.orbit + " " + d.launcher));
     }
   });
   check("3 other eras: TRY THIS can be done in the design's own era", problems.length === 0 && flights > 300,
@@ -257,10 +291,11 @@ function adviceProblems(g, m, lim, label) {
     if (g.runChecks(d).blockers.length) continue;
     var m = g.startMission(d), st;
     do { st = g.stepMonth(m); if (st.event) g.chooseEvent(m, Math.floor(rnd() * st.event.choices.length)); } while (!st.ended);
-    g.recordResult(m);   // the debrief reads the advice after the flight is recorded, as the screen does
+    var rec = g.recordResult(m);   // the debrief reads the advice after the flight is recorded, as the screen does
     flights++; if (k.orbit) named++;
     var lim = adviceOf(g, m);
-    problems = problems.concat(adviceProblems(g, m, lim, topic + "/" + (k.orbit || "any") + " " + d.orbit + " " + d.launcher));
+    problems = problems.concat(adviceProblems(g, m, lim, topic + "/" + (k.orbit || "any") + " " + d.orbit + " " + d.launcher),
+                               textProblems([g.getDebrief(m), rec, g.getComeback(), g.getComebackEnding()], topic + "/" + (k.orbit || "any") + " " + d.orbit));
   }
   check("3 Part 2: TRY THIS for a comeback flight can be done, keeps the contract's topic and named orbit, and never says research",
     problems.length === 0 && flights > 200 && named > 50, flights + " flights, " + named + " with a named orbit" +
