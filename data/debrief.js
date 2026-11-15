@@ -9,7 +9,7 @@ const DEBRIEF = {
   event: "Something you did not plan for ended or crippled the mission. Space is harsh: radiation, debris and plain bad luck all take their toll. Designers protect against the risks they can predict and keep margins for the ones they cannot.",
   design: "Nothing broke and no resource ran short, but the design was aimed at the wrong thing. The instruments or the orbit did not suit the objective, so the spacecraft worked perfectly and still missed the target. Real missions start from the science question, then choose the hardware.",
   saturated: "You already knew most of what this topic can teach, so this mission added little that was new, and the payout was small. Science pays for discovery: a fresh topic would teach you, and pay you, far more.",
-  breakthrough: "This was a first real look at the topic, so almost everything you sent home was new. That is why the payout was large. The next mission on the same topic will add less.",
+  breakthrough: "This was the first real look at the topic, so everything you sent home was new. The next mission on the same topic will add less, and pay less.",
   // Mission Design Lab discipline names for each limiting factor (challenge Resources tab:
   // NASA Goddard Mission Design Lab disciplines: power, propulsion, thermal, structures,
   // avionics, communications, attitude control, software, reliability, cost and risk).

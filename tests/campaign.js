@@ -278,5 +278,29 @@ var rcap = G.recordResult(fly(dcap));
 check("13 a flight with no new data claims no offer", rcap.nothing_new && rcap.offers_claimed.length === 0 && G.getCampaign().offers.some(function (o) { return o.id === "t-cap" && !o.done; }));
 check("13 a topic at its cap gets no new offers", G.getHubInfo().offers.every(function (o) { return o.topic !== "radiation" || o.id === "t-cap"; }));
 
+// 14. Never soft-locked by the lab: a purchase that would leave less than the cheapest launch is refused and changes
+// nothing (the bug report's path B: 1963, $4.72M, Topside sounding for $4M on Point Design).
+G.newCampaign("expert");
+var c14 = G.getCampaign();
+c14.year = 1963; c14.treasury_musd = 4.72; c14.science_pts = 35.8;
+c14.research = ["thor-rockets", "solar-cells"].concat(c14.research.filter(function (r) { return r !== "thor-rockets" && r !== "solar-cells"; }));
+c14.lessons = ["all_data", "margins", "three_stars", "new_topic", "spare", "protected", "storm_survived", "batteries_ran_out"];
+G.saveCampaign(c14);
+var floor14 = G.cheapestLaunchCost(G.getCampaign()), before14 = JSON.stringify(G.getCampaign());
+var b14 = G.buyResearch("topside-sounding");
+check("14 a lab purchase that would leave less than the cheapest launch is refused", !b14.ok && /cheapest launch/.test(b14.reason) &&
+  JSON.stringify(G.getCampaign()) === before14, b14.reason + " (floor $" + floor14 + "M)");
+var c14b = G.getCampaign(); c14b.treasury_musd = G.round(4 + floor14 + 0.5, 3); G.saveCampaign(c14b);
+check("14 with enough left over for a launch, the same purchase goes through", G.buyResearch("topside-sounding").ok &&
+  G.getCampaign().treasury_musd >= G.cheapestLaunchCost(G.getCampaign()));
+// An upgrade raises the floor itself (the bug report's path A): checked after the upgrade, not before.
+G.newCampaign("expert");
+var c14c = G.getCampaign(); c14c.year = 1967; c14c.science_pts = 95; G.saveCampaign(c14c);
+var floor14c = G.cheapestLaunchCost(G.getCampaign());
+c14c = G.getCampaign(); c14c.treasury_musd = G.round(1 + floor14c + 0.01, 3); G.saveCampaign(c14c);   // enough before the upgrade, not after
+var u14 = G.buyUpgrade("scintillation-counter"), after14 = G.getCampaign();
+check("14 an upgrade that raises the floor above what is left is refused", u14.ok ? after14.treasury_musd >= G.cheapestLaunchCost(after14) : /cheapest launch/.test(u14.reason) &&
+  after14.upgrades.indexOf("scintillation-counter") === -1, (u14.reason || "bought") + "; floor before $" + floor14c + "M");
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;
