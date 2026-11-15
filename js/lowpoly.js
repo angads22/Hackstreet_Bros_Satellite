@@ -135,7 +135,7 @@
       var target = (el && el.isConnected) ? el : (root.document && root.document.documentElement);
       if (target && root.getComputedStyle) cs = root.getComputedStyle(target);
     } catch (e) { cs = null; }
-    return function (name) {
+    var resolve = function (name) {
       var hit = cache[name];
       if (hit) return hit;
       var rgb = null;
@@ -156,6 +156,12 @@
       cache[name] = rgb;
       return rgb;
     };
+    // An optional page-wide CSS colour (--lp-light-key, --lp-light-ambient): [r,g,b] or null when the page does not set it.
+    resolve.page = function (prop) {
+      try { var raw = cs ? String(cs.getPropertyValue(prop)).replace(/^\s+|\s+$/g, '') : ''; return raw ? parseAnyColor(raw) : null; }
+      catch (e) { return null; }
+    };
+    return resolve;
   }
 
   // The final #rrggbb for a palette name, including any --lp-<name> override on el (default: the page).
@@ -1143,8 +1149,10 @@
     // light
     var lt = scn.light || {};
     var Ld = normalize3(lt.dir || DEFAULT_LIGHT.dir);
-    var keyC = parseAnyColor(lt.key || DEFAULT_LIGHT.key) || parseColor(DEFAULT_LIGHT.key);
-    var ambC = parseAnyColor(lt.ambient || DEFAULT_LIGHT.ambient) || parseColor(DEFAULT_LIGHT.ambient);
+    // The page may set the light colours for every scene (--lp-light-key, --lp-light-ambient: the 1958 look is a warm sepia
+    // print); unset, the scene's own colours apply and nothing changes.
+    var keyC = resolve.page('--lp-light-key') || parseAnyColor(lt.key || DEFAULT_LIGHT.key) || parseColor(DEFAULT_LIGHT.key);
+    var ambC = resolve.page('--lp-light-ambient') || parseAnyColor(lt.ambient || DEFAULT_LIGHT.ambient) || parseColor(DEFAULT_LIGHT.ambient);
     if (lt.space === 'camera') { G.Lx = Ld[0]; G.Ly = Ld[1]; G.Lz = Ld[2]; }
     else {
       G.Lx = Ld[0] * rx + Ld[1] * ry + Ld[2] * rz;
