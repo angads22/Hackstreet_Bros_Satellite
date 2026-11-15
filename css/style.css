@@ -85,11 +85,12 @@ button:disabled { cursor: not-allowed; }
 .data-badge.partial { color: var(--accent-ink); }
 .data-badge.snapshot { color: var(--text-dim); }
 .data-badge.loading { color: var(--text-dim); border-style: dashed; }
-@media (min-width: 761px) {
-  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
-  html { scroll-padding-top: 240px; }   /* the header wraps to about 230px between 761 and 899px */
-}
+/* The header stays in view only on a wide screen, where it fits one row (about 130px): the brand's status line wraps
+   inside its own box instead of pushing the minimap and "?" onto rows of their own. Narrower (a phone, or 150 to 200%
+   zoom), it scrolls away with the page, so it never covers what has focus. */
 @media (min-width: 930px) {
+  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
+  .brand { flex: 0 1 300px; }
   html { scroll-padding-top: 144px; }
 }
 @media (max-height: 500px) {   /* landscape phones: a sticky header would eat the screen */
