@@ -129,6 +129,9 @@ check("5 the flight is paid in proportion to its data, up to the full price", r4
 check("5 the 3-star bonus follows the stars", r4.contract_bonus_musd === bonus4 && r4.payout_musd === G.round(paid4 + bonus4, 3),
   db4.stars + " stars, bonus " + r4.contract_bonus_musd);
 check("5 the debrief shows the same money", db4.payout_musd === r4.payout_musd && db4.contract_paid_musd === paid4 && db4.contract_bonus_musd === bonus4);
+var db4b = G.getDebrief(m4);   // the screens call recordResult first, then getDebrief: the money must not change
+check("5 the debrief after recordResult still shows the contract's money", db4b.payout_musd === r4.payout_musd &&
+  db4b.contract_paid_musd === paid4 && db4b.contract_bonus_musd === bonus4 && /paid \$/.test(db4b.segments[3].text), db4b.segments[3].text);
 check("5 cash: pay plus bonus, less event costs; no grant", near(c4.treasury_musd, G.round(G.round(cashBefore4 + paid4 + bonus4, 3) - m4.extra_cost_musd, 3)) &&
   r4.cash_musd === c4.treasury_musd && r4.treasury_musd === c4.treasury_musd && r4.grant_musd === 0);
 var used4 = G.devMonths(m4.design) + CB.launch_campaign_months;
@@ -140,6 +143,18 @@ check("5 recordResult pays once", G.recordResult(m4) === r4 && G.getCampaign().t
 check("5 the year follows the months", c4.year === G.getEra("new-space").year + Math.floor(c4.month / 12));
 var last4 = c4.missions[c4.missions.length - 1];
 check("5 the flight is saved with its month and contract", last4.month === c4.month && last4.contract === k3.id && last4.payout_musd === r4.payout_musd);
+
+var kHigh = addContract({ id: "t-high", min_science: 1000, price_musd: 10, bonus_musd: 2.5 });
+var mHigh = fly(design(kHigh.id, "leo", "rideshare", RAD)), dHigh = G.getDebrief(mHigh), rHigh = G.recordResult(mHigh);
+check("5 less data than the minimum pays in proportion: price x science / minimum", rHigh.contract_paid_musd > 0 && rHigh.contract_paid_musd < kHigh.price_musd &&
+  rHigh.contract_paid_musd === G.round(kHigh.price_musd * mHigh.science / kHigh.min_science, 3) && rHigh.contract_bonus_musd === (dHigh.stars === 3 ? 2.5 : 0),
+  G.round(mHigh.science, 1) + " of " + kHigh.min_science + " points paid $" + rHigh.contract_paid_musd + "M of $" + kHigh.price_musd + "M");
+var kT = { topic: "radiation", orbit: null, min_science: 100, price_musd: 10, bonus_musd: 2.5 }, dT = { objective: "radiation", orbit: "leo" };
+var p2 = G.contractPay(kT, dT, 50, 50, 2), p3 = G.contractPay(kT, dT, 150, 150, 3), p0 = G.contractPay(kT, dT, 150, 0, 3);
+check("5 the bonus needs 3 stars and some pay; half the minimum pays half", p2.paid_musd === 5 && p2.bonus_musd === 0 && p3.paid_musd === 10 &&
+  p3.bonus_musd === 2.5 && p0.paid_musd === 0 && p0.bonus_musd === 0 &&
+  G.contractPay(kT, { objective: "weather", orbit: "leo" }, 150, 150, 3).paid_musd === 0 &&
+  G.contractPay(Object.assign({}, kT, { orbit: "sso" }), dT, 150, 150, 3).paid_musd === 0);
 
 // ---- 6. Contracts: the flown one closes, the rest refill to three; expired ones go.
 var h6 = G.getComeback();
@@ -201,6 +216,8 @@ check("9 safe_pay_max keeps the cheapest launch for an open contract", h9.cheape
 var refusals = ["1", NaN, Infinity, -1, 0, null, undefined].map(function (x) { return G.payDebt(x); });
 check("9 payDebt refuses a non-number, a negative and nothing", refusals.every(function (r) { return r.ok === false && r.paid_musd === 0 && r.reason; }) &&
   G.getComeback().cash_musd === h9.cash_musd && G.getComeback().debt_musd === h9.debt_musd);
+var tiny = G.payDebt(0.0004);
+check("9 payDebt refuses an amount that rounds to nothing", !tiny.ok && G.getComeback().debt_paid_musd === 0 && !(G.getCampaign().log || []).length, tiny.reason);
 var tooMuch = G.payDebt(h9.cash_musd + 1);
 check("9 payDebt refuses more than the cash", !tooMuch.ok && /only/.test(tooMuch.reason), tooMuch.reason);
 var unsafe = G.payDebt(G.round(h9.safe_pay_max_musd + 0.01, 3));
@@ -287,8 +304,12 @@ G.newCampaign("training");
 check("13 a comeback design never flies in a 1957 campaign", G.startMission(cross) === null &&
   G.runChecks(cross).blockers.some(function (x) { return x.id === "no-comeback"; }));
 var d13b = G.newCampaignDesign();
+G.setObjective(d13b, "radiation"); G.setOrbit(d13b, "leo"); G.setLauncher(d13b, "juno-1");
+["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer", "explorer-body", "spin-stabilised"].forEach(function (p) { G.addPart(d13b, p); });
+var ok13b = G.runChecks(d13b).blockers.length === 0;
 G.newComeback("standard");
-check("13 a 1957 design never flies in a comeback", G.startMission(d13b) === null);
+check("13 a 1957 design that could launch never flies in a comeback", ok13b && G.startMission(d13b) === null &&
+  G.runChecks(d13b).blockers.some(function (x) { return x.id === "no-contract"; }));
 
 // ---- 14. No soft lock: careless players (random parts, random choices) always reach an ending, and while a
 // comeback runs with less cash than debt there is always a contract it can afford to fly. The check builds

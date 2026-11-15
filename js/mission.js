@@ -1700,12 +1700,12 @@ function lostReason(c) {
 function comebackChecks(design, t) {
   var out = { blockers: [], warnings: [] };
   var c = getCampaign();
-  if (!isComeback(c) || !design.comeback) {
+  if (!isComeback(c)) {
     out.blockers.push({ id: "no-comeback", text: "This design belongs to Ajay's comeback, and none is running." });
     return out;
   }
   if (c.finished) { out.blockers.push({ id: "comeback-over", text: "The comeback is over." }); return out; }
-  var k = openContract(c, design.contract);
+  var k = design.comeback ? openContract(c, design.contract) : null;   // a 1957 design has no contract
   if (!k) {
     out.blockers.push({ id: "no-contract", text: design.contract ? "That contract is no longer open: pick another on the hub."
                                                                   : "Pick a contract on the hub first: nobody pays for data without one." });
@@ -1819,6 +1819,7 @@ function payDebt(amountMusd) {
   if (typeof amountMusd !== "number" || !isFinite(amountMusd)) return no("Pay an amount in millions of dollars.");
   if (amountMusd <= 0) return no("Pay more than nothing.");
   var amount = round(Math.min(amountMusd, c.debt_musd), 3);
+  if (amount <= 0) return no("Pay at least $0.001M.");                 // money is kept to the thousandth of a million
   if (amount > c.treasury_musd + 1e-9) return no("Ajay has only $" + c.treasury_musd + "M in cash.");
   var safe = safePayMax(c);
   if (amount < c.debt_musd && amount > safe + 1e-9) {
