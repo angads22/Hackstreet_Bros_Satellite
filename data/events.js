@@ -13,8 +13,8 @@ const EVENTS = [
   {
     id: "counter-silence",
     objectives: ["radiation"],
-    title: "The counter goes silent",
-    text: "High up, your counter reads zero, then recovers lower down. Broken, or swamped?",
+    title: "Counter goes silent",
+    text: "High up, your counter reads zero, then recovers. Broken, or swamped?",
     choices: [
       { label: "Discard those passes", effect: { science_mult: 0.6 } },
       { label: "Trust the data",   effect: {} }
@@ -24,7 +24,7 @@ const EVENTS = [
     id: "spin-wobble",
     objectives: ["weather"],
     title: "Satellite wobbles",
-    text: "The rocket stage bumped you. Your cloud pictures are smeared.",
+    text: "The rocket stage bumped you. Cloud pictures are smeared.",
     choices: [
       { label: "Live with it",           effect: { science_mult: 0.6 } },
       { label: "Damp it",    effect: { fail_chance: 0.3, fails: "instrument" } }
@@ -55,7 +55,7 @@ const EVENTS = [
     id: "debris",
     orbit_weight: { leo: 1.5, sso: 2, geo: 0.3 },   // the 700-900 km band is the most crowded
     title: "Debris warning",
-    text: "Old rocket debris passes within 200 metres. A hit would be fatal.",
+    text: "Rocket debris passes within 200 metres. A hit would be fatal.",
     choices: [
       { label: "Pay to dodge", effect: { cost_musd: 0.3 } },
       { label: "Trust the odds",               effect: { fail_chance: 0.2, fails: "instrument" } }
@@ -73,7 +73,7 @@ const EVENTS = [
   {
     id: "stuck-hinge",
     title: "Power fault",
-    text: "A short is cutting the power your instruments get.",
+    text: "A short is cutting instrument power.",
     choices: [
       { label: "Switch circuits", effect: { fail_chance: 0.3, fails: "power" } },
       { label: "Live with less",          effect: { science_mult: 0.8 } }
@@ -91,7 +91,7 @@ const EVENTS = [
   {
     id: "contamination",
     title: "Outgassing",
-    text: "Gas from the craft's own materials is fogging the instrument.",
+    text: "Gas from the craft's materials is fogging the instrument.",
     choices: [
       { label: "Bake it off", effect: { lose_months: 1 } },
       { label: "Live with it",     effect: { science_mult: 0.85 } }
@@ -121,7 +121,7 @@ const EVENTS = [
     id: "ion-antennas",
     objectives: ["ionosphere"],
     title: "Stuck antenna",
-    text: "One arm of the 45 m antenna will not fully unroll. Echoes come back lopsided.",
+    text: "One antenna arm will not fully unroll. Echoes come back lopsided.",
     choices: [
       { label: "Try again", effect: { fail_chance: 0.3, fails: "instrument" } },
       { label: "Fly one short",                  effect: { science_mult: 0.75 } }
@@ -131,7 +131,7 @@ const EVENTS = [
     id: "ion-aurora",
     objectives: ["ionosphere"],
     title: "Auroral roar",
-    text: "Natural radio noise drowns the echoes. It may be science too.",
+    text: "Natural radio noise drowns the echoes. It is science too.",
     choices: [
       { label: "Record the noise", effect: { cost_musd: 0.3, science_mult: 1.15 } },
       { label: "Filter it out",          effect: { science_mult: 0.85 } }
@@ -141,7 +141,7 @@ const EVENTS = [
     id: "ion-blizzard",
     objectives: ["ionosphere"],
     title: "Blizzard at Resolute Bay",
-    text: "Your busiest station loses its dish. It heard about one in five soundings.",
+    text: "Your busiest station loses its dish. It heard one in five soundings.",
     choices: [
       { label: "Re-route to Fairbanks", effect: { cost_musd: 0.4 } },
       { label: "Wait for rebuild",                effect: { lose_months: 1 } }
@@ -150,7 +150,7 @@ const EVENTS = [
   {
     id: "rad-rival",
     objectives: ["radiation"],
-    title: "Rival sees the belts",
+    title: "Rival sees belts",
     text: "Another satellite reports the same radiation. Publish now, or verify first?",
     choices: [
       { label: "Publish now", effect: { cost_musd: 0.5, science_mult: 1.2 } },
@@ -160,7 +160,7 @@ const EVENTS = [
   {
     id: "rad-belt",
     objectives: ["radiation"],
-    title: "Belt bigger than predicted",
+    title: "Bigger belt",
     text: "Readings climb past every forecast. The counter is warming up.",
     choices: [
       { label: "Skip worst passes", effect: { science_mult: 0.7 } },
@@ -170,8 +170,8 @@ const EVENTS = [
   {
     id: "wx-hurricane",
     objectives: ["weather"],
-    title: "Hurricane under the camera",
-    text: "A hurricane sits right under your orbit. Nobody has seen one whole.",
+    title: "Hurricane below",
+    text: "A hurricane sits under your orbit. Nobody has seen one whole.",
     choices: [
       { label: "Shoot every pass",                         effect: { science_mult: 1.3, fail_chance: 0.2, fails: "computer" } },
       { label: "Usual schedule",                  effect: {} }
@@ -181,7 +181,7 @@ const EVENTS = [
     id: "wx-tape",
     objectives: ["weather"],
     title: "Picture store jams",
-    text: "The computer holding pictures keeps jamming. Without it, only live pictures.",
+    text: "The picture store keeps jamming. Without it, only live pictures.",
     choices: [
       { label: "Reset and hope",                        effect: { fail_chance: 0.3, fails: "computer" } },
       { label: "Live pictures only",    effect: { science_mult: 0.7 } }
@@ -200,8 +200,8 @@ const EVENTS = [
   {
     id: "fire-smoke",
     objectives: ["wildfire"],
-    title: "Smoke over the target",
-    text: "Smoke from a huge fire hides the region. Ordinary cameras see grey.",
+    title: "Smoke over target",
+    text: "Smoke hides the region. Ordinary cameras see only grey.",
     choices: [
       { label: "Wait it out",                         effect: { lose_months: 1 } },
       { label: "Observe anyway",           effect: { science_mult: 0.85 } }
@@ -210,8 +210,8 @@ const EVENTS = [
   {
     id: "ice-edge",
     objectives: ["sea-ice"],
-    title: "The ice edge moves",
-    text: "A storm broke up the pack. The coast guard wants a map now.",
+    title: "Ice edge moves",
+    text: "A storm broke the pack. The coast guard wants a map.",
     choices: [
       { label: "Map it now", effect: { cost_musd: 0.4, science_mult: 1.25 } },
       { label: "Keep schedule",                        effect: {} }
@@ -271,7 +271,7 @@ const EVENTS = [
   },
   {
     id: "rare-alignment",
-    title: "A rare alignment",
+    title: "Rare alignment",
     text: "Sun, Moon and orbit align for a few days. Extra commands needed.",
     choices: [
       { label: "Do it",  effect: { science_mult: 1.3, fail_chance: 0.2, fails: "computer" } },
