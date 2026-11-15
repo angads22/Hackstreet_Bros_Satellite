@@ -196,7 +196,7 @@ const PARTS = [
     science: 5,              // GAME VALUE
     tags: ["solar"],
     protects: [],
-    blurb: "Watches the Sun's X-ray flares, which only show above the atmosphere. Busiest when the Sun is.",
+    blurb: "Watches the Sun's X-ray flares, which only show above the atmosphere. The more active the Sun, the more it sees.",
     source: "Modelled on the US Navy's SOLRAD 1 (1960), the first satellite to observe solar X-rays. NEEDS A CHECKED SOURCE; all numbers are ESTIMATES.",
     build_months: 4          // GAME VALUE: months to build and test
   },

@@ -47,6 +47,7 @@ Direction: realistic mid-saturation space hardware, a little desaturated, warm k
 39 names. `LowPoly.palette` is the live object (name to `#rrggbb`). `LowPoly.colorOf(name, el)` returns the final `#rrggbb` including a CSS override on `el` (default: the page).
 
 Default light: `dir [-0.45,0.8,0.6]`, `key #c0b498` (warm), `ambient #5f6d85` (cool), `steps 0`.
+The page may also set `--lp-light-key` and `--lp-light-ambient` (any CSS colour, read on every draw like the palette): when set, they replace the key and ambient colour of every scene (the direction is the scene's own). Unset, nothing changes. The game sets them for its 1958 look (`body[data-era="1958"]` in `css/style.css`: a warm sepia print).
 
 ## 3. Builders (all return a new mesh)
 

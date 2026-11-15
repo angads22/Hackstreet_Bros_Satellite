@@ -48,7 +48,7 @@ async function run(viewport, label) {
   await shot('0b-beats');
   const beats1 = await T.throughBeats(page);
   console.log('     beats: ' + beats1.join(' | '));
-  ok(beats1.length >= 2 && beats1.length <= 4, `${beats1.length} short beats before step 1`);
+  ok(beats1.length >= 4 && beats1.length <= 6, `${beats1.length} short beats before step 1 (the intro and step 1's opening: a scene is at most six)`);
   ok(!/wildfire|sea ice|Iron Eclipse/i.test(beats1.join(' ')), 'no wildfires, sea ice or Iron Eclipse in 1958');
   ok(await waitHead(page, 'BASE MAP'), 'START opens the base map');
   ok((await page.locator('#status').innerText()).startsWith('PART 1 · STEP 1 · 1958'), 'header: PART 1 · STEP 1 · 1958');
@@ -133,7 +133,7 @@ async function run(viewport, label) {
   ok(/STEP 1 PASSED/.test(banners), 'banner: STEP 1 PASSED');
   ok(!/UNLOCKED|NEW ERA/.test(banners), 'no tier or era banner in Part 1 (' + banners + ')');
   ok(/NEXT STEP/.test(await page.locator('[data-key="walk-next"]').innerText()) && await page.locator('[data-key="walk-redesign"]').count() === 1, 'NEXT STEP and REDESIGN offered');
-  ok(/It works/.test(await page.locator('.say').last().innerText()), 'step 1 closing beat shown');
+  ok(/It beeps from orbit/.test(await page.locator('.say').last().innerText()), 'step 1 closing beat shown');
   const rec1 = await record();
   ok(rec1 && rec1.done && rec1.done['1'] === s1, 'record: step 1 saved with its stars ' + JSON.stringify(rec1));
   await shot('7-debrief');
@@ -153,7 +153,7 @@ async function run(viewport, label) {
   await page.click('[data-key="part1-go"]');
   const beats2 = await T.throughBeats(page);
   console.log('     beats: ' + beats2.join(' | '));
-  ok(beats2.length >= 1 && beats2.length <= 2, `${beats2.length} beat(s) before step 2`);
+  ok(beats2.length >= 2 && beats2.length <= 4, `${beats2.length} beat(s) before step 2`);
   ok(!/SCORE/.test(await page.locator('#status').innerText()), 'the header no longer shows the last score');
   ok(await waitHead(page, 'BASE MAP'), 'step 2 map');
   ok(await page.locator('[data-key="blip-briefing"].done').count() === 1 && await page.locator('[data-key="blip-orbit"].next').count() === 1,
@@ -182,7 +182,7 @@ async function run(viewport, label) {
   // ---- step 3: nothing preset
   await page.click('[data-key="walk-next"]');
   const beats3 = await T.throughBeats(page);
-  ok(beats3.length >= 1 && beats3.length <= 2, `${beats3.length} beat(s) before step 3`);
+  ok(beats3.length >= 2 && beats3.length <= 4, `${beats3.length} beat(s) before step 3`);
   ok(await waitHead(page, 'BASE MAP'), 'step 3 map');
   ok(await page.locator('[data-key="blip-briefing"].next').count() === 1 && await page.locator('.blip.locked').count() === 4, 'step 3: nothing preset, only Mission Control open');
   await page.click('[data-key="blip-briefing"]'); await waitHead(page, 'BRIEFING');
@@ -213,17 +213,23 @@ async function run(viewport, label) {
   const epi = [];
   for (let i = 0; i < 8; i++) {
     epi.push(await page.locator('.intro .say-text p').innerText());
-    if (/CONTINUE TO PART 2/.test(await page.locator('.intro .btn.primary').innerText())) break;
+    if (/OPEN THE BOX/.test(await page.locator('.intro .btn.primary').innerText())) break;
     await page.click('.intro .btn.primary');
   }
   console.log('     epilogue: ' + epi.join(' | '));
-  ok(epi.length >= 3 && epi.length <= 4, `${epi.length} epilogue beats`);
-  ok(/lost on the launch pad, as many of the first rockets were/.test(epi.join(' ')) && /grandson Ajay opens it/.test(epi[epi.length - 1]),
-    'the epilogue: lost on the launch pad ... his grandson Ajay opens it');
+  ok(epi.length >= 5 && epi.length <= 6, `${epi.length} epilogue beats`);
+  ok(/lost on the pad/.test(epi.join(' ')) && /Iron Eclipse/.test(epi.join(' ')) && /grandson Ajay opens it/.test(epi[epi.length - 1]),
+    'the epilogue: lost on the pad ... Iron Eclipse ... his grandson Ajay opens it');
   ok(await page.locator('.intro .btn', { hasText: 'HOME' }).count() === 1, 'the last beat also offers HOME');
   ok(!/SCORE/.test(await page.locator('#status').innerText()), 'epilogue header: no stale score');
   await shot('8-epilogue');
   await page.click('.intro .btn.primary');
+  ok(await T.waitHead(page, 'PART 1 COMPLETE') && await page.locator('.cb-end.end-box').count() === 1, 'the last epilogue beat opens THE BOX, Part 1\'s ending');
+  ok(/ENDINGS 1 \/ 7/.test(await page.locator('.cb-end-bar .story-count').innerText()) &&
+     await page.evaluate(() => JSON.parse(localStorage.getItem('gravitron-endings-v1')).join() === 'box'), 'THE BOX is recorded: ENDINGS 1 / 7');
+  ok(/CONTINUE TO PART 2/.test(await page.locator('[data-key="end-continue"]').innerText()), 'the box ending offers CONTINUE TO PART 2');
+  await shot('8b-box');
+  await page.click('[data-key="end-continue"]');
   ok(await page.locator('.cb-level').count() === 3, 'CONTINUE TO PART 2 opens Part 2: the difficulty picker');
   await page.click('[data-key="picker-home"]');
   ok(await page.locator('.mode-card').count() === 2, 'HOME from the picker returns to the home page');

@@ -44,10 +44,19 @@
     n.fastBtn = UI.button(">>", toggleFast, { aria: "Fast forward" });
     n.fastBtn.setAttribute("aria-pressed", "false");
 
-    // A small low-poly Earth with this orbit beside the month (LowPoly.scenes.earth); nothing without the 3D art.
+    // A small low-poly Earth with this orbit beside the month (LowPoly.scenes.earth); nothing without the 3D art. The
+    // satellite on the ring is the player's own (the model the Build bench shows), flying the whole mission at the
+    // mission's pace (setPace); the built-in one when the model cannot be made.
     var earth = UI.lpCanvas ? UI.lpCanvas(function (L) {
-      return typeof L.scenes.earth === "function" ? L.scenes.earth({ orbitId: design.orbit, objectiveId: design.objective, spin: 5 }) : null;
+      if (typeof L.scenes.earth !== "function") return null;
+      var flat = null;
+      try {
+        flat = typeof L.scenes.satellite === "function" && typeof L.scenes.satellite.flat === "function" ?
+          L.scenes.satellite.flat({ parts: UI.list(design.parts), data: UI.data("PARTS") }) : null;
+      } catch (e) { flat = null; }
+      return L.scenes.earth({ orbitId: design.orbit, objectiveId: design.objective, spin: 5, mesh: flat ? flat.mesh : null, size: 1.5 });
     }, "mission-earth") : null;
+    run.earth = earth ? earth.wrap : null;
 
     UI.mount("mission", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
@@ -86,16 +95,25 @@
 
   function stopTimer() { if (run && run.timer) { clearTimeout(run.timer); run.timer = null; } }
 
+  // The Earth's satellite flies at the mission's pace: held while the mission is paused or an event waits for an
+  // answer, five times faster in fast-forward (a month per 60 ms instead of 300). Under reduced motion it never moves.
+  function setPace() {
+    if (run && run.earth && typeof run.earth.setRate === "function") run.earth.setRate(run.paused || run.waiting ? 0 : run.fast ? TICK_MS / FAST_MS : 1);
+  }
+
   function schedule() {
     if (run.finishing) return;   // the mission is over: nothing may cancel the walk to the debrief
     stopTimer();
+    setPace();
     if (run.paused || run.waiting) return;
     run.timer = setTimeout(tick, run.fast ? FAST_MS : TICK_MS);
   }
 
   function showProgress(s) {
     var target = run.objective ? run.objective.science_target : 0;
-    run.nodes.month.textContent = "MONTH " + num(s.month, 0);
+    var monthText = "MONTH " + num(s.month, 0);
+    if (run.nodes.month.textContent !== monthText && !run.fast && window.GravMotion) GravMotion.flip(run.nodes.month);
+    run.nodes.month.textContent = monthText;
     run.nodes.sciText.textContent = num(s.science, 0) + " / " + num(target, 0);
     // Bar width only; the score itself comes from getDebrief.
     run.nodes.fill.style.width = (target > 0 ? Math.min(1, s.science / target) * 100 : 0) + "%";
@@ -141,6 +159,7 @@
   function askEvent(event) {
     run.waiting = true;
     stopTimer();
+    setPace();
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
     run.choices = UI.list(event.choices);
@@ -292,8 +311,9 @@
     var paper = el("div", { class: "panel paper" }, [
       el("div", { class: "ledger-head" }, [
         el("h1", { text: "MISSION REPORT" }),
-        el("span", { class: "stamp" + (d.stars > 0 ? " pass" : ""), role: "img", text: UI.starsText(d.stars), "aria-label": d.stars + " of 3 stars" })
-      ])
+        starStamp(d.stars)
+      ]),
+      nextStarLine(d, PARTS_OF_SCORE)
     ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })]),
       d.stars === 2 && d.science < d.science_target
@@ -306,14 +326,18 @@
         e.title + ": " + e.label + (p ? " (" + p.name + " failed)" : e.protected ? " (protected)" : ""));
     });
 
+    // A standalone flight that opened a tier or an era: a button that starts a mission there (none in Part 1 or 2).
+    var unlocks = !walk && !done.design.campaign && !comeback && result ? unlockButtons(done, result) : null;
+    // A win (3 stars, a Part 1 step passed, or a Part 2 contract PAID in full): the result moment above the report
+    // shows the stars landing and the real discovery, open, so the side panel does not repeat it.
+    var win = d.stars >= 3 || !!(walk && walk.passed) || outcome === "paid";
     var side = el("div", { class: "panel limit" }, [
       d.stars === 3 ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
       comeback ? comebackBlock(done, d, result, landed, outcome) : null,
       walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
         text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
-      // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them.
-      result && result.unlocked && !done.design.campaign && !walk ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
-      result && result.era_unlocked && !walk && !comeback ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
+      // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them. A standalone
+      // flight that opens one gets a button that starts it (unlockButtons, under the advice).
       el("h2", null, [UI.icon(limitIcon(d)) || UI.icon(d.limiting), limitingHeading(d)]),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
@@ -321,10 +345,10 @@
       d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
         el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
       segmentRows(d),
-      closestLine(d),
+      win && closestMoment(d) ? (d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null) : closestLine(d),
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
-      walk ? walkButtons(walk, done.design)
+      walk ? walkButtons(walk, done.design, d)
       : comeback ? comebackButtons(result)
       : done.design.campaign
         ? el("div", { class: "choices" }, [
@@ -335,20 +359,67 @@
               if (again) window.showDesignScreen("build", again); else window.showCampaignHub();
             })
           ])
-        : el("div", { class: "choices" }, [
-            UI.button(["REDESIGN", " >"], function () { window.showDesignScreen("build", done.design); }, { primary: true }),
-            UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
-            UI.button("HOME", function () { window.showDesignScreen("title"); })
-          ])
+        : unlocks ? el("div", { class: "stack" }, [unlocks, standaloneButtons(done, d, false)]) : standaloneButtons(done, d, true)
     ]);
 
     UI.mount("debrief", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
       teamLine(done.design, d),
+      win ? winMoment(d) : null,
       el("div", { class: "ledger" }, [paper, side]),
       comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null
     ]));
+    // A passed step points on, not back at "what limited you".
+    if (walk && walk.passed) objectiveLine(walk.last ? "On to the epilogue." : "On to the next step.");
     run = null;
+  }
+
+  // Standalone flights (not reached from the home page): REDESIGN, NEW MISSION, HOME. REDESIGN leads unless a tier or
+  // an era just opened, whose button leads instead.
+  function standaloneButtons(done, d, lead) {
+    return el("div", { class: "choices" }, [
+      UI.button(lead ? ["REDESIGN", " >"] : "REDESIGN", function () { redesignFor(done.design, d); }, { primary: lead, key: "redesign" }),
+      UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
+      UI.button("HOME", function () { window.showDesignScreen("title"); })
+    ]);
+  }
+
+  // ---- REDESIGN (and a step's TRY AGAIN) open the screen where the debrief's fix is made, with the fix in the objective
+  // line. The same places as the Readiness review's FIX buttons: a part is changed in the Workshop (Build), a rocket at
+  // the Rocket Yard, an orbit at the Tracking Station. getDebrief names the fix only in words, so the first part, other
+  // rocket or other orbit the suggestion names (by its name in the data, not one it flew) decides; nothing named, or an orbit the debrief
+  // calls blind with no other named: Build, or the Tracking Station. A place this step or contract has set ("Set for
+  // this step.") cannot take the fix, so Build instead. The line stays until the screen is drawn again.
+  function fixFor(design, d) {
+    var text = String(d && d.suggestion || ""), low = text.toLowerCase();
+    var best = null;
+    // Skip what the satellite already flew: "your early silicon solar cells failed" names the problem, not the fix.
+    function look(items, screen, skip) {
+      UI.list(items).forEach(function (x) {
+        var name = x && x.name ? String(x.name).toLowerCase() : "";
+        var at = name && skip.indexOf(x.id) === -1 ? low.indexOf(name) : -1;
+        if (at !== -1 && (!best || at < best.at || at === best.at && name.length > best.name.length)) best = { at: at, name: name, screen: screen };
+      });
+    }
+    look(UI.data("PARTS"), "build", UI.list(design.parts));
+    look(UI.data("LAUNCHERS"), "launcher", [design.launcher]);
+    look(UI.data("ORBITS"), "orbit", [design.orbit]);
+    var screen = best ? best.screen : limitIcon(d) === "orbit" ? "orbit" : "build";
+    // The sentence that asks for the change: the first with the named thing in it, else the last one.
+    var sentences = text.replace(/([.!?])\s+(?=[A-Z\u201c"])/g, "$1\n").split("\n");
+    var line = (best ? sentences.filter(function (sn) { return sn.toLowerCase().indexOf(best.name) !== -1; })[0] : "") ||
+      sentences[sentences.length - 1] || "";
+    line = line.trim();
+    return { screen: screen, text: d && d.limiting !== "none" ? line : "" };
+  }
+  function redesignFor(design, d) {
+    var fix = fixFor(design, d);
+    window.showDesignScreen(fix.screen, design);
+    var notes = Array.prototype.slice.call(document.querySelectorAll("#app .preset-note"));
+    if (fix.screen !== "build" && notes.some(function (p) { return /^Set /.test(p.textContent); })) {
+      window.showDesignScreen("build", design);
+    }
+    if (fix.text) objectiveLine(fix.text);
   }
 
   // ---- One verdict everywhere. The story's lines read ended_early and the stars; a flight lost after it earned a star
@@ -366,6 +437,67 @@
       if (line && line.who) return UI.sayEl({ who: line.who, text: "Goal met before we lost it." });
     }
     return UI.say ? UI.say("debrief", d) : null;
+  }
+
+  // ---- The stars. The stamp is one image named "N of 3 stars"; its filled stars land one by one, like Part 2's PAID stamp.
+  function starStamp(stars) {
+    var glyphs = UI.starsText(stars).split("").map(function (g, i) {
+      return el("span", { class: "stamp-star" + (i < stars ? " on" : ""), style: "--i: " + i, text: g });
+    });
+    return el("span", { class: "stamp" + (stars > 0 ? " pass" : ""), role: "img", "aria-label": stars + " of 3 stars" }, glyphs);
+  }
+  // Fewer than 3 stars: what the next star needs, in words (no number on screen). Two stars short of the science target:
+  // the third needs the target, whatever the score. Otherwise the score row with the most points still to win.
+  var NEXT_STAR = ["First star", "Second star", "Third star"];
+  var ROW_WORDS = { science: "more science returned", efficiency: "better value for money", budget: "more of the budget left",
+                    margins: "wider mass and power margins", events: "safer event choices", novelty: "more new science" };
+  function nextStarLine(d, partsOfScore) {
+    if (!(d.stars >= 0 && d.stars < 3)) return null;
+    var b = d.breakdown || {}, most = null, room = 0;
+    Object.keys(b).forEach(function (k) {
+      var max = partsOfScore[k] && partsOfScore[k][1];
+      if (ROW_WORDS[k] && typeof max === "number" && max - b[k] > room + 1e-9) { room = max - b[k]; most = k; }
+    });
+    var need = d.stars === 2 && d.science < d.science_target ? "reach the science target" : most ? ROW_WORDS[most] : "";
+    return need ? el("p", { class: "next-star", "data-key": "next-star", text: NEXT_STAR[d.stars] + ": " + need + "." }) : null;
+  }
+  // The result moment of a win: big stars (the ones earned land one by one), then the real mission yours is closest
+  // to, open (its discovery is the reward). The stamp in the report already names the stars, so these are hidden.
+  function winMoment(d) {
+    var stars = el("div", { class: "win-stars", "aria-hidden": "true" }, UI.starsText(d.stars).split("").map(function (g, i) {
+      return el("span", { class: "stamp-star" + (i < d.stars ? " on" : ""), style: "--i: " + i, text: g });
+    }));
+    return el("div", { class: "win-moment", "data-key": "win-moment" }, [stars, closestMoment(d)]);
+  }
+  function closestMoment(d) {
+    var c = d.closest_mission;
+    if (!c || !c.name || !c.blurb) return null;
+    var shared = UI.list(c.shared).join("; ");
+    return el("div", { class: "win-discovery" }, [
+      el("h2", { text: "LIKE " + String(c.name).toUpperCase() + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" }),
+      el("p", { text: c.blurb + (shared ? " Like yours: " + shared + "." : "") })
+    ]);
+  }
+  // A tier or an era this flight opened, as a button that starts a new design there.
+  function unlockButtons(done, result) {
+    var btns = [];
+    if (result.unlocked) btns.push(UI.button(["PLAY " + tierLabel(result.unlocked), " >"], function () {
+      var d = newDesign(result.unlocked);
+      if (done.design.era && typeof setEra === "function") setEra(d, done.design.era);
+      window.showDesignScreen("map", d);
+    }, { primary: btns.length === 0, key: "play-tier" }));
+    if (result.era_unlocked) btns.push(UI.button(["PLAY " + eraLabel(result.era_unlocked), " >"], function () {
+      var d = newDesign(done.design.tier);
+      if (typeof setEra === "function") setEra(d, result.era_unlocked);
+      window.showDesignScreen("map", d);
+    }, { primary: btns.length === 0, key: "play-era" }));
+    return btns.length ? el("div", { class: "unlocks" }, btns) : null;
+  }
+  function objectiveLine(text) {
+    var line = document.getElementById("objective");
+    if (!line) return;
+    line.textContent = "OBJECTIVE: " + text;
+    line.hidden = false;
   }
 
   // ---- Part 2: a contract flight. The money story adds up: the cash before the launch, the launch, what the client
@@ -439,7 +571,10 @@
     var over = result && result.comeback_over;
     return el("div", { class: "choices" }, [over
       ? UI.button(["SEE THE ENDING", " >"], function () { window.showComebackEnding(); }, { primary: true, key: "debrief-ending" })
-      : UI.button(["BACK TO THE WORKSHOP", " >"], function () { window.showComebackHub(); }, { primary: true, key: "debrief-workshop" })]);
+      : UI.button(["BACK TO THE WORKSHOP", " >"], function () {
+        // js/ui-story.js: a story scene may be due between the debrief and the workshop
+        if (typeof window.nextInterlude === "function" && window.nextInterlude()) window.showInterlude(window.showComebackHub); else window.showComebackHub();
+      }, { primary: true, key: "debrief-workshop" })]);
   }
   // The client's last word, under its own name.
   function contractLine(done, outcome) {
@@ -450,8 +585,8 @@
   }
 
   // Part 1: NEXT STEP (or, after step 3, the epilogue) once the step passes; TRY AGAIN (the same design on Build) if not.
-  function walkButtons(walk, design) {
-    var redesign = function () { window.showDesignScreen("build", design); };
+  function walkButtons(walk, design, d) {
+    var redesign = function () { redesignFor(design, d); };
     var home = function () { window.showDesignScreen("title"); };
     var next = function (primary) {
       return walk.last

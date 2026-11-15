@@ -711,7 +711,7 @@ function getPartFacts(design, partId) {
     resolution_m: null,      // instruments only, once an orbit is chosen; null for radar
     sharp_enough: null,      // true/false when the objective sets needs_resolution_m
     counts: null,            // true when this instrument's type counts for the objective
-    science_per_month: null  // instruments only, before data and power losses
+    science_per_month: null  // instruments only: what it delivers on this satellite, after the radio's and the power's losses
   };
   if (p.category !== "instrument") return facts;
   if (orbit) {
@@ -722,9 +722,20 @@ function getPartFacts(design, partId) {
   if (objective) {
     facts.counts = p.tags.some(function (t) { return objective.wants.indexOf(t) !== -1; });
     if (orbit) {
-      var probe = { tier: design.tier, objective: design.objective, orbit: design.orbit, launcher: design.launcher, parts: [partId] };
-      var row = scienceRate(probe, []).instruments[0];
-      facts.science_per_month = row ? row.points : 0;
+      // This satellite with the instrument on board: it shares the radio and the power with the rest of the design, so
+      // the card says what the flight will earn from it. A loss counts once the part behind it is fitted: with no
+      // radio or no power source chosen yet, the card does not read 0.
+      var probe = { tier: design.tier, objective: design.objective, orbit: design.orbit, launcher: design.launcher,
+                    parts: design.parts.indexOf(partId) === -1 ? design.parts.concat([partId]) : design.parts.slice() };
+      if (design.campaign) probe.campaign = true;
+      if (design.comeback) { probe.comeback = true; probe.contract = design.contract; }
+      if (design.year) { probe.year = design.year; probe.era = design.era; }
+      var rate = design.comeback && design.campaign ? scienceRate(probe, [], null, designYear(probe)) : scienceRate(probe, []);
+      var row = rate.instruments.filter(function (r) { return r.id === partId; })[0];
+      var fitted = designParts(probe);
+      var radio = fitted.some(function (q) { return q.downlink_gb_day > 0; });
+      var power = fitted.some(function (q) { return q.category === "power"; });
+      facts.science_per_month = row ? round(row.points * (radio ? rate.data_share : 1) * (power ? rate.power_share : 1), 2) : 0;
     }
   }
   return facts;

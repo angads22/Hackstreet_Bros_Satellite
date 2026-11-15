@@ -103,6 +103,7 @@
     var c = typeof newComeback === "function" ? newComeback(tierId) : null;
     if (!c) { showPicker(); return; }
     hub.note = ""; hub.debtFrom = null;
+    if (typeof window.nextInterlude === "function" && window.nextInterlude({ fresh: true })) { window.showInterlude(showComebackHub); return; }   // js/ui-story.js
     UI.showBeats(line("intro"), kicker() + " · " + levelName(c.tier), showComebackHub, { doneLabel: "TO THE WORKSHOP" });
   }
 
@@ -192,6 +193,7 @@
     var c = info();
     if (!c) { showPicker(); return; }
     if (c.finished) { showComebackEnding(); return; }
+    if (typeof window.nextInterlude === "function" && window.nextInterlude()) { window.showInterlude(showComebackHub); return; }   // js/ui-story.js
     UI.leaveMission();
     UI.setStatus(title());
     if (!hub.fresh) { hub.note = ""; hub.debtFrom = null; }
@@ -254,6 +256,7 @@
 
   // ---------------------------------------------------------------- the ending
   function showComebackEnding() {
+    if (window.StarlineStory) { window.StarlineStory.showEnding(); return; }   // js/ui-story.js draws the seven endings
     var e = typeof getComebackEnding === "function" ? getComebackEnding() : null;
     if (!e) { showPicker(); return; }
     var c = info();
