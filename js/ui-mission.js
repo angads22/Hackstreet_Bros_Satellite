@@ -212,7 +212,13 @@
     run.finishing = true;
     run.nodes.pause.disabled = true;
     run.nodes.fastBtn.disabled = true;
-    log("Signal ends. Mission complete.", "good");
+    // The last line agrees with the debrief: an early end already said "Mission over."; a flight with no star did not
+    // complete anything. getDebrief only reads the finished mission (the debrief calls it again).
+    var d = typeof getDebrief === "function" ? getDebrief(run.mission) : null;
+    if (!(d && d.ended_early)) {
+      if (d && d.stars > 0) log("Signal ends. Mission complete.", "good");
+      else log("Signal ends. Too little came home.", "bad");
+    }
     var done = run;
     run.timer = setTimeout(function () { showDebrief(done); }, END_PAUSE_MS);
   }
@@ -302,11 +308,28 @@
 
     UI.mount("debrief", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
-      UI.say ? UI.say("debrief", d) : null,
+      teamLine(done.design, d),
       el("div", { class: "ledger" }, [paper, side]),
-      comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", d) : null
+      comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null
     ]));
     run = null;
+  }
+
+  // ---- One verdict everywhere. The story's lines read ended_early and the stars; a flight lost after it earned a star
+  // was not a failure, so its closing line goes by the stars, and one lost after it met its goal says so.
+  function storyView(d) {
+    if (!d || !d.ended_early || !(d.stars > 0)) return d;
+    var copy = {};
+    Object.keys(d).forEach(function (k) { copy[k] = d[k]; });
+    copy.ended_early = false;
+    return copy;
+  }
+  function teamLine(design, d) {
+    if (d && d.ended_early && d.stars > 0 && d.science >= d.science_target && UI.storyLine && UI.sayEl) {
+      var line = UI.storyLine("debrief", design, d);   // who speaks in this chapter
+      if (line && line.who) return UI.sayEl({ who: line.who, text: "Goal met before we lost it." });
+    }
+    return UI.say ? UI.say("debrief", d) : null;
   }
 
   // ---- Part 2: a contract flight. The money story adds up: the cash before the launch, the launch, what the client
