@@ -17,5 +17,5 @@ const DEBRIEF = {
     mass: "Structures", power: "Power", budget: "Cost", data: "Communications", event: "Risk",
     orbit: "Orbit and trajectory", instruments: "Science instruments", attitude: "Attitude control", none: "Nothing"
   },
-  none: "Nothing broke, no resource ran short, and you hit the target."
+  none: ""
 };

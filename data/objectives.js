@@ -20,7 +20,7 @@ const OBJECTIVES = [
   {
     id: "solar",
     name: "Solar activity",
-    briefing: "The IGY was timed for a solar peak. Flares send X-rays that never reach the ground. Catch them from orbit.",
+    briefing: "The International Geophysical Year was timed for a solar peak. Flares send X-rays that never reach the ground. Catch them from orbit.",
     wants: ["solar", "radiation"],
     science_target: 250,         // GAME VALUE: the best 1958 design reaches about 180% (solar maximum)
     orbit_fit: { leo: 1.0, sso: 1.0, geo: 1.0 },   // the Sun is visible from every orbit
@@ -64,7 +64,7 @@ const OBJECTIVES = [
   {
     id: "sea-ice",
     name: "Arctic sea-ice mapping",
-    briefing: "Arctic ice is shrinking and ships need to know where it is. It is dark and cloudy. Map it anyway.",
+    briefing: "Arctic ice is shrinking and ships need to know where it is. It is dark for months and often cloudy.",
     wants: ["radar", "imaging"],  // a camera helps a little, in daylight and clear sky
     science_target: 200,
     orbit_fit: { leo: 0, sso: 1.0, geo: 0 },      // only a polar orbit passes over the Arctic; LEO and GEO cannot see it

@@ -371,9 +371,8 @@ function realWorldSummary(mission) {
     return {
       year: y0, sunspots: round(sn0, 0),
       text: when + " the Sun averaged " + Math.round(sn0) + " sunspots a month (SILSO, Royal Observatory of Belgium). " +
-        "From " + e.sunspots.start_year + " to " + (e.sunspots.start_year + all.length - 1) + " the yearly average ran from " +
-        Math.round(quiet) + " to " + Math.round(peak) + ": an 11-year cycle, so when you fly matters. " +
-        "The 1957-58 maximum, the strongest on record, set the IGY\'s dates."
+        "Yearly averages " + e.sunspots.start_year + "-" + (e.sunspots.start_year + all.length - 1) + " ran from " +
+        Math.round(quiet) + " to " + Math.round(peak) + ": an 11-year cycle, so when you fly matters."
     };
   }
   if (e.monthly_share) {

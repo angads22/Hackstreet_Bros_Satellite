@@ -17,7 +17,7 @@ const EVENTS = [
     text: "High up, your counter reads zero, then recovers lower down. Broken, or swamped?",
     choices: [
       { label: "Discard those passes", effect: { science_mult: 0.6 } },
-      { label: "Trust it: silence is data",   effect: {} }
+      { label: "Trust the data",   effect: {} }
     ]
   },
   {
@@ -27,7 +27,7 @@ const EVENTS = [
     text: "The rocket stage bumped you. Your cloud pictures are smeared.",
     choices: [
       { label: "Live with it",           effect: { science_mult: 0.6 } },
-      { label: "Damp it by command",    effect: { fail_chance: 0.3, fails: "instrument" } }
+      { label: "Damp it",    effect: { fail_chance: 0.3, fails: "instrument" } }
     ]
   },
   {
@@ -57,7 +57,7 @@ const EVENTS = [
     title: "Debris warning",
     text: "Old rocket debris passes within 200 metres. A hit would be fatal.",
     choices: [
-      { label: "Pay for a dodge", effect: { cost_musd: 0.3 } },
+      { label: "Pay to dodge", effect: { cost_musd: 0.3 } },
       { label: "Trust the odds",               effect: { fail_chance: 0.2, fails: "instrument" } }
     ]
   },
@@ -121,7 +121,7 @@ const EVENTS = [
     id: "ion-antennas",
     objectives: ["ionosphere"],
     title: "Stuck antenna",
-    text: "A 45 m antenna will not fully unroll. Echoes come back lopsided.",
+    text: "One arm of the 45 m antenna will not fully unroll. Echoes come back lopsided.",
     choices: [
       { label: "Try again", effect: { fail_chance: 0.3, fails: "instrument" } },
       { label: "Fly one short",                  effect: { science_mult: 0.75 } }
@@ -141,7 +141,7 @@ const EVENTS = [
     id: "ion-blizzard",
     objectives: ["ionosphere"],
     title: "Blizzard at Resolute Bay",
-    text: "Your busiest station loses its dish. It heard one sounding in five.",
+    text: "Your busiest station loses its dish. It heard about one in five soundings.",
     choices: [
       { label: "Re-route to Fairbanks", effect: { cost_musd: 0.4 } },
       { label: "Wait for rebuild",                effect: { lose_months: 1 } }
@@ -150,7 +150,7 @@ const EVENTS = [
   {
     id: "rad-rival",
     objectives: ["radiation"],
-    title: "A rival sees the belts",
+    title: "Rival sees the belts",
     text: "Another satellite reports the same radiation. Publish now, or verify first?",
     choices: [
       { label: "Publish now", effect: { cost_musd: 0.5, science_mult: 1.2 } },
@@ -191,7 +191,7 @@ const EVENTS = [
     id: "sol-spots",
     objectives: ["solar"],
     title: "Giant sunspot group",
-    text: "A sunspot bigger than Jupiter turns into view. A flare may follow.",
+    text: "A sunspot group bigger than Jupiter rotates into view. A flare may follow.",
     choices: [
       { label: "Retarget now", effect: { cost_musd: 0.3, science_mult: 1.25 } },
       { label: "Stay the course",                     effect: {} }
@@ -220,7 +220,7 @@ const EVENTS = [
   {
     id: "rare-alignment",
     title: "A rare alignment",
-    text: "Sun, Moon and orbit line up for days. Extra commanding needed.",
+    text: "Sun, Moon and orbit align for a few days. Extra commands needed.",
     choices: [
       { label: "Do it",  effect: { science_mult: 1.3, fail_chance: 0.2, fails: "computer" } },
       { label: "Skip it",        effect: {} }

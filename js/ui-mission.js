@@ -465,7 +465,7 @@
   function closestMoment(d) {
     var c = d.closest_mission;
     if (!c || !c.name || !c.blurb) return null;
-    var shared = UI.list(c.shared).slice(0, 2).join("; ");
+    var shared = UI.list(c.shared).slice(0, 1).join("; ");
     return el("div", { class: "win-discovery" }, [
       el("h2", { text: "LIKE " + String(c.name).toUpperCase() + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" }),
       el("p", { text: c.blurb + (shared ? " Like yours: " + shared + "." : "") })
@@ -638,7 +638,7 @@
   function closestLine(d) {
     var c = d.closest_mission;
     if (!c || !c.name) return d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null;
-    var shared = UI.list(c.shared).slice(0, 2).join("; ");
+    var shared = UI.list(c.shared).slice(0, 1).join("; ");
     var body = [el("p", { class: "card-blurb", text: (c.blurb || "") + (shared ? " Like yours: " + shared + "." : "") })];
     if (d.real_mission) body.push(el("p", { class: "card-blurb", text: d.real_mission }));
     return el("details", { class: "more", open: d.stars === 3 }, [el("summary", { text: "Closest real mission: " + c.name + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" })].concat(body));
