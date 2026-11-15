@@ -2319,11 +2319,12 @@
   function fillPreview(box) {
     while (box.firstChild) box.removeChild(box.firstChild);
     box.scrollTop = 0;
-    box.appendChild(el("h2", { text: state.touch ? "IF YOU TAP AGAIN" : "IF YOU CLICK" }));
+    var touch = state.touch || touchScreen();
+    box.appendChild(el("h2", { text: !touch ? "IF YOU CLICK" : state.hover ? "IF YOU TAP AGAIN" : "IF YOU TAP" }));
     var p = state.hover ? byId(data("PARTS"), state.hover) : null;
     var t = p ? previewToggle(state.design, state.hover) : null;
     if (!t) {
-      box.appendChild(el("p", { class: "preview-empty", text: (touchScreen() ? "Tap" : "Point at") + " a part to see what it would change." }));
+      box.appendChild(el("p", { class: "preview-empty", text: (touch ? "Tap" : "Point at") + " a part to see what it would change." }));
       return;
     }
     var dl = t.delta || {};
@@ -2457,7 +2458,7 @@
         : el("p", { class: "empty", text: "No parts in this bin yet." })
     ]);
     // The preview sits on top of the shelf and stays in view while you scroll through the parts (CSS sticky).
-    var picker = el("div", { class: "picker", id: "picker" }, [drawPreview(), shelf]);
+    var picker = el("div", { class: "part-picker", id: "part-picker" }, [drawPreview(), shelf]);
 
     return el("section", { class: "screen" }, [
       head("3 · BUILD"),
@@ -2484,7 +2485,7 @@
 
   // A narrow screen stacks the Build screen: after a bin is picked, bring its parts (and the preview) into view.
   function showShelf() {
-    var box = document.getElementById("picker");
+    var box = document.getElementById("part-picker");
     if (!box || !(window.matchMedia && window.matchMedia("(max-width: 929px)").matches)) return;
     var top = box.getBoundingClientRect().top;
     if (top > window.innerHeight * 0.5 || top < 0) window.scrollTo(0, window.pageYOffset + top);
