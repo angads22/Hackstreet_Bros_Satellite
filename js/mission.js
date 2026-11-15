@@ -1008,6 +1008,7 @@ function upgradeCampaign(c) {
   if (c.seed === undefined) { c.seed = Math.floor(Math.random() * 4294967296); changed = true; }
   if (c.buyout === undefined) { c.buyout = "none"; changed = true; }
   if (c.complications === undefined) { c.complications = []; changed = true; }   // added with the complications: none have struck yet
+  if (c.info === undefined) { c.info = {}; changed = true; }   // added with paid part information (2.0): nothing bought yet, and nothing taken away
   if (c.start_debt_musd === undefined) {
     var legacy = LEGACY_START_DEBT[c.tier], t = comebackTier(c);
     var start = legacy !== undefined && wasOld ? legacy : t ? t.debt_musd : undefined;
@@ -1569,7 +1570,12 @@ function validLogEntry(e) {
   if (e.kind === "payment") return isNumber(e.musd) && isNumber(e.month);
   if (e.kind === "loan") return isNumber(e.musd) && isNumber(e.month) && isOptional(e.fee_musd, isNumber);
   if (e.kind === "launch") return isText(e.id) && isNumber(e.musd) && isOptional(e.flight, isCount);
+  if (e.kind === "info") return isText(e.id) && isNumber(e.musd) && isOptional(e.flight, isCount);
   return isText(e.id);
+}
+// The part information a comeback has bought: part id -> the groups known (INFO_GROUPS).
+function validInfo(x) {
+  return isRecord(x) && Object.keys(x).every(function (k) { return isListOf(x[k], function (g) { return INFO_GROUPS.indexOf(g) !== -1; }); });
 }
 // One complication that struck between flights, as applyComplication saves it.
 function validComplication(e) {
@@ -1588,6 +1594,7 @@ function validCampaign(c) {
   return !!(cfg && cfg.tiers[c.tier]) && isNumber(c.month) && isNumber(c.deadline_month) && isNumber(c.debt_musd) &&
     isCount(c.seed) && c.seed <= 4294967295 && BUYOUT_STATES.indexOf(c.buyout) !== -1 && isOptional(c.start_debt_musd, isNumber) &&
     isOptional(c.complications, function (l) { return isListOf(l, validComplication); }) &&
+    isOptional(c.info, validInfo) &&
     isOptional(c.credit, isNumber) && isOptional(c.reputation, isNumber) && isOptional(c.borrowed_musd, isNumber) && isOptional(c.seized, isFlag);
 }
 
@@ -2220,6 +2227,7 @@ function newComeback(tierId, seed) {
     flights: 0,
     log: [],
     complications: [],              // what has gone wrong (or right) between flights, shown once in the workshop
+    info: {},                       // part information bought from the engineers: part id -> the groups known (buyPartInfo)
     credit: creditConfig() ? creditConfig().start : 100,   // the lenders' patience, 0 to 100
     reputation: 0,                                          // a name: grows with the stars Ajay's satellites earn
     borrowed_musd: 0,                                       // loans taken so far (not counting their fees)
@@ -2339,6 +2347,68 @@ function newComebackDesign(contractId) {
   setObjective(d, k.topic);
   if (k.orbit) setOrbit(d, k.orbit);
   return d;
+}
+
+// ------------------------------------------------------------------ paying engineers for part information
+// SPEC.md, "Paying engineers for part information". A part's information is three groups; the level decides which are
+// free (CAMPAIGN.comeback.info_free), the rest cost a fee each (info_fee_musd), paid once per run and part from the cash.
+// Part 1, a standalone design and the lab are always free. getPartFacts and the other fact functions are unchanged and
+// still return everything: only the screens hide, so the tests and the simulator are unaffected.
+var INFO_GROUPS = ["sheet", "performance", "dossier"];
+
+// The comeback a design pays its engineers in, or null when its information is free.
+function infoRun(design) {
+  if (!design || !design.comeback) return null;
+  var c = getCampaign();
+  return isComeback(c) && !c.finished ? c : null;
+}
+// The groups a level gives without paying; a level with no entry gives all.
+function infoFreeGroups(tierId) {
+  var cfg = comebackConfig();
+  var free = cfg && cfg.info_free ? cfg.info_free[tierId] : null;
+  return Array.isArray(free) ? free : INFO_GROUPS;
+}
+function infoFee(group) {
+  var cfg = comebackConfig();
+  var fee = cfg && cfg.info_fee_musd ? cfg.info_fee_musd[group] : 0;
+  return isNumber(fee) && fee > 0 ? fee : 0;
+}
+// True when the screen may show this group of this part: always in Part 1, a standalone design and on Easy; on Normal and
+// Hard for the groups the level gives free and the ones the engineers were paid for.
+function partInfoKnown(design, partId, group) {
+  if (INFO_GROUPS.indexOf(group) === -1) return true;
+  var c = infoRun(design);
+  if (!c || infoFreeGroups(c.tier).indexOf(group) !== -1) return true;
+  var bought = c.info ? c.info[partId] : null;
+  return Array.isArray(bought) && bought.indexOf(group) !== -1;
+}
+// What asking the engineers costs right now: 0 when the group is already known.
+function partInfoFee(design, partId, group) {
+  return partInfoKnown(design, partId, group) ? 0 : infoFee(group);
+}
+// ASK THE ENGINEERS: pays the fee from the comeback's cash, once per run for a part and group; the group then stays known.
+// Not enough cash: nothing is bought. Asking for what is already known (or free) costs nothing and is ok.
+function buyPartInfo(design, partId, group) {
+  function no(reason, cost) { return { ok: false, reason: reason, cost_musd: cost || 0 }; }
+  if (INFO_GROUPS.indexOf(group) === -1) return no("Ask for the sheet, the performance or the dossier.");
+  if (!findById(PARTS, partId)) return no("No such part.");
+  var c = infoRun(design);
+  if (!c || partInfoKnown(design, partId, group)) return { ok: true, reason: null, cost_musd: 0 };
+  var fee = infoFee(group);
+  if (c.treasury_musd < fee - 1e-9) {
+    return no("Not enough cash: the engineers charge $" + fee + "M and Ajay has $" + c.treasury_musd + "M.", fee);
+  }
+  c.treasury_musd = round(c.treasury_musd - fee, 3);
+  c.info = c.info || {};
+  c.info[partId] = (c.info[partId] || []).concat(group);
+  // The log keeps each fee with the flight it was paid for (the next one): the debrief's ledger line sums them.
+  (c.log = c.log || []).push({ year: c.year, month: c.month, kind: "info", id: partId + ":" + group, musd: fee, flight: (c.flights || 0) + 1 });
+  saveCampaign(c);
+  return { ok: true, reason: null, cost_musd: fee };
+}
+// What the engineers cost for one flight (its number, as the campaign counts them): the debrief's ledger line.
+function infoFeesFor(c, flight) {
+  return round((c.log || []).reduce(function (t, e) { return e.kind === "info" && e.flight === flight ? t + (e.musd || 0) : t; }, 0), 3);
 }
 
 // PAY BACK: moves cash to the debt. Refuses what is not a positive number, more than the cash, and a
@@ -2516,6 +2586,7 @@ function settleComeback(c, mission, debrief, result) {
   result.contract_paid_musd = pay.paid_musd;
   result.contract_bonus_musd = pay.bonus_musd;
   result.cash_musd = c.treasury_musd;
+  result.engineers_musd = infoFeesFor(c, mission.campaign_flight || c.flights);   // paid to the engineers for part information before this launch
   result.debt_musd = c.debt_musd;
   result.interest_musd = interest;
   result.months_used = used;
