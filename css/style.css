@@ -681,6 +681,7 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   .blip.next .blip-name { display: block; }
   .blip::before { content: ""; position: absolute; inset: -6px; }   /* 44px touch target */
   .workshop, .pad, .ledger { grid-template-columns: 1fr; }
+  .pad > .launch-control { order: -1; }   /* Readiness on a phone: the verdict and LAUNCH (or FIX) before the pictures */
   .bins { flex-direction: row; flex-wrap: wrap; }
   .bin { flex: 1 1 140px; }
   .dialogue { grid-template-columns: 1fr; }

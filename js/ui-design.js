@@ -2550,13 +2550,17 @@
     var short = !!sci && sci.target > 0 && sci.share < 1;
     var forecast = sci && sci.target > 0 ? bar("SCIENCE FORECAST", num(sci.total, 0) + " / " + num(sci.target, 0) + " PTS", sci.share,
       short ? " warn" : "", short ? "Short of the target" : null, "science") : null;
-    var control = el("div", { class: "panel" }, [
+    var launchBtn = button(blocked ? "LAUNCH" : warned || short ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked });
+    var control = el("div", { class: "panel launch-control" }, [
       el("span", { class: "countdown-label", text: "T-MINUS" }),
       el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
       el("p", { class: "verdict " + (blocked ? "bad" : warned || short ? "warn" : "ok"),
         text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
           : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),
       forecast,
+      // The one thing to do first: with nothing blocking, LAUNCH comes before the warnings (it was below the fold on a
+      // laptop); while something blocks, the NO GO lines and their FIX buttons come first.
+      blocked ? null : launchBtn,
       checkList(d, { fix: true }),
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
@@ -2564,8 +2568,7 @@
         ["Rocket", rocket ? rocket.name : "not chosen"],
         isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
       ]),
-      button(blocked ? "LAUNCH" : warned || short ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
-      null
+      blocked ? launchBtn : null
     ]);
     return el("section", { class: "screen" }, [
       head("5 · READINESS REVIEW"),
