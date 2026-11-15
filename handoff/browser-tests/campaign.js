@@ -50,8 +50,8 @@ function makeSave() {
     ok(await p.locator('[data-key="tab-research"][aria-pressed="true"]').count() === 1, 'research tab is open');
     await p.click('[data-key="node-solar-cells"]');
     const d0 = await txt('#research-detail');
-    ok(/SILICON SOLAR CELLS/.test(d0) && /\$2M · 5 science/.test(d0), 'the box shows its cost in both currencies');
-    ok(/Needs 5 science points \(you have 0\)/.test(d0), 'it says how much science is missing');
+    ok(/SILICON SOLAR CELLS/.test(d0) && /\$2M · 4 science/.test(d0), 'the box shows its cost in both currencies');
+    ok(/Needs 4 science points \(you have 0\)/.test(d0), 'it says how much science is missing');
     ok(await p.locator('#research-detail .btn').isDisabled(), 'Buy is disabled until it can be bought');
     await shot('1-lab');
     await p.click('[data-key="tab-upgrades"]');
@@ -88,7 +88,7 @@ function makeSave() {
     ok(await p.locator('.screen-head h1', { hasText: 'DEBRIEF' }).count() === 1, 'debrief shows');
     const box = (await txt('.payout-box')).replace(/\n/g, ' | '); console.log('     ' + box.slice(0, 380));
     ok(/PAYOUT \$/.test(box) && /KNOWLEDGE OF THIS TOPIC/.test(box) && /Treasury now \$/.test(box), 'payout, knowledge and treasury on the debrief');
-    ok(/Science points: \+4/.test(box), 'the debrief shows the science points earned');
+    ok(/Science points: \+8/.test(box), 'the debrief shows the science points earned');
     ok(await p.locator('text=NEW MISSION').count() === 0 && await p.locator('text=REBUILD THIS SATELLITE').count() === 1, 'campaign buttons replace the standalone ones');
     await shot('7-debrief');
     await p.click('text=REBUILD THIS SATELLITE'); ok(await wait('BUILD'), 'Rebuild opens Build');
@@ -96,16 +96,16 @@ function makeSave() {
     await p.keyboard.press('m'); await wait('BASE MAP');
     await p.click('text=BACK TO THE HUB'); ok(await wait('CAMPAIGN HUB'), 'the map has a way back to the hub');
     ok(await txt('#hub-missions') === '1' && await txt('#hub-year') === '1958', 'one mission flown, year 1958');
-    ok(await txt('#hub-science') === '4.4', 'science 4.4 after one flight');
-    ok(/Archive: \+0\.4 science a year/.test(await txt('#hub-archive')), 'the archive line appears');
+    ok(await txt('#hub-science') === '8.8', 'science 8.8 after one flight');
+    ok(/Archive: \+0\.8 science a year/.test(await txt('#hub-archive')), 'the archive line appears');
     await p.click('text=OPEN THE LAB'); await p.click('[data-key="tab-research"]'); await p.click('[data-key="node-solar-cells"]');
-    ok(/Needs 5 science points \(you have 4/.test(await txt('#research-detail')), 'solar cells still need more science (4.4 of 5)');
+    ok(!(await p.locator('#research-detail .btn').isDisabled()), 'one flight (8.8 science) now pays for solar cells (4)');
     await p.click('text=BACK TO THE HUB');
 
     // ---- a save with eight missions: buy research and an upgrade
     await p.fill('#import-box', code8); await p.click('text=IMPORT');
     ok(await p.locator('#import-error').count() === 0, 'the Node-made save imports');
-    ok(await txt('#hub-year') === '1965' && await txt('#hub-missions') === '8' && await txt('#hub-science') === '46.4', 'hub: 1965, 8 missions, 46.4 science');
+    ok(await txt('#hub-year') === '1965' && await txt('#hub-missions') === '8' && await txt('#hub-science') === '92.8', 'hub: 1965, 8 missions, 92.8 science');
     const sum = await txt('#lab-summary'); console.log('     ' + sum);
     ok(/[1-9]\d* research and [1-9]\d* upgrades? can be bought now/.test(sum), 'the hub counts what can be bought');
     const treasury0 = await txt('#hub-treasury');
@@ -113,14 +113,14 @@ function makeSave() {
     ok(!(await p.locator('#research-detail .btn').isDisabled()), 'Buy is enabled');
     await p.locator('#research-detail .btn').click();
     ok(await p.locator('[data-key="node-solar-cells"].owned').count() === 1, 'bought: the box is owned');
-    ok(await txt('#hub-science') === '41.4', 'buying research spent 5 science');
+    ok(await txt('#hub-science') === '88.8', 'buying research spent 4 science');
     ok(await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-key')) === 'node-solar-cells', 'focus stays on the box after buying');
     await p.click('[data-key="tab-upgrades"]'); await p.click('[data-key="node-scintillation-counter"]');
     ok(!(await p.locator('#upgrade-detail .btn').isDisabled()), 'the upgrade can be bought');
     await p.locator('#upgrade-detail .btn').click();
     ok(await p.locator('[data-key="node-scintillation-counter"].owned').count() === 1, 'upgrade bought: its box is owned');
     ok(await p.locator('[data-key="node-cosmic-ray-counter"].locked').count() === 1 && /replaced/.test(await txt('[data-key="node-cosmic-ray-counter"]')), 'the old part reads "replaced"');
-    ok(await txt('#hub-science') === '1.4', 'the upgrade spent 40 science');
+    ok(await txt('#hub-science') === '48.8', 'the upgrade spent 40 science');
     ok(await txt('#hub-treasury') !== treasury0, 'both currencies are spent');
     await shot('8-lab');
     await p.click('text=BACK TO THE HUB'); await p.click('text=START A MISSION'); await wait('BRIEFING');
@@ -137,7 +137,7 @@ function makeSave() {
     ok((await txt('#import-error')).includes('not a save code'), 'a bad code shows the error and changes nothing');
     ok(await txt('#hub-missions') === '8', '...the campaign is untouched');
     await p.fill('#import-box', code); await p.click('text=IMPORT');
-    ok(await p.locator('#import-error').count() === 0 && await txt('#hub-science') === '1.4', 'a good code imports');
+    ok(await p.locator('#import-error').count() === 0 && await txt('#hub-science') === '48.8', 'a good code imports');
     ok(await noScroll(), 'hub after play: no sideways page scroll');
     await p.reload();
     ok(await p.locator('.campaign-panel .btn.primary').count() === 1, 'after a reload the title offers Continue');

@@ -16,7 +16,7 @@ async function careless(p, tierKey) {
   await p.click('[data-key="obj-wildfire"]');
   await p.click('.nav-row .btn.primary'); await waitHead(p, 'ORBIT'); await p.click('[data-key="orbit-leo"]');
   await p.click('.nav-row .btn.primary'); await waitHead(p, 'BUILD');
-  for (const [bin, part] of [['instrument','optical-camera'],['power','solar-small'],['comms','radio-uhf'],['computer','obc-basic']]) {
+  for (const [bin, part] of [['structure','smallsat-bus'],['attitude','spin-stabilised'],['instrument','optical-camera'],['power','solar-small'],['comms','radio-uhf'],['computer','obc-basic']]) {
     await p.click(`[data-key="bin-${bin}"]`); await p.click(`[data-key="part-${part}"]`);
   }
   await p.click('.nav-row .btn.primary'); await waitHead(p, 'LAUNCH VEHICLE'); await p.click('[data-key="rocket-rideshare"]');
@@ -56,7 +56,7 @@ async function careless(p, tierKey) {
   ok(await p.locator('[data-key="obj-wildfire"][aria-pressed="true"]').count() === 0, 'fresh design: no objective chosen');
   await p.click('[data-key="obj-wildfire"]'); await p.click('.nav-row .btn.primary'); await waitHead(p, 'ORBIT');
   await p.click('[data-key="orbit-leo"]'); await p.click('.nav-row .btn.primary'); await waitHead(p, 'BUILD');
-  ok(await p.locator('.bin-sub.need').count() === 4, 'Build starts empty (4 needed bins)');
+  ok(await p.locator('.bin-sub.need').count() === 6, 'Build starts empty (6 needed bins)');
   await p.keyboard.press('m'); await waitHead(p, 'BASE MAP');
   await p.click('text=CHANGE TIER');
   ok(await p.locator('.big-title').count() === 1, 'CHANGE TIER on the map returns to tier select');
