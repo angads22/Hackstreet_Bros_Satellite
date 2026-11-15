@@ -31,6 +31,8 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Global leaderboard.** The best Part 2 runs, top 20, your own rank, a SUBMIT SCORE button on the ending; scores are self-reported (`getRunScore`).
 - **Quick 1v1 duel.** Create a room, share the four-letter code, both fly one flight with the same job and cash; the higher science wins, ties go to the lower cost. It never touches your saves.
 - **Online is off when you host it yourself.** The leaderboard and duel buttons are disabled, with the reason, when the game is opened from a file, localhost, a private address or with `?offline=1`, or when no server is set; nothing is sent. The optional server is in `server/`.
+- **The long pole.** The Build bars and the readiness review name the slowest part ("Longest part: synthetic aperture radar, 18 months. Without it: 12 months."), from the new `getSchedule(design)`; no timing changes.
+- **Lead time for every part.** Each of the 41 parts has `lead_months` (about how long it takes to arrive, rounded from the engineers' quote; sources in `SOURCES.md` are not yet opened) and the part preview shows "Lead time: ~N months to arrive". It changes no rule.
 
 ## 1.0 (November 15, 2026)
 
