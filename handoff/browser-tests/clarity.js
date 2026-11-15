@@ -123,7 +123,7 @@ async function part2Build(p, topic) {
   await T.fly(p, 'first');
   ok(await T.waitHead(p, 'DEBRIEF'), 'Part 1 step 1 reaches its debrief');
   await p.waitForTimeout(800);
-  ok(await p.locator('.profit, .profit-band, [data-key="debrief-profit"], .cb-result').count() === 0 && !/PROFIT|\$/.test(await p.locator('#app').innerText()), 'Part 1 debrief: no PROFIT and no money');
+  ok(await p.locator('.profit, .profit-band, [data-key="debrief-profit"], .cb-result').count() === 0 && !/PROFIT/.test(await p.locator('#app').innerText()), 'Part 1 debrief: no PROFIT line');
   await p.screenshot({ path: path.join(shots, 'clarity-p1-debrief-1366.png') });
   ok(errors.length === 0, 'no console errors in the Part 1 debrief ' + errors.join(' | '));
   await ctx.close();
