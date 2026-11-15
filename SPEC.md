@@ -121,6 +121,19 @@ Readiness checks (only when a body is fitted, which becomes always once the swit
 | **Relevance** | The challenge asks for "different difficulty levels, mission types, or scenarios" and "simple and advanced components depending on the difficulty level". Eras are both, and they rest on NASA's own mission history (NSSDCA). | — |
 | **Presentation** | A 30-second demo can open in 1958 with Explorer 1 and close in 2026, which is a story in itself. The screens need only an era picker and slot counts on the body. | The research-tree screen is the biggest new screen; it is only needed for the campaign, so eras come first. |
 
+### The core loop (approved November 15)
+
+```
+Start poor (small budget, basic parts)
+  -> Plan a mission (pick type and gear) -> Launch (costs money) -> Collect data (each type has a cap)
+  -> New data?  no:  no reward (already collected) -> try another type
+                yes: earn money and science points -> research in the lab (unlock parts, approaches) -> next mission
+```
+
+- **Each mission type has a data cap:** `CAMPAIGN.cap_scales` (3) times the topic's `knowledge_scale`. A flight's **new data** is its science, cut off at what is left under the cap.
+- **Rewards are for new data only.** Money pays for the knowledge the new data adds (the same diminishing curve as before), and science points equal the new data. A flight that brings back nothing new earns **no reward**: no payout (the repeat floor is gone for it) and no science points. The annual grant and the rescue grant still arrive, so the programme can always fly again.
+- The hub shows each topic as `data_collected` of `data_cap`, and marks it `complete` at the cap. The Build screen's payout preview and the debrief say how much of a flight's data would be new, and name another type to try (`best_next_topic`).
+
 ### The lab, the archive and open choices (0.7, approved November 14)
 
 Playtest verdict: the campaign was one corridor (fly, get paid, buy the next node) with too much hand-holding, and science points paid for nothing. 0.7 makes it an incremental and simulator hybrid: every launch is still a hard design puzzle (simulator), and what the programme learns keeps piling up between launches (incremental).
@@ -677,6 +690,7 @@ newCampaignDesign()             // an empty design that belongs to the campaign 
 getCampaign()                   // the saved state, or null
 resetCampaign()
 getHubInfo()                    // { year, treasury_musd, science_pts, archive_sci_per_year,
+                                //   (each topic also has data_collected, data_cap and complete: nothing new is left to collect)
                                 //   lessons: [ids earned], topics: [{ id, name, available, knowledge,
                                 //   science_so_far, next_payout_estimate_musd, locked_reason }],
                                 //   research: [{ id, name, year, depth, cost_musd, cost_sci, blurb, owned, affordable, requires_met,
@@ -690,7 +704,8 @@ getLab()                        // { science_pts, treasury_musd, upgrades: [{ id
 buyUpgrade(id)                  // { ok, reason }; the successor replaces its predecessor for the rest of the campaign
 isPartAvailable(id, design), isLauncherAvailable(id, design), isObjectiveAvailable(id, design)
                                 // false when locked by research (campaign) or not yet invented in the design's era
-previewPayout(design)           // { expected_payout_musd, knowledge_before, knowledge_after, novelty, cost_musd, net_musd }
+previewPayout(design)           // { expected_payout_musd, knowledge_before, knowledge_after, novelty, cost_musd, net_musd,
+                                //   new_data, data_left, topic_complete }  new_data = science points this flight would earn
 getHints(screen, design)        // { mode: "on" | "request" | "off", tutorial, tips: [...] }  screen = "hub", "briefing",
                                 // "orbit", "build", "launch", "readiness", "mission" or "debrief". tips lead with advice
                                 // for the design's current problems (from runChecks), then general tips. mode comes from
