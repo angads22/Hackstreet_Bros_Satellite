@@ -786,3 +786,7 @@ svg.icon { display: inline-block; margin-right: .35em; vertical-align: -.12em; }
 .lp-bench .lp-sat { display: block; width: 100%; max-width: none; height: auto; aspect-ratio: 4 / 3; }
 /* The speakers' low-poly busts: one picture per face, on the portrait colour like the pixel portraits. */
 img.lp-face { background: var(--pal-portrait); object-fit: cover; }
+/* The launch pad on the Readiness review, and the lift-off shown for a moment after LAUNCH (a click skips it). */
+.lp-pad { aspect-ratio: 4 / 3; height: auto; }
+.launch-show { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; background: var(--pal-night); cursor: pointer; }
+.launch-show .lp-launch { width: min(100%, 960px, calc((100vh - 110px) * 4 / 3)); height: auto; aspect-ratio: 4 / 3; border: 4px solid var(--border); }

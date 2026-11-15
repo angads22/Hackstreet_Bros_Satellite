@@ -1462,8 +1462,37 @@
     ], "Portrait of the mission director wearing a headset", "portrait");
   }
 
+  // One low-poly scene in a canvas that is drawn once it is on the page (never before, so no wasted frame) and
+  // stops by itself when its screen is replaced. Not draggable, no tab stop. {canvas, view, wrap} or null.
+  function lpCanvas(make, className) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.view !== "function" || !LowPoly.scenes) return null;
+      var wrap = make(LowPoly);
+      if (!wrap || !wrap.scene) return null;
+      var canvas = document.createElement("canvas");
+      canvas.width = 0; canvas.height = 0;
+      canvas.className = "lp " + (className || "");
+      return { canvas: canvas, view: LowPoly.view(canvas, wrap, { drag: false, keys: false, fps: 30 }), wrap: wrap };
+    } catch (e) { return null; }
+  }
+  function chosenLauncher() {
+    var d = state.design;
+    return d && d.launcher ? byId(data("LAUNCHERS"), d.launcher) : null;
+  }
+  // The design's rocket on the low-poly pad at dusk (LowPoly.scenes.pad, js/lp-pad.js). With no rocket chosen yet,
+  // or without the 3D art, the pixel pad below shows a generic one.
+  function lpPad(ready) {
+    var row = chosenLauncher();
+    var lp = row ? lpCanvas(function (L) {
+      return typeof L.scenes.pad === "function" ? L.scenes.pad({ launcherId: row.id, launcher: row, ready: !!ready }) : null;
+    }, "scene lp-pad") : null;
+    return lp ? lp.canvas : null;
+  }
+
   // Rocket on the pad at night.
   function padArt(ready) {
+    var lp = lpPad(ready);
+    if (lp) return lp;
     var r = [
       [0, 0, 187, 152, PAL.night],
       [14, 12, 1, 1, PAL.ink], [52, 30, 1, 1, PAL.muted], [70, 10, 2, 2, PAL.ink], [110, 22, 1, 1, PAL.ink],
@@ -2658,11 +2687,59 @@
   }
 
   function launch() {
+    if (launchShowing) return;
     if (runChecks(state.design).blockers.length) return;
     if (typeof window.showMissionScreen === "function") {
       state.locked = true;
-      window.showMissionScreen(state.design);
+      var design = state.design;
+      launchShow(function () { window.showMissionScreen(design); });
     }
+  }
+
+  // The lift-off: the design's rocket leaves the low-poly pad for a moment, then done() opens the mission
+  // screen. At most LAUNCH_SHOW_MS; a click or a key skips it. It only delays the screen change: the
+  // design is locked at the click and nothing can change it before done(). With reduced motion, with no
+  // rocket chosen or without the 3D art, done() runs at once and nothing is shown.
+  var LAUNCH_SHOW_MS = 2300, launchShowing = false;
+  function launchShow(done) {
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var row = chosenLauncher();
+    if (reduce || !row || typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.pad !== "function") return done();
+    var finished = false, box = null, timer = null;
+    function onKeyShow(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key !== "Tab" && e.key !== "Shift" && !e.repeat) finish();
+    }
+    function finish() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      document.removeEventListener("keydown", onKeyShow, true);
+      if (box && box.parentNode) box.parentNode.removeChild(box);
+      launchShowing = false;
+      done();
+    }
+    launchShowing = true;
+    timer = setTimeout(finish, LAUNCH_SHOW_MS);   // armed first: a hidden tab or a drawing error cannot hold the player here
+    try {
+      var lp = lpCanvas(function (L) { return L.scenes.pad({ launcherId: row.id, launcher: row, ready: true }); }, "lp-launch");
+      if (!lp) return finish();
+      var t0 = null;
+      // About six seconds of the launch in 2.3: the arms swing clear, ignition, smoke, lift-off and the climb.
+      lp.view.onFrame(function (t) {
+        if (t0 === null) t0 = t;
+        lp.wrap.setTime(0.4 + (t - t0) * 2.6);
+      });
+      var skip = el("button", { type: "button", class: "btn launch-skip" }, "SKIP");
+      box = el("div", { class: "launch-show", role: "dialog", "aria-modal": "true", "aria-label": "Lift-off. Click or press any key to skip." }, [lp.canvas, skip]);
+      box.addEventListener("click", finish);
+      document.addEventListener("keydown", onKeyShow, true);
+      document.body.appendChild(box);
+      state.swappedAt = Date.now();   // the second click of a double click on LAUNCH must not skip it at once
+      skip.focus();
+    } catch (e) { finish(); }
   }
 
   // ---------------------------------------------------------------- start-up and shared names
