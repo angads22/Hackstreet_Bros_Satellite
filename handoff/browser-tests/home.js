@@ -82,9 +82,11 @@ const KEY = 'gravitron-walkthrough-v1';
   ok(await h.evaluate(() => window.__calls) === 1, 'the Part 2 button calls window.showComebackStart()');
   await h.reload();
   await h.evaluate(() => window.StarlineUI.showEpilogue());
-  for (let i = 0; i < 6 && !/CONTINUE TO PART 2/.test(await h.locator('.intro .btn.primary').innerText()); i++) await h.click('.intro .btn.primary');
-  await h.click('.intro .btn.primary');
-  ok(await h.evaluate(() => window.__calls) === 1, 'CONTINUE TO PART 2 calls window.showComebackStart() (a fresh page: 1 call)');
+  for (let i = 0; i < 6 && !/OPEN THE BOX/.test(await h.locator('.intro .btn.primary').innerText()); i++) await h.click('.intro .btn.primary');
+  await h.click('.intro .btn.primary');   // THE BOX (js/ui-story.js), then its way on
+  ok(await h.evaluate(() => window.__calls) === 0, 'the last epilogue beat opens THE BOX first: Part 2 is not started yet');
+  await h.click('[data-key="end-continue"]');
+  ok(await h.evaluate(() => window.__calls) === 1, 'CONTINUE TO PART 2 (on THE BOX) calls window.showComebackStart() (a fresh page: 1 call)');
   // SKIP in the epilogue goes to its last beat, not away
   await h.evaluate(() => window.StarlineUI.showEpilogue());
   await h.click('.intro .btn', { hasText: 'SKIP' });
@@ -106,6 +108,7 @@ const KEY = 'gravitron-walkthrough-v1';
   await r.reload();
   ok(/^CONTINUE/.test(await r.locator('[data-key="part2-go"]').innerText()), 'a comeback running: Part 2 reads CONTINUE');
   await r.click('[data-key="part2-go"]');
+  await T.throughBeats(r);   // a comeback not yet begun in the page: Ajay's opening scene comes first, once
   ok(await T.waitHead(r, 'WORKSHOP'), 'CONTINUE opens the workshop');
   await r.evaluate(() => { const c = JSON.parse(localStorage.getItem('smdg-campaign')); c.finished = true; c.won = false; c.month = c.deadline_month; localStorage.setItem('smdg-campaign', JSON.stringify(c)); });
   await r.reload();

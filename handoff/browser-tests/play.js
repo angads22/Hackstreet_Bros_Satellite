@@ -213,7 +213,7 @@ async function run(viewport, label) {
   const epi = [];
   for (let i = 0; i < 8; i++) {
     epi.push(await page.locator('.intro .say-text p').innerText());
-    if (/CONTINUE TO PART 2/.test(await page.locator('.intro .btn.primary').innerText())) break;
+    if (/OPEN THE BOX/.test(await page.locator('.intro .btn.primary').innerText())) break;
     await page.click('.intro .btn.primary');
   }
   console.log('     epilogue: ' + epi.join(' | '));
@@ -224,6 +224,12 @@ async function run(viewport, label) {
   ok(!/SCORE/.test(await page.locator('#status').innerText()), 'epilogue header: no stale score');
   await shot('8-epilogue');
   await page.click('.intro .btn.primary');
+  ok(await T.waitHead(page, 'PART 1 COMPLETE') && await page.locator('.cb-end.end-box').count() === 1, 'the last epilogue beat opens THE BOX, Part 1\'s ending');
+  ok(/ENDINGS 1 \/ 7/.test(await page.locator('.cb-end-bar .story-count').innerText()) &&
+     await page.evaluate(() => JSON.parse(localStorage.getItem('gravitron-endings-v1')).join() === 'box'), 'THE BOX is recorded: ENDINGS 1 / 7');
+  ok(/CONTINUE TO PART 2/.test(await page.locator('[data-key="end-continue"]').innerText()), 'the box ending offers CONTINUE TO PART 2');
+  await shot('8b-box');
+  await page.click('[data-key="end-continue"]');
   ok(await page.locator('.cb-level').count() === 3, 'CONTINUE TO PART 2 opens Part 2: the difficulty picker');
   await page.click('[data-key="picker-home"]');
   ok(await page.locator('.mode-card').count() === 2, 'HOME from the picker returns to the home page');

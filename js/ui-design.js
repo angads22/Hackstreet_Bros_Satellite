@@ -1822,7 +1822,9 @@
   }
   // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
   // else null (the caller then shows the director).
+  var FACE_OF = { rival: "director", mum: "partner" };   // speakers drawn with another speaker's bust
   function speakerFace(who) {
+    who = FACE_OF[who] || who;
     return lpFace(who) || (typeof speakerArt === "function" ? speakerArt(who) : null);
   }
 
@@ -2436,8 +2438,10 @@
     state.walk = null;
     state.design = null;
     state.locked = false;
-    showBeats(list(storyLine("epilogue", null)), STORY.modes.part1.kicker + " · " + STORY.modes.part1.name, toPart2,
-      { doneLabel: "CONTINUE TO PART 2", skipToEnd: true, home: true, era: "1958" });
+    var box = window.StarlineStory && typeof window.StarlineStory.showBox === "function";   // js/ui-story.js: THE BOX ending first
+    showBeats(list(storyLine("epilogue", null)), STORY.modes.part1.kicker + " · " + STORY.modes.part1.name,
+      box ? function () { window.StarlineStory.showBox(toPart2); } : toPart2,
+      { doneLabel: box ? "OPEN THE BOX" : "CONTINUE TO PART 2", skipToEnd: true, home: true, era: "1958" });
   }
 
   // A few short story beats, one at a time (NEXT, or SKIP), then onDone. An empty list goes straight to onDone.
@@ -2485,6 +2489,7 @@
     return el("div", { class: "mode-card" + (lead ? " lead" : ""), "data-key": key }, [
       el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
       el("h2", { text: M.name }),
+      window.StarlineStory ? window.StarlineStory.counter() : null,
       el("div", { class: "mode-foot" }, [extra.state || el("span"), el("div", { class: "mode-go" }, [go])])
     ]);
   }
@@ -2538,6 +2543,7 @@
         if (typeof resetProgress === "function") resetProgress();
         if (typeof resetCampaign === "function") resetCampaign();
         walkForget();
+        if (window.StarlineStory) window.StarlineStory.forget();   // the endings found and the interludes seen
         draw("title");
       }, { quiet: true, key: "reset-progress" })])
     ]);
@@ -3645,6 +3651,7 @@
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
     speakerArt: speakerFace,
+    story: function () { return STORY; },   // read-only, for js/ui-story.js (interludes and endings)
     speakerName: function (who) { return typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : ""; },
     satelliteArt: satelliteArt,
     lpCanvas: lpCanvas,

@@ -158,8 +158,13 @@ async function run(viewport, label) {
   await shot('4-debrief');
 
   // ---- back at the workshop: the flight log, then PAY BACK
-  await p.click('[data-key="debrief-workshop"]'); await T.waitHead(p, 'WORKSHOP');
-  ok(await p.locator('.cb-log li').count() === 1 && await p.locator('#cb-cash').innerText() === money(h.cash_musd), 'workshop: one flight in the log, the new cash');
+  await p.click('[data-key="debrief-workshop"]');
+  const after1 = await p.evaluate(() => StarlineUI.story().ajay.interludes['after-1'].map(b => b.text));
+  ok(await p.locator('.intro').count() === 1 && /MUM/.test(await p.locator('.intro .say-name').innerText()), 'after the first flight: Mum calls before the workshop (an interlude)');
+  ok((await T.throughBeats(p)).join('|') === after1.join('|'), "Mum's scene is the story text, beat by beat (" + after1.length + ' beats)');
+  await T.waitHead(p, 'WORKSHOP');
+  await shot('4b-after-mum');
+  ok(await p.locator('.intro').count() === 0 && await p.locator('.cb-log li').count() === 1 && await p.locator('#cb-cash').innerText() === money(h.cash_musd), 'workshop: one flight in the log, the new cash');
   const first = p.locator('[data-key="pay-panel"] .btn').first();
   const amount = parseM(await first.innerText());
   await first.click(); await p.waitForTimeout(300);
@@ -241,7 +246,11 @@ async function run(viewport, label) {
   await T.waitHead(p, 'OUT OF TIME');
   let e = await p.evaluate(() => getComebackEnding());
   ok(e && !e.won && e.lost_reason === 'deadline' && (await p.locator('.cb-end').innerText()).includes(e.headline), 'the lost ending (by time): its headline');
-  ok(/took the keys/.test(await p.locator('#app').innerText()) && /KEYS TAKEN/.test(await p.locator('.cb-stamp').innerText()), 'lost: the partner\'s line and the stamp');
+  const timeoutText = await p.evaluate(() => StarlineUI.story().ajay.endings.timeout);
+  const lostPage = await p.locator('#app').innerText();
+  ok(lostPage.includes(timeoutText.title.toUpperCase()) && lostPage.includes(timeoutText.line) && /KEYS TAKEN/.test(await p.locator('.cb-stamp').innerText()),
+    'lost: the story\'s ending for a missed deadline (its title and closing line) and the stamp');
+  ok(/ENDINGS \d \/ 7/.test(await p.locator('.cb-end-bar').innerText()), 'lost: the found-endings counter is on the screen');
   ok(await p.locator('[data-key="end-again"]').count() === 1 && await p.locator('[data-key="end-home"]').count() === 1, 'lost: TRY AGAIN and HOME');
   ok(await T.noScroll(p), 'ending: no sideways scroll');
   console.log('     ending words: ' + await bodyWords());
@@ -254,7 +263,8 @@ async function run(viewport, label) {
   await editSave(p, 'c.treasury_musd = 0.01; c.finished = true; c.won = false;');
   await p.evaluate(() => window.showComebackHub());
   ok(await T.waitHead(p, 'OUT OF MONEY'), 'lost by cash: the ending says so');
-  ok(/Nothing left to launch with/.test(await p.locator('#app').innerText()), "lost by cash: the partner's line");
+  const brokeText = await p.evaluate(() => StarlineUI.story().ajay.endings.broke);
+  ok((await p.locator('#app').innerText()).includes(brokeText.line), 'lost by cash: the story\'s closing line');
   await shot('8-lost-cash');
 
   // ---- a win: enough cash to pay it all
