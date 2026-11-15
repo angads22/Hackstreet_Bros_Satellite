@@ -120,7 +120,7 @@ async function lowPolyOn(viewport, label) {
   ok(await head(page, 'MISSION'), 'then the mission screen');
   const took = Date.now() - t0;
   console.log(`     lift-off lasted ${took} ms`);
-  ok(took > 13000 && took < 16500, 'the lift-off and the orbit finale end by themselves in about 14 s');
+  ok(took > 13000 && took < 16000, 'the lift-off and the orbit finale end by themselves in about 14 s');
   ok(await page.locator('.launch-show').count() === 0, '...and is gone');
   ok(await page.locator('.mission-earth').count() === 1, 'the mission screen shows a small Earth with the orbit');
   // The satellite on that ring is the player's own, and it keeps orbiting at the mission's pace: held while paused, much
@@ -140,7 +140,10 @@ async function lowPolyOn(viewport, label) {
   await page.click('button[aria-label="Resume the mission"]');
   await page.click('button[aria-label="Fast forward"]');
   let fast = 0;
-  for (let i = 0; i < 6; i++) if (!(await page.locator('[role="alertdialog"]').count())) fast = Math.max(fast, await speed(150));
+  for (let i = 0; i < 6; i++) {
+    if (await page.locator('[role="alertdialog"]').count()) { await page.locator('.choices .btn').first().click(); await page.waitForTimeout(100); }   // an event waits for an answer
+    fast = Math.max(fast, await speed(150));
+  }
   ok(fast > 2.5 * normal, `fast-forward speeds it up (${fast.toFixed(0)} against ${normal.toFixed(0)} degrees a second)`);
   await page.click('button[aria-label="Fast forward"]');
   // Past month 10 the month is wider: the Earth beside it must shrink, not wrap and push the screen down.
@@ -174,6 +177,16 @@ async function lowPolyOn(viewport, label) {
     ok(await page.locator('.launch-show').count() === 1, `${key}: the lift-off is still playing 1.5 s in`);
     await page.keyboard.press(key);
     ok(await head(page, 'MISSION') && Date.now() - tk < 3500 && await page.locator('.launch-show').count() === 0, `${key} skips the lift-off`);
+  }
+  // Skipping works in the orbit finale too (a key, and the SKIP button), not only early in the show.
+  for (const how of ['Space', 'SKIP']) {
+    await show(page, 'review', PARTS, 'small');
+    await head(page, 'READINESS');
+    await page.click('.btn.big');
+    await page.waitForFunction(() => /^IN ORBIT/.test((document.querySelector('[data-key="launch-status"]') || {}).textContent || ''), null, { timeout: 20000 });
+    const ts = Date.now();
+    if (how === 'SKIP') await page.click('.launch-skip'); else await page.keyboard.press(how);
+    ok(await head(page, 'MISSION') && Date.now() - ts < 1500 && await page.locator('.launch-show').count() === 0, `${how} skips the show while the satellite is IN ORBIT`);
   }
   // So does a key, and M cannot open the map: the design is locked from the click on.
   await show(page, 'review', PARTS, 'small');
