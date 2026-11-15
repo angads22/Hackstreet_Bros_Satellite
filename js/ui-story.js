@@ -72,15 +72,23 @@
     writeJSON(ENDINGS_KEY, list);
     return { added: true, list: list };
   }
+  // The record is { "<seed>": [ids] }. A missing or broken record is empty; a run with no entry has not been seen by
+  // this version (a comeback saved before the story existed, or one just begun: see backfill).
   function seenAll() { var v = readJSON(SEEN_KEY); return v && typeof v === "object" && !isList(v) ? v : {}; }
-  function seenFor(seed) { var l = seenAll()[String(seed)]; return isList(l) ? l : []; }
-  function markSeen(seed, id) {
-    var all = seenAll(), key = String(seed), l = isList(all[key]) ? all[key] : [];
-    if (l.indexOf(id) === -1) l.push(id);
-    delete all[key]; all[key] = l;   // the newest run last
+  function seedKey(seed) { return typeof seed === "number" && isFinite(seed) ? String(seed) : "legacy"; }
+  function hasRecord(seed) { return isList(seenAll()[seedKey(seed)]); }
+  function seenFor(seed) { var l = seenAll()[seedKey(seed)]; return isList(l) ? l : []; }
+  function setSeen(seed, ids) {
+    var all = seenAll(), key = seedKey(seed);
+    delete all[key]; all[key] = ids;   // the newest run last
     var keys = Object.keys(all);
     while (keys.length > KEEP_SEEDS) delete all[keys.shift()];
     writeJSON(SEEN_KEY, all);
+  }
+  function markSeen(seed, id) {
+    var l = seenFor(seed).slice();
+    if (l.indexOf(id) === -1) l.push(id);
+    setSeen(seed, l);
   }
   function forget() {
     try { window.localStorage.removeItem(ENDINGS_KEY); window.localStorage.removeItem(SEEN_KEY); } catch (e) { /* storage blocked */ }
@@ -131,29 +139,39 @@
   }
 
   // The interlude due now, or null: { id, beats, buttons? }. Pure: it marks nothing (showInterlude does).
-  // opts.fresh: a comeback has just begun, so forget anything recorded for its seed.
+  // opts.fresh: a comeback has just begun: its record starts empty.
   function nextInterlude(opts) {
     try {
       var c = comeback();
       if (!c || c.finished) return null;
-      if (opts && opts.fresh) { var all = seenAll(); delete all[String(c.seed)]; writeJSON(SEEN_KEY, all); }
-      var seen = seenFor(c.seed), flights = c.flights || 0, share = debtShare(c);
-      // An open offer must be answered (the back end blocks every new design until it is), so it is due until it is.
-      if (c.buyout === "offered" || c.offer) {
-        var o = offerParts();
-        return { id: "offer", beats: o.beats, buttons: [{ id: "refuse", label: o.refuse, hint: o.refuse_hint }, { id: "sell", label: o.sell, hint: o.sell_hint }] };
-      }
-      var due = [
+      var flights = c.flights || 0, share = debtShare(c);
+      var moments = [
         ["start", flights === 0],
         ["after-1", flights >= 1],
         ["refused", c.buyout === "refused"],
         ["after-3", flights >= 3 || (c.tier === "training" && flights >= 2 && share !== null && share < 0.5)],
         ["final", flights >= 1 && share !== null && share < 0.25]
       ];
-      for (var i = 0; i < due.length; i++) {
-        if (!due[i][1] || seen.indexOf(due[i][0]) !== -1) continue;
-        var b = lines(due[i][0]);
-        if (b.length) return { id: due[i][0], beats: b };   // no text for it: nothing to show, and nothing marked
+      // A run just begun starts with an empty record. A run this version has no record of (a comeback saved before the
+      // story existed) must not replay a scene whose moment has already passed: every moment that is behind it is
+      // marked seen, and only what is due from now on is shown.
+      if (opts && opts.fresh) setSeen(c.seed, []);
+      else if (!hasRecord(c.seed)) {
+        var behind = ["start"];   // the old opening scene was shown when the run began
+        moments.forEach(function (m) { if (m[1] && behind.indexOf(m[0]) === -1) behind.push(m[0]); });
+        if (c.buyout === "refused" || c.buyout === "accepted") behind.push("offer");
+        setSeen(c.seed, behind);
+      }
+      var seen = seenFor(c.seed);
+      // An open offer must be answered (the back end blocks every new design until it is), so it is due until it is.
+      if (c.buyout === "offered" || c.offer) {
+        var o = offerParts();
+        return { id: "offer", beats: o.beats, buttons: [{ id: "refuse", label: o.refuse, hint: o.refuse_hint }, { id: "sell", label: o.sell, hint: o.sell_hint }] };
+      }
+      for (var i = 0; i < moments.length; i++) {
+        if (!moments[i][1] || seen.indexOf(moments[i][0]) !== -1) continue;
+        var b = lines(moments[i][0]);
+        if (b.length) return { id: moments[i][0], beats: b };   // no text for it: nothing to show, and nothing marked
       }
     } catch (e) { /* the story must never stop the game */ }
     return null;
