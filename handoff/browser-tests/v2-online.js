@@ -89,6 +89,15 @@ const fits = (p) => p.evaluate(() => {
     ok(calls.every(c => c.ok === false && c.reason), 'every call answers { ok: false, reason } without a server');
     await p.evaluate(() => { UI_HOME(); function UI_HOME() { StarlineUI.home(); } });
     ok(await p.locator('[data-key="online-leaderboard"]').isDisabled(), 'redrawing the home page keeps them disabled');
+    // The Part 2 ending offers no SUBMIT SCORE while online is off.
+    await p.evaluate(() => {
+      newComeback('standard', 7);
+      const c = getCampaign();
+      c.finished = true; c.won = true; c.month = 10; c.deadline_month = 20; c.reputation = 22; c.debt_musd = 0;
+      saveCampaign(c);
+      showComebackEnding();
+    });
+    ok(await p.locator('[data-key="end-again"]').count() === 1 && await p.locator('[data-key="end-submit"]').count() === 0, 'the Part 2 ending shows no SUBMIT SCORE while online is off');
     await p.waitForTimeout(400);
     ok(seen.length === 0, 'no request to any server left the page' + (seen.length ? ': ' + seen.join(', ') : ''));
     ok(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.join(' / ') : ''));

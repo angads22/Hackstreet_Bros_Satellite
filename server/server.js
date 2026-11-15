@@ -3,7 +3,7 @@
 //   node server/server.js
 // Environment: PORT (default 8787), ALLOW_ORIGIN (the game's address, or * ; unset sends no CORS header),
 // DATA_FILE (where the leaderboard is kept, default server/data.json), TRUST_PROXY=1 (read the client address
-// from X-Forwarded-For, for hosts that put a proxy in front), RATE_LIMIT (requests per minute per address, default 120).
+// from X-Forwarded-For, for hosts that put a proxy in front), RATE_LIMIT (requests per minute per address, default 300).
 // Stored: a random player id, a nickname, and the result figures. No account, no email, no cookie, no analytics.
 // Results are self-reported: the server checks they are sane numbers, not that the game produced them.
 "use strict";
@@ -30,7 +30,7 @@ function createServer(opts) {
   opts = opts || {};
   var now = opts.now || Date.now;
   var allowOrigin = opts.allowOrigin || "";
-  var rate = { max: opts.rateLimit || 120, window_ms: opts.rateWindowMs || 60 * 1000 };
+  var rate = { max: opts.rateLimit || 300, window_ms: opts.rateWindowMs || 60 * 1000 };
   var ttl = opts.roomTtlMs || LIMITS.room_ttl_ms;
   var dataFile = opts.dataFile || "";
   var trustProxy = !!opts.trustProxy;
@@ -274,7 +274,7 @@ if (require.main === module) {
     allowOrigin: process.env.ALLOW_ORIGIN || "",
     dataFile: process.env.DATA_FILE || path.join(__dirname, "data.json"),
     trustProxy: process.env.TRUST_PROXY === "1",
-    rateLimit: parseInt(process.env.RATE_LIMIT, 10) || 120
+    rateLimit: parseInt(process.env.RATE_LIMIT, 10) || 300
   });
   srv.listen(port, function () { console.log("GRAVITRON server on port " + port); });
 }

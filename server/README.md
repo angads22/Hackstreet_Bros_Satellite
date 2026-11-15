@@ -29,7 +29,7 @@ The higher science wins; a tie goes to the lower cost. The server decides, so bo
 | `ALLOW_ORIGIN` | the address the game is served from, for CORS (for example `https://angads22.github.io`), or `*`. Unset sends no CORS header, so only a page on the same address can use it | unset |
 | `DATA_FILE` | where the leaderboard is kept | `server/data.json` |
 | `TRUST_PROXY` | `1` when a proxy sits in front (most hosts): the request limit then counts the real client address from `X-Forwarded-For` | off |
-| `RATE_LIMIT` | requests per minute per address | `120` |
+| `RATE_LIMIT` | requests per minute per address (a waiting duel player asks every 2 seconds, so a classroom behind one address needs room) | `300` |
 
 Also built in: a body size cap (2 KB), strict checks on every field (a nickname is trimmed to 16 characters, scores must be finite numbers within sane bounds, room codes are four letters), and a cap on live rooms.
 
