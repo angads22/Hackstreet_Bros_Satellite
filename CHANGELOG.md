@@ -4,36 +4,38 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 2.0 (November 15, 2026)
+
+Version 2 turns the game into something you can play against other people, makes Normal and Hard cost real money to learn about, brings in what the two satellite engineers asked for, and adds music. The home page now opens as the home layout at once (desktop performance 94 to 99, from about 60). Everything players already have is kept: stars, Part 1 steps and a comeback in progress (an in-place upgrade, tested against real saves).
+
+### Added
+
 - **Music and sound effects.** A chill, slow ambient bed (a warm tape-worn one in 1958, a clean modern one in Part 2) and short effects for button presses, adding and removing a part, the launch countdown, lift-off and orbit, each star, the PAID stamp, a win or a loss, and events. All synthesised in the browser by `js/audio.js` (no recording or sample, nothing to license). MUSIC and SOUNDS switches in the footer, kept between visits; silent until the first click; pauses when the tab is hidden.
-
-- **Fewer words.** Events are a short title, one line and one-to-three-word choices; the debrief, hints, briefings, launch checks and client reasons say the same in about half the words.
-- **Clearer Build.** A part that adds nothing to the job gets a WHY box (what the job wants against what the part is); Part 2 shows PROFIT (green or red) on Build and first on the debrief; selecting a part shows one line of what it does with its animation; a body leads with what it CARRIES and says what it WEIGHS.
-- **Paying engineers (Part 2).** On Normal a part's science and dossier, on Hard everything about a part, show "?" until you ASK THE ENGINEERS for a small fee (once per run); the debrief ledger gets an ENGINEERS line. Easy and Part 1 are unchanged.
-### Added
-
 - **STORY SO FAR, a journal.** A JOURNAL button on the base map, in the Part 2 workshop and on a home card (once something in that part is unlocked) opens a short list of what you have learned: Part 1's 1957 setup, the notebook's three rules as the steps are reached, the discovery, Voss and the box; Part 2's lenders, Mum's house, Iron Eclipse, the offer and what you answered (SELL or REFUSE), and Austin's last page. Each entry has a face and one or two short lines; what you have not found yet is a dim "???". Part 2 adds the debt and the months left from the back end, and what to do next in a few words. BACK or Esc return to where you were. It only reads (nothing is saved by opening it), and a comeback saved by 0.9 shows what it has already passed without replaying a scene.
-### Added
-
 - Part 2 (the comeback): a rocket can fail at launch. Every rocket has a failure chance (the 1950s rockets most, a modern Falcon 9 hardly ever); the dice are seeded, so the same run, design and flight always end the same way. A failed launch ends the flight at once: no data, the launch money gone, the contract still open, and a debrief that says "The rocket failed at launch". Part 1 stays safe. Each rocket card and the readiness review show a RISK LOW, MEDIUM or HIGH tag (the back end's `getLaunchRisk`), in the good, warn and bad colours.
 - Part 2: more in the way. Five new short mission events (solar, weather, wildfire, sea ice), and small complications between flights in the workshop (a client drops a contract, a price moves, a month is lost), one colour-tagged line each, drawn from the run's seed. Old saves keep everything and get an empty list of complications.
-
-### Changed
-
-- Part 2 deadlines are six months longer on every difficulty for new runs (a failed launch can cost a flight); a run already saved keeps its own. With the same simulator, a sensible player wins Easy 98%, Normal 60% and Hard 13% of the time before the failures, 93%, 47% and 12% with them, and 95%, 67% and 22% with the longer deadlines; a careless player still never wins.
-- **No more walking from the second flight.** In Part 2 the walk across the base map is instant once a flight is done (the first one keeps it). From `docs/ui-review.md`, problem 9.
-
-### Changed
-
-- **Higher levels give less help before a problem.** Normal drops the hover preview's "Fixes" and "Causes" lines and the FIX links; Hard also drops the science forecast and the pay forecast (the contract's terms stay) and shows event risks as bands. Facts, blockers and the debrief's TRY THIS stay on every level. The Part 2 picker says what each level removes.
-- **Faster to open.** Desktop Lighthouse performance went from 64 to 75 (about 60 on the hosted game) to 94 to 99: the home page no longer jumps when the scripts run, the fonts are in the game instead of fetched from Google (the pixel type now works offline), and the scripts load without blocking. Same look.
-
-### Added
-
+- **Paying engineers (Part 2).** On Normal a part's science and dossier, on Hard everything about a part, show "?" until you ASK THE ENGINEERS for a small fee (once per run); the debrief ledger gets an ENGINEERS line. Easy and Part 1 are unchanged.
 - **Global leaderboard.** The best Part 2 runs, top 20, your own rank, a SUBMIT SCORE button on the ending; scores are self-reported (`getRunScore`).
 - **Quick 1v1 duel.** Create a room, share the four-letter code, both fly one flight with the same job and cash; the higher science wins, ties go to the lower cost. It never touches your saves.
 - **Online is off when you host it yourself.** The leaderboard and duel buttons are disabled, with the reason, when the game is opened from a file, localhost, a private address or with `?offline=1`, or when no server is set; nothing is sent. The optional server is in `server/`.
 - **The long pole.** The Build bars and the readiness review name the slowest part ("Longest part: synthetic aperture radar, 18 months. Without it: 12 months."), from the new `getSchedule(design)`; no timing changes.
 - **Lead time for every part.** Each of the 41 parts has `lead_months` (about how long it takes to arrive, rounded from the engineers' quote; sources in `SOURCES.md` are not yet opened) and the part preview shows "Lead time: ~N months to arrive". It changes no rule.
+
+### Changed
+
+- **Fewer words.** Events are a short title, one line and one-to-three-word choices; the debrief, hints, briefings, launch checks and client reasons say the same in about half the words.
+- **Clearer Build.** A part that adds nothing to the job gets a WHY box (what the job wants against what the part is); Part 2 shows PROFIT (green or red) on Build and first on the debrief; selecting a part shows one line of what it does with its animation; a body leads with what it CARRIES and says what it WEIGHS.
+- **Higher levels give less help before a problem.** Normal drops the hover preview's "Fixes" and "Causes" lines and the FIX links; Hard also drops the science forecast and the pay forecast (the contract's terms stay) and shows event risks as bands. Facts, blockers and the debrief's TRY THIS stay on every level. The Part 2 picker says what each level removes.
+- **No more walking from the second flight.** In Part 2 the walk across the base map is instant once a flight is done (the first one keeps it). From `docs/ui-review.md`, problem 9.
+- **Faster to open.** Desktop Lighthouse performance went from 64 to 75 (about 60 on the hosted game) to 94 to 99: the home page no longer jumps when the scripts run, the fonts are in the game instead of fetched from Google (the pixel type now works offline), and the scripts load without blocking. Same look.
+
+### Not in this version yet
+
+- **The online features need a server.** `server/` is written and tested but not hosted: until someone hosts it and sets `ONLINE.endpoint` in `data/online.js`, the leaderboard and duel buttons show ONLINE OFF.
+- **The rest of the UI review** (`docs/ui-review.md`): the ledger strip, the verdict gauges, the satellite's warning states, a reordered debrief and a phone layout for Build. The part-adding animation is built but not merged.
+- **Steps 3 to 6 of the real-world plan** (counting back from the launch slot, paying to expedite, test blocks, heritage). Lead time is shown, not yet a rule.
+- **Balance was not re-measured** with loans, launch failures and the engineers' fees together.
+- Pushing the git tags (`v1.0`, `v2.0`) from a computer; cloud sessions cannot.
 
 ## 1.0 (November 15, 2026)
 
