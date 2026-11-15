@@ -419,8 +419,8 @@
     if (!c) return [nextLine(t, "part2-none"), ""];
     if (c.finished) return [nextLine(t, c.won ? "won" : c.buyout === "accepted" ? "sold" : "lost"), c.won ? "good" : "bad"];
     if (c.buyout === "offered") return [nextLine(t, "offer"), "bad"];
+    if (c.deadline_month > 0 && c.months_left <= c.deadline_month * QUARTER) return [nextLine(t, "late"), "bad"];   // a fresh run is never late
     if (!c.flights) return [nextLine(t, "start"), "warn"];
-    if (c.deadline_month > 0 && c.months_left <= c.deadline_month * QUARTER) return [nextLine(t, "late"), "bad"];
     return [nextLine(t, "fly"), "warn"];
   }
 
@@ -447,6 +447,9 @@
     var t = journalText();
     if (!jr || !t) { closeJournal(); return; }
     var part = jr.part, ctx = jr.ctx, c = ctx.c, M = UI.modes || {};
+    // The era first: the low-poly faces take their palette from it when they are drawn (and again once mounted, which sets it from the design).
+    var look = function () { if (typeof UI.era === "function") UI.era(part === 1 ? "1958" : "today"); };
+    look();
     var tab = function (n) {
       var m = M["part" + n], on = n === part;
       return el("button", { type: "button", class: "tab jr-tab" + (on ? " on" : ""), "aria-pressed": on ? "true" : "false", "data-key": "journal-tab-" + n,
@@ -470,7 +473,7 @@
       el("ol", { class: "jr-list", "aria-label": (M["part" + part] && M["part" + part].kicker ? M["part" + part].kicker + ": " : "") + "what you have learned" }, items),
       el("div", { class: "nav-row" }, [UI.button(["< ", "BACK"], closeJournal, { key: "journal-back", aria: "Back" })])
     ]));
-    if (typeof UI.era === "function") UI.era(part === 1 ? "1958" : "today");   // Part 1's entries wear the rustic look
+    look();   // Part 1's entries wear the rustic look
   }
 
   function onJournalKey(e) {

@@ -245,6 +245,43 @@ async function openFrom(p, key, part) {
     }
   }
 
+  // Austin's last page: a run that refused the offer and has seen that scene (a seen record exists for its seed).
+  console.log('[Austin\'s last page, a seen record]');
+  {
+    const base = JSON.parse(fx.saves['two-flights-normal'].raw);
+    base.finished = false; base.won = false; base.buyout = 'refused'; base.treasury_musd = 8; base.seed = 4242;
+    const seen = JSON.stringify({ 4242: ['start', 'after-1', 'offer', 'refused', 'after-3'] });
+    const { p, errors } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': JSON.stringify(base), 'gravitron-seen-v1': seen });
+    const before = await storage(p);
+    await openFrom(p, 'journal-mode-part2');
+    ok(same(await known(p), ['lenders', 'mum', 'iron-eclipse', 'offer', 'refused', 'last-page']), 'with the last page seen: it is known, SOLD stays locked: ' + JSON.stringify(await known(p)));
+    ok((await locked(p)).join() === 'sold', 'only SOLD is still ???');
+    await p.click('[data-key="journal-back"]');
+    ok(await storage(p) === before, 'nothing written to storage');
+    // a scene the record has not marked is not shown, whatever the run has done: the record wins when it exists
+    const { p: q } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': JSON.stringify(base), 'gravitron-seen-v1': JSON.stringify({ 4242: ['start'] }) });
+    await openFrom(q, 'journal-mode-part2');
+    ok(!(await known(q)).includes('mum') && !(await known(q)).includes('last-page'), 'a seen record that lacks a scene keeps it locked: ' + JSON.stringify(await known(q)));
+    await q.close();
+    ok(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
+    await p.close();
+  }
+
+  // The faces wear the era they are drawn in: the lenders' face is the same whether the journal opened on Part 2 or was switched to it.
+  console.log('[the faces and the era]');
+  {
+    const { p: a } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': fx.saves['one-flight-normal'].raw });
+    await openFrom(a, 'journal-mode-part2');
+    const direct = await a.locator('[data-key="journal-lenders"] .jr-face img').getAttribute('src').catch(() => null);
+    await a.close();
+    const { p: c } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': fx.saves['one-flight-normal'].raw });
+    await openFrom(c, 'journal-mode-part1');
+    await tab(c, 2); await c.waitForTimeout(100);
+    const switched = await c.locator('[data-key="journal-lenders"] .jr-face img').getAttribute('src').catch(() => null);
+    ok(!!direct && direct === switched, 'the face drawn after switching from Part 1 is the one drawn when opened on Part 2');
+    await c.close();
+  }
+
   // ---------------------------------------------------------------- the 0.9 saves
   console.log('[existing 0.9 saves]');
   for (const [label, viewport] of [['desktop', DESK], ['phone', PHONE]]) {
@@ -260,6 +297,7 @@ async function openFrom(p, key, part) {
       const k = await known(p), want = ['lenders'].concat(c.flights >= 1 ? ['mum'] : []);
       ok(same(k, want), `[${label}] ${name}: Part 2 shows ${want.join(', ')} from the run itself (${c.flights} flights): ${JSON.stringify(k)}`);
       ok(!(await p.locator('.jr-entry.known', { hasText: '???' }).count()), 'no known entry reads ???');
+      if (name === 'deadline-hard') ok(/cheap and sure/i.test(await p.locator('[data-key="journal-next"]').innerText()), 'no months left: what to do next says time is short, not "pick a contract"');
       if (c.finished) ok(await p.locator('.jr-ended').count() === 1 && !/MONTHS LEFT/.test(await p.locator('.jr-now .facts').innerText()), 'a finished run: its ending, no months left');
       else ok(/MONTHS LEFT/.test(await p.locator('.jr-now .facts').innerText()), 'a run in progress: debt and months left');
       ok(await T.noScroll(p), `[${label}] no sideways scroll`);
