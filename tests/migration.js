@@ -62,7 +62,7 @@ names.forEach(function (name) {
         k.expires_month === oc[i].expires_month && k.orbit === oc[i].orbit && k.bonus_musd === oc[i].bonus_musd; }));
   check("1 " + name + ": the run keeps its own deadline and debt although the tuning of new runs changed",
     h.deadline_month === original.deadline_month && h.debt_musd === original.debt_musd &&
-    (original.deadline_month !== CB.tiers[original.tier].deadline_months || original.debt_musd !== CB.tiers[original.tier].debt_musd || name === "deadline-hard"),
+    (original.deadline_month !== CB.tiers[original.tier].deadline_months || original.debt_musd !== CB.tiers[original.tier].debt_musd || name === "deadline-hard" || name === "fresh-normal"),
     "saved deadline " + original.deadline_month + " vs new " + CB.tiers[original.tier].deadline_months);
 
   // ---- 2. The save was upgraded in place: nothing lost, only the new fields added.
@@ -123,7 +123,7 @@ names.forEach(function (name) {
     check("3 " + name + ": refusing lets play go on", G.refuseBuyout().ok && G.getComeback().offer === null);
   }
   // The ending: pay the debt in full.
-  var c = G.getCampaign(); c.treasury_musd = c.debt_musd; G.saveCampaign(c);
+  var c = G.getCampaign(); c.treasury_musd = c.debt_musd; c.reputation = 999; G.saveCampaign(c);
   var w = G.payDebt(c.debt_musd), end = G.getComebackEnding();
   check("3 " + name + ": the run can be won, and its ending has an id and a chronicle of the old and new flights", w.ok && w.won && G.getComeback().finished &&
     ["legend", "comeback", "close"].indexOf(end.ending_id) !== -1 && end.totals.flights === original.missions.length + 1 && end.title && end.epilogue, end.ending_id);

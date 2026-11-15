@@ -12,7 +12,7 @@
       page for screen readers. Screens whose heading is a place name (the Part 2 workshop) keep it. */
 .objective { display: none !important; }
 .screen:has(> .workshop, > .pad, > .mission-head, > .ledger, > .map-layout) > .screen-head h1 {
-  position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  height: 0 !important; margin: 0 !important; padding: 0 !important; overflow: hidden; font-size: 0 !important; line-height: 0 !important; }
 .screen:has(> .workshop, > .pad, > .mission-head, > .ledger, > .map-layout) > .screen-head { min-height: 0; padding: 0; margin: 0; }
 
 /* 2. A shorter header. It is sticky from 930 px wide, so every pixel of it is taken from every screen. */
@@ -29,7 +29,7 @@
 /* 5. Build: a shorter satellite. The side columns and the preview stay pinned (measured on 0.9: un-pinning them doubled
       the scrolling at 1366x768 and hid the preview while a lower card was hovered). The pinned columns start under the
       shorter header. */
-.bench canvas.sat { max-height: 24vh; width: auto; max-width: 100%; }
+.bench canvas.sat { max-height: 24vh; object-fit: contain; }
 .workshop { --sticky-top: 108px !important; }
 
 /* Desktop: the small "Why" summaries reach the 24 px minimum. */

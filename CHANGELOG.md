@@ -40,6 +40,10 @@ The submission build. Two game modes with a dramatic story, a choice and seven e
 - The laptop and desktop layout pass (Build, the Readiness review, the map, the Mission and Debrief screens laid out for 1366x768) is built and saved but not merged: it arrives after 4 pm.
 - **Launch failures** are planned and not built.
 - **Suppliers, countries and travel costs** are a proposal in `SPEC.md`, not agreed.
+- **Loans, credit and a name (back end).** Ajay can `borrow()` more cash: the loan and a 5% fee go on the debt and credit drops. Credit also falls for each month behind and each lost satellite, rises with stars and real payments, and sets the interest: the lower the credit, the dearer the debt. At credit 30 the lenders seize everything and the comeback is lost. Paying the debt to 0 no longer wins by itself: Ajay also needs a name (reputation from stars: 12, 20 or 28 on Easy, Normal and Hard). Two new endings, "The lenders take everything" and "Debt-free, but nobody knows the name". The workshop screen has no BORROW button or credit meter yet. All numbers are game values in `data/campaign.js`; tests in `tests/comeback.js` (16).
+- **Readable numbers.** Digits are drawn in VT323, a pixel terminal font with clear digits (kept in `css/fonts/`, SIL Open Font License, so it works offline), scaled to match the pixel headings, while letters keep Pixelify Sans. A 5 no longer reads as an S in "NO GO. 5 TO FIX" or "$5M".
+- Icons use one spacing rule, part-card separators stay with their values, and the Rocket Yard has its own rocket icon. Instrument-card science says "up to" to distinguish its potential from the flight forecast.
+- Readiness says READY or HOLD instead of showing a countdown that never moves. The debrief explains the science requirement for a third star; full stars get a success banner and an expanded real-mission comparison.
 
 ## 0.9 beta (November 15, 2026)
 

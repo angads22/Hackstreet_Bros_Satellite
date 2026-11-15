@@ -28,6 +28,19 @@
   --cut: 14px;            /* the chamfer: panels 14px, buttons and tiles 10px, chips 6px */
   --wrap-max: 1280px;     /* the page column (header, screen, footer); the screen agents own this */
   --header-h: 112px;      /* at least the sticky header's height (it measures 84 to 96px): scroll padding and sticky columns */
+  --pixel: "Digits", "Pixelify Sans", "Courier New", monospace;
+  --mono: "Digits", "VT323", "Courier New", monospace;
+}
+
+/* Digits only (U+0030-0039) are drawn in VT323, a pixel terminal font with clear digits, so a 5 never
+   reads as an S in the pixel headings and the numbers still look like the rest of the game. The file is
+   kept in css/fonts/ (SIL Open Font License) so it works offline. Letters keep Pixelify Sans and VT323. */
+@font-face {
+  font-family: "Digits";
+  src: url("fonts/VT323-Regular.woff2") format("woff2"), local("VT323");
+  unicode-range: U+0030-0039;
+  font-weight: 400;          /* headings ask for bold: the browser thickens it, as VT323 is thin */
+  size-adjust: 128%;         /* VT323 digits are small beside Pixelify Sans letters: scale them to match */
 }
 
 * { box-sizing: border-box; }
@@ -917,6 +930,12 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-stat-value.cash { color: var(--info-ink); }
 .cb-stat.warn { border-color: var(--accent); }
 .cb-stat.warn .cb-stat-value, .cb-stat.warn .cb-note { color: var(--accent-ink); }
+.cb-stakes-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.cb-bar { position: relative; height: 18px; background: var(--bg); border: 3px solid var(--border); border-radius: 8px; overflow: hidden; }
+.cb-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--info); transition: width 0.8s ease-out; }
+.cb-credit .cb-bar-fill { background: var(--accent); }
+.cb-credit.warn .cb-bar-fill { background: var(--bad); }
+.cb-bar-line { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--text); }
 .cb-note { font-size: 20px; color: var(--text-dim); }
 .cb-note.bad { color: var(--bad); }
 .cb-note.good { color: var(--info-ink); }
@@ -975,7 +994,7 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-scene { display: block; width: 100%; height: auto; aspect-ratio: 16 / 7; }
 .cb-epilogue { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
-  .cb-meter-debt, .cb-meter-cash { transition: none; }
+  .cb-meter-debt, .cb-meter-cash, .cb-bar-fill { transition: none; }
   .cb-stamp { animation: none; }
 }
 
@@ -1402,7 +1421,7 @@ body[data-era="1958"] .say-text p { line-height: 1.1; }
       page for screen readers. Screens whose heading is a place name (the Part 2 workshop) keep it. */
 .objective { display: none !important; }
 .screen:has(> .workshop, > .pad, > .mission-head, > .ledger, > .map-layout) > .screen-head h1 {
-  position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  height: 0 !important; margin: 0 !important; padding: 0 !important; overflow: hidden; font-size: 0 !important; line-height: 0 !important; }
 .screen:has(> .workshop, > .pad, > .mission-head, > .ledger, > .map-layout) > .screen-head { min-height: 0; padding: 0; margin: 0; }
 
 /* 2. A shorter header. It is sticky from 930 px wide, so every pixel of it is taken from every screen. */
@@ -1419,7 +1438,7 @@ body[data-era="1958"] .say-text p { line-height: 1.1; }
 /* 5. Build: a shorter satellite. The side columns and the preview stay pinned (measured on 0.9: un-pinning them doubled
       the scrolling at 1366x768 and hid the preview while a lower card was hovered). The pinned columns start under the
       shorter header. */
-.bench canvas.sat { max-height: 24vh; width: auto; max-width: 100%; }
+.bench canvas.sat { max-height: 24vh; object-fit: contain; }
 .workshop { --sticky-top: 108px !important; }
 
 /* Desktop: the small "Why" summaries reach the 24 px minimum. */

@@ -86,7 +86,7 @@ var exportsByName = {};
   exportsByName["comeback mid-way"] = G.exportSave();
 
   // Won: enough cash to clear the debt, then PAY BACK.
-  var c = G.getCampaign(); c.treasury_musd = c.debt_musd + 1; G.saveCampaign(c); G.payDebt(c.debt_musd);
+  var c = G.getCampaign(); c.treasury_musd = c.debt_musd + 1; c.reputation = G.getComeback().reputation_goal; G.saveCampaign(c); G.payDebt(c.debt_musd);
   exportsByName["comeback won"] = G.exportSave();
 
   // Lost on time: the deadline is one month away when a flight lands.

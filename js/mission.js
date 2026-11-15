@@ -1528,7 +1528,8 @@ function validOffer(o, comeback) {
 function validLogEntry(e) {
   if (!isRecord(e) || !isText(e.kind) || !isNumber(e.year)) return false;
   if (e.kind === "payment") return isNumber(e.musd) && isNumber(e.month);
-  if (e.kind === "launch") return isText(e.id) && isNumber(e.musd);
+  if (e.kind === "loan") return isNumber(e.musd) && isNumber(e.month) && isOptional(e.fee_musd, isNumber);
+  if (e.kind === "launch") return isText(e.id) && isNumber(e.musd) && isOptional(e.flight, isCount);
   return isText(e.id);
 }
 function validCampaign(c) {
@@ -1542,7 +1543,8 @@ function validCampaign(c) {
   if (!comeback) return true;
   var cfg = comebackConfig();
   return !!(cfg && cfg.tiers[c.tier]) && isNumber(c.month) && isNumber(c.deadline_month) && isNumber(c.debt_musd) &&
-    isCount(c.seed) && c.seed <= 4294967295 && BUYOUT_STATES.indexOf(c.buyout) !== -1 && isOptional(c.start_debt_musd, isNumber);
+    isCount(c.seed) && c.seed <= 4294967295 && BUYOUT_STATES.indexOf(c.buyout) !== -1 && isOptional(c.start_debt_musd, isNumber) &&
+    isOptional(c.credit, isNumber) && isOptional(c.reputation, isNumber) && isOptional(c.borrowed_musd, isNumber) && isOptional(c.seized, isFlag);
 }
 
 // ------------------------------------------------------------------ research tree and lessons
@@ -1839,10 +1841,39 @@ function flightMonths(design) {
 }
 
 // The debt after `months` months of interest, compounded monthly and rounded like the rest of the money.
-function accrueInterest(debt, months) {
-  var cfg = comebackConfig(), r = cfg ? cfg.interest_per_month : 0;
+// `rate` is the monthly interest; left out, it is the base rate (full credit).
+function accrueInterest(debt, months, rate) {
+  var cfg = comebackConfig(), r = typeof rate === "number" ? rate : (cfg ? cfg.interest_per_month : 0);
   for (var i = 0; i < months; i++) debt = round(debt * (1 + r), 3);
   return debt;
+}
+
+// ---- loans, credit and reputation (SPEC.md, "Loans, credit and a name")
+// Credit starts full and only the lenders' patience pays for it: each loan, each month Ajay is behind and each
+// lost satellite lowers it; a good flight and a real payment give a little back. Lower credit means dearer
+// interest. At the seize line the lenders take everything. Winning needs the debt at 0 AND a name: reputation
+// from the stars Ajay's satellites earn. A save without these fields starts at full credit and no name.
+function creditConfig() { var cfg = comebackConfig(); return cfg && cfg.credit ? cfg.credit : null; }
+function clampCredit(x) { return Math.max(0, Math.min(100, round(x, 1))); }
+function creditOf(c) { var k = creditConfig(); return isNumber(c.credit) ? c.credit : (k ? k.start : 100); }
+function reputationOf(c) { return isNumber(c.reputation) ? c.reputation : 0; }
+function reputationGoal(c) { var t = comebackTier(c); return t && isNumber(t.reputation_goal) ? t.reputation_goal : 0; }
+function seizeLine() { var k = creditConfig(); return k ? k.seize : 0; }
+// The monthly interest right now: the base rate plus a spread that grows as credit falls.
+function monthlyRate(c) {
+  var cfg = comebackConfig(), k = creditConfig();
+  if (!cfg) return 0;
+  return k ? round(cfg.interest_per_month + k.interest_spread * (100 - creditOf(c)) / 100, 5) : cfg.interest_per_month;
+}
+// The most the lenders will still lend: a cap that shrinks with credit, less what was already borrowed. Zero
+// when one more loan would drop credit to the seize line (the game does not let a loan end the game by itself).
+function maxBorrow(c) {
+  var k = creditConfig(), t = comebackTier(c);
+  if (!k || !t || !isNumber(t.loan_cap_musd) || !isComeback(c) || c.finished) return 0;
+  var credit = creditOf(c);
+  if (credit - k.per_loan <= k.seize) return 0;
+  var cap = round(t.loan_cap_musd * credit / 100, 3);
+  return Math.max(0, round(cap - (c.borrowed_musd || 0), 3));
 }
 
 // ---- contracts: the comeback's offers, with a client and a reason
@@ -1978,21 +2009,38 @@ function safePayMax(c) {
 }
 
 // Why a comeback is lost right now, or null. One check, after every flight and every payment.
+// "seized": credit fell to the seize line with debt left. "deadline": time ran out with debt left. "name": the
+// debt is paid but the deadline came before Ajay made a name. "cash": nothing left can launch and no loan helps.
 function comebackLoss(c) {
-  if (!isComeback(c) || c.won || !(c.debt_musd > 0)) return null;
+  if (!isComeback(c) || c.won) return null;
+  if (!(c.debt_musd > 0)) {                                   // paid off: only a name is missing
+    if (reputationOf(c) >= reputationGoal(c)) return null;
+    return c.month >= c.deadline_month || c.treasury_musd + maxBorrow(c) < comebackCheapest(c) ? "name" : null;
+  }
+  if (creditConfig() && creditOf(c) <= seizeLine()) return "seized";
   if (c.month >= c.deadline_month) return "deadline";
   if (c.treasury_musd >= c.debt_musd) return null;           // it can still pay the lenders off today
-  if (c.treasury_musd < comebackCheapest(c)) return "cash";   // no open contract can be flown (or none is left)
+  if (c.treasury_musd + maxBorrow(c) < comebackCheapest(c)) return "cash";   // no open contract can be flown, even with a loan
   return null;
 }
 function checkComebackEnd(c) {
   if (c.finished) return;
-  if (!(c.debt_musd > 0)) { c.debt_musd = 0; c.finished = true; c.won = true; return; }
-  if (comebackLoss(c)) { c.finished = true; c.won = false; }
+  if (!(c.debt_musd > 0)) {
+    c.debt_musd = 0;
+    if (reputationOf(c) >= reputationGoal(c)) { c.finished = true; c.won = true; return; }   // paid off AND a name
+  }
+  var loss = comebackLoss(c);
+  if (loss) {
+    c.finished = true; c.won = false;
+    if (loss === "seized") { c.seized = true; c.seized_musd = round(c.treasury_musd, 3); c.treasury_musd = 0; }   // they take everything
+  }
 }
-// The reason a finished comeback was lost: the deadline if it came, else the cash (never for a sold company).
+// The reason a finished comeback was lost: seized by the lenders, a clear debt without the name, the deadline, else the cash
+// (never for a sold company).
 function lostReason(c) {
   if (!isComeback(c) || !c.finished || c.won || c.buyout === "accepted") return null;
+  if (c.seized) return "seized";
+  if (!(c.debt_musd > 0)) return "name";
   return c.month >= c.deadline_month ? "deadline" : "cash";
 }
 
@@ -2059,6 +2107,9 @@ function newComeback(tierId, seed) {
     missions: [],
     flights: 0,
     log: [],
+    credit: creditConfig() ? creditConfig().start : 100,   // the lenders' patience, 0 to 100
+    reputation: 0,                                          // a name: grows with the stars Ajay's satellites earn
+    borrowed_musd: 0,                                       // loans taken so far (not counting their fees)
     finished: false,
     won: false
   };
@@ -2088,7 +2139,16 @@ function getComeback() {
     cash_musd: c.treasury_musd,
     debt_musd: c.debt_musd,
     start_debt_musd: startDebt(c),
-    interest_per_month: cfg ? cfg.interest_per_month : 0,
+    interest_per_month: monthlyRate(c),               // the rate right now: it rises as credit falls
+    base_interest_per_month: cfg ? cfg.interest_per_month : 0,
+    credit: creditOf(c),
+    seize_credit: seizeLine(),
+    max_borrow_musd: maxBorrow(c),
+    loan_fee: creditConfig() ? creditConfig().loan_fee : 0,
+    credit_per_loan: creditConfig() ? creditConfig().per_loan : 0,
+    borrowed_musd: c.borrowed_musd || 0,
+    reputation: reputationOf(c),
+    reputation_goal: reputationGoal(c),
     debt_paid_musd: paidSoFar(c),
     safe_pay_max_musd: safePayMax(c),
     cheapest_launch_musd: isFinite(cheapest) ? cheapest : null,
@@ -2189,9 +2249,44 @@ function payDebt(amountMusd) {
   c.treasury_musd = round(c.treasury_musd - amount, 3);
   c.debt_musd = round(c.debt_musd - amount, 3);
   (c.log = c.log || []).push({ year: c.year, month: c.month, kind: "payment", musd: amount });
+  var k = creditConfig();
+  if (k && amount >= k.min_payment_musd) c.credit = clampCredit(creditOf(c) + k.per_payment);   // a real payment earns a little trust
   checkComebackEnd(c);
   saveCampaign(c);
-  return { ok: true, reason: null, paid_musd: amount, cash_musd: c.treasury_musd, debt_musd: c.debt_musd, won: !!c.won };
+  return { ok: true, reason: null, paid_musd: amount, cash_musd: c.treasury_musd, debt_musd: c.debt_musd, credit: creditOf(c), won: !!c.won };
+}
+
+// BORROW: the lenders lend more cash. The loan and its fee are added to the debt, credit drops, and the amount
+// is capped by max_borrow_musd. Refuses what is not a positive number and more than the cap; refuses when
+// one more loan would put credit on the seize line. Returns the new cash, debt and credit.
+function borrow(amountMusd) {
+  var c = getCampaign();
+  function no(reason) {
+    return { ok: false, reason: reason, borrowed_musd: 0, fee_musd: 0, cash_musd: c ? c.treasury_musd : null, debt_musd: c ? c.debt_musd : null,
+             credit: c ? creditOf(c) : null, max_borrow_musd: c ? maxBorrow(c) : 0 };
+  }
+  var k = creditConfig();
+  if (!isComeback(c)) { c = null; return no("No comeback is running."); }
+  if (c.finished) return no("The comeback is over.");
+  if (!k) return no("The lenders offer no loans.");
+  if (typeof amountMusd !== "number" || !isFinite(amountMusd)) return no("Borrow an amount in millions of dollars.");
+  if (amountMusd <= 0) return no("Borrow more than nothing.");
+  var amount = round(amountMusd, 3);
+  if (amount <= 0) return no("Borrow at least $0.001M.");
+  var max = maxBorrow(c);
+  if (max <= 0) return no(creditOf(c) - k.per_loan <= k.seize ? "The lenders will lend no more: one more loan and they take everything."
+                                                              : "You have borrowed all the lenders allow at this credit.");
+  if (amount > max + 1e-9) return no("The lenders will lend at most $" + max + "M now.");
+  var fee = round(amount * k.loan_fee, 3);
+  c.treasury_musd = round(c.treasury_musd + amount, 3);
+  c.debt_musd = round(c.debt_musd + amount + fee, 3);
+  c.borrowed_musd = round((c.borrowed_musd || 0) + amount, 3);
+  c.credit = clampCredit(creditOf(c) - k.per_loan);
+  (c.log = c.log || []).push({ year: c.year, month: c.month, kind: "loan", musd: amount, fee_musd: fee });
+  checkComebackEnd(c);
+  saveCampaign(c);
+  return { ok: true, reason: null, borrowed_musd: amount, fee_musd: fee, cash_musd: c.treasury_musd, debt_musd: c.debt_musd,
+           credit: creditOf(c), max_borrow_musd: maxBorrow(c) };
 }
 
 // Called from settleCampaign for a comeback flight: the contract pays, events cost cash, months pass and
@@ -2204,9 +2299,17 @@ function settleComeback(c, mission, debrief, result) {
   var pay = claimed[0] || { id: null, paid_musd: 0, bonus_musd: 0 };
   c.treasury_musd = round(c.treasury_musd - mission.extra_cost_musd, 3);
   var used = flightMonths(mission.design), debtBefore = c.debt_musd, yearFlown = c.year;
-  c.debt_musd = accrueInterest(c.debt_musd, used);
+  c.debt_musd = accrueInterest(c.debt_musd, used, monthlyRate(c));   // at the rate this credit earns
   var interest = round(c.debt_musd - debtBefore, 3);
   c.month += used;
+  // Credit and a name: stars earn trust and reputation, a lost satellite and every month behind cost trust.
+  var kc = creditConfig(), creditBefore = creditOf(c);
+  if (kc) {
+    var delta = (debrief.stars || 0) * kc.per_star - (mission.ended_early ? kc.per_lost_satellite : 0) -
+      (c.debt_musd > c.treasury_musd ? used * kc.per_late_month : 0);
+    c.credit = clampCredit(creditBefore + delta);
+    c.reputation = round(reputationOf(c) + (debrief.stars || 0) * kc.reputation_per_star, 1);
+  }
   c.year = comebackStartYear() + Math.floor(c.month / 12);
   c.science_pts = round((c.science_pts || 0) + newData, 1);
   var newLessons = lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
@@ -2256,6 +2359,10 @@ function settleComeback(c, mission, debrief, result) {
   result.months_left = Math.max(0, c.deadline_month - c.month);
   result.comeback_over = !!c.finished;
   result.lost_reason = lostReason(c);
+  result.credit = creditOf(c);
+  result.credit_change = round(creditOf(c) - creditBefore, 1);
+  result.reputation = reputationOf(c);
+  result.reputation_goal = reputationGoal(c);
 }
 
 // The ending: a short chronicle of the comeback, won, lost or still running.
@@ -2263,7 +2370,8 @@ function getComebackEnding() {
   var c = getCampaign();
   if (!isComeback(c)) return null;
   var missions = c.missions || [], lost = lostReason(c);
-  var start = startDebt(c), paid = paidSoFar(c), interest = round(c.debt_musd - start + paid, 3);
+  var loaned = round((c.log || []).reduce(function (t, e) { return e.kind === "loan" ? t + (e.musd || 0) + (e.fee_musd || 0) : t; }, 0), 3);
+  var start = startDebt(c), paid = paidSoFar(c), interest = round(c.debt_musd - start + paid - loaned, 3);   // loans and fees are not interest
   var earned = round(missions.reduce(function (t, m) { return t + (m.payout_musd || 0); }, 0), 3);
   var stars = missions.reduce(function (t, m) { return t + (m.stars || 0); }, 0);
   function money(x) { return "$" + round(x, 1) + "M"; }
@@ -2279,6 +2387,7 @@ function getComebackEnding() {
   });
   (c.log || []).forEach(function (e) {
     if (e.kind === "payment") timeline.push({ month: e.month, title: "Paid the lenders " + money(e.musd), text: "Every dollar paid now stops growing interest." });
+    if (e.kind === "loan") timeline.push({ month: e.month, title: "Borrowed " + money(e.musd), text: "The lenders added a " + money(e.fee_musd || 0) + " fee to the debt and trusted Ajay a little less." });
   });
   timeline = timeline.map(function (e, i) { return { e: e, i: i }; })
     .sort(function (a, b) { return a.e.month - b.e.month || a.i - b.i; }).map(function (x) { return x.e; });
@@ -2291,11 +2400,23 @@ function getComebackEnding() {
     epilogue = "The debt is gone. So is the workshop, and the notebook is in Iron Eclipse's vault with Marcus Voss's name on the door.";
   } else if (c.won) {
     title = "The workshop is yours";
-    headline = "Albert Orbital clears its debt in " + months(c.month);
+    headline = "Albert Orbital clears its debt in " + months(c.month) + (reputationGoal(c) > 0 ? " and makes a name" : "");
     text = "Ajay flew " + missions.length + (missions.length === 1 ? " satellite" : " satellites") + " for paying clients, earned " +
       money(earned) + " and paid the lenders " + money(paid) + ", " + money(interest) + " of it interest, with " +
       months(Math.max(0, c.deadline_month - c.month)) + " to spare.";
     epilogue = "The lenders hand back the keys. In the workshop, Ajay opens Austin's notebook to the last page, the one his grandfather never got to fill, and starts writing.";
+  } else if (lost === "seized") {
+    title = "The lenders take everything";
+    headline = "Credit is gone: the lenders seize " + money(c.seized_musd || 0) + " and the workshop";
+    text = "Ajay flew " + missions.length + (missions.length === 1 ? " satellite" : " satellites") + " and earned " + money(earned) +
+      ", but he borrowed " + money(c.borrowed_musd || 0) + " and the lenders' trust ran out with " + money(c.debt_musd) + " still owed.";
+    epilogue = "The lenders change the locks on the workshop and take every dollar. Ajay keeps the notebook. Somewhere, Iron Eclipse sends flowers.";
+  } else if (lost === "name") {
+    title = "Debt-free, but nobody knows the name";
+    headline = "The debt is paid, but Albert Orbital never made a name";
+    text = "Ajay paid the lenders " + money(paid) + " and flew " + missions.length + (missions.length === 1 ? " satellite" : " satellites") +
+      ", but his reputation reached " + reputationOf(c) + " of the " + reputationGoal(c) + " he needed before the deadline.";
+    epilogue = "The workshop is safe, and nobody calls it. Ajay opens Austin's notebook and reads the last page again.";
   } else if (lost) {
     title = lost === "deadline" ? "Out of time" : "Out of money";
     headline = lost === "deadline" ? "The deadline passes with " + money(c.debt_musd) + " still owed"

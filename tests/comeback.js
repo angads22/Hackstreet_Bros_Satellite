@@ -229,7 +229,7 @@ var p9 = G.payDebt(1);
 var h9b = G.getComeback();
 check("9 a payment moves cash to the debt", p9.ok && p9.paid_musd === 1 && p9.cash_musd === G.round(h9.cash_musd - 1, 3) &&
   p9.debt_musd === G.round(h9.debt_musd - 1, 3) && !p9.won && h9b.debt_paid_musd === 1 && h9b.cash_musd === p9.cash_musd);
-var c9 = G.getCampaign(); c9.treasury_musd = G.round(c9.debt_musd + 5, 3); G.saveCampaign(c9);
+var c9 = G.getCampaign(); c9.treasury_musd = G.round(c9.debt_musd + 5, 3); c9.reputation = G.getComeback().reputation_goal; G.saveCampaign(c9);   // a name AND no debt wins
 var all9 = G.payDebt(c9.debt_musd + 3);
 var h9c = G.getComeback();
 check("9 paying the whole debt wins at once (and more than the debt pays only the debt)", all9.ok && all9.won && all9.debt_musd === 0 &&
@@ -257,7 +257,7 @@ check("10 a finished comeback flies nothing more", G.newComebackDesign(k10.id) =
 G.resetCampaign(); NC("expert");
 var k11 = addContract();
 var d11 = design(k11.id, "leo", "rideshare", ["cloud-photocell", "solar-small", "radio-uhf", "obc-basic", "spin-stabilised", "explorer-body"]);   // the wrong instrument: no data
-var c11 = G.getCampaign(); c11.treasury_musd = G.getTotals(d11).cost_musd; G.saveCampaign(c11);
+var c11 = G.getCampaign(); c11.treasury_musd = G.getTotals(d11).cost_musd; c11.borrowed_musd = 99; G.saveCampaign(c11);   // the lenders have lent all they will
 var m11 = fly(d11), r11 = G.recordResult(m11), h11 = G.getComeback();
 check("11 no bail-out: an empty treasury stays empty", m11.science === 0 && r11.bailout === false && r11.bailout_musd === 0 && r11.grant_musd === 0 &&
   h11.cash_musd <= 0, "cash " + h11.cash_musd);
@@ -341,14 +341,15 @@ function cheapestFor(k) {
   }); });
   return (cheapMemo[key] = best ? { orbit: best.orbit, launcher: best.launcher, parts: best.parts, cost: G.round(bestCost, 3) } : null);
 }
-var ALL = G.PARTS.map(function (p) { return p.id; }), locks = [], unended = 0, flights14 = 0, endings = {};
+var ALL = G.PARTS.map(function (p) { return p.id; }), locks = [], unended = 0, flights14 = 0, endings = { won: 0, deadline: 0, cash: 0, seized: 0, name: 0, sold: 0 };
 for (var run = 0; run < 24; run++) {
   G.resetCampaign(); NC(G.TIERS[run % 3].id, run + 1);
   for (var guard = 0; guard < 40 && !G.getComeback().finished; guard++) {
     var h = G.getComeback();
     if (h.offer) { if (rnd14() < 0.3) G.acceptBuyout(); else G.refuseBuyout(); continue; }   // a careless player answers by chance
-    if (h.cash_musd >= h.debt_musd) { G.payDebt(h.debt_musd); break; }
+    if (h.debt_musd > 0 && h.cash_musd >= h.debt_musd) { G.payDebt(h.debt_musd); h = G.getComeback(); if (h.finished) break; }
     var flyable = h.contracts.filter(function (k) { var x = cheapestFor(k); return x && x.cost <= h.cash_musd; });
+    if (!flyable.length && h.max_borrow_musd > 0) { G.borrow(h.max_borrow_musd); continue; }   // a player short of cash borrows
     if (!flyable.length) { locks.push("month " + h.month + ", cash " + h.cash_musd + ", contracts " + h.contracts.map(function (k) { return k.topic; })); break; }
     if (rnd14() < 0.3 && h.safe_pay_max_musd > 0.1) G.payDebt(G.round(rnd14() * h.safe_pay_max_musd, 1));
     h = G.getComeback();
@@ -481,7 +482,7 @@ check("17 the sold ending has its chronicle", e17.ending_id === "sold" && !e17.w
 check("17 the sale survives a reload", (function () { var G2 = load({ storage: store }); return G2.getComeback().ending_id === "sold" && G2.getComebackEnding().ending_id === "sold"; })());
 G.resetCampaign(); NC("standard", 24);
 check("17 an offer is not made on the first flight, nor to a debt that is paid", (function () {
-  flyOne(); var c = G.getCampaign(), a = c.buyout; c.treasury_musd = c.debt_musd; G.saveCampaign(c); G.payDebt(c.debt_musd);
+  flyOne(); var c = G.getCampaign(), a = c.buyout; c.treasury_musd = c.debt_musd; c.reputation = 999; G.saveCampaign(c); G.payDebt(c.debt_musd);
   return a === "none" && G.getComeback().won && G.getComeback().offer === null; })());
 
 // ---- 18. Every ending id.
@@ -489,7 +490,7 @@ function finish(seed, tier, setup) {   // a comeback with two real flights, shap
   G.resetCampaign(); NC(tier || "standard", seed); flyOne(); flyOne();
   var c = G.getCampaign(); setup && setup(c); G.saveCampaign(c);
   if (G.getComeback().offer) G.refuseBuyout();
-  c = G.getCampaign(); c.treasury_musd = c.debt_musd; G.saveCampaign(c);
+  c = G.getCampaign(); c.treasury_musd = c.debt_musd; c.reputation = 999; G.saveCampaign(c);
   G.payDebt(c.debt_musd);
   return G.getComeback();
 }
@@ -516,9 +517,9 @@ G.recordResult(fly(design(addContract().id, "leo", "rideshare", RAD)));
 check("18 timeout: the deadline passes with debt left", G.getComeback().ending_id === "timeout" && G.getComebackEnding().ending_id === "timeout" && G.getComeback().lost_reason === "deadline");
 G.resetCampaign(); NC("expert", 51);
 var k18 = addContract(), d18 = design(k18.id, "leo", "rideshare", ["cloud-photocell", "solar-small", "radio-uhf", "obc-basic", "spin-stabilised", "explorer-body"]);
-c18 = G.getCampaign(); c18.treasury_musd = G.getTotals(d18).cost_musd; G.saveCampaign(c18);
+c18 = G.getCampaign(); c18.treasury_musd = G.getTotals(d18).cost_musd; c18.borrowed_musd = 999; G.saveCampaign(c18);   // the lenders have lent all they will
 G.recordResult(fly(d18));
-check("18 broke: no cash left to launch anything", G.getComeback().ending_id === "broke" && G.getComebackEnding().ending_id === "broke" && G.getComeback().lost_reason === "cash");
+check("18 broke: no cash left to launch anything", G.getComeback().ending_id === "broke" && G.getComebackEnding().ending_id === "broke" && G.getComeback().lost_reason === "cash", JSON.stringify([G.getComeback().ending_id, G.getComeback().lost_reason, G.getComeback().credit, G.getComeback().finished]));
 G.resetCampaign(); NC("standard", 52);
 check("18 a running comeback has no ending id, in the hub or the chronicle", G.getComeback().ending_id === null && G.getComebackEnding().ending_id === null);
 
@@ -545,6 +546,80 @@ check("19 a 1957 save code round-trips", (function () { var code = G.exportSave(
 G.resetCampaign(); NC("standard", 62);
 var code19 = G.exportSave(); G.resetCampaign();
 check("19 a comeback save code keeps its seed and its offer", G.importSave(code19).ok && G.getComeback().seed === 62 && G.getComeback().buyout === "none");
+// ---- 16. Loans, credit and a name (SPEC.md, "Loans, credit and a name").
+G.resetCampaign(); G.newComeback("standard");
+var h16 = G.getComeback(), cr16 = G.CAMPAIGN.comeback.credit;
+check("16 a new comeback starts at full credit, no name and a loan cap that follows credit",
+  h16.credit === cr16.start && h16.reputation === 0 && h16.reputation_goal > 0 && h16.seize_credit === cr16.seize &&
+  h16.interest_per_month === h16.base_interest_per_month && h16.max_borrow_musd === G.CAMPAIGN.comeback.tiers.standard.loan_cap_musd, JSON.stringify([h16.credit, h16.max_borrow_musd]));
+var bad16 = ["1", NaN, Infinity, -1, 0, null, undefined].map(function (x) { return G.borrow(x); });
+check("16 borrow refuses a non-number, a negative and nothing", bad16.every(function (r) { return r.ok === false && r.borrowed_musd === 0 && r.reason; }) &&
+  G.getComeback().debt_musd === h16.debt_musd && G.getComeback().cash_musd === h16.cash_musd);
+check("16 borrow refuses more than the lenders allow", !G.borrow(h16.max_borrow_musd + 1).ok && /at most/.test(G.borrow(h16.max_borrow_musd + 1).reason));
+var b16 = G.borrow(10), h16b = G.getComeback(), fee16 = G.round(10 * cr16.loan_fee, 3);
+check("16 a loan adds the cash, adds the loan and its fee to the debt, and lowers credit",
+  b16.ok && b16.borrowed_musd === 10 && b16.fee_musd === fee16 && h16b.cash_musd === G.round(h16.cash_musd + 10, 3) &&
+  h16b.debt_musd === G.round(h16.debt_musd + 10 + fee16, 3) && h16b.credit === h16.credit - cr16.per_loan && h16b.borrowed_musd === 10, JSON.stringify(b16));
+check("16 lower credit means dearer interest and a smaller cap",
+  h16b.interest_per_month > h16.interest_per_month && h16b.interest_per_month === G.round(h16.base_interest_per_month + cr16.interest_spread * (100 - h16b.credit) / 100, 5) &&
+  h16b.max_borrow_musd < G.round(G.CAMPAIGN.comeback.tiers.standard.loan_cap_musd - 10, 3), h16b.interest_per_month + " / " + h16b.max_borrow_musd);
+check("16 the loan is in the log and the ending's timeline", (G.getCampaign().log || []).some(function (e) { return e.kind === "loan" && e.musd === 10 && e.fee_musd === fee16; }) &&
+  G.getComebackEnding().timeline.some(function (e) { return /^Borrowed/.test(e.title); }) &&
+  G.getComebackEnding().totals.interest_musd === 0, "interest " + G.getComebackEnding().totals.interest_musd);
+check("16 the save with a loan exports and imports", (function () {
+  var code = G.exportSave(); G.resetCampaign(); var r = G.importSave(code); return r.ok && G.getComeback().borrowed_musd === 10 && G.getComeback().credit === h16b.credit;
+})());
+
+// A flight: stars earn credit and a name; months behind cost credit; the debt grows at the dearer rate.
+G.resetCampaign(); G.newComeback("standard");
+var c17 = G.getCampaign(); c17.credit = 70; G.saveCampaign(c17);   // below the top, so a gain shows
+var k17 = addContract(), d17 = design(k17.id, "leo", "rideshare", RAD), debt17 = c17.debt_musd, cash17 = c17.treasury_musd;
+var m17 = fly(d17), r17 = G.recordResult(m17), h17 = G.getComeback(), st17 = r17.stars || 0;
+var late17 = (h17.debt_musd > h17.cash_musd ? r17.months_used * cr16.per_late_month : 0);
+check("16 a flight changes credit by its stars, lost satellites and months behind, and earns reputation by stars",
+  r17.credit_change === G.round(st17 * cr16.per_star - (m17.ended_early ? cr16.per_lost_satellite : 0) - late17, 1) &&
+  h17.reputation === G.round(st17 * cr16.reputation_per_star, 1) && r17.reputation === h17.reputation,
+  JSON.stringify({ stars: st17, change: r17.credit_change, late: late17, rep: h17.reputation }));
+G.resetCampaign(); G.newComeback("standard");
+var c17b = G.getCampaign(); c17b.credit = 50; G.saveCampaign(c17b);
+var debt17b = c17b.debt_musd, k17b = addContract(), r17b = G.recordResult(fly(design(k17b.id, "leo", "rideshare", RAD)));
+check("16 a dearer rate (lower credit) grows the debt faster than the base rate",
+  G.getCampaign().debt_musd > G.round(debt17b * Math.pow(1 + G.CAMPAIGN.comeback.interest_per_month, r17b.months_used), 3) - 1e-9 &&
+  r17b.interest_musd > 0, "interest " + r17b.interest_musd);
+
+// Paying: a real payment earns a little credit; a tiny one does not.
+G.resetCampaign(); G.newComeback("training");
+var c18 = G.getCampaign(); c18.credit = 60; c18.treasury_musd = 20; G.saveCampaign(c18);
+G.payDebt(0.5); var after_small = G.getComeback().credit; G.payDebt(2); var after_real = G.getComeback().credit;
+check("16 a payment under the minimum earns no credit; a real payment earns a little", after_small === 60 && after_real === 60 + cr16.per_payment, after_small + " / " + after_real);
+
+// The lenders seize everything at the seize line.
+G.resetCampaign(); G.newComeback("expert");
+var k19 = addContract(), d19 = design(k19.id, "leo", "rideshare", ["cloud-photocell", "solar-small", "radio-uhf", "obc-basic", "spin-stabilised", "explorer-body"]);   // the wrong instrument: no data, no stars
+var c19 = G.getCampaign(); c19.credit = cr16.seize + 0.5; c19.treasury_musd = G.getTotals(d19).cost_musd + 1; G.saveCampaign(c19);
+var r19 = G.recordResult(fly(d19));
+var h19 = G.getComeback(), e19 = G.getComebackEnding();
+check("16 credit at the seize line loses: they take everything", h19.finished && !h19.won && h19.lost_reason === "seized" && h19.cash_musd === 0 &&
+  r19.lost_reason === "seized" && e19.lost_reason === "seized" && /take everything/.test(e19.title) && e19.epilogue && !G.borrow(1).ok && !G.payDebt(1).ok,
+  JSON.stringify([h19.credit, h19.cash_musd, h19.lost_reason]));
+check("16 a loan that would end the game by itself is refused", (function () {
+  G.resetCampaign(); G.newComeback("standard"); var c = G.getCampaign(); c.credit = cr16.seize + cr16.per_loan; G.saveCampaign(c);
+  var r = G.borrow(1); return !r.ok && /take everything/.test(r.reason) && G.getComeback().max_borrow_musd === 0 && !G.getComeback().finished;
+})());
+
+// A name: paying the debt is not enough.
+G.resetCampaign(); G.newComeback("training");
+var c20 = G.getCampaign(); c20.treasury_musd = c20.debt_musd + 5; c20.reputation = 0; G.saveCampaign(c20);
+var p20 = G.payDebt(c20.debt_musd), h20 = G.getComeback();
+check("16 the debt at 0 without a name does not win: the comeback goes on", p20.ok && !p20.won && h20.debt_musd === 0 && !h20.finished && !h20.won && h20.reputation_goal > 0);
+var c20b = G.getCampaign(); c20b.reputation = h20.reputation_goal; G.saveCampaign(c20b); G.recordResult(fly(design(addContract().id, "leo", "rideshare", RAD)));
+check("16 debt at 0 and a name wins", G.getComeback().won && G.getComeback().finished && /name/.test(G.getComebackEnding().headline), JSON.stringify([G.getComeback().won, G.getComeback().reputation]));
+G.resetCampaign(); G.newComeback("training");
+var c21 = G.getCampaign(); c21.debt_musd = 0; c21.reputation = 0; c21.month = c21.deadline_month - 1; G.saveCampaign(c21);
+G.recordResult(fly(design(addContract().id, "leo", "rideshare", RAD)));
+var h21 = G.getComeback();
+check("16 the deadline with the debt paid and no name loses: nobody knows the name", h21.finished && !h21.won && h21.lost_reason === "name" && G.getComebackEnding().title && /name/.test(G.getComebackEnding().headline),
+  JSON.stringify([h21.finished, h21.lost_reason, h21.reputation]));
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;
