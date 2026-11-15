@@ -917,7 +917,7 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .orbit-head { display: block; }
 .orbit-row { display: flex; align-items: center; justify-content: center; gap: 24px; width: 100%; min-width: 0; }
 .side-counter { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; white-space: nowrap; }
-.side-counter .month { font-size: 30px; }
+.side-counter .month { font-size: 30px; min-width: 5em; }   /* as wide for MONTH 9 as for MONTH 40: the orbit beside it never changes size */
 .side-counter .countdown-label { font-size: 16px; }
 .side-counter .controls { margin-top: 10px; flex-direction: column; align-items: stretch; }
 .orbit-head.event-open .mission-earth { height: clamp(110px, 18vh, 160px); }   /* a question is open: the orbit steps back */
