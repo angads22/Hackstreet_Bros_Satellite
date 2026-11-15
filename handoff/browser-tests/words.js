@@ -32,10 +32,11 @@ const outFile = process.argv.slice(2).find(a => /\.json$/.test(a));
     }
     await count('9 debrief');
     await p.evaluate(() => window.StarlineUI.showEpilogue());
-    for (let i = 0; i < 6 && !/CONTINUE TO PART 2/.test(await p.locator('.intro .btn.primary').innerText()); i++) await p.click('.intro .btn.primary');
+    for (let i = 0; i < 6 && !/OPEN THE BOX/.test(await p.locator('.intro .btn.primary').innerText()); i++) await p.click('.intro .btn.primary');
     await count('10 epilogue (last beat)');
-    // Part 2
-    await p.click('.intro .btn.primary'); await p.locator('.cb-level').first().waitFor(); await count('11 picker');
+    // THE BOX (Part 1's ending), then Part 2
+    await p.click('.intro .btn.primary'); await p.locator('[data-key="end-continue"]').waitFor();
+    await p.click('[data-key="end-continue"]'); await p.locator('.cb-level').first().waitFor(); await count('11 picker');
     await p.click('[data-key="level-standard"]'); await T.throughBeats(p); await T.waitHead(p, 'WORKSHOP'); await count('12 workshop');
     await T.launchContract(p, 'solar'); await T.fly(p, 'first'); await T.waitHead(p, 'DEBRIEF'); await count('13 contract debrief');
     await b.close();

@@ -120,12 +120,14 @@
     if (!out.length && id === "start") out = beats(a && a.intro, "partner");   // the opening scene is the intro, when it has no scene of its own
     return out;
   }
+  // The offer's beats and its two buttons' labels and hints. The story text hangs them on the offer's list itself
+  // (interludes.offer.sell ...); the same names on interludes are read too.
   function offerParts() {
-    var a = chapter("ajay"), iv = a && a.interludes ? a.interludes : {};
+    var a = chapter("ajay"), iv = a && a.interludes ? a.interludes : {}, own = iv.offer || {};
+    var pick = function (k, dflt) { return typeof own[k] === "string" ? own[k] : typeof iv[k] === "string" ? iv[k] : dflt; };
     var b = lines("offer");
-    return { beats: b.length ? b : beats(OFFER.beats, "rival"),
-             sell: typeof iv.sell === "string" ? iv.sell : OFFER.sell, refuse: typeof iv.refuse === "string" ? iv.refuse : OFFER.refuse,
-             sell_hint: typeof iv.sell_hint === "string" ? iv.sell_hint : "", refuse_hint: typeof iv.refuse_hint === "string" ? iv.refuse_hint : "" };
+    return { beats: b.length ? b : beats(OFFER.beats, "rival"), sell: pick("sell", OFFER.sell), refuse: pick("refuse", OFFER.refuse),
+             sell_hint: pick("sell_hint", ""), refuse_hint: pick("refuse_hint", "") };
   }
 
   // The interlude due now, or null: { id, beats, buttons? }. Pure: it marks nothing (showInterlude does).
@@ -190,7 +192,7 @@
     UI.mount("interlude-choice", el("section", { class: "screen intro story-offer" }, [
       el("div", { class: "kicker", text: kicker(c) + " · THE OFFER" }),
       el("div", { class: "intro-beats", "aria-live": "polite" }, [last ? UI.sayEl(last) : null]),
-      UI.facts([["Debt", money(c.debt_musd)], ["Months left", num(c.months_left, 0)]]),
+      UI.facts([["DEBT", money(c.debt_musd)], ["MONTHS LEFT", num(c.months_left, 0)]]),
       el("div", { class: "story-choices" }, [choice("refuse", parts.refuse), choice("sell", parts.sell)]),
       note
     ]));
