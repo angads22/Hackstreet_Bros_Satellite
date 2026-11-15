@@ -4,6 +4,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 0.8 beta (November 15, 2026)
+
+The home page opens on low-poly art: a faceted Earth with a satellite above it, drawn by the game's own small renderer. The home page and the design screens use fewer words and more flat icons, and the Readiness review assembles the satellite part by part.
+
 ### Added
 
 - **A low-poly home page.** The title screen opens on a faceted low-poly Earth with a satellite above it, drawn by the game's own small renderer (`js/lowpoly.js`, `js/lp-earth.js`). If the art cannot load or draw, the page works without it.
@@ -13,6 +17,13 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 ### Changed
 
 - **A simpler home page.** Locked eras are one short card that says LOCKED, locked levels say LOCKED instead of repeating "Earn 2 stars on..." (the rule is the one hint at the top and each card's spoken name), the stars line, the subtitle and the "Choose an era and a level" heading are gone, the campaign buttons show only the treasury, and Reset progress is a quiet link. The visible words on the title fell from 167 to 97.
+
+### Not in this version yet
+
+- **The rest of the low-poly art** (part models, rockets, people, base map, and the satellite on the Build bench) is built but not in the game yet.
+- **Launch failures** are planned and not built.
+- **Suppliers, countries and travel costs** are a proposal in `SPEC.md`, not agreed.
+- The calibration event's 80% science is a game value still to agree with the Simulation owner.
 
 ## 0.7 beta (November 15, 2026)
 
