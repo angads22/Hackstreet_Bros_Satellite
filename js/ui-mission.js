@@ -289,7 +289,7 @@
         el("h1", { text: "MISSION REPORT" }),
         starStamp(d.stars)
       ]),
-      nextStarLine(d)
+      nextStarLine(d, PARTS_OF_SCORE)
     ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
     ]));
@@ -381,10 +381,20 @@
     });
     return el("span", { class: "stamp" + (stars > 0 ? " pass" : ""), role: "img", "aria-label": stars + " of 3 stars" }, glyphs);
   }
-  // Two stars and a missed science target: the third star needs the target, whatever the score (no number on screen).
-  function nextStarLine(d) {
-    if (!(d.stars === 2 && d.science < d.science_target)) return null;
-    return el("p", { class: "next-star", text: "Third star: reach the science target." });
+  // Fewer than 3 stars: what the next star needs, in words (no number on screen). Two stars short of the science target:
+  // the third needs the target, whatever the score. Otherwise the score row with the most points still to win.
+  var NEXT_STAR = ["First star", "Second star", "Third star"];
+  var ROW_WORDS = { science: "more science returned", efficiency: "better value for money", budget: "more of the budget left",
+                    margins: "wider mass and power margins", events: "safer event choices", novelty: "more new science" };
+  function nextStarLine(d, partsOfScore) {
+    if (!(d.stars >= 0 && d.stars < 3)) return null;
+    var b = d.breakdown || {}, most = null, room = 0;
+    Object.keys(b).forEach(function (k) {
+      var max = partsOfScore[k] && partsOfScore[k][1];
+      if (ROW_WORDS[k] && typeof max === "number" && max - b[k] > room + 1e-9) { room = max - b[k]; most = k; }
+    });
+    var need = d.stars === 2 && d.science < d.science_target ? "reach the science target" : most ? ROW_WORDS[most] : "";
+    return need ? el("p", { class: "next-star", "data-key": "next-star", text: NEXT_STAR[d.stars] + ": " + need + "." }) : null;
   }
   // The result moment of a win: big stars (the ones earned land one by one), then the real mission yours is closest
   // to, open (its discovery is the reward). The stamp in the report already names the stars, so these are hidden.

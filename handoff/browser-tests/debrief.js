@@ -1,6 +1,7 @@
 // The debrief as a result moment, in a Part 1 step and a Part 2 contract: a win (a step passed, a contract PAID, or
 // 3 stars) shows its stars landing one by one and the real discovery open; nothing animates under reduced motion; a
-// flight with no star gets no win moment; at 320 px nothing scrolls sideways, while the stars land or after.
+// flight with no star gets no win moment; under 3 stars, a few words say what the next star needs; at 320 px nothing
+// scrolls sideways, while the stars land or after.
 // Usage: node debrief.js [shots dir]   or   node debrief.js <repo dir> <shots dir>
 const { chromium } = require('playwright');
 const path = require('path');
@@ -48,6 +49,19 @@ const moment = page => page.evaluate(() => {
   return { stars, discovery: disc ? disc.innerText : '', folded: !!(disc && disc.closest('details')), visible: !!(disc && disc.getBoundingClientRect().height > 20) };
 });
 const stampAnims = page => page.locator('.stamp .stamp-star.on').evaluateAll(xs => xs.map(s => getComputedStyle(s).animationName));
+// Fewer than 3 stars: one line says what the next star needs, in words with no number; 2 stars short of the science
+// target (the report's "N of M points") name the target. 3 stars: no such line.
+async function nextStar(page, who) {
+  const stars = await T.stars(page);
+  const line = await page.locator('[data-key="next-star"]').innerText().catch(() => null);
+  if (stars >= 3) return ok(line === null, who + ': 3 stars, no next-star line');
+  const sci = (await page.locator('.paper .row').first().innerText()).match(/([\d.]+) of ([\d.]+) points/);
+  const short = stars === 2 && sci && +sci[1] < +sci[2];
+  console.log('     ' + who + ': ' + stars + ' stars, "' + line + '"');
+  ok(line && line.startsWith(['First', 'Second', 'Third'][stars] + ' star: ') && !/\d/.test(line) && line.split(/\s+/).length <= 8,
+    who + ': a few words say what the next star needs, with no number');
+  if (short) ok(/science target/.test(line), who + ': 2 stars short of the science target: the third star needs the target');
+}
 // No sideways scroll now, while the stars land, and after they have.
 async function noScrollThrough(page) {
   const seen = [];
@@ -72,6 +86,7 @@ async function landing(label, viewport) {
   ok(await page.locator('details summary', { hasText: 'Closest real mission' }).count() === 0, '...and not repeated folded below');
   ok(await page.locator('.stamp').count() === 1, 'one stamp in the report');
   ok(/next step/i.test(await page.locator('#objective').innerText()), 'Part 1: the objective points on to the next step');
+  await nextStar(page, 'Part 1');
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(shots, `debrief-${label}-step1.png`), fullPage: true });
   ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
@@ -87,6 +102,7 @@ async function landing(label, viewport) {
   ok(m2 && m2.stars.filter(s => s.on).length === s2, 'Part 2: a win moment with the stars the stamp names');
   ok(m2 && m2.visible && !m2.folded && m2.discovery.length > 40, 'Part 2: the discovery is shown open');
   ok(await page.locator('[data-key="debrief-workshop"]').count() === 1, 'Part 2: BACK TO THE WORKSHOP stays the way on');
+  await nextStar(page, 'Part 2');
   await page.screenshot({ path: path.join(shots, `debrief-${label}-paid.png`), fullPage: true });
   ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await browser.close();
@@ -106,6 +122,7 @@ async function quiet(label, viewport) {
   ok(await walkStep1(page, T.BATTERY_ONLY), 'battery-only step 1 flown to the debrief');
   ok(await T.stars(page) === 0 && await page.locator('.win-moment').count() === 0, 'no star: no win moment');
   ok(await page.locator('details summary', { hasText: 'Closest real mission' }).count() === 1, '...and the closest mission is still there, folded');
+  await nextStar(page, 'battery only');
   ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await browser.close();
 }
