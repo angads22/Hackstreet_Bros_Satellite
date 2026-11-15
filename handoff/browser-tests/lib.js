@@ -43,7 +43,8 @@ function checker() {
 function skipped(why) { console.log('SKIPPED: ' + why); process.exit(0); }
 
 const head = (p, text) => p.locator('.screen-head h1', { hasText: text });
-const waitHead = (p, text) => head(p, text).waitFor({ timeout: 8000 }).then(() => true, () => false);
+// 20 s: LAUNCH plays the lift-off (about 9.5 s, js/ui-design.js launchShow) before the Mission screen opens.
+const waitHead = (p, text) => head(p, text).waitFor({ timeout: 20000 }).then(() => true, () => false);
 const noScroll = p => p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 const words = t => (String(t).match(/\S+/g) || []).length;
 

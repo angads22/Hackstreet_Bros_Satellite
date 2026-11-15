@@ -991,7 +991,8 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .launch-clock .launch-word { color: var(--text-dim); font-size: 28px; }
 .launch-show .launch-clock .countdown { font-size: clamp(40px, 8vw, 64px); }
 .launch-show[data-phase="liftoff"] .launch-word { color: var(--info-ink); }
-.launch-show .lp-launch { width: min(100%, 960px, calc((100vh - 190px) * 4 / 3)); }
+.launch-show .lp-launch { width: min(100%, 960px, calc((100vh - 230px) * 4 / 3)); }
+.launch-status { margin: 0; min-height: 28px; font-family: var(--pixel); font-weight: 700; font-size: 24px; color: var(--text-dim); text-align: center; }
 /* The debrief's stars land one by one, the way Part 2's PAID stamp lands (upright: their own keyframes). */
 .panel.paper { overflow: hidden; }   /* a star lands from larger: it must not widen the page while it does */
 .stamp { border-radius: 8px; white-space: nowrap; }
@@ -1017,4 +1018,11 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 }
 @media (prefers-reduced-motion: reduce) {
   .stamp-star.on { animation: none; }
+}
+@media (max-height: 480px) {
+  .launch-show { gap: 6px; padding: 8px; }
+  .launch-show .launch-clock .countdown { font-size: 36px; }
+  .launch-show .launch-clock .launch-word { font-size: 22px; }
+  .launch-status { min-height: 22px; font-size: 20px; }
+  .launch-show .lp-launch { width: min(100%, 960px, calc((100vh - 150px) * 4 / 3)); }
 }
