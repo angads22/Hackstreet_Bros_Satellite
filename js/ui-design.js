@@ -953,8 +953,105 @@
       return canvas;
     } catch (e) { return null; }
   }
+  // The home page's picture: the low-poly title scene filling the first screen, drifting slowly (still under reduced
+  // motion). On a wide screen the satellite is framed right of centre, so the title and the menu sit on open sky; on a
+  // tall one it stays centred, between the title and the menu. Its label comes from the scene. Null without the art.
+  // HERO_AIM: [share of the half-width to the right, share of the half-height up, camera distance times].
+  var HERO_AIM = { wide: [0.4, 0.04, 1.12], tall: [0, 0.17, 1] };
   function titleHero() {
-    return lowPoly(function (lp) { return typeof lp.scenes.title === "function" ? lp.scenes.title({}) : null; }, "lp-hero");
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.view !== "function" || !LowPoly.scenes ||
+          typeof LowPoly.scenes.title !== "function") return null;
+      var wrap = LowPoly.scenes.title({});
+      if (!wrap || !wrap.scene || !wrap.scene.camera) return null;
+      var cam = wrap.scene.camera, home = { target: (cam.target || [0, 0, 0]).slice(), dist: cam.dist };
+      var canvas = document.createElement("canvas");
+      canvas.className = "lp lp-hero";
+      var ctl = null, ro = null, seen = false, size = "";
+      // Frame the satellite for the canvas's shape: the scene's own fit (its field of view), then the camera moved
+      // sideways and up so the satellite lands where HERO_AIM puts it. Runs on every resize.
+      var aim = function () {
+        if (!canvas.isConnected) { if (seen && ro) ro.disconnect(); return; }
+        seen = true;
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!(w > 0 && h > 0) || size === w + "x" + h) return;
+        size = w + "x" + h;
+        if (typeof wrap.fit === "function") wrap.fit(w, h);
+        var a = w / h >= 1.15 ? HERO_AIM.wide : HERO_AIM.tall, D = Math.PI / 180;
+        var yaw = cam.yaw * D, pitch = cam.pitch * D;
+        var right = [Math.cos(yaw), 0, -Math.sin(yaw)];
+        var up = [-Math.sin(pitch) * Math.sin(yaw), Math.cos(pitch), -Math.sin(pitch) * Math.cos(yaw)];
+        cam.dist = home.dist * a[2];
+        var hh = cam.dist * Math.tan(cam.fov * D / 2), hw = hh * w / h;
+        cam.target = home.target.map(function (t, i) { return t - right[i] * a[0] * hw - up[i] * a[1] * hh; });
+        if (ctl) ctl.redraw();
+      };
+      if (typeof ResizeObserver === "function") { ro = new ResizeObserver(aim); ro.observe(canvas); }
+      // Sharper than the default budget (the picture fills the screen), and a slower frame rate for a slow drift.
+      ctl = LowPoly.view(canvas, wrap, { drag: false, keys: false, fps: 24, maxPixels: 1200000 });
+      return canvas;
+    } catch (e) { return null; }
+  }
+
+  // The home page without the low-poly art: a flat pixel sky with the curve of the Earth along its foot (static art).
+  function titleSky() {
+    var rects = [], seed = 11, i, y;
+    var rnd = function () { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (i = 0; i < 90; i++) {
+      var r = rnd();
+      rects.push([Math.floor(rnd() * 320), Math.floor(rnd() * 150), r < 0.12 ? 2 : 1, 1, r < 0.08 ? "--pal-light" : r < 0.55 ? "--pal-metal" : "--pal-white"]);
+    }
+    var R = 520, cx = 186, top = 146, cy = top + R, prev = null;
+    for (y = top; y < 200; y++) {
+      var half = Math.round(Math.sqrt(R * R - (cy - y) * (cy - y))), x0 = cx - half, x1 = cx + half;
+      rects.push([x0, y, x1 - x0, 1, "--map-sea"]);
+      if (!prev) rects.push([x0, y, x1 - x0, 1, "--map-shore"]);
+      else { rects.push([x0, y, prev[0] - x0 + 1, 1, "--map-shore"]); rects.push([prev[1] - 1, y, x1 - prev[1] + 1, 1, "--map-shore"]); }
+      prev = [x0, x1];
+    }
+    [[150, 152, 34, 2], [200, 160, 52, 3], [96, 168, 40, 3], [236, 176, 30, 2], [130, 186, 60, 3], [40, 192, 36, 2]].forEach(function (c) {
+      rects.push([c[0], c[1], c[2], c[3], "--map-wave"]);
+    });
+    var svg = art("0 0 320 200", rects, null, "title-sky");
+    svg.setAttribute("preserveAspectRatio", "xMidYMax slice");
+    return svg;
+  }
+
+  // The GRAVITRON logotype: flat letters drawn as shapes on an 11-unit grid, their corners cut at 45 degrees like the
+  // facets of the low-poly art. Drawn, not typed, so it looks the same with or without the web fonts. Static art: the
+  // heading holding it carries the text. [width, path]; a hole is a second outline (even-odd fill).
+  var LOGO_GLYPHS = {
+    G: [6, "M2 0H6V2H2V9H4V6.5H3V4.5H6V9L4 11H2L0 9V2Z"],
+    R: [6, "M0 0H4L6 2V4.5L4 6.5L6 11H4L2 6.5V11H0ZM2 2V4.5H4V2Z"],
+    A: [6, "M0 11V2L2 0H4L6 2V11H4V7H2V11ZM2 2V5H4V2Z"],
+    V: [6, "M0 0H2V6.5L3 8.3L4 6.5V0H6V7L4 11H2L0 7Z"],
+    I: [2, "M0 0H2V11H0Z"],
+    T: [6, "M0 0H6V2H4V11H2V2H0Z"],
+    O: [6, "M2 0H4L6 2V9L4 11H2L0 9V2ZM2 2V9H4V2Z"],
+    N: [6, "M0 11V0H2L4 5V0H6V11H4L2 6V11Z"]
+  };
+  var LOGO_GAP = 1.4;
+  // The title as a heading: the drawn logotype when every letter has a shape, else the plain text.
+  function logotype(text) {
+    var letters = String(text).toUpperCase().split("");
+    var h1 = el("h1", { class: "big-title" });
+    if (!letters.length || letters.some(function (c) { return !LOGO_GLYPHS[c]; })) { h1.textContent = text; return h1; }
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg"), x = 0;
+    letters.forEach(function (c) {
+      var g = LOGO_GLYPHS[c], path = document.createElementNS(NS, "path");
+      path.setAttribute("d", g[1]);
+      path.setAttribute("transform", "translate(" + x + " 0)");
+      svg.appendChild(path);
+      x += g[0] + LOGO_GAP;
+    });
+    svg.setAttribute("viewBox", "0 0 " + (x - LOGO_GAP) + " 11");
+    svg.setAttribute("class", "logo");
+    svg.setAttribute("fill-rule", "evenodd");
+    svg.setAttribute("aria-hidden", "true");
+    h1.appendChild(el("span", { class: "sr-only", text: text }));
+    h1.appendChild(svg);
+    return h1;
   }
 
   // Flat icons: one colour (currentColor), a 16 x 16 grid, drawn here as shapes. They sit beside words and
@@ -1755,8 +1852,12 @@
     box.textContent = state.hintOpen ? text : (tutorial || firstSentence(text));
   }
 
+  // body.is-home while the home page is up: it hides the header and the pixel ground strip, and lets the title fill the screen.
+  function markHome(screen) { if (document.body) document.body.classList.toggle("is-home", screen === "title"); }
+
   function mount(screen, node) {
     state.screen = screen;
+    markHome(screen);
     var app = document.getElementById("app");
     while (app.firstChild) app.removeChild(app.firstChild);
     app.appendChild(node);
@@ -2211,52 +2312,60 @@
     } catch (e) { return false; }
   }
 
-  function part1Card() {
+  // A menu entry: the whole panel is its button (the button's hit area covers the panel), so the label, the name and
+  // the state read as one choice. lead: the entry to play next, drawn solid.
+  function modeEntry(key, M, lead, extra, go) {
+    return el("div", { class: "mode-card" + (lead ? " lead" : ""), "data-key": key }, [
+      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
+      el("h2", { text: M.name }),
+      el("div", { class: "mode-foot" }, [extra.state || el("span"), el("div", { class: "mode-go" }, [go])])
+    ]);
+  }
+
+  function part1Card(lead) {
     var M = STORY.modes.part1;
     var next = walkNext();
     var started = WALK_STEPS.some(function (w) { return walkStars(w.step) !== null; });
     var label = !next ? "PLAY AGAIN" : started ? "CONTINUE: STEP " + next : "START";
+    // The three steps as their stars, numbered; the step's name is for screen readers and the tooltip.
     var steps = el("ol", { class: "mode-steps" }, WALK_STEPS.map(function (w) {
       var stars = walkStars(w.step);
-      return el("li", { class: stars === null ? "" : "passed", "data-key": "walk-step-" + w.step }, [
+      return el("li", { class: stars === null ? "" : "passed", "data-key": "walk-step-" + w.step, title: walkName(w.step) }, [
         el("span", { class: "mode-step-num", text: String(w.step) }),
-        el("span", { class: "mode-step-name", text: walkName(w.step) }),
+        el("span", { class: "mode-step-name sr-only", text: walkName(w.step) }),
         el("span", { class: "stars", text: starsText(stars || 0), "aria-label": stars === null ? "not passed yet" : stars + " of 3 stars" })
       ]);
     }));
-    return el("div", { class: "mode-card", "data-key": "mode-part1" }, [
-      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), next ? el("span", { class: "tag warn", text: M.tag }) : null]),
-      el("h2", { text: M.name }),
-      el("p", { class: "mode-pitch", text: M.pitch }),
-      steps,
-      el("div", { class: "mode-go" }, [button([label, " >"], function () { startWalkStep(next || 1); },
-        { primary: true, key: "part1-go", aria: label + ", part 1" })])
-    ]);
+    return modeEntry("mode-part1", M, lead, { tag: next ? el("span", { class: "tag warn", text: M.tag }) : null, state: steps },
+      button([label, " >"], function () { startWalkStep(next || 1); },
+        { primary: true, key: "part1-go", aria: label + ", " + M.kicker + ", " + M.name }));
   }
 
-  function part2Card() {
+  function part2Card(lead) {
     var M = STORY.modes.part2;
     var ready = typeof window.showComebackStart === "function";
     var label = !ready ? "COMING NEXT" : comebackSaved() ? "CONTINUE" : "START";
-    return el("div", { class: "mode-card", "data-key": "mode-part2" }, [
-      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker })]),
-      el("h2", { text: M.name }),
-      el("p", { class: "mode-pitch", text: M.pitch }),
-      el("div", { class: "mode-go" }, [button(ready ? [label, " >"] : label, function () { if (typeof window.showComebackStart === "function") window.showComebackStart(); },
-        { primary: ready, disabled: !ready, key: "part2-go", aria: label + ", part 2" })])
-    ]);
+    return modeEntry("mode-part2", M, lead && ready, {},
+      button(ready ? [label, " >"] : label, function () { if (typeof window.showComebackStart === "function") window.showComebackStart(); },
+        { primary: ready, disabled: !ready, key: "part2-go", aria: label + ", " + M.kicker + ", " + M.name }));
   }
 
+  // The home page, a console title screen: the low-poly scene fills the first screen, the drawn title and one line over
+  // its sky, then the two modes as a menu. The entry to play next is solid: Part 1 until its three steps pass, then Part 2.
   function drawTitle() {
     setStatus("Space Mission Design Game");
     state.locked = false;
     state.walk = null;
-    return el("section", { class: "title" }, [
-      titleHero(),
-      el("h1", { class: "big-title", text: String(STORY.title || "GRAVITRON").toUpperCase() }),
-      el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-      el("div", { class: "modes" }, [part1Card(), part2Card()]),
-      el("div", null, [button("RESET PROGRESS", function () {
+    var hero = titleHero();
+    var part1Next = !!walkNext();
+    return el("section", { class: "title" + (hero ? " has-art" : "") }, [
+      hero || titleSky(),
+      el("div", { class: "title-main" }, [
+        logotype(String(STORY.title || "GRAVITRON").toUpperCase()),
+        el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
+        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)])
+      ]),
+      el("div", { class: "title-foot" }, [button("RESET PROGRESS", function () {
         if (!window.confirm("Forget every star you have earned?")) return;
         if (typeof resetProgress === "function") resetProgress();
         walkForget();
@@ -3318,6 +3427,7 @@
     leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; },
     mount: function (screen, node) {
       state.screen = screen;
+      markHome(screen);
       state.swappedAt = Date.now();
       var app = document.getElementById("app");
       while (app.firstChild) app.removeChild(app.firstChild);
