@@ -321,7 +321,7 @@
       win && closestMoment(d) ? (d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null) : closestLine(d),
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
-      walk ? walkButtons(walk, done.design)
+      walk ? walkButtons(walk, done.design, d)
       : comeback ? comebackButtons(result)
       : done.design.campaign
         ? el("div", { class: "choices" }, [
@@ -332,7 +332,7 @@
               if (again) window.showDesignScreen("build", again); else window.showCampaignHub();
             })
           ])
-        : unlocks ? el("div", { class: "stack" }, [unlocks, standaloneButtons(done, false)]) : standaloneButtons(done, true)
+        : unlocks ? el("div", { class: "stack" }, [unlocks, standaloneButtons(done, d, false)]) : standaloneButtons(done, d, true)
     ]);
 
     UI.mount("debrief", el("section", { class: "screen" }, [
@@ -349,12 +349,49 @@
 
   // Standalone flights (not reached from the home page): REDESIGN, NEW MISSION, HOME. REDESIGN leads unless a tier or
   // an era just opened, whose button leads instead.
-  function standaloneButtons(done, lead) {
+  function standaloneButtons(done, d, lead) {
     return el("div", { class: "choices" }, [
-      UI.button(lead ? ["REDESIGN", " >"] : "REDESIGN", function () { window.showDesignScreen("build", done.design); }, { primary: lead }),
+      UI.button(lead ? ["REDESIGN", " >"] : "REDESIGN", function () { redesignFor(done.design, d); }, { primary: lead, key: "redesign" }),
       UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
       UI.button("HOME", function () { window.showDesignScreen("title"); })
     ]);
+  }
+
+  // ---- REDESIGN (and a step's TRY AGAIN) open the screen where the debrief's fix is made, with the fix in the objective
+  // line. The same places as the Readiness review's FIX buttons: a part is changed in the Workshop (Build), a rocket at
+  // the Rocket Yard, an orbit at the Tracking Station. getDebrief names the fix only in words, so the first part, other
+  // rocket or other orbit the suggestion names (by its name in the data) decides; nothing named, or an orbit the debrief
+  // calls blind with no other named: Build, or the Tracking Station. A place this step or contract has set ("Set for
+  // this step.") cannot take the fix, so Build instead. The line stays until the screen is drawn again.
+  function fixFor(design, d) {
+    var text = String(d && d.suggestion || ""), low = text.toLowerCase();
+    var best = null;
+    function look(items, screen, skip) {
+      UI.list(items).forEach(function (x) {
+        var name = x && x.name ? String(x.name).toLowerCase() : "";
+        var at = name && x.id !== skip ? low.indexOf(name) : -1;
+        if (at !== -1 && (!best || at < best.at || at === best.at && name.length > best.name.length)) best = { at: at, name: name, screen: screen };
+      });
+    }
+    look(UI.data("PARTS"), "build");
+    look(UI.data("LAUNCHERS"), "launcher", design.launcher);
+    look(UI.data("ORBITS"), "orbit", design.orbit);
+    var screen = best ? best.screen : limitIcon(d) === "orbit" ? "orbit" : "build";
+    // The sentence that asks for the change: the first with the named thing in it, else the last one.
+    var sentences = text.replace(/([.!?])\s+(?=[A-Z\u201c"])/g, "$1\n").split("\n");
+    var line = (best ? sentences.filter(function (sn) { return sn.toLowerCase().indexOf(best.name) !== -1; })[0] : "") ||
+      sentences[sentences.length - 1] || "";
+    line = line.trim();
+    return { screen: screen, text: d && d.limiting !== "none" ? line : "" };
+  }
+  function redesignFor(design, d) {
+    var fix = fixFor(design, d);
+    window.showDesignScreen(fix.screen, design);
+    var notes = Array.prototype.slice.call(document.querySelectorAll("#app .preset-note"));
+    if (fix.screen !== "build" && notes.some(function (p) { return /^Set /.test(p.textContent); })) {
+      window.showDesignScreen("build", design);
+    }
+    if (fix.text) objectiveLine(fix.text);
   }
 
   // ---- One verdict everywhere. The story's lines read ended_early and the stars; a flight lost after it earned a star
@@ -517,8 +554,8 @@
   }
 
   // Part 1: NEXT STEP (or, after step 3, the epilogue) once the step passes; TRY AGAIN (the same design on Build) if not.
-  function walkButtons(walk, design) {
-    var redesign = function () { window.showDesignScreen("build", design); };
+  function walkButtons(walk, design, d) {
+    var redesign = function () { redesignFor(design, d); };
     var home = function () { window.showDesignScreen("title"); };
     var next = function (primary) {
       return walk.last

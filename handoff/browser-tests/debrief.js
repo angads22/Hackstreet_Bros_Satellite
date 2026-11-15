@@ -1,7 +1,8 @@
 // The debrief as a result moment, in a Part 1 step and a Part 2 contract: a win (a step passed, a contract PAID, or
 // 3 stars) shows its stars landing one by one and the real discovery open; nothing animates under reduced motion; a
-// flight with no star gets no win moment; under 3 stars, a few words say what the next star needs; at 320 px nothing
-// scrolls sideways, while the stars land or after.
+// flight with no star gets no win moment; under 3 stars, a few words say what the next star needs; REDESIGN (or TRY
+// AGAIN) opens the screen where the named fix is made, with the fix as the objective; at 320 px nothing scrolls
+// sideways, while the stars land or after.
 // Usage: node debrief.js [shots dir]   or   node debrief.js <repo dir> <shots dir>
 const { chromium } = require('playwright');
 const path = require('path');
@@ -62,6 +63,15 @@ async function nextStar(page, who) {
     who + ': a few words say what the next star needs, with no number');
   if (short) ok(/science target/.test(line), who + ': 2 stars short of the science target: the third star needs the target');
 }
+// REDESIGN (or TRY AGAIN) opens the screen where the fix TRY THIS names is made, with that fix in the objective line.
+async function fixLanding(page, button, screen, who) {
+  const tryThis = (await page.locator('.try').innerText()).replace(/^TRY THIS:\s*/, '');
+  await page.click(button);
+  ok(await waitHead(page, screen), who + ': lands on ' + screen);
+  const objective = (await page.locator('#objective').innerText()).replace(/^OBJECTIVE:\s*/, '');
+  console.log('     ' + who + ': "' + objective + '"');
+  ok(objective.length > 10 && tryThis.indexOf(objective) !== -1, who + ': the objective is the fix TRY THIS named');
+}
 // No sideways scroll now, while the stars land, and after they have.
 async function noScrollThrough(page) {
   const seen = [];
@@ -87,6 +97,7 @@ async function landing(label, viewport) {
   ok(await page.locator('.stamp').count() === 1, 'one stamp in the report');
   ok(/next step/i.test(await page.locator('#objective').innerText()), 'Part 1: the objective points on to the next step');
   await nextStar(page, 'Part 1');
+  await fixLanding(page, '[data-key="walk-redesign"]', 'BUILD', 'Part 1 REDESIGN');
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(shots, `debrief-${label}-step1.png`), fullPage: true });
   ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
@@ -123,6 +134,22 @@ async function quiet(label, viewport) {
   ok(await T.stars(page) === 0 && await page.locator('.win-moment').count() === 0, 'no star: no win moment');
   ok(await page.locator('details summary', { hasText: 'Closest real mission' }).count() === 1, '...and the closest mission is still there, folded');
   await nextStar(page, 'battery only');
+  await fixLanding(page, '[data-key="walk-retry"]', 'BUILD', 'battery only, TRY AGAIN');
+  ok(/silicon solar cells/i.test(await page.locator('#objective').innerText()), '...which names the solar cells');
+  ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
+  await browser.close();
+  // A flight whose orbit cannot see its target (sea ice from low orbit): REDESIGN opens the Tracking Station.
+  ({ browser, page, errors } = await open(viewport));
+  await page.evaluate(() => {
+    const d = newDesign('training'); setEra(d, 'new-space'); setObjective(d, 'sea-ice'); setOrbit(d, 'leo');
+    ['smallsat-bus', 'reaction-wheels', 'sar-radar', 'solar-large', 'radio-xband', 'obc-basic', 'battery-28v'].forEach(id => addPart(d, id));
+    setLauncher(d, 'small'); window.showDesignScreen('review', d);
+  });
+  await waitHead(page, 'READINESS');
+  await page.locator('.btn.big').click(); await waitHead(page, 'MISSION');
+  await T.fly(page, 'first');
+  ok(await waitHead(page, 'DEBRIEF'), 'sea ice from low orbit flown to the debrief');
+  await fixLanding(page, '[data-key="redesign"]', 'ORBIT', 'blind orbit, REDESIGN');
   ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await browser.close();
 }
