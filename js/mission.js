@@ -73,9 +73,9 @@ function refundLostFlights(c) {
   saveCampaign(c);
   return c;
 }
-// Called when a flight is recorded: its launch is no longer pending.
+// Called when a flight is recorded: its launch is no longer pending. The id stays live, so a read of the saved
+// copy before the settle saves (cheapestLaunchCost reads it) never refunds the flight being recorded.
 function landFlight(c, mission) {
-  delete liveFlights[mission.id];
   if (c.log) c.log = c.log.filter(function (e) { return !(e.kind === "launch" && e.id === mission.id); });
 }
 
@@ -106,7 +106,7 @@ function startMission(design) {
     var launchId = missionId(seed);
     liveFlights[launchId] = true;
     (c.log = c.log || []).push({ year: c.year, month: isComeback(c) ? c.month : undefined, kind: "launch", id: launchId,
-                                 flight: flight, musd: launchTotals.cost_musd });
+                                 musd: launchTotals.cost_musd });
     saveCampaign(c);
   }
 
@@ -1491,7 +1491,7 @@ function validOffer(o, comeback) {
 function validLogEntry(e) {
   if (!isRecord(e) || !isText(e.kind) || !isNumber(e.year)) return false;
   if (e.kind === "payment") return isNumber(e.musd) && isNumber(e.month);
-  if (e.kind === "launch") return isText(e.id) && isNumber(e.musd) && isCount(e.flight);
+  if (e.kind === "launch") return isText(e.id) && isNumber(e.musd);
   return isText(e.id);
 }
 function validCampaign(c) {

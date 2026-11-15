@@ -15,6 +15,15 @@ function check(name, ok, detail) {
 var BASIC = ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"];
 var RAD = ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf", "command-timer", "spin-stabilised", "cubesat-12u"];
 
+// Every campaign save written to `storage` until stop(): its treasury and flight count, as a reload would read them.
+function watchWrites(storage) {
+  var list = [], set = storage.setItem;
+  storage.setItem = function (k, v) {
+    try { var c = JSON.parse(v); if (c && typeof c.flights === "number") list.push({ treasury: c.treasury_musd, flights: c.flights }); } catch (e) { /* not a campaign */ }
+    return set.apply(this, arguments);
+  };
+  return { list: list, stop: function () { storage.setItem = set; return list; } };
+}
 function flyTo(G, m, choice) { var s, n = 0; do { s = G.stepMonth(m); if (s.event) G.chooseEvent(m, choice || 0); } while (!s.ended && ++n < 500); return m; }
 // One flight in whatever mode the save is in; returns the debrief, or null when nothing could launch.
 function oneFlight(G) {
@@ -199,7 +208,9 @@ Object.keys(exportsByName).forEach(function (name) {
   check("4 the contract is still open and the refunded launch is gone from the log", !!G2.newComebackDesign("t-rad") &&
     !(G2.getCampaign().log || []).some(function (e) { return e.kind === "launch"; }));
   var d2 = G2.newComebackDesign("t-rad"); G2.setOrbit(d2, "leo"); RAD.forEach(function (p) { G2.addPart(d2, p); }); G2.setLauncher(d2, "rideshare");
-  var m2 = flyTo(G2, G2.startMission(d2), 0), r2 = G2.recordResult(m2);
+  var m2 = flyTo(G2, G2.startMission(d2), 0), w2 = watchWrites(store), r2 = G2.recordResult(m2);
+  check("4 recording a comeback flight never saves a copy that gives its launch back on the way", w2.stop().every(function (x) { return x.flights >= 1; }),
+    JSON.stringify(w2.list.filter(function (x) { return x.flights < 1; }).slice(0, 2)));
   var G3 = load({ storage: store });
   check("4 the next flight is G-1, is recorded once, and a reload after it refunds nothing",
     r2 && G3.getComeback().missions.length === 1 && G3.getComeback().missions[0].flight === 1 && G3.getComeback().cash_musd === G2.getComeback().cash_musd &&
@@ -216,7 +227,15 @@ Object.keys(exportsByName).forEach(function (name) {
   check("4 a 1957 campaign gets its launch money back after a reload mid-flight", H2.getCampaign().treasury_musd === t0 && H2.getCampaign().flights === 0,
     H2.getCampaign().treasury_musd + " of " + t0);
   var e2 = H2.newCampaignDesign(); H2.setObjective(e2, "radiation"); H2.setOrbit(e2, "leo"); BASIC.forEach(function (p) { H2.addPart(e2, p); }); H2.setLauncher(e2, "juno-1");
-  H2.recordResult(flyTo(H2, H2.startMission(e2), 0));
+  var m1957 = flyTo(H2, H2.startMission(e2), 0), writes = watchWrites(store2);
+  var r1957 = H2.recordResult(m1957);
+  check("4 recording a 1957 flight never saves a copy that gives its launch back on the way", writes.stop().every(function (x) { return x.flights >= 1; }),
+    JSON.stringify(writes.list.filter(function (x) { return x.flights < 1; }).slice(0, 2)));
+  var H3 = load({ storage: store2 }), want = H3.round(t0 - cost + r1957.payout_musd + r1957.grant_musd - r1957.event_costs_musd + r1957.bailout_musd +
+    r1957.offers_claimed.reduce(function (t, o) { return t + o.bonus_musd; }, 0), 3);
+  check("4 a recorded 1957 flight is paid for once: the saved treasury is the money before, less the launch, plus what it earned",
+    H3.getCampaign().treasury_musd === want && H3.getCampaign().treasury_musd === r1957.treasury_musd && H3.getCampaign().flights === 1 &&
+    !(H3.getCampaign().log || []).some(function (x) { return x.kind === "launch"; }), H3.getCampaign().treasury_musd + " against " + want);
   var ch = H2.getChronicle();
   check("4 the chronicle then shows flight G-1 and one launch's cost", ch.totals.flights === 1 && ch.totals.spent_musd === H2.round(cost, 1) &&
     ch.timeline.filter(function (x) { return x.kind === "flight"; })[0].text.indexOf("G-1 ") === 0, JSON.stringify(ch.totals));
