@@ -107,7 +107,15 @@ async function lowPolyOn(viewport, label) {
   ok(took > 1800 && took < 3200, 'the lift-off ends by itself in about 2.5 s');
   ok(await page.locator('.launch-show').count() === 0, '...and is gone');
   ok(await page.locator('.mission-earth').count() === 1, 'the mission screen shows a small Earth with the orbit');
+  // Past month 10 the month is wider: the Earth beside it must shrink, not wrap and push the screen down.
+  const h0 = await page.locator('.mission-head').evaluate(e => e.offsetHeight);
+  await page.click('button[aria-label="Fast forward"]');
+  for (let i = 0; i < 300 && +(await page.locator('.month').innerText()).replace(/\D/g, '') < 12; i++) {
+    if (await page.locator('[role="alertdialog"]').count()) await page.locator('.choices .btn').first().click();
+    await page.waitForTimeout(40);
+  }
   await page.click('button[aria-label="Pause the mission"]');
+  ok(await page.locator('.mission-head').evaluate(e => e.offsetHeight) === h0, 'the month row keeps its height past month 10');
   await page.screenshot({ path: path.join(shots, `lowpoly-${label}-mission.png`), fullPage: true });
   ok(await noSideScroll(page), 'Mission: no sideways scroll');
 

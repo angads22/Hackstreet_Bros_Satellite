@@ -50,8 +50,8 @@
       el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
       UI.say ? UI.say("mission-start", null) : null,
       el("div", { class: "mission-head" }, [
-        el("div", { class: "stack" }, [n.month, n.of]),
-        earth ? earth.canvas : null,
+        // The month and the Earth stay on one line: on a narrow phone the Earth gets smaller instead of wrapping.
+        el("div", { class: "month-row" }, [el("div", { class: "stack" }, [n.month, n.of]), earth ? earth.canvas : null]),
         el("div", { class: "controls" }, [n.pause, n.fastBtn])
       ]),
       el("div", { class: "panel" }, [
