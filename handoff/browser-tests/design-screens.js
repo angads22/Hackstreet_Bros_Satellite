@@ -102,7 +102,6 @@ const barText = (p, name) => p.evaluate(n => { const x = [...document.querySelec
   ok(/½: counts half/.test(await text(p, '#app')), 'the Briefing says what the ½ means');
 
   console.log('[Base map, Part 1 step 1]');
-  await p.click('[data-key="map-home"]').catch(() => {});
   await p.evaluate(() => window.StarlineUI.home());
   await p.click('[data-key="part1-go"]'); await T.throughBeats(p); await T.waitHead(p, 'BASE MAP'); await p.waitForTimeout(300);
   ok(await p.locator('.map-layout aside h2', { hasText: 'OBJECTIVE' }).count() === 0, 'no second OBJECTIVE box beside the map');
@@ -139,6 +138,7 @@ const barText = (p, name) => p.evaluate(n => { const x = [...document.querySelec
   ({ p, errors } = await page(b, { viewport: { width: 640, height: 400 }, deviceScaleFactor: 2 }));
   await p.locator('[data-key="part1-go"]').scrollIntoViewIfNeeded(); await p.click('[data-key="part1-go"]');
   ok(await p.evaluate(() => scrollY === 0 && document.querySelector('.intro .kicker').getBoundingClientRect().top >= 0), '200% zoom: a story beat opens at the top');
+  ok(errors.length === 0, 'no errors (200% zoom)' + (errors.length ? ': ' + errors.join(' / ') : ''));
   ({ p, errors } = await page(b, { viewport: { width: 960, height: 540 }, deviceScaleFactor: 2 }));
   await show(p, 'briefing', { tier: 'standard', era: 'new-space', objective: 'sea-ice' });
   await p.focus('.nav-row .btn.primary');
@@ -149,12 +149,14 @@ const barText = (p, name) => p.evaluate(n => { const x = [...document.querySelec
       if (t.contains(a) || getComputedStyle(t).position !== 'sticky') return 0; return Math.max(0, t.getBoundingClientRect().bottom - a.getBoundingClientRect().top); }));
   }
   ok(covered === 0, '960x540: the sticky header never covers the focused card (' + Math.round(covered) + ' px)');
+  ok(errors.length === 0, 'no errors (960x540)' + (errors.length ? ': ' + errors.join(' / ') : ''));
   ({ p, errors } = await page(b, { viewport: { width: 390, height: 844 } }));
   await p.evaluate(() => { newCampaign('training'); const d = newCampaignDesign(); setObjective(d, 'radiation'); setOrbit(d, 'leo'); window.showDesignScreen('launcher', d); });
   await T.waitHead(p, 'LAUNCH VEHICLE');
   ok(await T.noScroll(p), '390px: locked rocket tags wrap, no sideways scroll');
   await p.evaluate(() => { window.getLiveData = () => ({ status: 'loading', sources: [{ name: 'NOAA', ok: false }] }); window.dispatchEvent(new Event('livedata')); });
   ok(/Checking/.test(await p.locator('#data-badge').getAttribute('title')), 'while loading, the badge says it is checking');
+  ok(errors.length === 0, 'no errors (390px)' + (errors.length ? ': ' + errors.join(' / ') : ''));
 
   await b.close();
   done();
