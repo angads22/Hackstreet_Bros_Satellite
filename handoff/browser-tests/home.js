@@ -1,5 +1,6 @@
 // The home page on its own: without the low-poly art (js/lowpoly.js blocked), with a broken walkthrough record,
-// RESET PROGRESS, and the Part 2 hooks (window.showComebackStart, getComeback) present or missing.
+// RESET PROGRESS, the Part 2 hook contract (js/ui-comeback.js blocked, window.showComebackStart stubbed), and the real
+// Part 2 button (START, CONTINUE while a comeback runs, START once it is finished).
 // Usage: node home.js [shots dir]   or   node home.js <repo dir> <shots dir>
 const { chromium } = require('playwright');
 const path = require('path');
@@ -58,29 +59,58 @@ const KEY = 'gravitron-walkthrough-v1';
   ok(/^START/.test(await p.locator('[data-key="part1-go"]').innerText()) && await p.locator('[data-key="mode-part1"] .tag', { hasText: 'START HERE' }).count() === 1,
     'after reset: START and the START HERE tag');
 
-  // Part 2 hooks: missing -> disabled; present -> START, or CONTINUE when a comeback is saved; both buttons call it
-  ok(await p.locator('[data-key="part2-go"]').isDisabled(), 'no Part 2 screens: the button is disabled');
-  await p.addInitScript(() => { window.__calls = 0; window.showComebackStart = function () { window.__calls++; }; });
-  await p.reload();
-  ok(!(await p.locator('[data-key="part2-go"]').isDisabled()) && /^START/.test(await p.locator('[data-key="part2-go"]').innerText()), 'with showComebackStart: Part 2 reads START');
-  await p.click('[data-key="part2-go"]');
-  ok(await p.evaluate(() => window.__calls) === 1, 'the Part 2 button calls window.showComebackStart()');
-  await p.addInitScript(() => { window.getComeback = function () { return { finished: false, months_left: 20 }; }; });
-  await p.reload();
-  ok(/^CONTINUE/.test(await p.locator('[data-key="part2-go"]').innerText()), 'a saved comeback: Part 2 reads CONTINUE');
-  await p.addInitScript(() => { window.getComeback = function () { throw new Error('not ready'); }; });
-  await p.reload();
-  ok(/^START/.test(await p.locator('[data-key="part2-go"]').innerText()), 'a getComeback that throws: START, no crash');
-  // The epilogue's last button goes to Part 2 when it exists
-  await p.evaluate(() => window.StarlineUI.showEpilogue());
-  for (let i = 0; i < 6 && !/CONTINUE TO PART 2/.test(await p.locator('.intro .btn.primary').innerText()); i++) await p.click('.intro .btn.primary');
-  await p.click('.intro .btn.primary');
-  ok(await p.evaluate(() => window.__calls) === 1, 'CONTINUE TO PART 2 calls window.showComebackStart() (a fresh page: 1 call)');
-  // SKIP in the epilogue goes to its last beat, not away
-  await p.evaluate(() => window.StarlineUI.showEpilogue());
-  await p.click('.intro .btn', { hasText: 'SKIP' });
-  ok(/grandson Ajay/.test(await p.locator('.intro .say-text p').innerText()), 'SKIP in the epilogue shows the last beat');
   ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
+  await p.close();
+
+  // ---- The hook contract (js/ui-comeback.js blocked, so the stubs below stay): missing -> disabled; present -> START;
+  // the Part 2 button and the epilogue's CONTINUE TO PART 2 both call window.showComebackStart().
+  console.log('[Part 2 hook contract, js/ui-comeback.js blocked]');
+  const h = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const hErrors = T.watchErrors(h, /ui-comeback\.js/);
+  await T.noFonts(h);
+  await h.route(/\/js\/ui-comeback\.js$/, r => r.abort());
+  await h.goto(url); await h.evaluate(() => localStorage.clear()); await h.reload();
+  ok(await h.locator('[data-key="part2-go"]').isDisabled() && /COMING NEXT/.test(await h.locator('[data-key="part2-go"]').innerText()),
+    'no Part 2 screens: the button is disabled and reads COMING NEXT');
+  await h.addInitScript(() => { window.__calls = 0; window.showComebackStart = function () { window.__calls++; }; });
+  await h.reload();
+  ok(!(await h.locator('[data-key="part2-go"]').isDisabled()) && /^START/.test(await h.locator('[data-key="part2-go"]').innerText()), 'with showComebackStart: Part 2 reads START');
+  await h.click('[data-key="part2-go"]');
+  ok(await h.evaluate(() => window.__calls) === 1, 'the Part 2 button calls window.showComebackStart()');
+  await h.reload();
+  await h.evaluate(() => window.StarlineUI.showEpilogue());
+  for (let i = 0; i < 6 && !/CONTINUE TO PART 2/.test(await h.locator('.intro .btn.primary').innerText()); i++) await h.click('.intro .btn.primary');
+  await h.click('.intro .btn.primary');
+  ok(await h.evaluate(() => window.__calls) === 1, 'CONTINUE TO PART 2 calls window.showComebackStart() (a fresh page: 1 call)');
+  // SKIP in the epilogue goes to its last beat, not away
+  await h.evaluate(() => window.StarlineUI.showEpilogue());
+  await h.click('.intro .btn', { hasText: 'SKIP' });
+  ok(/grandson Ajay/.test(await h.locator('.intro .say-text p').innerText()), 'SKIP in the epilogue shows the last beat');
+  ok(hErrors.length === 0, 'no other console or page errors' + (hErrors.length ? ': ' + hErrors.join(' / ') : ''));
+  await h.close();
+
+  // ---- The real Part 2 (js/ui-comeback.js and the back end's getComeback): START, CONTINUE while a comeback runs,
+  // START again once it is finished, and a getComeback that throws does not crash the home page.
+  console.log('[Part 2, real screens]');
+  const r = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const rErrors = T.watchErrors(r);
+  await T.noFonts(r);
+  await r.goto(url); await r.evaluate(() => localStorage.clear()); await r.reload();
+  ok(/^START/.test(await r.locator('[data-key="part2-go"]').innerText()), 'no comeback saved: Part 2 reads START');
+  await r.click('[data-key="part2-go"]');
+  ok(await r.locator('.cb-level').count() === 3, 'START opens the difficulty picker (three cards)');
+  await r.evaluate(() => newComeback('standard'));
+  await r.reload();
+  ok(/^CONTINUE/.test(await r.locator('[data-key="part2-go"]').innerText()), 'a comeback running: Part 2 reads CONTINUE');
+  await r.click('[data-key="part2-go"]');
+  ok(await T.waitHead(r, 'WORKSHOP'), 'CONTINUE opens the workshop');
+  await r.evaluate(() => { const c = JSON.parse(localStorage.getItem('smdg-campaign')); c.finished = true; c.won = false; c.month = c.deadline_month; localStorage.setItem('smdg-campaign', JSON.stringify(c)); });
+  await r.reload();
+  ok(/^START/.test(await r.locator('[data-key="part2-go"]').innerText()), 'a finished comeback: Part 2 reads START');
+  await r.evaluate(() => { window.getComeback = function () { throw new Error('not ready'); }; window.StarlineUI.home(); });
+  ok(/^START/.test(await r.locator('[data-key="part2-go"]').innerText()), 'a getComeback that throws: START, no crash');
+  ok(rErrors.length === 0, 'no console or page errors' + (rErrors.length ? ': ' + rErrors.join(' / ') : ''));
+  await r.close();
   await b.close();
   done();
 })();

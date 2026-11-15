@@ -244,6 +244,8 @@
   }
 
   function showCampaignHub() {
+    // A saved comeback (Part 2) is a campaign too, but it has its own hub: the workshop (js/ui-comeback.js).
+    if (typeof getComeback === "function" && getComeback() !== null && typeof window.showComebackHub === "function") { window.showComebackHub(); return; }
     var info = typeof getHubInfo === "function" ? getHubInfo() : null;
     if (!info) { window.showDesignScreen("title"); return; }   // no campaign saved
     if (info.finished && typeof window.showChronicle === "function") { window.showChronicle(); return; }   // the ending (js/ui-ending.js)

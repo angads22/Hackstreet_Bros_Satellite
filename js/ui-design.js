@@ -147,7 +147,9 @@
   // storyLine("intro", design) returns a list of such beats instead, and so do "step-open" (extra: the step number)
   // and "epilogue". Keys: intro, step-open, step-close, epilogue, map, briefing, orbit, build, launcher, review,
   // mission-start, mission-end, debrief, closing, notebook, event-calibration. "closing" on a walkthrough step that
-  // passed is that step's close beat.
+  // passed is that step's close beat. Part 2 adds: why (extra: the number of flights), hub (extra: "start", "paid",
+  // "halfway" or "late"), contract (extra: "paid", "part" or "nothing") and ending (extra: "won", "deadline" or
+  // "cash"; a list of beats). Call them with a comeback design, or with { comeback: true } outside the design screens.
   // extra: debrief and closing take the getDebrief result; mission-end takes it too (or the chooseEvent
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
@@ -159,7 +161,9 @@
     // The home page: one card per mode. No game numbers here (every number on screen comes from the back end).
     modes: {
       part1: { kicker: "PART 1 · 1958", name: "AUSTIN'S FIRST SATELLITE", pitch: "Three short missions, one idea each.", tag: "START HERE" },
-      part2: { kicker: "PART 2 · TODAY", name: "AJAY'S COMEBACK", pitch: "Austin's grandson owes the bank. Sell satellite data, pay it back in time." }
+      part2: { kicker: "PART 2 · TODAY", name: "AJAY'S COMEBACK", pitch: "Austin's grandson owes the bank. Sell satellite data, pay it back in time.",
+               // The difficulty, in plain words, by tier id (the tier's own name is shown small beside it).
+               levels: { training: "EASY", standard: "NORMAL", expert: "HARD" } }
     },
 
     // ------------------------------------------------ Story 1: Austin Albert, Part 1 (the 1958 walkthrough)
@@ -292,27 +296,62 @@
       }
     },
 
-    // ------------------------------------------------ Story 2: Ajay Albert, Part 2 (the comeback; not yet rewritten for it)
+    // ------------------------------------------------ Story 2: Ajay Albert, Part 2 (the comeback)
+    // Ajay, Austin's grandson, borrowed a fortune for a company that never flew. The player is Ajay. His partner reads
+    // the spreadsheets, the customer is whoever pays for the contract (the briefing names the client), and Austin's
+    // notebook (1958) still has advice. A reckless founder, kept light. No game numbers in any line: amounts, months and
+    // dates come from the back end and are shown beside the text.
     ajay: {
       who: { map: "partner", briefing: "customer", orbit: "partner", build: "partner", launcher: "partner", review: "partner",
              "mission-start": "partner", "mission-end": "partner", debrief: "partner", closing: "partner",
-             notebook: "notebook", "event-calibration": "notebook" },
+             notebook: "notebook", "event-calibration": "notebook", why: "partner", hub: "partner", contract: "customer" },
+      // Shown once, when a comeback starts (after the difficulty), then the workshop.
       intro: [
-        { who: "notebook", text: "Last entry. The mission failed. I leave these notes for whoever tries again." },
-        { who: "partner", text: "Decades later, you open them in your small workshop." },
-        { who: "partner", text: "His failure cost him his name. Rivals call his vision impractical." },
-        { who: "partner", text: "Your business secures the loans. The contract pays only for returned observations." },
-        { who: "customer", text: "Iron Eclipse charges too much. We need reliable observations we can afford." },
-        { who: "partner", text: "Redesign and simulate for free. The loan is spent only at launch." }
+        { who: "partner", text: "Ajay Albert. Last year you borrowed a fortune to start Albert Orbital." },
+        { who: "partner", text: "It never flew. The money went on a launch party, a logo and an office with a slide." },
+        { who: "partner", text: "The lenders want it back by the deadline, or they take your grandfather's workshop." },
+        { who: "notebook", text: "To whoever opens this: build it cheap, build it right, and bring the data home." },
+        { who: "customer", text: "Iron Eclipse charges a fortune for data. Bring it cheaper and we will pay." },
+        { who: "partner", text: "Pick a contract. Every satellite that delivers pays down the debt." }
       ],
+      // The workshop (the hub): why Ajay keeps going, one line, chosen by the number of flights so far.
+      why: [
+        "The lenders don't want satellites. They want their money.",
+        "Your mum co-signed the loan with her house. No pressure.",
+        "Iron Eclipse bought your patents for pocket change. They're laughing.",
+        "Your grandfather was right about all of this. Somebody has to prove it.",
+        "Albert Orbital was a joke. Albert Orbital 2 doesn't have to be.",
+        "Customers are tired of Iron Eclipse prices. That's your opening."
+      ],
+      // The workshop's situation lines: before the first flight, after a paid one, under half the debt, and when a
+      // quarter of the months or less is left.
+      hub: {
+        start: "Three contracts on the table. Pick one you can actually deliver.",
+        paid: "That one paid. Pay some debt, or fly again while the interest ticks.",
+        halfway: "Halfway there. The lenders have stopped calling twice a day.",
+        late: "Clock's nearly out. Fly something cheap and sure."
+      },
+      // The debrief's last line: what the client says about the data (paid in full, in part, or not at all).
+      contract: {
+        paid: "Data received. Payment sent. Pleasure doing business.",
+        part: "Not everything we asked for. We paid for what arrived.",
+        nothing: "Nothing new in that data. We can't pay for it."
+      },
+      // The ending: won, or lost by time or by cash.
+      ending: {
+        won: [{ who: "partner", text: "Debt paid. The workshop is yours." }, { who: "notebook", text: "Well done. Now build the next one." }],
+        deadline: [{ who: "partner", text: "The deadline passed. The lenders took the keys." }, { who: "notebook", text: "Failure is a lesson. Try again." }],
+        cash: [{ who: "partner", text: "Nothing left to launch with. The lenders took the keys." }, { who: "notebook", text: "Build cheaper. Try again." }]
+      },
       map: {
         start: ["Nothing costs money until launch. Try ideas freely."],
         design: ["Test every idea here. After launch, nothing is free."],
-        ready: ["All chosen. Check it twice: launch spends the loan."]
+        ready: ["All chosen. Check it twice: launch spends the cash."]
       },
       briefing: {
-        none: ["Choose what to watch. Then think who will use it."],
-        locked: ["That topic needs research first."],
+        // A contract design: the client speaks its own reason (data/contracts.js). These are for any other design.
+        none: ["Choose what to watch. Then think who will pay for it."],
+        locked: ["That topic is not on offer yet."],
         topics: {
           wildfire: "Crews need to know where fires start, while there is still time.",
           "sea-ice": "Ships and northern towns need ice maps through the polar night.",
@@ -323,28 +362,29 @@
         }
       },
       orbit: {
-        none: ["Pick the orbit your goal needs, not the one you know."],
-        "orbit-fit": ["That orbit cannot see your target. Is that deliberate?"],
-        leo: ["Low orbit is cheap and sharp. You pay in minutes of contact.", "Cheapest to reach. Short ground passes mean little data comes home."],
-        sso: ["Polar orbit sees everything. The fuel to come down costs mass.", "You see every pole, but you must carry fuel to come down."],
-        geo: ["Geostationary never looks away. Detail blurs, and launch costs more.", "Constant view and contact, but blurry detail and a big launch bill."]
+        none: ["The customer pays for data, not for a pretty orbit."],
+        "orbit-fit": ["That orbit cannot see the target. Nobody pays for that."],
+        leo: ["Low orbit is cheap and sharp. You pay in minutes of contact."],
+        sso: ["Polar orbit sees everything. The fuel to come down costs mass."],
+        geo: ["Geostationary never looks away. Detail blurs, and launch costs more."]
       },
       build: {
+        start: { who: "notebook", text: "Every part costs money and weight. Fit only what the job needs." },
         checks: {
-          "no-objective": "You have no goal yet. Without one, nothing here has a purpose.",
+          "no-objective": "No job yet. Without one, nothing here has a purpose.",
           "no-orbit": "No orbit chosen. These numbers will change once you pick one.",
           "empty-structure": "It needs a body. Everything else bolts onto it.",
-          "empty-instrument": "Nothing aboard observes Earth yet. Start with the instrument.",
+          "empty-instrument": "Nothing aboard observes anything yet. Start with the instrument.",
           "empty-power": "No power. Every part you add will draw on it.",
-          "empty-comms": "No radio. The contract pays only for data that reaches us.",
-          "empty-computer": "No computer, so nothing coordinates the other parts.",
+          "empty-comms": "No radio. The client pays only for data that reaches us.",
+          "empty-computer": "No computer, so nothing runs the other parts.",
           "empty-attitude": "It needs attitude control to point and hold steady.",
           "body-count": "Two bodies. A satellite has one.",
           "body-payload": "That body cannot carry this load. Lighter parts, or a bigger body?",
           "body-slots": "That body has no free slot for another part of that kind.",
-          "part-locked": "You have not researched that part yet.",
+          "part-locked": "That part is not on the shelf.",
           "too-late": "It takes too long to build. The window closes before launch.",
-          budget: ["You are over budget. Which part earns its place?", "The loan does not stretch this far. Something has to go."],
+          budget: ["Over budget. Which part earns its place?", "The cash does not stretch this far. Something has to go."],
           power: "Parts draw more than the panels make. Something has to give.",
           "delta-v": "Not enough thrust for this orbit. More fuel, or less mass?",
           mass: "Too heavy. Cut mass, or pay for a bigger rocket.",
@@ -353,66 +393,55 @@
           battery: "Without a bigger battery, instruments go dark in Earth's shadow.",
           "battery-only": "Batteries only. The satellite will go silent when they run out.",
           data: "It records more than the radio can send. Lost data earns nothing.",
-          smear: "Spin smears the images. Reliable data needs steady pointing.",
-          "no-match": "None of these instruments counts for your goal.",
-          "orbit-fit": "This orbit cannot see your target. No instrument can fix that.",
+          smear: "Spin smears the images. Steady pointing gets paid.",
+          "no-match": "None of these instruments counts for this job.",
+          "orbit-fit": "This orbit cannot see the target. No instrument can fix that.",
           resolution: "That instrument is too blurry from here. It will earn nothing."
         },
-        thinBudget: ["Almost the whole budget is spent. Nothing left for surprises."],
-        uncounted: {
-          early: ["{name}: why is it aboard? The goal ignores it.", "{name}: for the goal, or for Austin's design?"],
-          late: ["{name}: you know my question by now."]
-        },
-        good: ["Every part serves the goal. That is what affordable means.", "It balances. Nothing here is there for show."]
+        thinBudget: ["Almost all the cash is spent. Nothing left for surprises."],
+        uncounted: ["{name}: why is it aboard? The job ignores it.", "{name}: does the client pay for that?"],
+        good: ["Every part serves the job. That is what cheap means.", "It balances. Nothing here is there for show."]
       },
       launcher: {
-        none: ["Iron Eclipse sells at a high price. Your edge is wasting nothing.", "Rocket size, mass and money pull against each other. Pick your trade."],
-        locked: ["You have not researched that rocket yet."],
+        none: ["The cheapest rocket that carries it. We are not made of money."],
+        locked: ["That rocket is not on offer."],
         reach: ["It cannot reach this orbit. Another rocket, or another orbit?"],
         mass: ["Too heavy. Cut mass, or pay for a bigger rocket."],
-        budget: ["That breaks the budget. Where is the cheapest place to cut?"],
-        fits: ["It fits. A bigger rocket would be money spent on nothing.", "It fits. Paying for more rocket than you need helps no one."],
+        budget: ["That breaks the bank. Where is the cheapest place to cut?"],
+        fits: ["It fits. A bigger rocket would be money spent on nothing."],
         fitsThinMass: ["It fits, but a full rocket leaves no room for surprises."],
-        fitsThinBudget: ["It fits. But the budget has almost nothing left."]
+        fitsThinBudget: ["It fits. But there is almost no cash left."]
       },
       review: {
-        blocked: ["Not ready. Clear every red line. After launch, nothing can change."],
-        margins: ["Thin margins are a choice. Choose them on purpose.", "Thin margins are a choice. Are you choosing them?"],
-        warnings: ["Each warning is a risk you accept. After launch, it is real."],
-        go: ["All clear. Launch spends the loan, and the contract waits on data.", "Every check passes. Now the design has to earn the contract."]
+        blocked: ["Not ready. Clear every red line before you spend a cent."],
+        late: ["It lands after the deadline. Paid or not, the lenders win."],
+        margins: ["Thin margins are a choice. Are you choosing them?"],
+        warnings: ["A failed launch costs the whole satellite. Check the list."],
+        go: ["All clear. Launch spends the cash; the data pays it back."]
       },
       "mission-start": {
-        warned: ["You launched with warnings. Now we see if they matter."],
-        clean: ["The loan is spent. Now the design has to earn it.", "Everything you could control is done. Now we watch."]
+        warned: ["You launched with warnings. Fingers crossed."],
+        clean: ["Fingers crossed. The data pays only if it reaches the ground."]
       },
       "mission-end": {
         lost: ["We lost it. Let us find out why."],
         done: ["That is the last signal. Let us see what it earned."]
       },
       debrief: {
-        ended: "It ended early. Austin knew that feeling. Find out why.",
+        ended: "It died early. Expensive lesson. Let us find out why.",
         mass: { good: "It flew, but the rocket was nearly full. Keep a reserve.", poor: "The rocket was too full. Spare mass is cheap insurance." },
         power: { good: "Power was the tightest part. Give it more room next time.", poor: "Power ran short. Every part you add draws on it." },
-        budget: { good: "You spent nearly everything. It worked, but there was no cushion.", poor: "The budget ran out of room. Affordable means choosing." },
-        data: { good: "Data was the limit. You saw more than you could send.", poor: "Data decided this one. What never arrives earns nothing." },
+        budget: { good: "You spent nearly every dollar. It worked, but no cushion.", poor: "The cash ran out of room. Cheap means choosing." },
+        data: { good: "The radio was the limit. You saw more than you sent.", poor: "Data decided this one. What never arrives, nobody pays for." },
         event: { good: "An event cost you, but you recovered. Keep those margins.", poor: "Something unplanned broke it. Margins are how you survive that." },
-        design: { good: "The hardware nearly matched the goal. Close.", poor: "Hardware and goal did not match. Start from what people need." },
-        none: { good: "Nothing held it back. That is affordable engineering.", poor: "Target reached, but margins and money cost you stars." }
+        design: { good: "The hardware nearly matched the job. Close.", poor: "Hardware and job did not match. Start from what the client needs." },
+        none: { good: "Nothing held it back. That is how you beat Iron Eclipse.", poor: "Job done, but margins and money cost you stars." }
       },
+      // The last line of a debrief for a design with no contract (a contract design uses "contract" above).
       closing: {
-        success: {
-          early: [{ who: "partner", text: "Austin's notes showed the way. You tested every assumption in them." },
-                  { who: "customer", text: "People can use this, and afford it. That was Austin's hope." }],
-          late: [{ who: "partner", text: "His vision, now affordable. You honoured him by correcting him." }]
-        },
-        partial: {
-          early: ["Part of the contract is earned. Austin's notes still hold answers."],
-          late: ["Part of the contract is earned. You know where to look now."]
-        },
-        failure: {
-          early: ["The satellite is lost; the loan remains. Austin failed too, and learned from it."],
-          late: ["The satellite is lost, but the lesson is not. Write it down, as Austin did."]
-        }
+        success: ["Data delivered, and nobody overpaid. That is the business."],
+        partial: ["Some of the job got done. Next time, all of it."],
+        failure: ["The satellite is lost. Write down why, as Austin did."]
       },
       notebook: {
         briefing: "I built what I admired. I never asked who needed it.",
@@ -569,6 +598,9 @@
 
   function storyBriefing(ctx) {
     var d = ctx.design, t = ctx.c.briefing;
+    // Part 2: the client of the contract this design flies for says why it pays (data/contracts.js), under its own name.
+    var k = d && d.comeback ? contractOf(d) : null;
+    if (k && k.reason) return { who: "customer", text: k.reason, name: k.client };
     if (!d || !d.objective) return storySay(ctx, "briefing", "none", t.none);
     if (!byId(data("OBJECTIVES"), d.objective)) return "";
     if (storyHasCheck(storyChecks(d), "objective-locked")) return storySay(ctx, "briefing", "locked", t.locked);
@@ -588,6 +620,7 @@
   function storyBuild(ctx) {
     var d = ctx.design, t = ctx.c.build, checks = storyChecks(d), i, kind;
     if (!checks.ok) return "";
+    if (t.start && !list(d.parts).length) return storySay(ctx, "build", "start", t.start);
     for (i = 0; i < checks.blockers.length; i++) {
       if (STORY_NOT_BUILD.indexOf(checks.blockers[i]) !== -1) continue;
       kind = storyKind(checks.blockers[i]);
@@ -626,6 +659,7 @@
     var t = ctx.c.review, checks = storyChecks(ctx.design);
     if (!checks.ok) return "";
     if (checks.blockers.length) return storySay(ctx, "review", "blocked", t.blocked);
+    if (t.late && checks.warnings.indexOf("deadline") !== -1) return storySay(ctx, "review", "late", t.late);
     if (checks.warnings.length) {
       var thin = checks.warnings.indexOf("mass-margin") !== -1 || checks.warnings.indexOf("power-margin") !== -1;
       return thin ? storySay(ctx, "review", "margins", t.margins) : storySay(ctx, "review", "warnings", t.warnings);
@@ -724,7 +758,15 @@
     return s && s.close && s.close.text ? { who: s.close.who || "notebook", text: s.close.text } : "";
   }
 
-  // storyLine(key, design, extra) -> "" or { who, text }; for "intro", "step-open" and "epilogue", a list. Never throws.
+  // Part 2, the workshop: why Ajay keeps going, one line in turn by the number of flights (extra).
+  function storyWhy(ctx, flights) {
+    var lines = list(ctx.c.why);
+    if (!lines.length) return "";
+    var n = typeof flights === "number" && flights >= 0 ? Math.floor(flights) : 0;
+    return storySay(ctx, "why", String(n), lines[n % lines.length]);
+  }
+
+  // storyLine(key, design, extra) -> "" or { who, text }; for "intro", "step-open", "epilogue" and "ending", a list. Never throws.
   function storyLine(key, design, extra) {
     try {
       var chapter = storyChapter(design);
@@ -746,9 +788,13 @@
         case "closing":           return storyClosing(ctx, extra);
         case "notebook":          return storyNotebook(ctx, extra);
         case "event-calibration": return storyEvent(ctx, extra);
+        case "why":               return storyWhy(ctx, extra);
+        case "hub":               return storyHas(ctx.c.hub, extra) ? storySay(ctx, "hub", extra, ctx.c.hub[extra]) : "";
+        case "contract":          return storyHas(ctx.c.contract, extra) ? storySay(ctx, "contract", extra, ctx.c.contract[extra]) : "";
+        case "ending":            return storyBeats(storyHas(ctx.c.ending, extra) ? ctx.c.ending[extra] : []);
         default:                  return "";
       }
-    } catch (e) { return key === "intro" || key === "step-open" || key === "epilogue" ? [] : ""; }
+    } catch (e) { return key === "intro" || key === "step-open" || key === "epilogue" || key === "ending" ? [] : ""; }
   }
 
   // speakerArt(who) -> a 16 x 16 pixel portrait (the same size and class as directorArt), or null for an unknown speaker.
@@ -938,6 +984,14 @@
   ICONS.launcher = ICONS.propulsion;
   ICONS.event = ICONS.warning;
   ICONS.cost = ICONS.budget;
+  // The six topics (objective ids), for Part 2's contract cards.
+  ICONS.radiation = [["circle", { cx: 8, cy: 8, r: 1.6 }], ["ellipse", { cx: 8, cy: 8, rx: 6.3, ry: 2.4, transform: "rotate(30 8 8)" }],
+                     ["ellipse", { cx: 8, cy: 8, rx: 6.3, ry: 2.4, transform: "rotate(-30 8 8)" }]];
+  ICONS.solar = [["circle", { cx: 8, cy: 8, r: 3 }], ["path", { d: "M8 1.2v2M8 12.8v2M1.2 8h2M12.8 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4l-1.4 1.4" }]];
+  ICONS.weather = [["path", { d: "M4.6 12.8h7a2.6 2.6 0 0 0 .2-5.2 3.9 3.9 0 0 0-7.4-.8 3 3 0 0 0 .2 6Z" }]];
+  ICONS.wildfire = [["path", { d: "M8 14.6c-2.9 0-4.6-1.9-4.6-4.4 0-2.7 2.1-4.1 2.7-6.8 1.3 1 1.9 2.5 1.9 3.7.7-.6 1.1-1.7 1.1-2.9 2 1.4 3.6 3.5 3.6 6 0 2.5-1.8 4.4-4.7 4.4Z" }]];
+  ICONS["sea-ice"] = [["path", { d: "M8 1.4v13.2M2.3 4.7l11.4 6.6M2.3 11.3l11.4-6.6M6.3 2.6 8 4.2l1.7-1.6M6.3 13.4 8 11.8l1.7 1.6" }]];
+  ICONS.ionosphere = [["path", { d: "M3 14.6a5 5 0 0 1 10 0M1.2 9.8a7.6 7.6 0 0 1 13.6 0M4.4 5.4a6 6 0 0 1 7.2 0" }]];
   // A flat icon by name, or null for an unknown name. With a label it is an image; without one it is decoration.
   function icon(name, label, className) {
     var shapes = ICONS[name];
@@ -1604,6 +1658,7 @@
   function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
   // What the header calls this mission: "PART 1 · STEP 2" for a walkthrough step, else the tier's name.
   function modeName() {
+    if (isComebackDesign(state.design)) return "PART 2 · " + comebackLevel(state.design.tier);
     var step = walkStepOf(state.design);
     if (step) return "PART 1 · STEP " + step;
     var t = tier();
@@ -1636,6 +1691,7 @@
   function designStatus() {
     var t = tier();
     if (!t) return "Space Mission Design Game";
+    if (isComebackDesign(state.design)) return comebackStatus();
     var totals = getTotals(state.design);
     if (inCampaign()) {
       var info = hubInfo();
@@ -1762,7 +1818,8 @@
     if (!line) return null;
     var who = typeof line === "object" ? line.who : "team", text = typeof line === "object" ? line.text : String(line);
     if (!text) return null;
-    var name = typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : "";
+    var name = typeof line === "object" && line.name ? line.name
+      : typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : "";
     var face = speakerFace(who);
     return el("div", { class: "say", role: "note" }, [
       face || directorArt(),
@@ -1880,6 +1937,7 @@
 
   // "Expected payout $X M, cost $Y M, net $Z M": all three numbers from previewPayout().
   function payoutLine(d) {
+    if (isComebackDesign(d)) return comebackPayLine(d);
     if (!d || !d.campaign || typeof previewPayout !== "function") return null;
     var p = previewPayout(d);
     if (!p) return null;
@@ -1891,6 +1949,105 @@
     });
     return offers.length ? el("div", null, [line].concat(offers)) : line;
   }
+
+  // COMEBACK-BEGIN  ---- Part 2, Ajay's comeback, on the shared screens. A comeback design flies one contract: its topic
+  // (and its orbit, when the client names one) is set by the contract; the cash is the budget; the deadline counts.
+  // js/ui-comeback.js draws the workshop, the contract cards and the ending; js/ui-mission.js the debrief's money.
+  // Every number here comes from getComeback(), previewPayout(), getTotals() or runChecks(), or from LAUNCHERS.
+  function isComebackDesign(d) { return !!(d && d.comeback); }
+  function comebackInfo() {
+    try { return typeof getComeback === "function" ? getComeback() : null; } catch (e) { return null; }
+  }
+  // The open contract a design flies for (from getComeback().contracts), kept per design object: ids repeat between comebacks.
+  var contractMemo = { design: null, k: null };
+  function contractOf(d) {
+    if (!d || !d.contract) return null;
+    if (contractMemo.design !== d) {
+      var info = comebackInfo();
+      contractMemo = { design: d, k: info ? byId(list(info.contracts), d.contract) : null };
+    }
+    return contractMemo.k;
+  }
+  // The header in Part 2: the month against the deadline, the cash and the debt.
+  function comebackStatus(info) {
+    info = info || comebackInfo();
+    if (!info) return "PART 2";
+    return "PART 2 · MONTH " + num(info.month, 0) + "/" + num(info.deadline_month, 0) + " · CASH " + money(info.cash_musd) +
+      " · DEBT " + money(info.debt_musd);
+  }
+  function comebackLevel(tierId) {
+    var levels = STORY.modes.part2.levels || {};
+    return levels[tierId] || "";
+  }
+  // Set by the contract: the topic always, the orbit when the client names one. The rocket never is.
+  function comebackPreset(screen, d) {
+    if (screen === "briefing") return !!d.objective;
+    if (screen === "orbit") { var k = contractOf(d); return !!(k && k.orbit); }
+    return false;
+  }
+  // The cheapest rocket on offer that lifts this design to its orbit (a plain data choice, like the FITS tag), or null.
+  function cheapestRocketFor(d, massKg) {
+    if (!d || !d.orbit) return null;
+    var avail = availability(d), best = null;
+    data("LAUNCHERS").forEach(function (l) {
+      var cap = l.capacity_kg ? l.capacity_kg[d.orbit] : null;
+      if (lockReason(avail.launchers, l.id) || !isNum(cap) || !(cap > 0) || cap < massKg) return;
+      if (!best || l.cost_musd < best.cost_musd) best = l;
+    });
+    return best;
+  }
+  // Build and Rocket Yard: "Pays $X · costs $Y with the cheapest rocket · net $Z · 3 stars +$B". Before a rocket is
+  // chosen, the cost counts the cheapest rocket that lifts it, so the line never shows a profit the launch would eat.
+  function comebackPayLine(d) {
+    var p = typeof previewPayout === "function" ? previewPayout(d) : null;
+    var k = p && p.contract;
+    if (!p || !k) return null;
+    if (p.topic_complete && !(p.new_data > 0)) {
+      return el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." });
+    }
+    var t = getTotals(d), rocket = d.launcher ? null : cheapestRocketFor(d, t.mass_kg);
+    var cost = Math.round((p.cost_musd + (rocket ? rocket.cost_musd : 0)) * 1000) / 1000;
+    var net = Math.round((p.expected_payout_musd - cost) * 1000) / 1000;
+    var bits = ["Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
+      "costs " + money(cost) + (rocket ? " with the cheapest rocket" : d.launcher ? "" : " + a rocket"),
+      (d.launcher || rocket) ? "net " + (net < 0 ? "-" : "") + money(Math.abs(net)) : null,
+      "3 stars +" + money(k.bonus_musd)];
+    return el("p", { class: "nasa-line payout-line", "data-key": "contract-pay" }, bits.filter(Boolean).join(" · "));
+  }
+  // Briefing: the contract card (js/ui-comeback.js) and the topic it sets. The topic cannot change here.
+  function comebackBriefing(d) {
+    var k = contractOf(d), o = byId(data("OBJECTIVES"), d.objective);
+    var C = window.StarlineComeback;
+    return el("section", { class: "screen" }, [
+      head("1 · BRIEFING"),
+      sayLine("briefing"),
+      presetNote("briefing"),
+      k && C ? C.contractCard(k, { brief: true, counts: o ? wantsLine(o) : "" }) : el("p", { class: "part-note", text: "That contract is no longer open." }),
+      o ? more(o.briefing, "About this job") : null,
+      navRow("orbit", !!d.objective)
+    ]);
+  }
+  // Readiness review: a flight that lands on or after the deadline loses the comeback even if it is paid.
+  function comebackDeadline(d, checks) {
+    if (!isComebackDesign(d)) return null;
+    var w = list(checks.warnings).filter(function (c) { return c.id === "deadline"; })[0];
+    return w ? el("div", { class: "deadline-banner", role: "alert", "data-key": "deadline-banner" }, [
+      el("strong", null, [icon("warning"), "TOO LATE: IT LANDS AFTER THE DEADLINE"]), el("p", { text: w.text })]) : null;
+  }
+  function comebackTimeRow(d) {
+    var info = comebackInfo();
+    if (!info || typeof flightMonths !== "function") return null;
+    return ["Time", num(flightMonths(d), 0) + " of " + num(info.months_left, 0) + " months left"];
+  }
+  CHECK_LABELS.deadline = "LANDS TOO LATE";
+  CHECK_LABELS["no-contract"] = "NO CONTRACT";
+  CHECK_LABELS["contract-topic"] = "WRONG TOPIC FOR THE CONTRACT";
+  CHECK_LABELS["contract-orbit"] = "WRONG ORBIT FOR THE CONTRACT";
+  CHECK_LABELS["comeback-over"] = "THE COMEBACK IS OVER";
+  CHECK_LABELS["no-comeback"] = "NO COMEBACK RUNNING";
+  FIX_SCREEN["contract-topic"] = "briefing";
+  FIX_SCREEN["contract-orbit"] = "orbit";
+  // COMEBACK-END
 
   // ---- Part 1, the walkthrough. The record holds only which steps passed and their best stars (from the debrief).
   function walkConfig(step) { return WALK_STEPS[step - 1] || null; }
@@ -1942,6 +2099,7 @@
 
   // A preset choice: set by the step, so its place counts as visited and its cards are read-only.
   function isPreset(screen) {
+    if (isComebackDesign(state.design)) return comebackPreset(screen, state.design);
     var cfg = walkStepOf(state.design) ? walkConfig(state.walk.step) : null;
     return !!(cfg && PRESET_FIELD[screen] && cfg[PRESET_FIELD[screen]]);
   }
@@ -2092,7 +2250,9 @@
     card.removeAttribute("aria-pressed");
     return card;
   }
-  function presetNote(screen) { return isPreset(screen) ? el("p", { class: "preset-note", text: "Set for this step." }) : null; }
+  function presetNote(screen) {
+    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : "Set for this step." }) : null;
+  }
 
   // ---------------------------------------------------------------- 1 Briefing
   // What counts for a job: the instrument types, the first in full and the rest at half ("radar · imaging ½").
@@ -2102,6 +2262,7 @@
 
   function drawBriefing() {
     var d = state.design;
+    if (isComebackDesign(d)) return comebackBriefing(d);
     var objectives = data("OBJECTIVES");
     var chosen = byId(objectives, d.objective);
     var avail = availability(d);
@@ -2445,12 +2606,13 @@
       el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
       el("p", { class: "verdict " + (blocked ? "bad" : warned ? "warn" : "ok"),
         text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "") : "ALL SYSTEMS GO" }),
+      comebackDeadline(d, checks),
       checkList(d, { fix: true }),
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
         ["Orbit", orbit ? orbit.name : "not chosen"],
         ["Rocket", rocket ? rocket.name : "not chosen"],
-        isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
+        isComebackDesign(d) ? comebackTimeRow(d) : isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
       ]),
       button(blocked ? "LAUNCH" : warned ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
       null
@@ -2781,7 +2943,9 @@
           el("h2", { class: "divided", text: "KEYS" }),
           el("p", { class: "keys", "aria-label": "Arrow keys or WASD walk. E or Enter goes in, or follows the gold route. Click a marker to walk there. M or Esc: back inside." }, [
             el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " map"]),
-          el("div", null, [inCampaign()
+          el("div", null, [isComebackDesign(state.design)
+            ? button("BACK TO THE WORKSHOP", function () { window.showComebackHub(); }, { key: "map-workshop" })
+            : inCampaign()
             ? button("BACK TO THE HUB", function () { window.showCampaignHub(); })
             : button("HOME", function () { showDesignScreen("title"); }, { key: "map-home" })])
         ])
@@ -3048,7 +3212,13 @@
     showEpilogue: showEpilogue,
     // A few story beats, one at a time, then onDone: showBeats([{ who, text }], kicker, onDone, { doneLabel, skipToEnd, home }).
     showBeats: function (beats, kicker, onDone, opts) { showBeats(beats, kicker, typeof onDone === "function" ? onDone : function () { showDesignScreen("title"); }, opts); },
-    home: function () { showDesignScreen("title"); }
+    home: function () { showDesignScreen("title"); },
+    // Part 2: a story line ({ who, text } from storyLine) as the speech box every screen uses; the header line;
+    // the plain name of a difficulty ("NORMAL"); the mode cards' words.
+    sayEl: sayElement,
+    comebackStatus: comebackStatus,
+    levelName: comebackLevel,
+    modes: STORY.modes
   };
 
   function start() {

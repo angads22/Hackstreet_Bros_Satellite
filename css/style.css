@@ -789,3 +789,87 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 /* The low-poly base map under the markers; once it has drawn, the pixel map's squares are hidden and only its route stays. */
 .map-lp { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .map.lp-on .map-art > rect { display: none; }
+
+/* ---------------------------------------------------------------- Part 2: Ajay's comeback (js/ui-comeback.js)
+   The difficulty picker, the workshop (the stakes, the contracts, PAY BACK), the debrief's money and the ending.
+   Rounded and flat, like the home page: no shadows or gradients on anything here. */
+.cb .screen-head { flex-direction: column; align-items: flex-start; gap: 2px; }
+.cb .screen-head .kicker { font-size: 20px; letter-spacing: 3px; }
+.cb .btn, .cb-result .btn, .deadline-banner .btn { border-radius: 8px; box-shadow: none; }
+.cb .panel { border-radius: 12px; }
+/* the picker: three difficulty cards */
+.cb-levels { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.cb-level { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; text-align: left; background: var(--surface); color: var(--text);
+  border: 4px solid var(--border); border-radius: 12px; cursor: pointer; }
+.cb-level:hover, .cb-level:focus-visible { border-color: var(--accent); }
+.cb-level-name { font-family: var(--pixel); font-weight: 700; font-size: 40px; line-height: 1; color: var(--accent-ink); }
+.cb-level-tier { font-size: 18px; letter-spacing: 2px; color: var(--text-dim); }
+/* the stakes: debt (with its meter), cash, months left */
+.cb-stakes { display: grid; gap: 12px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.cb-stat { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 16px; background: var(--surface); border: 4px solid var(--border); border-radius: 12px; }
+.cb-stat-label { font-size: 18px; letter-spacing: 3px; color: var(--text-dim); }
+.cb-stat-value { font-family: var(--pixel); font-weight: 700; font-size: clamp(34px, 6vw, 54px); line-height: 1; color: var(--text); }
+.cb-debt .cb-stat-value { color: var(--bad); }
+.cb-stat-value.cash { color: var(--info-ink); }
+.cb-stat.warn { border-color: var(--accent); }
+.cb-stat.warn .cb-stat-value, .cb-stat.warn .cb-note { color: var(--accent-ink); }
+.cb-note { font-size: 20px; color: var(--text-dim); }
+.cb-note.bad { color: var(--bad); }
+.cb-note.good { color: var(--info-ink); }
+.cb-meter { position: relative; height: 22px; background: var(--bg); border: 3px solid var(--border); border-radius: 8px; overflow: hidden; }
+.cb-meter-debt, .cb-meter-cash { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; transition: width 1.2s ease-out; }
+.cb-meter-debt { background: var(--bad); }
+.cb-meter-cash { top: 5px; bottom: 5px; background: var(--info); }
+@media (max-width: 760px) {
+  .cb-stakes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .cb-debt { grid-column: 1 / -1; }
+}
+/* the job board: one card per contract */
+.cb-jobs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); }
+.cb-job { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px 16px; background: var(--paper); color: var(--paper-ink); border: 4px solid var(--paper-ink); border-radius: 12px; }
+.cb-job-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 4px 10px; }
+.cb-job h3 { display: flex; align-items: center; font-size: 22px; min-width: 0; overflow-wrap: anywhere; }
+.cb-job h3 svg.icon { width: 1.3em; height: 1.3em; color: var(--stamp); }
+.cb-tag { flex: none; padding: 0 8px; border: 3px solid var(--paper-ink); border-radius: 6px; font-size: 16px; white-space: nowrap; }
+.cb-client { font-family: var(--pixel); font-weight: 700; font-size: 22px; }
+.cb-reason { color: var(--paper-muted); font-size: 21px; }
+.cb-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.cb-price strong { font-family: var(--pixel); font-size: 40px; line-height: 1; color: var(--ok-stamp); }
+.cb-price span { font-size: 20px; }
+.cb-terms { font-size: 18px; letter-spacing: 1px; color: var(--paper-muted); }
+.cb-job .btn { margin-top: auto; }
+.cb-job.brief { max-width: 520px; }
+/* PAY BACK and the flight log */
+.cb-pay-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.cb-pay-row .btn { min-width: 96px; justify-content: center; }
+.cb-log li { display: flex; justify-content: space-between; gap: 12px; }
+.cb-log-end { white-space: nowrap; }
+/* the readiness review: a flight that lands after the deadline */
+.deadline-banner { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; background: var(--accent); color: var(--on-accent); border-radius: 10px; }
+.deadline-banner strong { font-family: var(--pixel); font-size: 24px; }
+.deadline-banner p { font-size: 20px; }
+/* the debrief: the stamp, the money and the clock */
+.cb-result { display: flex; flex-direction: column; gap: 10px; border-radius: 12px; }
+.cb-result.nothing { border-color: var(--bad); }
+.cb-result-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.cb-stamp { display: inline-block; padding: 4px 16px; border: 5px solid var(--bad); border-radius: 10px; color: var(--bad); font-family: var(--pixel); font-weight: 700;
+  font-size: clamp(30px, 6vw, 44px); line-height: 1.1; transform: rotate(-4deg); animation: cb-stamp 0.45s ease-out both; }
+.cb-stamp.pass { border-color: var(--info); color: var(--info-ink); }
+@keyframes cb-stamp { from { opacity: 0; transform: rotate(-4deg) scale(1.8); } to { opacity: 1; transform: rotate(-4deg) scale(1); } }
+.cb-ledger { display: flex; flex-direction: column; }
+.cb-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-top: 2px dashed var(--border); font-size: 21px; }
+.cb-row.cb-total { border-top: 3px solid var(--text-dim); font-family: var(--pixel); font-weight: 700; font-size: 24px; }
+.cb-amount { white-space: nowrap; }
+.cb-months strong { font-family: var(--pixel); font-size: 34px; color: var(--accent-ink); }
+/* the ending */
+.cb-end { align-items: center; text-align: center; }
+.cb-end .chron-stats { border-color: var(--border); }
+.cb-end .chron-stats strong { color: var(--accent-ink); }
+.cb-end .chron-stats span { color: var(--text-dim); }
+.cb-headline { font-size: clamp(26px, 4vw, 34px); color: var(--text); max-width: 32ch; }
+.cb-scene { display: block; width: 100%; height: auto; aspect-ratio: 16 / 7; border-radius: 10px; }
+.cb-epilogue { color: var(--text); }
+@media (prefers-reduced-motion: reduce) {
+  .cb-meter-debt, .cb-meter-cash { transition: none; }
+  .cb-stamp { animation: none; }
+}

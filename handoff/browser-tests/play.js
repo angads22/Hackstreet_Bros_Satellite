@@ -30,8 +30,8 @@ async function run(viewport, label) {
   ok(/^START/.test(await page.locator('[data-key="part1-go"]').innerText()), 'Part 1 button reads START');
   const p2 = await page.locator('[data-key="mode-part2"]').innerText();
   ok(/PART 2/.test(p2) && /AJAY'S COMEBACK/.test(p2) && !/\$|\d+ ?M\b/.test(p2), 'Part 2 card: Ajay, no money figures');
-  ok(await page.locator('[data-key="part2-go"]').isDisabled() && /COMING NEXT/.test(await page.locator('[data-key="part2-go"]').innerText()),
-    'Part 2 button is disabled and says COMING NEXT (no Part 2 screens yet)');
+  ok(!(await page.locator('[data-key="part2-go"]').isDisabled()) && /^START/.test(await page.locator('[data-key="part2-go"]').innerText()),
+    'Part 2 button is open and says START (no comeback saved)');
   const boxes = await page.evaluate(() => ['mode-part1', 'mode-part2'].map(k => document.querySelector(`[data-key="${k}"]`).getBoundingClientRect()).map(r => ({ x: r.x, y: r.y })));
   ok(label === 'phone' ? boxes[1].y > boxes[0].y : Math.abs(boxes[1].y - boxes[0].y) < 2 && boxes[1].x > boxes[0].x,
     label === 'phone' ? 'cards stacked on a phone' : 'cards side by side on desktop');
@@ -208,7 +208,7 @@ async function run(viewport, label) {
   ok(/EPILOGUE/.test(await page.locator('[data-key="walk-next"]').innerText()), 'after step 3 the debrief offers the epilogue');
   await shot('s3-debrief');
 
-  // ---- the epilogue, then Part 2 (not built yet: back home)
+  // ---- the epilogue, then Part 2 (the difficulty picker), and home
   await page.click('[data-key="walk-next"]');
   const epi = [];
   for (let i = 0; i < 8; i++) {
@@ -224,7 +224,9 @@ async function run(viewport, label) {
   ok(!/SCORE/.test(await page.locator('#status').innerText()), 'epilogue header: no stale score');
   await shot('8-epilogue');
   await page.click('.intro .btn.primary');
-  ok(await page.locator('.mode-card').count() === 2, 'CONTINUE TO PART 2 without Part 2 screens returns home');
+  ok(await page.locator('.cb-level').count() === 3, 'CONTINUE TO PART 2 opens Part 2: the difficulty picker');
+  await page.click('[data-key="picker-home"]');
+  ok(await page.locator('.mode-card').count() === 2, 'HOME from the picker returns to the home page');
   ok(/PLAY AGAIN/.test(await page.locator('[data-key="part1-go"]').innerText()) && await page.locator('[data-key="mode-part1"] .tag').count() === 0,
     'home: PLAY AGAIN and no START HERE tag');
   ok(await page.locator('.mode-steps li.passed').count() === 3, 'home: all three steps passed');

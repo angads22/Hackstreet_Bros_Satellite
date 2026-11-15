@@ -1,5 +1,6 @@
 // js/ui-mission.js — owned by Story.
-// 6 Mission and 7 Debrief (for a Part 1 walkthrough step, the step result and NEXT STEP / TRY AGAIN). Uses the drawing helpers from ui-design.js
+// 6 Mission and 7 Debrief (for a Part 1 walkthrough step, the step result and NEXT STEP / TRY AGAIN; for a Part 2
+// contract, what it paid and what the flight did to the cash, the debt and the clock). Uses the drawing helpers from ui-design.js
 // (StarlineUI) and only the mission.js calls listed in SPEC.md.
 // Everything lives inside one function so no name here can clash with
 // the back end's globals. One name is shared: showMissionScreen(design).
@@ -24,9 +25,11 @@
   // ---------------------------------------------------------------- 6 Mission
   function showMissionScreen(design) {
     stopTimer();
+    // Part 2: the cash and the debt before the launch is paid, for the debrief's money story.
+    var before = design.comeback && typeof getComeback === "function" ? getComeback() : null;
     var mission = startMission(design);
     var objective = UI.byId(UI.data("OBJECTIVES"), design.objective);
-    run = { design: design, mission: mission, objective: objective, timer: null, paused: false, fast: false, waiting: false, nodes: {} };
+    run = { design: design, mission: mission, objective: objective, timer: null, paused: false, fast: false, waiting: false, nodes: {}, before: before };
     UI.lock();
 
     var n = run.nodes;
@@ -212,12 +215,15 @@
 
   // ---------------------------------------------------------------- 7 Debrief (the ledger)
   function showDebrief(done) {
+    var comeback = !!done.design.comeback;
+    var landed = comeback && typeof getComeback === "function" ? getComeback() : null;   // after the launch, before the pay
     var result = recordResult(done.mission);       // once per finished mission
     var d = getDebrief(done.mission);
     // Part 1: a walkthrough step passes with the stars the debrief gives (the record keeps the best). null otherwise.
     var walk = UI.walkResult ? UI.walkResult(done.design, d.stars) : null;
     var b = d.breakdown || {};
-    UI.setStatus(UI.tierName() + " · SCORE " + num(d.score, 0));
+    UI.setStatus(comeback && UI.comebackStatus ? UI.comebackStatus() : UI.tierName() + " · SCORE " + num(d.score, 0));
+    var outcome = comeback ? contractOutcome(done, result) : null;
 
     function row(label, sub, value, of) {
       return el("div", { class: "row" }, [
@@ -256,11 +262,12 @@
     });
 
     var side = el("div", { class: "panel limit" }, [
+      comeback ? comebackBlock(done, d, result, landed, outcome) : null,
       walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
         text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
       // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them.
       result && result.unlocked && !done.design.campaign && !walk ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
-      result && result.era_unlocked && !walk ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
+      result && result.era_unlocked && !walk && !comeback ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
       el("h2", null, [UI.icon(d.limiting), limitingHeading(d)]),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
@@ -272,6 +279,7 @@
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
       walk ? walkButtons(walk, done.design)
+      : comeback ? comebackButtons(result)
       : done.design.campaign
         ? el("div", { class: "choices" }, [
             UI.button([result && result.campaign_over ? "THE STORY OF YOUR PROGRAMME" : "BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
@@ -292,9 +300,90 @@
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
       UI.say ? UI.say("debrief", d) : null,
       el("div", { class: "ledger" }, [paper, side]),
-      UI.say ? UI.say("closing", d) : null
+      comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", d) : null
     ]));
     run = null;
+  }
+
+  // ---- Part 2: a contract flight. The money story adds up: the cash before the launch, the launch, what the client
+  // paid (and the 3-star bonus), the event costs, then the cash now; the debt before, the interest, then the debt now.
+  // Every number is from recordResult(), getComeback() (just before the launch, and just before recordResult) or the
+  // mission (its launch cost, and the contract's terms copied at launch: the contract itself is closed by now).
+  function contractOutcome(done, result) {
+    var paid = result && result.contract_paid_musd > 0 ? result.contract_paid_musd : 0;
+    var k = done.mission.contract || {};
+    if (!paid) return "nothing";
+    return paid >= k.price_musd || done.mission.science >= k.min_science ? "paid" : "part";
+  }
+  function cents(v) { return Math.round((v || 0) * 100) / 100; }
+  function ledgerMoney(v, sign) {
+    return (sign ? (v < 0 ? "-" : "+") : "") + "$" + num(Math.abs(v), 2) + "M";
+  }
+  // Rows [label, musd], then the total. Shown to the cent; if rounding to cents would make the column not add up, the
+  // largest row takes the cent, so what is on screen always sums to the total shown.
+  function ledger(id, rows, totalLabel, total) {
+    rows = rows.filter(Boolean);
+    var shown = rows.map(function (r) { return cents(r[1]); });
+    var diff = cents(cents(total) - shown.reduce(function (a, v) { return a + v; }, 0));
+    if (diff !== 0 && rows.length) {
+      var big = 0;
+      rows.forEach(function (r, i) { if (Math.abs(r[1]) > Math.abs(rows[big][1])) big = i; });
+      shown[big] = cents(shown[big] + diff);
+    }
+    return el("div", { class: "cb-ledger", "data-key": id }, rows.map(function (r, i) {
+      return el("div", { class: "cb-row", "data-musd": String(r[1]) }, [el("span", { text: r[0] }),
+        el("span", { class: "cb-amount", text: ledgerMoney(shown[i], i > 0) })]);
+    }).concat([el("div", { class: "cb-row cb-total", "data-musd": String(total) }, [el("span", { text: totalLabel }),
+      el("span", { class: "cb-amount", text: ledgerMoney(cents(total), false) })])]));
+  }
+  function comebackBlock(done, d, result, landed, outcome) {
+    if (!result || typeof result.cash_musd !== "number") return null;
+    var before = done.before || null;
+    var k = done.mission.contract || {};
+    var launch = done.mission.launch_totals ? done.mission.launch_totals.cost_musd : 0;
+    var paid = result.contract_paid_musd || 0, bonus = result.contract_bonus_musd || 0;
+    var stamp = outcome === "paid" ? "PAID" : outcome === "part" ? "PAID IN PART" : "NOT PAID";
+    var why = outcome !== "nothing" ? null
+      : result.nothing_new ? (d.knowledge_paragraph || "No new data: this topic is already known.")
+      : "No data came home, so there was nothing to pay for.";
+    var C = window.StarlineComeback;
+    var cashBefore = before ? before.cash_musd : null, debtBefore = before ? before.debt_musd : null;
+    return el("div", { class: "nasa-box cb-result " + outcome, "data-key": "contract-result" }, [
+      el("div", { class: "cb-result-top" }, [
+        el("span", { class: "cb-stamp " + (outcome === "nothing" ? "fail" : "pass"), role: "status", text: stamp }),
+        el("span", { class: "cb-client", text: k.client || "" })
+      ]),
+      why ? el("p", { class: "part-note", text: why }) : null,
+      result.comeback_over ? el("p", { class: "banner", role: "alert",
+        text: result.lost_reason === "cash" ? "OUT OF CASH: THE COMEBACK IS OVER" : "THE DEADLINE HAS PASSED: THE COMEBACK IS OVER" }) : null,
+      typeof cashBefore === "number" ? ledger("cash-ledger", [
+        ["CASH BEFORE LAUNCH", cashBefore],
+        ["LAUNCH", -launch],
+        [outcome === "part" ? "PAID (" + num(done.mission.science, 0) + " OF " + num(k.min_science, 0) + " POINTS)" : "CONTRACT PAID", paid],
+        bonus > 0 ? ["3-STAR BONUS", bonus] : null,
+        result.event_costs_musd > 0 ? ["EVENT COSTS", -result.event_costs_musd] : null
+      ], "CASH NOW", result.cash_musd) : null,
+      typeof debtBefore === "number" ? ledger("debt-ledger", [
+        ["DEBT BEFORE", debtBefore],
+        ["INTEREST, " + num(result.months_used, 0) + " MONTHS", result.interest_musd]
+      ], "DEBT NOW", result.debt_musd) : null,
+      C && landed ? C.meter({ debt: result.debt_musd, cash: result.cash_musd, start: landed.start_debt_musd },
+        { debt: landed.debt_musd, cash: landed.cash_musd }, "Debt " + UI.money(result.debt_musd) + ", cash " + UI.money(result.cash_musd)) : null,
+      el("p", { class: "cb-months", "data-key": "months-left" }, [el("strong", { text: num(result.months_left, 0) }), " MONTHS LEFT"])
+    ]);
+  }
+  function comebackButtons(result) {
+    var over = result && result.comeback_over;
+    return el("div", { class: "choices" }, [over
+      ? UI.button(["SEE THE ENDING", " >"], function () { window.showComebackEnding(); }, { primary: true, key: "debrief-ending" })
+      : UI.button(["BACK TO THE WORKSHOP", " >"], function () { window.showComebackHub(); }, { primary: true, key: "debrief-workshop" })]);
+  }
+  // The client's last word, under its own name.
+  function contractLine(done, outcome) {
+    var line = UI.storyLine ? UI.storyLine("contract", done.design, outcome) : "";
+    if (!line || !UI.sayEl) return null;
+    var k = done.mission.contract || {};
+    return UI.sayEl({ who: line.who, text: line.text, name: k.client ? String(k.client).toUpperCase() : "" });
   }
 
   // Part 1: NEXT STEP (or, after step 3, the epilogue) once the step passes; TRY AGAIN (the same design on Build) if not.
@@ -358,7 +447,7 @@
 
   // ---- campaign: what the flight paid and taught. Every number is from recordResult() or getDebrief().
   function campaignBlock(design, d, result) {
-    if (!design.campaign || !result) return null;
+    if (!design.campaign || design.comeback || !result) return null;   // a comeback flight has comebackBlock instead
     var objectives = UI.data("OBJECTIVES");
     var next = d.best_next_topic && d.best_next_topic !== design.objective ? UI.byId(objectives, d.best_next_topic) : null;
     var lessonNames = typeof LESSONS !== "undefined" && LESSONS ? LESSONS : {};
