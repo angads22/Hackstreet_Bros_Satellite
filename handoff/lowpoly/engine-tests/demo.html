@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LowPoly engine demo</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #14181f; color: #cfd6df; font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  h2 { font-size: 14px; margin: 18px 0 8px; color: #9fb0c3; font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; }
+  figure { margin: 0; }
+  figcaption { font-size: 12px; color: #8a97a8; margin-top: 4px; }
+  canvas { display: block; background: #0b0f16; border-radius: 4px; }
+  .cell { width: 200px; height: 200px; }
+  .big { width: 480px; height: 360px; max-width: 100%; }
+  .thumb { width: 96px; height: 96px; }
+</style>
+<script src="../../js/lowpoly.js"></script>
+</head>
+<body>
+<h1>LowPoly engine demo</h1>
+
+<h2>Primitives, lit by the default light</h2>
+<div class="row" id="prims"></div>
+
+<h2>Interactive view (spins, drag to rotate, arrow keys when focused)</h2>
+<div class="row">
+  <figure><canvas id="sat" class="big"></canvas><figcaption>drag me, or click and use the arrow keys</figcaption></figure>
+  <figure><canvas id="sat96" class="thumb"></canvas><figcaption>same scene at 96 px</figcaption></figure>
+  <figure><canvas id="satBand" class="cell"></canvas><figcaption>banded shading, 4 steps</figcaption></figure>
+</div>
+
+<script>
+(function () {
+  var L = LowPoly;
+  var bg = { color: 'space', stars: true, seed: 11 };
+  function cam(extra) { var c = { yaw: 30, pitch: 22, fov: 35 }; for (var k in extra) c[k] = extra[k]; return c; }
+
+  var prims = [
+    ['lit cube', L.box(1, 1, 1, 'silver')],
+    ['cylinder', L.cylinder(0.5, 0.5, 1.2, 12, 'gold')],
+    ['icosphere detail 0', L.sphere(0.7, 0, 'steel')],
+    ['icosphere detail 1', L.sphere(0.7, 1, 'steel')],
+    ['icosphere detail 2', L.sphere(0.7, 2, 'steel')],
+    ['two boxes through each other', L.merge([L.box(1.4, 0.5, 0.5, 'red'), L.rotate(L.box(1.4, 0.5, 0.5, 'teal'), 0, 50, 35)])]
+  ];
+  var host = document.getElementById('prims');
+  prims.forEach(function (p) {
+    var f = document.createElement('figure'), c = document.createElement('canvas'), cap = document.createElement('figcaption');
+    c.className = 'cell'; cap.textContent = p[0];
+    f.appendChild(c); f.appendChild(cap); host.appendChild(f);
+    L.render(c, { items: [{ mesh: p[1] }], camera: cam({}), background: bg, label: p[0] });
+  });
+
+  // a small satellite made from builders
+  function satellite() {
+    var body = L.merge([
+      L.box(1.2, 1.4, 1.2, 'silver'),
+      L.move(L.box(1.26, 0.06, 1.26, 'gold'), 0, 0.3, 0),
+      L.move(L.box(1.26, 0.06, 1.26, 'gold'), 0, -0.3, 0),
+      L.move(L.cylinder(0.3, 0.45, 0.4, 10, 'graphite'), 0, 0.9, 0),
+      L.move(L.cylinder(0.12, 0.12, 0.08, 8, 'glow'), 0, 1.14, 0),
+      L.move(L.box(0.3, 0.3, 0.1, 'black'), 0, 0, 0.62)
+    ]);
+    var panel = L.merge([
+      L.move(L.box(0.12, 0.05, 0.12, 'steel'), 0, 0, 0),
+      L.move(L.box(1.7, 0.04, 1.0, 'cell'), 0.9, 0, 0),
+      L.move(L.box(1.7, 0.045, 0.06, 'cellEdge'), 0.9, 0, 0)
+    ]);
+    var dish = L.place(L.lathe([[0, 0], [0.18, 0.04], [0.34, 0.12], [0.46, 0.26]], 12, 'white', true), { pos: [0, 0.7, 0.6], normal: [0, 0, 1], roll: 0 });
+    return [
+      { mesh: body },
+      { mesh: panel, pos: [0.6, 0, 0] },
+      { mesh: L.mirror(panel, 'x'), pos: [-0.6, 0, 0] },
+      { mesh: dish }
+    ];
+  }
+  var sc = { items: satellite(), camera: cam({ dist: 7.5, target: [0, 0.2, 0] }), light: {}, background: bg, label: 'Demo satellite' };
+  window.demoView = L.view(document.getElementById('sat'), sc, { spin: 20 });
+  window.demoView96 = L.view(document.getElementById('sat96'), { items: satellite(), camera: cam({ dist: 7.5, target: [0, 0.2, 0] }), background: bg, label: 'Demo satellite, small' }, { spin: 20, drag: false, keys: false });
+  window.demoViewBand = L.view(document.getElementById('satBand'), { items: satellite(), camera: cam({ dist: 7.5, target: [0, 0.2, 0] }), light: { steps: 4 }, background: bg, label: 'Demo satellite, banded' }, { spin: 0 });
+})();
+</script>
+</body>
+</html>

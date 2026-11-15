@@ -4,6 +4,11 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+### Added
+
+- **More screen icons and an assembly preview.** Place headers, the map legend, minimap, part statistics and debrief use the shared flat icons. The Readiness satellite assembles part by part; reduced-motion settings show it immediately.
+- **Flat icons beside the words.** The parts bins, the four resource bars (mass, power, budget, data) and the problem lists now carry a simple one-colour icon; a blocker shows a cross, a warning a triangle. The words stay next to every icon.
+
 ## 0.7 beta (November 15, 2026)
 
 The game is GRAVITRON now: Austin's tutorial and Ajay's chapters tell one story across the levels, and the Build bench draws the satellite from the parts on board. Science points became a second currency, spent in the lab on research and upgrades, and the archive keeps old data paying. The ionosphere arrives as a topic from Canada's Alouette 1 data, each mission type now has a data cap with rewards for new data only, and the design screens use far fewer words.

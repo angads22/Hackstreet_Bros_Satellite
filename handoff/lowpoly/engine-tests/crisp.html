@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><title>crisp</title>
+<style>body{margin:0;padding:8px;background:#14181f}canvas{display:block;margin:0 0 8px}</style>
+<script src="../../js/lowpoly.js"></script></head><body>
+<canvas id="a" style="width:96px;height:96px"></canvas>
+<canvas id="b" style="width:240px;height:180px"></canvas>
+<script>
+var L = LowPoly;
+function sat() { return [{ mesh: L.merge([L.box(1.2, 1.4, 1.2, 'silver'), L.move(L.box(1.26, 0.06, 1.26, 'gold'), 0, 0.3, 0), L.move(L.cylinder(0.3, 0.45, 0.4, 10, 'graphite'), 0, 0.9, 0), L.move(L.box(3.4, 0.04, 1, 'cell'), 0, 0, 0)]) }]; }
+['a', 'b'].forEach(function (id) { L.render(document.getElementById(id), { items: sat(), camera: { yaw: 35, pitch: 22, dist: 7.5, target: [0, 0.2, 0] }, background: { color: 'space', stars: true, seed: 4 } }); });
+</script></body></html>
