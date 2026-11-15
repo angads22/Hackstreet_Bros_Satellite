@@ -553,6 +553,7 @@
       : "No data came home, so there was nothing to pay for.";
     var C = window.StarlineComeback;
     var cashBefore = before ? before.cash_musd : null, debtBefore = before ? before.debt_musd : null;
+    var engineers = result.engineers_musd > 0 ? result.engineers_musd : 0;   // what the engineers cost for this flight; only shown when something was bought
     return el("div", { class: "nasa-box cb-result " + outcome, "data-key": "contract-result" }, [
       el("div", { class: "cb-result-top" }, [
         el("span", { class: "cb-stamp " + (outcome === "nothing" ? "fail" : "pass"), role: "status", text: stamp }),
@@ -564,7 +565,10 @@
         result.lost_reason === "seized" ? "THE LENDERS TOOK EVERYTHING: THE COMEBACK IS OVER" :
         result.lost_reason === "name" ? "THE DEADLINE CAME WITHOUT A NAME: THE COMEBACK IS OVER" : "THE DEADLINE HAS PASSED: THE COMEBACK IS OVER" }) : null,
       typeof cashBefore === "number" ? ledger("cash-ledger", [
-        ["CASH BEFORE LAUNCH", cashBefore],
+        // Paid part information (2.0): the engineers were paid before the launch, so the cash the hub showed then is already
+        // net of them. With a fee the ledger starts from the cash before it, so the column still adds up.
+        [engineers > 0 ? "CASH BEFORE" : "CASH BEFORE LAUNCH", Math.round((cashBefore + engineers) * 1000) / 1000],
+        engineers > 0 ? ["ENGINEERS", -engineers] : null,
         ["LAUNCH", -launch],
         [outcome === "part" ? "PAID (" + num(done.mission.science, 0) + " OF " + num(k.min_science, 0) + " POINTS)" : "CONTRACT PAID", paid],
         bonus > 0 ? ["3-STAR BONUS", bonus] : null,

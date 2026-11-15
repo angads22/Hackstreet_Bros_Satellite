@@ -159,10 +159,33 @@ async function launchContract(page, topic, opts) {
   if (opts && opts.review) return;
   await page.locator('.btn.big').click(); await waitHead(page, 'MISSION');
 }
+// Part 2 on Normal and Hard: ASK THE ENGINEERS for a part's groups (paid part information, SPEC.md). `groups` defaults to all three.
+// A group that is already known, or that the part does not have, is skipped. Leaves the bin of the last part open.
+async function buyInfo(page, parts, groups) {
+  for (const part of [].concat(parts)) {
+    if (BIN[part]) await page.click(`[data-key="bin-${BIN[part]}"]`);
+    for (const group of groups || ['sheet', 'performance', 'dossier']) {
+      const ask = page.locator(`[data-key="ask-${part}-${group}"]`);
+      if (!(await ask.count())) { await page.hover(`[data-key="part-${part}"]`); await page.waitForTimeout(60); }   // the dossier's ASK lives in the preview
+      if (await ask.count()) { await ask.first().click(); await page.waitForTimeout(60); }
+    }
+  }
+}
+// ASK THE ENGINEERS for every part on the open shelf (the bin on screen).
+async function buyBin(page, groups) {
+  const ids = await page.$$eval('.part:not(.locked)', es => es.map(e => e.dataset.key.slice(5)));
+  await buyInfo(page, ids, groups);
+}
+// The cash in the header ("CASH $3.96M"), in millions of dollars.
+async function cashNow(page) {
+  const t = await page.locator('#status').innerText();
+  const m = /CASH \$([0-9.]+)M/.exec(t);
+  return m ? parseFloat(m[1]) : NaN;
+}
 async function stars(page) {
   const label = await page.locator('.stamp').getAttribute('aria-label');
   return parseInt(label, 10);
 }
 
 module.exports = { args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
-  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, throughBeats, fly, stars, startComeback, launchContract };
+  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, buyInfo, buyBin, cashNow, throughBeats, fly, stars, startComeback, launchContract };

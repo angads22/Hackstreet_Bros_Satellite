@@ -37,7 +37,7 @@ function findDesign(G, h) {
   return null;
 }
 
-var names = Object.keys(FX.saves), NEW_KEYS = ["seed", "buyout", "start_debt_musd", "complications"];
+var names = Object.keys(FX.saves), NEW_KEYS = ["seed", "buyout", "start_debt_musd", "complications", "info"];
 var LEGACY_DEBT = { training: 30, standard: 40, expert: 45 };
 check("0 the fixtures are real 0.9 saves: version 4, mode comeback, six of them", names.length >= 6 && names.every(function (n) {
   var r = JSON.parse(FX.saves[n].raw); return r.version === 4 && r.mode === "comeback" && !("seed" in r) && !("buyout" in r); }));
@@ -70,7 +70,7 @@ names.forEach(function (name) {
   check("2 " + name + ": re-saved at the new version", now.version === G.CAMPAIGN.save_version);
   check("2 " + name + ": every old field and value is exactly as it was", Object.keys(original).every(function (k) { return k === "version" || same(now[k], original[k]); }),
     Object.keys(original).filter(function (k) { return k !== "version" && !same(now[k], original[k]); }).join(","));
-  check("2 " + name + ": only seed, buyout, the starting debt and the complications list were added", same(Object.keys(now).filter(function (k) { return !(k in original); }).sort(), NEW_KEYS.slice().sort()),
+  check("2 " + name + ": only seed, buyout, the starting debt, the complications list and the bought part information were added", same(Object.keys(now).filter(function (k) { return !(k in original); }).sort(), NEW_KEYS.slice().sort()),
     Object.keys(now).filter(function (k) { return !(k in original); }).join(","));
   check("2 " + name + ": a random 32-bit seed, buyout none, and the debt the run began with (the old tuning)",
     Number.isInteger(now.seed) && now.seed >= 0 && now.seed <= 4294967295 && now.buyout === "none" && now.start_debt_musd === LEGACY_DEBT[original.tier] &&
@@ -235,6 +235,45 @@ names.forEach(function (name) {
   check("9 a migrated run can meet a complication: it is saved in the list, shown by the hub, and the rest of the old run is untouched", !!struck && now.complications.length === 1 &&
     G.getComeback().complications[0].id === struck.id && now.seed === c.seed && now.missions.length === original.missions.length && same(now.missions, original.missions) &&
     now.treasury_musd === original.treasury_musd && now.deadline_month === original.deadline_month);
+})();
+
+// ---- 10. Paid part information (2.0): old saves get an empty `info` map, keep everything, and a run that pays for information saves it.
+names.forEach(function (name) {
+  var fx = FX.saves[name], original = JSON.parse(fx.raw), store = storeWith(fx.raw), G = load({ storage: store }), h = G.getComeback();
+  var now = JSON.parse(store.getItem("smdg-campaign"));
+  check("10 " + name + ": the 0.9 save is upgraded with an empty info map, in storage, and nothing it had is lost",
+    !("info" in original) && now.info && typeof now.info === "object" && Object.keys(now.info).length === 0 &&
+    now.treasury_musd === original.treasury_musd && now.debt_musd === original.debt_musd && now.missions.length === original.missions.length && same(now.missions, original.missions));
+  var G2 = load({ storage: store });
+  check("10 " + name + ": a reload keeps it and the saved text does not change again", store.getItem("smdg-campaign") === JSON.stringify(now) && !!G2.getComeback());
+  // The player's own level decides what is free: asking costs cash once, and the group is kept on the next load.
+  var d = G.newComebackDesign((h.contracts[0] || {}).id);
+  if (!d) return;
+  var free = G.infoFreeGroups(h.tier), paid = G.INFO_GROUPS.filter(function (g) { return free.indexOf(g) === -1; });
+  var cash = G.getComeback().cash_musd;
+  var r = paid.length ? G.buyPartInfo(d, "mercury-battery", paid[0]) : { ok: true, cost_musd: 0 };
+  var after = JSON.parse(store.getItem("smdg-campaign"));
+  check("10 " + name + ": a migrated run pays the engineers once from its own cash, and the group is saved",
+    r.ok && G.getComeback().cash_musd === Math.round((cash - r.cost_musd) * 1000) / 1000 &&
+    (!paid.length || (after.info["mercury-battery"] || []).indexOf(paid[0]) !== -1) && load({ storage: store }).partInfoKnown(d, "mercury-battery", paid[0] || "sheet"));
+});
+(function () {
+  var G0 = load({ storage: load.memoryStorage() });
+  G0.newComeback("standard", 5);
+  var cur = JSON.parse(JSON.stringify(G0.getCampaign()));
+  check("10 a new comeback saves its info map, empty", cur.info && Object.keys(cur.info).length === 0);
+  var o = JSON.parse(JSON.stringify(cur)); delete o.info;
+  var store = storeWith(JSON.stringify(o)), G = load({ storage: store }), h = G.getComeback();
+  check("10 a current-version comeback without the map is filled in, not refused", !!h && JSON.parse(store.getItem("smdg-campaign")).info &&
+    h.debt_musd === cur.debt_musd && h.cash_musd === cur.treasury_musd);
+  var bad = JSON.parse(JSON.stringify(cur)); bad.info = "none"; var rawB = JSON.stringify(bad), storeB = storeWith(rawB), GB = load({ storage: storeB });
+  check("10 a save with a wrong info value is ignored and left in storage as it is", GB.getCampaign() === null && storeB.getItem("smdg-campaign") === rawB);
+  var bad2 = JSON.parse(JSON.stringify(cur)); bad2.info = { "mercury-battery": ["secrets"] }; var rawC = JSON.stringify(bad2), storeC = storeWith(rawC), GC = load({ storage: storeC });
+  check("10 so is one that names a group that does not exist", GC.getCampaign() === null && storeC.getItem("smdg-campaign") === rawC);
+  var body = JSON.stringify({ v: 4, campaign: JSON.parse(FX.saves["one-flight-normal"].raw), progress: { best_stars: { training: 3 }, best_score: {}, best_stars_by_era: {} } });
+  var GI = load({ storage: storeWith() });
+  var r = GI.importSave("SMDG1." + Buffer.from(body).toString("base64") + "." + GI.checksum(body));
+  check("10 a version 4 save code imports with the empty info map too", r.ok && Object.keys(JSON.parse(GI.run("localStorage.getItem('smdg-campaign')")).info).length === 0, r.reason);
 })();
 
 console.log("\n" + passed + " passed, " + failed + " failed");
