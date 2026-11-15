@@ -4,6 +4,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 0.7 beta (November 15, 2026)
+
+The game is GRAVITRON now: Austin's tutorial and Ajay's chapters tell one story across the levels, and the Build bench draws the satellite from the parts on board. Science points became a second currency, spent in the lab on research and upgrades, and the archive keeps old data paying. The ionosphere arrives as a topic from Canada's Alouette 1 data, each mission type now has a data cap with rewards for new data only, and the design screens use far fewer words.
+
 ### Added
 
 - **More screen icons and an assembly preview.** Place headers, the map legend, minimap, part statistics and debrief use the shared flat icons. The Readiness satellite assembles part by part; reduced-motion settings show it immediately.
@@ -24,6 +28,14 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Polar orbits before 1995 need no disposal fuel,** as in history (Alouette 1 and Nimbus 1 reached them on a Thor-Agena); the debris rule dates from 1995.
 - **Less hand-holding.** On Trade Space and Point Design, research shows a hint instead of the exact lesson to earn.
 - **Saves:** campaign save version 3; older campaign saves start over.
+
+### Not in this version yet
+
+- Structure and attitude are still optional (`NEW_CATEGORIES_REQUIRED` is off in `js/game.js`).
+- **Launch failures** are planned and not built.
+- **Low-poly 3D art.** The engine and the models (satellite parts, rockets, Earth, people, base map) are built but not in the game yet.
+- **Suppliers, countries and travel costs** are a proposal in `SPEC.md`, not agreed.
+- The calibration event's 80% science is a game value still to agree with the Simulation owner.
 
 ## 0.6 beta (November 14, 2026)
 
