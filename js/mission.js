@@ -52,6 +52,7 @@ function copyDesign(design) {
   var copy = { tier: design.tier, objective: design.objective, orbit: design.orbit,
                launcher: design.launcher, parts: design.parts.slice() };
   if (design.campaign) copy.campaign = true;
+  if (design.comeback) { copy.comeback = true; copy.contract = design.contract || null; }
   if (design.year) { copy.year = design.year; copy.era = design.era; }
   return copy;
 }
@@ -64,11 +65,13 @@ function startMission(design) {
   missionCounter += 1;
 
   // Campaign: pay at launch, count the flight, and give each flight fresh luck.
-  var flight = 0, scienceBefore = 0;
+  var flight = 0, scienceBefore = 0, contract = null;
   var startYear = design.year || (typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : null);
   if (design.campaign) {
     var c = getCampaign();
     if (!c || c.finished) return null;
+    if (!!design.comeback !== isComeback(c)) return null;   // a design from the other mode never flies
+    if (design.comeback) contract = contractSnapshot(openContract(c, design.contract));   // the terms it flies for
     startYear = c.year;
     c.treasury_musd = round(c.treasury_musd - launchTotals.cost_musd, 3);
     c.flights = (c.flights || 0) + 1;
@@ -113,6 +116,8 @@ function startMission(design) {
     launch_totals: launchTotals,
     campaign_flight: flight,  // 0 = standalone mission
     science_before: scienceBefore,   // campaign: science already banked on this topic at launch
+    comeback: !!design.comeback,     // Ajay's comeback: paid by a contract, not by the knowledge curve
+    contract: contract,              // the contract's terms at launch (comeback only), or null
     rand: rand,
     month: 0,
     lifetime_months: lifetime,
@@ -328,9 +333,12 @@ function realWorldSummary(mission) {
     var y0 = mission.start_year, sn0 = sunspots(y0, null), all = [];
     e.sunspots.monthly.forEach(function (row) { all.push(mean(row)); });
     var peak = Math.max.apply(null, all), quiet = Math.min.apply(null, all);
+    // A flight after the record ends (Ajay's comeback flies today) quotes the latest full year instead.
+    var lastYear = e.sunspots.start_year + e.sunspots.monthly.length - 1, when = "In " + y0;
+    if (sn0 === null && y0 > lastYear) { sn0 = all[all.length - 1]; when = "In " + lastYear + ", the latest full year on record,"; }
     return {
       year: y0, sunspots: round(sn0, 0),
-      text: "In " + y0 + " the Sun averaged " + Math.round(sn0) + " sunspots a month (SILSO, Royal Observatory of Belgium). " +
+      text: when + " the Sun averaged " + Math.round(sn0) + " sunspots a month (SILSO, Royal Observatory of Belgium). " +
         "Between " + e.sunspots.start_year + " and " + (e.sunspots.start_year + all.length - 1) + " the yearly average ran from " +
         Math.round(quiet) + " to " + Math.round(peak) + ": the Sun has an 11-year cycle, so when you fly decides how much there is to see. " +
         "The International Geophysical Year was timed for the 1957-58 maximum, the strongest on record."
@@ -464,9 +472,12 @@ function getDebrief(mission) {
   if (stars === 3 && mission.science < target) stars = 2;   // 3 stars need the target
 
   var lim = limitingFactor(mission, totals, scienceShare);
+  // Ajay's comeback: the client pays in proportion to the data, plus the 3-star bonus (score and stars are unchanged).
+  var cpay = mission.contract ? contractPay(mission.contract, design, mission.science, k.new_data, stars) : null;
   var kp = "";
   if (mission.campaign_flight) {
-    if (k.nothing_new) kp = "Nothing new: this topic's data has already been collected, so the flight earned no money and no science points. Try another mission type.";
+    if (k.nothing_new && cpay) kp = "Nothing new: this topic's data has already been collected, so the client paid nothing. Take a contract on another topic.";
+    else if (k.nothing_new) kp = "Nothing new: this topic's data has already been collected, so the flight earned no money and no science points. Try another mission type.";
     else if (k.novelty < 0.15) kp = DEBRIEF.saturated || "";
     else if (k.novelty > 0.6 && k.knowledge_before < 0.2) kp = DEBRIEF.breakthrough || "";
   }
@@ -484,10 +495,12 @@ function getDebrief(mission) {
     real_world: withLiveNow(realWorldSummary(mission), mission.design.objective),
     closest_mission: closestMission(design),
     limiting_name: disciplineName(lim),
-    segments: segmentLines(mission, totals, k),
+    segments: segmentLines(mission, totals, k, cpay),
     events: mission.events_seen,
     ended_early: mission.ended_early,
-    payout_musd: k.payout_musd,
+    payout_musd: cpay ? round(cpay.paid_musd + cpay.bonus_musd, 3) : k.payout_musd,
+    contract_paid_musd: cpay ? cpay.paid_musd : null,     // comeback only: the client's pay for the data
+    contract_bonus_musd: cpay ? cpay.bonus_musd : null,   // comeback only: the 3-star bonus (0 below 3 stars)
     knowledge_before: k.knowledge_before,
     knowledge_after: k.knowledge_after,
     novelty: k.novelty,
@@ -650,6 +663,7 @@ function limitingFactor(mission, totals, scienceShare) {
       : "Nothing ran short, and this is already the best orbit for this objective. A longer-lived or sharper design is the only way up." };
   }
   // In a campaign there is no "next tier": the next step is the lab, or another topic.
+  if (mission.comeback) return { key: "none", suggestion: "Target reached. Pay back the lenders, or take the next contract." };
   if (mission.campaign_flight) return { key: "none", suggestion: "Target reached. Spend the science in the lab, or fly a different topic." };
   return { key: "none", suggestion: "Target reached. Try the next tier, or reach it on a smaller budget." };
 }
@@ -769,6 +783,7 @@ function newCampaign(tierId) {
   OBJECTIVES.forEach(function (o) { knowledge[o.id] = 0; });
   var c = {
     version: campaignVersion(),
+    mode: "campaign",         // the 1957 campaign; "comeback" is Ajay's comeback (newComeback)
     tier: tier.id,
     year: typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : 0,
     treasury_musd: tier.budget_musd,
@@ -793,6 +808,7 @@ function newCampaignDesign() {
   if (!c || c.finished) return null;
   var d = newDesign(c.tier);
   d.campaign = true;
+  if (isComeback(c)) { d.comeback = true; d.contract = null; }   // newComebackDesign(contractId) picks the contract
   return d;
 }
 
@@ -806,8 +822,10 @@ function grantFor(c) {
 // hard-coded number). Used to prevent soft locks. Parts are tried in price order and a
 // branch stops as soon as it cannot beat the best design found, so it stays fast
 // (a few milliseconds) even with every part unlocked. Battery-only designs count.
-function cheapestLaunchCost(c) {
-  var key = c.research.slice().sort().join(",") + "|" + (c.upgrades || []).slice().sort().join(",");
+// topicId and orbitId (optional) limit the search to one topic and one orbit (a comeback contract).
+function cheapestLaunchCost(c, topicId, orbitId) {
+  var key = c.research.slice().sort().join(",") + "|" + (c.upgrades || []).slice().sort().join(",") +
+            (topicId ? "|" + topicId + "|" + (orbitId || "") : "");
   if (cheapestCache[key] !== undefined) return cheapestCache[key];
   function byCost(list) { return list.slice().sort(function (a, b) { return a.cost_musd - b.cost_musd; }); }
   function avail(cat) { return byCost(PARTS.filter(function (p) { return p.category === cat && isPartAvailable(p.id); })); }
@@ -822,12 +840,12 @@ function cheapestLaunchCost(c) {
   var launchers = byCost(LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id); }));
   var best = Infinity;
   OBJECTIVES.forEach(function (o) {
-    if (!isObjectiveAvailable(o.id)) return;
+    if (!isObjectiveAvailable(o.id) || (topicId && o.id !== topicId)) return;
     var ins = avail("instrument").filter(function (p) {
       return p.tags.some(function (t) { return o.wants.indexOf(t) !== -1; });
     });
     ORBITS.forEach(function (orb) {
-      if (o.orbit_fit && !o.orbit_fit[orb.id]) return;
+      if (o.orbit_fit && !o.orbit_fit[orb.id] || (orbitId && orb.id !== orbitId)) return;
       for (var a = 0; a < ins.length; a++) {
         var c1 = ins[a].cost_musd + extraCost; if (c1 >= best) break;
         for (var b = 0; b < power.length; b++) {
@@ -865,6 +883,8 @@ function cheapestLaunchCost(c) {
 function settleCampaign(mission, debrief, result) {
   var c = getCampaign();
   if (!c) return;
+  if (isComeback(c) !== !!mission.comeback) return;   // the save changed mode since launch: nothing to settle
+  if (isComeback(c)) return settleComeback(c, mission, debrief, result);
   var obj = mission.design.objective;
   var grant = grantFor(c);
   var newData = newDataFor(getObjective(obj), c.knowledge_science[obj] || 0, mission.science);
@@ -958,6 +978,7 @@ function offerText(o, topic, orbit) {
 }
 
 function makeOffers(c) {
+  if (isComeback(c)) return makeContracts(c);
   var rand = makeRandom((c.year * 7919 + (c.flights || 0) * 104729 + 17) >>> 0);
   var open = (c.offers || []).filter(function (o) { return !o.done && o.year_to >= c.year; });
   // Only topics with something new left to collect: a customer cannot ask for what is already known.
@@ -986,7 +1007,8 @@ function makeOffers(c) {
 }
 
 // Claims every open offer this flight meets; returns what was claimed.
-function claimOffers(c, mission, yearFlown, newData) {
+function claimOffers(c, mission, yearFlown, newData, stars) {
+  if (isComeback(c)) return claimContract(c, mission, newData, stars);
   var claimed = [];
   if (!(newData > 0)) return claimed;   // no new data, no reward: offers follow the same rule as everything else
   (c.offers || []).forEach(function (o) {
@@ -1048,7 +1070,7 @@ function flightHeadline(m, o, orbitName) {
 function getChronicle() {
   var c = getCampaign();
   if (!c) return null;
-  var startYear = typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : c.year;
+  var startYear = isComeback(c) ? comebackStartYear() : typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : c.year;
   var missions = c.missions || [];
   var K = 0;
   var topics = OBJECTIVES.map(function (o) {
@@ -1151,6 +1173,7 @@ function getHubInfo() {
 function buyResearch(id) {
   var c = getCampaign();
   if (!c) return { ok: false, reason: "No campaign is running." };
+  if (isComeback(c)) return { ok: false, reason: "There is no lab in Ajay's comeback: every part of today is already on the shelf." };
   if (c.finished) return { ok: false, reason: "The campaign is over." };
   var r = typeof RESEARCH === "undefined" ? null : RESEARCH.filter(function (x) { return x.id === id; })[0];
   if (!r) return { ok: false, reason: "No such research." };
@@ -1169,6 +1192,7 @@ function buyResearch(id) {
 function previewPayout(design) {
   var objective = getObjective(design.objective);
   var c = design.campaign ? getCampaign() : null;
+  if (design.comeback && isComeback(c)) return previewContractPay(design, c);
   var before = c ? (c.knowledge_science[design.objective] || 0) : 0;
   var cost = getTotals(design).cost_musd;
   var k = payoutFor(objective, before, previewScience(design).total);
@@ -1348,6 +1372,7 @@ function getLab() {
 function buyUpgrade(id) {
   var c = getCampaign();
   if (!c) return { ok: false, reason: "No campaign is running." };
+  if (isComeback(c)) return { ok: false, reason: "There is no lab in Ajay's comeback: every part of today is already on the shelf." };
   if (c.finished) return { ok: false, reason: "The campaign is over." };
   var p = findById(PARTS, id);
   if (!p || !p.upgrade) return { ok: false, reason: "No such upgrade." };
@@ -1429,7 +1454,7 @@ function formatData(gb) {
 }
 
 // One line per mission segment (NASA, "Design and Develop Science Missions").
-function segmentLines(mission, t, k) {
+function segmentLines(mission, t, k, cpay) {
   var d = mission.design, orbit = getOrbit(d.orbit), launcher = getLauncher(d.launcher), objective = getObjective(d.objective);
   var spare = t.capacity_kg ? Math.round(100 * (t.capacity_kg - t.mass_kg) / t.capacity_kg) : null;
   var parts = designParts(d);
@@ -1448,7 +1473,9 @@ function segmentLines(mission, t, k) {
       (orbit ? ", in contact with a ground station " + round(orbit.downlink_mult * 100, orbit.downlink_mult < 0.1 ? 1 : 0) + "% of the time." : ".") });
   lines.push({ id: "user", name: "User segment",
     text: "Scientists received " + Math.round(mission.science) + " science points against a target of " +
-      (objective ? objective.science_target : "?") + (mission.campaign_flight ? "; the programme was paid $" + k.payout_musd + "M for what was new." : ".") });
+      (objective ? objective.science_target : "?") +
+      (cpay ? "; " + lcFirst(mission.contract.client) + " paid $" + round(cpay.paid_musd + cpay.bonus_musd, 3) + "M for it." :
+       mission.campaign_flight ? "; the programme was paid $" + k.payout_musd + "M for what was new." : ".") });
   return lines;
 }
 
@@ -1469,4 +1496,438 @@ function getResearchTree() {
     (r.requires || []).forEach(function (q) { edges.push({ from: q, to: r.id }); });
   });
   return { nodes: nodes, edges: edges };
+}
+
+// ------------------------------------------------------------------ Part 2: Ajay's comeback
+// A mode of the campaign above (SPEC.md, "Two game modes"): the same save, flights, offers and chronicle,
+// with mode "comeback". Ajay owes the lenders a debt that grows every month; clients pay for data through
+// contracts (data/contracts.js); the cash pays for parts and launches and is the readiness review's budget.
+// Today's parts: the save owns every research node and every upgrade, so the 1958 originals show as
+// "Replaced by" their successors and nothing waits for the lab. There is no grant and no bail-out.
+// Win: the debt reaches 0 (payDebt). Lose: the deadline comes with debt left, or the cash can neither buy
+// the cheapest launchable design for an open contract nor clear the debt.
+var COMEBACK_ERA = "new-space";      // the calendar starts in this era's year (data/eras.js)
+var CONTRACT_PRICE_SHARE = 0.32;     // GAME VALUE: a contract's full price = this x the topic's value_musd,
+var CONTRACT_PRICE_PER_MONTH = 0.56; // GAME VALUE:   plus this ($M) per month its quickest full-credit instrument takes to build
+var CONTRACT_MIN_SHARE = 0.6;        // GAME VALUE: full price needs this share of the topic's science target
+var CONTRACT_ORBIT_CHANCE = 0.4;     // GAME VALUE: how often a client names the orbit
+
+function comebackConfig() { return typeof CAMPAIGN !== "undefined" && CAMPAIGN.comeback ? CAMPAIGN.comeback : null; }
+function isComeback(c) { return !!(c && c.mode === "comeback"); }
+function comebackStartYear() {
+  var e = getEra(COMEBACK_ERA);
+  return e ? e.year : (typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : 0);
+}
+function comebackTier(c) { var cfg = comebackConfig(); return cfg && c ? cfg.tiers[c.tier] || null : null; }
+
+// Months a comeback flight takes on the calendar: building it, then the launch campaign.
+function flightMonths(design) {
+  var cfg = comebackConfig();
+  return devMonths(design) + (cfg ? cfg.launch_campaign_months : 0);
+}
+
+// The debt after `months` months of interest, compounded monthly and rounded like the rest of the money.
+function accrueInterest(debt, months) {
+  var cfg = comebackConfig(), r = cfg ? cfg.interest_per_month : 0;
+  for (var i = 0; i < months; i++) debt = round(debt * (1 + r), 3);
+  return debt;
+}
+
+// ---- contracts: the comeback's offers, with a client and a reason
+// Clients pay for what the topic is worth and for the time the work takes: a radar takes far longer to
+// build than a radiation counter, so sea-ice pays more. The instruments are those with the topic's first
+// wanted tag (full credit) on the shelf today.
+function contractPrice(objective) {
+  var tag = objective.wants && objective.wants[0];
+  var months = PARTS.filter(function (p) { return p.category === "instrument" && p.tags.indexOf(tag) !== -1 && isPartAvailable(p.id); })
+    .reduce(function (m, p) { return Math.min(m, p.build_months || 0); }, Infinity);
+  return round((objective.value_musd || 0) * CONTRACT_PRICE_SHARE + CONTRACT_PRICE_PER_MONTH * (isFinite(months) ? months : 0), 1);
+}
+function cheapestRocketTo(orbitId) {
+  return LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id) && ((l.capacity_kg || {})[orbitId] || 0) > 0; })
+    .reduce(function (m, l) { return Math.min(m, l.cost_musd); }, Infinity);
+}
+function contractText(k, topic, orbit) {
+  return k.client + ": " + topic.name + (orbit ? ", from " + lcFirst(orbit.name) : "") + ". $" + k.price_musd +
+    "M for at least " + k.min_science + " points of data, less for less; 3 stars adds $" + k.bonus_musd +
+    "M. Open until month " + k.expires_month + ".";
+}
+
+// Drops expired contracts and refills to CAMPAIGN.comeback.contracts_open, from topics with new data
+// left, never two for one topic. Seeded by the month and the flight count, so a save replays the same.
+function makeContracts(c) {
+  var cfg = comebackConfig();
+  var all = c.offers || [];
+  var open = all.filter(function (k) { return !k.done && k.expires_month > c.month; });
+  var done = all.filter(function (k) { return k.done; });
+  var salt = TIERS.map(function (t) { return t.id; }).indexOf(c.tier) + 1;
+  var rand = makeRandom((c.month * 7919 + (c.flights || 0) * 104729 + salt * 15485863 + 101) >>> 0);
+  var topics = OBJECTIVES.filter(function (o) {
+    return isObjectiveAvailable(o.id) && (c.knowledge_science[o.id] || 0) < dataCap(o) &&
+      typeof CONTRACTS !== "undefined" && CONTRACTS[o.id] && CONTRACTS[o.id].length;
+  });
+  for (var guard = 0; cfg && open.length < cfg.contracts_open && guard < 60; guard++) {
+    if (topics.every(function (o) { return open.some(function (k) { return k.topic === o.id; }); })) break;
+    var o = topics[Math.floor(rand() * topics.length)];
+    if (open.some(function (k) { return k.topic === o.id; })) continue;
+    var price = contractPrice(o);
+    // A client names an orbit only if the topic can use it and a rocket that reaches it costs less than the contract pays.
+    var orbits = ORBITS.filter(function (orb) { return (!o.orbit_fit || o.orbit_fit[orb.id] > 0) && cheapestRocketTo(orb.id) < price; });
+    var orb = orbits.length > 1 && rand() < CONTRACT_ORBIT_CHANCE ? orbits[Math.floor(rand() * orbits.length)] : null;
+    // Clients take turns: one the programme has not met on this topic comes first.
+    var list = CONTRACTS[o.id], met = all.concat(open).filter(function (k) { return k.topic === o.id; }).map(function (k) { return k.client; });
+    var fresh = list.filter(function (x) { return met.indexOf(x.client) === -1; }), pool = fresh.length ? fresh : list;
+    var who = pool[Math.floor(rand() * pool.length)];
+    var k = {
+      id: "contract-" + (c.flights || 0) + "-" + o.id, topic: o.id, orbit: orb ? orb.id : null,
+      client: who.client, reason: who.reason,
+      min_science: Math.max(5, Math.round(CONTRACT_MIN_SHARE * o.science_target / 5) * 5),
+      price_musd: price, bonus_musd: round(price * cfg.bonus_3_stars, 1),
+      expires_month: c.month + cfg.contract_months, done: false
+    };
+    k.text = contractText(k, o, orb);
+    open.push(k);
+  }
+  c.offers = open.concat(done);
+}
+
+function openContract(c, id) {
+  if (!isComeback(c) || !id) return null;
+  return (c.offers || []).filter(function (k) { return k.id === id && !k.done && k.expires_month > c.month; })[0] || null;
+}
+function contractSnapshot(k) {
+  return k ? { id: k.id, topic: k.topic, orbit: k.orbit, client: k.client, reason: k.reason,
+               min_science: k.min_science, price_musd: k.price_musd, bonus_musd: k.bonus_musd } : null;
+}
+function contractsList(c) {
+  return (c.offers || []).filter(function (k) { return !k.done && k.expires_month > c.month; }).map(function (k) {
+    var t = getObjective(k.topic), orb = k.orbit ? getOrbit(k.orbit) : null;
+    return { id: k.id, client: k.client, reason: k.reason, topic: k.topic, topic_name: t ? t.name : k.topic,
+             orbit: k.orbit, orbit_name: orb ? orb.name : null, min_science: k.min_science, price_musd: k.price_musd,
+             bonus_musd: k.bonus_musd, expires_month: k.expires_month, months_left: k.expires_month - c.month, text: k.text };
+  });
+}
+
+// What a contract pays for a flight: nothing without new data (the core loop), else the price times
+// min(1, science / min_science), plus the 3-star bonus. A flight for another topic or orbit earns nothing.
+function contractPay(k, design, science, newData, stars) {
+  var out = { paid_musd: 0, bonus_musd: 0, share: 0, met: false };
+  if (!k || !design || design.objective !== k.topic || (k.orbit && design.orbit !== k.orbit) || !(newData > 0)) return out;
+  var share = k.min_science > 0 ? Math.min(1, science / k.min_science) : 1;
+  out.share = round(share, 3);
+  out.paid_musd = round(k.price_musd * share, 3);
+  out.met = science >= k.min_science;
+  out.bonus_musd = stars === 3 && out.paid_musd > 0 ? k.bonus_musd : 0;
+  return out;
+}
+
+// Called by claimOffers in a comeback: the flown contract closes (one flight per contract) and pays.
+function claimContract(c, mission, newData, stars) {
+  var k = openContract(c, mission.design.contract);
+  if (!k) return [];
+  k.done = true;
+  var p = contractPay(mission.contract || contractSnapshot(k), mission.design, mission.science, newData, stars);
+  c.treasury_musd = round(c.treasury_musd + p.paid_musd + p.bonus_musd, 3);
+  return [{ id: k.id, client: k.client, topic: k.topic, text: k.text, paid_musd: p.paid_musd, bonus_musd: p.bonus_musd, met: p.met }];
+}
+
+// The Build screen's payout line for a comeback design: the contract's pay if it flies as planned.
+function previewContractPay(design, c) {
+  var objective = getObjective(design.objective);
+  var before = c.knowledge_science[design.objective] || 0;
+  var sci = previewScience(design).total, cost = getTotals(design).cost_musd;
+  var k = payoutFor(objective, before, sci);
+  var ct = openContract(c, design.contract), p = contractPay(ct, design, sci, k.new_data, null);
+  return { offers: [], expected_payout_musd: p.paid_musd, knowledge_before: k.knowledge_before,
+           knowledge_after: k.knowledge_after, novelty: k.novelty, new_data: k.new_data, data_left: k.data_left,
+           topic_complete: k.topic_complete, cost_musd: cost, net_musd: round(p.paid_musd - cost, 3),
+           contract: ct ? { id: ct.id, client: ct.client, price_musd: ct.price_musd, bonus_musd: ct.bonus_musd,
+                            min_science: ct.min_science, orbit: ct.orbit, expected_pay_musd: p.paid_musd, met: p.met } : null };
+}
+
+// ---- the money and the clock
+function startDebt(c) { var t = comebackTier(c); return t ? t.debt_musd : 0; }
+function paidSoFar(c) {
+  return round((c.log || []).reduce(function (t, e) { return e.kind === "payment" ? t + (e.musd || 0) : t; }, 0), 3);
+}
+// The cheapest launchable design for any open contract (its topic, and its orbit when named), or Infinity.
+function comebackCheapest(c) {
+  return contractsList(c).reduce(function (m, k) { return Math.min(m, cheapestLaunchCost(c, k.topic, k.orbit)); }, Infinity);
+}
+function safePayMax(c) {
+  if (!isComeback(c) || c.finished) return 0;
+  if (c.treasury_musd >= c.debt_musd) return c.debt_musd;
+  var cheapest = comebackCheapest(c);
+  return isFinite(cheapest) ? Math.max(0, round(c.treasury_musd - cheapest, 3)) : 0;
+}
+
+// Why a comeback is lost right now, or null. One check, after every flight and every payment.
+function comebackLoss(c) {
+  if (!isComeback(c) || c.won || !(c.debt_musd > 0)) return null;
+  if (c.month >= c.deadline_month) return "deadline";
+  if (c.treasury_musd >= c.debt_musd) return null;           // it can still pay the lenders off today
+  if (c.treasury_musd < comebackCheapest(c)) return "cash";   // no open contract can be flown (or none is left)
+  return null;
+}
+function checkComebackEnd(c) {
+  if (c.finished) return;
+  if (!(c.debt_musd > 0)) { c.debt_musd = 0; c.finished = true; c.won = true; return; }
+  if (comebackLoss(c)) { c.finished = true; c.won = false; }
+}
+// The reason a finished comeback was lost: the deadline if it came, else the cash.
+function lostReason(c) {
+  if (!isComeback(c) || !c.finished || c.won) return null;
+  return c.month >= c.deadline_month ? "deadline" : "cash";
+}
+
+// Checks the readiness review adds for a comeback design (called by runChecks in game.js).
+function comebackChecks(design, t) {
+  var out = { blockers: [], warnings: [] };
+  var c = getCampaign();
+  if (!isComeback(c) || !design.comeback) {
+    out.blockers.push({ id: "no-comeback", text: "This design belongs to Ajay's comeback, and none is running." });
+    return out;
+  }
+  if (c.finished) { out.blockers.push({ id: "comeback-over", text: "The comeback is over." }); return out; }
+  var k = openContract(c, design.contract);
+  if (!k) {
+    out.blockers.push({ id: "no-contract", text: design.contract ? "That contract is no longer open: pick another on the hub."
+                                                                  : "Pick a contract on the hub first: nobody pays for data without one." });
+  } else {
+    var topic = getObjective(k.topic), orb = k.orbit ? getOrbit(k.orbit) : null;
+    if (design.objective && design.objective !== k.topic) {
+      out.blockers.push({ id: "contract-topic", text: k.client + " is paying for " + lcFirst(topic ? topic.name : k.topic) + " data, not this." });
+    }
+    if (orb && design.orbit && design.orbit !== k.orbit) {
+      out.blockers.push({ id: "contract-orbit", text: k.client + " wants the data from " + lcFirst(orb.name) + "." });
+    }
+  }
+  var months = flightMonths(design), left = c.deadline_month - c.month;
+  if (design.parts.length && months >= left) {
+    out.warnings.push({ id: "deadline", text: "Building and launching this takes " + months + " months, but the lenders' deadline is in " +
+      left + (left === 1 ? " month" : " months") + ": the pay would come too late, and the comeback would end when it lands." });
+  }
+  return out;
+}
+
+// ---- the API for the screens
+// Starts and saves a new comeback (replacing any saved campaign); returns getComeback().
+function newComeback(tierId) {
+  var cfg = comebackConfig();
+  if (!cfg) return null;
+  var tier = getTier(tierId) && cfg.tiers[tierId] ? getTier(tierId) : (getTier("standard") || TIERS[0]);
+  var t = cfg.tiers[tier.id];
+  var knowledge = {};
+  OBJECTIVES.forEach(function (o) { knowledge[o.id] = 0; });
+  var c = {
+    version: campaignVersion(),
+    mode: "comeback",
+    tier: tier.id,
+    year: comebackStartYear(),
+    month: 0,                       // months since the comeback started
+    deadline_month: t.deadline_months,
+    treasury_musd: t.cash_musd,     // the cash
+    debt_musd: t.debt_musd,
+    knowledge_science: knowledge,
+    research: (typeof RESEARCH === "undefined" ? [] : RESEARCH).map(function (r) { return r.id; }),   // today's parts: nothing to research
+    upgrades: PARTS.filter(function (p) { return p.upgrade; }).map(function (p) { return p.id; }),
+    science_pts: 0,
+    lessons: [],
+    missions: [],
+    flights: 0,
+    log: [],
+    finished: false,
+    won: false
+  };
+  saveCampaign(c);
+  makeOffers(c);
+  checkComebackEnd(c);
+  saveCampaign(c);
+  return getComeback();
+}
+
+// The hub: null unless the saved campaign is a comeback.
+function getComeback() {
+  var c = getCampaign();
+  if (!isComeback(c)) return null;
+  var cfg = comebackConfig(), tier = getTier(c.tier), cheapest = comebackCheapest(c);
+  return {
+    mode: "comeback",
+    tier: c.tier,
+    tier_name: tier ? tier.name : c.tier,
+    year: c.year,
+    month: c.month,
+    months_left: Math.max(0, c.deadline_month - c.month),
+    deadline_month: c.deadline_month,
+    cash_musd: c.treasury_musd,
+    debt_musd: c.debt_musd,
+    start_debt_musd: startDebt(c),
+    interest_per_month: cfg ? cfg.interest_per_month : 0,
+    debt_paid_musd: paidSoFar(c),
+    safe_pay_max_musd: safePayMax(c),
+    cheapest_launch_musd: isFinite(cheapest) ? cheapest : null,
+    contracts: c.finished ? [] : contractsList(c),
+    flights: c.flights || 0,
+    missions: c.missions || [],
+    finished: !!c.finished,
+    won: !!c.won,
+    lost_reason: lostReason(c)
+  };
+}
+
+// A design that flies for one open contract: the topic (and the orbit, when the client names one) is preset.
+function newComebackDesign(contractId) {
+  var c = getCampaign();
+  if (!isComeback(c) || c.finished) return null;
+  var k = openContract(c, contractId);
+  if (!k) return null;
+  var d = newDesign(c.tier);
+  d.campaign = true;
+  d.comeback = true;
+  d.contract = k.id;
+  setObjective(d, k.topic);
+  if (k.orbit) setOrbit(d, k.orbit);
+  return d;
+}
+
+// PAY BACK: moves cash to the debt. Refuses what is not a positive number, more than the cash, and a
+// partial payment that would leave too little cash to launch anything (more than safe_pay_max_musd).
+// More than the debt pays the debt. Paying the whole debt wins at once.
+function payDebt(amountMusd) {
+  var c = getCampaign();
+  function no(reason) {
+    return { ok: false, reason: reason, paid_musd: 0, cash_musd: c ? c.treasury_musd : null, debt_musd: c ? c.debt_musd : null, won: !!(c && c.won) };
+  }
+  if (!isComeback(c)) { c = null; return no("No comeback is running."); }
+  if (c.finished) return no("The comeback is over.");
+  if (typeof amountMusd !== "number" || !isFinite(amountMusd)) return no("Pay an amount in millions of dollars.");
+  if (amountMusd <= 0) return no("Pay more than nothing.");
+  var amount = round(Math.min(amountMusd, c.debt_musd), 3);
+  if (amount > c.treasury_musd + 1e-9) return no("Ajay has only $" + c.treasury_musd + "M in cash.");
+  var safe = safePayMax(c);
+  if (amount < c.debt_musd && amount > safe + 1e-9) {
+    return no("That would leave too little cash to launch anything: pay at most $" + safe + "M now, or the whole debt.");
+  }
+  c.treasury_musd = round(c.treasury_musd - amount, 3);
+  c.debt_musd = round(c.debt_musd - amount, 3);
+  (c.log = c.log || []).push({ year: c.year, month: c.month, kind: "payment", musd: amount });
+  checkComebackEnd(c);
+  saveCampaign(c);
+  return { ok: true, reason: null, paid_musd: amount, cash_musd: c.treasury_musd, debt_musd: c.debt_musd, won: !!c.won };
+}
+
+// Called from settleCampaign for a comeback flight: the contract pays, events cost cash, months pass and
+// the debt grows; then contracts expire and refill, and the comeback may end.
+function settleComeback(c, mission, debrief, result) {
+  var obj = mission.design.objective;
+  var newData = newDataFor(getObjective(obj), c.knowledge_science[obj] || 0, mission.science);
+  c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + newData;
+  var claimed = claimOffers(c, mission, c.year, newData, debrief.stars);
+  var pay = claimed[0] || { id: null, paid_musd: 0, bonus_musd: 0 };
+  c.treasury_musd = round(c.treasury_musd - mission.extra_cost_musd, 3);
+  var used = flightMonths(mission.design), debtBefore = c.debt_musd, yearFlown = c.year;
+  c.debt_musd = accrueInterest(c.debt_musd, used);
+  var interest = round(c.debt_musd - debtBefore, 3);
+  c.month += used;
+  c.year = comebackStartYear() + Math.floor(c.month / 12);
+  c.science_pts = round((c.science_pts || 0) + newData, 1);
+  var newLessons = lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
+  c.lessons = c.lessons.concat(newLessons);
+  c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
+                    spent_musd: debrief.spent_musd, science: round(mission.science, 1),
+                    payout_musd: round(pay.paid_musd + pay.bonus_musd, 3), stars: debrief.stars,
+                    flight: c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
+                    months: mission.month, ended_early: !!mission.ended_early, limiting: debrief.limiting_name || null,
+                    parts: designParts(mission.design).length,
+                    real: debrief.closest_mission ? { name: debrief.closest_mission.name, year: debrief.closest_mission.year } : null,
+                    month: c.month, contract: mission.design.contract || null });   // comeback: the month the pay came, and for whom
+  saveCampaign(c);
+  makeOffers(c);
+  checkComebackEnd(c);
+  saveCampaign(c);
+
+  result.offers_claimed = [];
+  result.payout_musd = round(pay.paid_musd + pay.bonus_musd, 3);
+  result.grant_musd = 0;
+  result.event_costs_musd = round(mission.extra_cost_musd, 3);
+  result.knowledge_before = debrief.knowledge_before;
+  result.knowledge_after = debrief.knowledge_after;
+  result.novelty = debrief.novelty;
+  result.treasury_musd = c.treasury_musd;
+  result.year = c.year;
+  result.bailout = false;
+  result.bailout_musd = 0;
+  result.campaign_over = !!c.finished;
+  result.won = !!c.won;
+  result.lessons_new = newLessons;
+  result.science_pts_earned = round(newData, 1);
+  result.new_data = round(newData, 1);
+  result.nothing_new = mission.science > 0 && newData === 0;
+  result.best_next_topic = bestNextTopic(obj);
+  result.archive_sci = 0;
+  result.science_pts = c.science_pts;
+  // The comeback's own numbers for the debrief:
+  result.contract_id = pay.id;
+  result.contract_paid_musd = pay.paid_musd;
+  result.contract_bonus_musd = pay.bonus_musd;
+  result.cash_musd = c.treasury_musd;
+  result.debt_musd = c.debt_musd;
+  result.interest_musd = interest;
+  result.months_used = used;
+  result.months_left = Math.max(0, c.deadline_month - c.month);
+  result.comeback_over = !!c.finished;
+  result.lost_reason = lostReason(c);
+}
+
+// The ending: a short chronicle of the comeback, won, lost or still running.
+function getComebackEnding() {
+  var c = getCampaign();
+  if (!isComeback(c)) return null;
+  var missions = c.missions || [], lost = lostReason(c);
+  var start = startDebt(c), paid = paidSoFar(c), interest = round(c.debt_musd - start + paid, 3);
+  var earned = round(missions.reduce(function (t, m) { return t + (m.payout_musd || 0); }, 0), 3);
+  var stars = missions.reduce(function (t, m) { return t + (m.stars || 0); }, 0);
+  function money(x) { return "$" + round(x, 1) + "M"; }
+  function months(n) { return n + (n === 1 ? " month" : " months"); }
+  var timeline = [];
+  missions.forEach(function (m, i) {
+    var o = getObjective(m.objective), orbit = getOrbit(m.orbit);
+    var k = (c.offers || []).filter(function (x) { return x.id === m.contract; })[0];
+    timeline.push({ month: m.month, title: "G-" + (m.flight || i + 1) + ": " + flightHeadline(m, o, orbit ? orbit.name : m.orbit),
+      text: "Flown for " + (k ? lcFirst(k.client) : "no client") + " from " + lcFirst(orbit ? orbit.name : m.orbit) + ": " +
+        round(m.science, 0) + " points of data, " + (m.stars || 0) + (m.stars === 1 ? " star" : " stars") + ", paid " + money(m.payout_musd || 0) + "." +
+        (m.real ? " Its real twin: " + m.real.name + " (" + m.real.year + ")." : "") });
+  });
+  (c.log || []).forEach(function (e) {
+    if (e.kind === "payment") timeline.push({ month: e.month, title: "Paid the lenders " + money(e.musd), text: "Every dollar paid now stops growing interest." });
+  });
+  timeline = timeline.map(function (e, i) { return { e: e, i: i }; })
+    .sort(function (a, b) { return a.e.month - b.e.month || a.i - b.i; }).map(function (x) { return x.e; });
+  var title, headline, text, epilogue = null;
+  if (c.won) {
+    title = "The workshop is yours";
+    headline = "Albert Orbital clears its debt in " + months(c.month);
+    text = "Ajay flew " + missions.length + (missions.length === 1 ? " satellite" : " satellites") + " for paying clients, earned " +
+      money(earned) + " and paid the lenders " + money(paid) + ", " + money(interest) + " of it interest, with " +
+      months(Math.max(0, c.deadline_month - c.month)) + " to spare.";
+    epilogue = "The lenders hand back the keys. In the workshop, Ajay opens Austin's notebook to the last page, the one his grandfather never got to fill, and starts writing.";
+  } else if (lost) {
+    title = lost === "deadline" ? "Out of time" : "Out of money";
+    headline = lost === "deadline" ? "The deadline passes with " + money(c.debt_musd) + " still owed"
+                                   : "Albert Orbital runs out of cash with " + money(c.debt_musd) + " still owed";
+    text = "Ajay flew " + missions.length + (missions.length === 1 ? " satellite" : " satellites") + " and earned " + money(earned) +
+      (lost === "deadline" ? ", but the lenders' clock ran out first." : ", but the cash ran out before the debt did: nothing left could launch.") +
+      " He paid back " + money(paid) + "; interest added " + money(interest) + ".";
+    epilogue = "The lenders change the locks on the workshop. Ajay keeps the notebook. Somewhere, Iron Eclipse sends flowers.";
+  } else {
+    title = "Ajay's comeback so far";
+    headline = money(c.debt_musd) + " still owed, " + months(Math.max(0, c.deadline_month - c.month)) + " left";
+    text = missions.length + (missions.length === 1 ? " flight" : " flights") + " so far, " + money(earned) + " earned and " + money(paid) + " paid back.";
+  }
+  return {
+    won: !!c.won, lost_reason: lost, title: title, headline: headline, text: text,
+    totals: { flights: missions.length, stars: stars, earned_musd: earned, paid_musd: paid, interest_musd: interest, months: c.month },
+    timeline: timeline,
+    epilogue: epilogue
+  };
 }

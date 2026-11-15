@@ -568,7 +568,7 @@ function runChecks(design) {
 
   if (t.budget_musd !== null && t.cost_musd > t.budget_musd) {
     block("budget", "Cost is $" + round(t.cost_musd, 2) + "M but " +
-      (design.campaign ? "the treasury holds $" : "the budget is $") + round(t.budget_musd, 2) + "M.");
+      (design.campaign ? (design.comeback ? "you have $" : "the treasury holds $") : "the budget is $") + round(t.budget_musd, 2) + "M.");
   }
 
   // A spinning satellite smears cameras, thermal imagers and radar.
@@ -581,9 +581,16 @@ function runChecks(design) {
   }
 
   // Time: in a campaign, the satellite must be built before the programme ends.
+  // Ajay's comeback (mode "comeback") has a deadline in months instead: js/mission.js checks it and the contract.
   if (design.campaign && typeof getCampaign === "function" && typeof CAMPAIGN !== "undefined") {
     var camp = getCampaign();
-    if (camp && camp.year + missionYears(design) > CAMPAIGN.end_year) {
+    if (camp && camp.mode === "comeback" || design.comeback) {
+      if (typeof comebackChecks === "function") {
+        var cb = comebackChecks(design, t);
+        cb.blockers.forEach(function (x) { block(x.id, x.text); });
+        cb.warnings.forEach(function (x) { warn(x.id, x.text); });
+      }
+    } else if (camp && camp.year + missionYears(design) > CAMPAIGN.end_year) {
       block("too-late", "Building this takes " + t.dev_months + " months: it could not launch before the programme ends in " + CAMPAIGN.end_year + ".");
     }
   }
@@ -659,7 +666,8 @@ function batteryLifeMonths(design) {
 function previewScience(design) {
   var orbit = getOrbit(design.orbit);
   var objective = getObjective(design.objective);
-  var rate = scienceRate(design, []);
+  // A comeback flies today, so its preview uses today's Sun; other designs keep the record's first year.
+  var rate = design.comeback && design.campaign ? scienceRate(design, [], null, designYear(design)) : scienceRate(design, []);
   var months = orbit ? orbit.lifetime_months : 0;
   var bl = batteryLifeMonths(design);
   if (bl !== null) months = Math.min(months, bl);
@@ -722,6 +730,7 @@ function previewToggle(design, partId) {
   var adding = design.parts.indexOf(partId) === -1;
   var after = { tier: design.tier, objective: design.objective, orbit: design.orbit,
                 launcher: design.launcher, parts: design.parts.slice(), campaign: design.campaign };
+  if (design.comeback) { after.comeback = true; after.contract = design.contract; }
   if (adding) addPart(after, partId); else removePart(after, partId);
 
   function snapshot(d) {
