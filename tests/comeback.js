@@ -526,14 +526,15 @@ check("18 a running comeback has no ending id, in the hub or the chronicle", G.g
 G.resetCampaign(); NC("standard", 61);
 var cur = JSON.parse(store.getItem("smdg-campaign"));
 check("19 the save version went up for the seed and the buyout", G.CAMPAIGN.save_version >= 5 && cur.version === G.CAMPAIGN.save_version && cur.seed === 61 && cur.buyout === "none");
-[["a version 4 comeback", function (o) { o.version = 4; delete o.seed; delete o.buyout; }],
- ["a comeback with no seed", function (o) { delete o.seed; }],
- ["a comeback with no buyout", function (o) { delete o.buyout; }],
- ["a comeback with a buyout that is not one", function (o) { o.buyout = "maybe"; }],
- ["a comeback with a seed that is not a number", function (o) { o.seed = "7"; }]].forEach(function (t) {
+[["a version 4 comeback (the game before) is upgraded in place, not discarded", function (o) { o.version = 4; delete o.seed; delete o.buyout; delete o.start_debt_musd; }, true],
+ ["a comeback with no seed is filled in, not refused", function (o) { delete o.seed; }, true],
+ ["a comeback with no buyout is filled in, not refused", function (o) { delete o.buyout; }, true],
+ ["a comeback with a buyout that is not one is ignored", function (o) { o.buyout = "maybe"; }, false],
+ ["a comeback with a seed that is not a number is ignored", function (o) { o.seed = "7"; }, false]].forEach(function (t) {
   var o = JSON.parse(JSON.stringify(cur)); t[1](o); store.setItem("smdg-campaign", JSON.stringify(o));
-  var G4 = load({ storage: store });
-  check("19 " + t[0] + " is discarded", G4.getCampaign() === null && G4.getComeback() === null);
+  var G4 = load({ storage: store }), h4 = G4.getComeback();
+  check("19 " + t[0], t[2] ? !!h4 && h4.debt_musd === cur.debt_musd && h4.cash_musd === cur.treasury_musd && h4.buyout === "none" && Number.isInteger(h4.seed) &&
+    JSON.parse(store.getItem("smdg-campaign")).version === G4.CAMPAIGN.save_version : G4.getCampaign() === null && G4.getComeback() === null);
 });
 store.setItem("smdg-campaign", JSON.stringify(cur));
 G.resetCampaign();

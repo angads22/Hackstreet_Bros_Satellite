@@ -12,17 +12,17 @@ const CAMPAIGN = {
   grant_musd: 2,              // agency grant after each mission: small, so money still matters
   cap_scales: 3,              // GAME VALUE: a topic's data cap = this x its knowledge_scale (95% known)
   archive_share: 0.1,         // GAME VALUE: each year the archive pays this share of all science banked, as science points
-  save_version: 5,            // bump when the saved shape changes; an older save is discarded (5: a comeback keeps its seed and its buyout)
+  save_version: 5,            // bump when the saved shape changes (5: a comeback keeps its seed, its buyout and its starting debt); js/mission.js upgrades a version 4 save in place (upgradeCampaign), an older or newer one is ignored
 
   // Part 2, Ajay's comeback (SPEC.md, "Two game modes"): a mode of this campaign in the present day.
-  // Every value is a GAME VALUE, tuned by simulating hundreds of comebacks per difficulty: a sensible
-  // player wins Normal in 4 or 5 flights with a few months to spare, Hard about 4 times in 5, Easy always;
-  // a careless player (random parts) loses on every difficulty.
+  // Every value is a GAME VALUE, tuned by simulating hundreds of comebacks per difficulty (see CHANGELOG.md): a run is short.
+  // A sensible player wins Easy in 2 flights, Normal in 3 and Hard in 4, with a few months to spare; Hard is still won
+  // about 9 times in 10 by a sensible player; a careless player (random parts) loses on every difficulty.
   comeback: {
     tiers: {                  // per difficulty (tier id): Easy, Normal and Hard
-      training: { cash_musd: 6, debt_musd: 30, deadline_months: 60 },   // GAME VALUES
-      standard: { cash_musd: 4, debt_musd: 40, deadline_months: 54 },   // GAME VALUES
-      expert:   { cash_musd: 3, debt_musd: 45, deadline_months: 54 }    // GAME VALUES (and 3 events a flight, from data/tiers.js)
+      training: { cash_musd: 5, debt_musd: 22, deadline_months: 36 },   // GAME VALUES
+      standard: { cash_musd: 4, debt_musd: 28, deadline_months: 42 },   // GAME VALUES
+      expert:   { cash_musd: 3, debt_musd: 34, deadline_months: 48 }    // GAME VALUES (and 3 events a flight, from data/tiers.js)
     },
     interest_per_month: 0.005,    // GAME VALUE: the debt grows by this share every month, compounded (about 6% a year)
     launch_campaign_months: 2,    // GAME VALUE: months from a finished satellite to its data reaching the client
