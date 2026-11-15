@@ -411,6 +411,7 @@ button:disabled { cursor: not-allowed; }
 .bar.bad .bar-top span:last-child { color: var(--bad); }
 .bar.warn .bar-top span:last-child { color: var(--accent-ink); }
 .bar-note { font-size: 18px; color: var(--text-dim); }
+.long-pole { margin: 10px 0 0; font-size: 18px; color: var(--text-dim); }   /* WORLD: the long-pole line under the bars */
 
 /* ---------------------------------------------------------------- checklists */
 .checks { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
@@ -1211,7 +1212,7 @@ body[data-era="1958"] .screen-head h1 { letter-spacing: 1px; text-decoration: un
 body[data-era="1958"] .screen-head h1 svg.icon { text-decoration: none; }
 body[data-era="1958"] .panel > h2 { letter-spacing: 1.5px; }
 body[data-era="1958"] :is(.say-text p, .speech, .try, .chron-epilogue, .preset-note, .hint) { font-family: var(--font-story); }
-body[data-era="1958"] :is(.kicker, .say-name, .tag, .stamp, .banner, .verdict, .objective-key, .bar-note) { font-family: var(--font-story); }
+body[data-era="1958"] :is(.kicker, .say-name, .tag, .stamp, .banner, .verdict, .objective-key, .bar-note, .long-pole) { font-family: var(--font-story); }
 body[data-era="1958"] .kicker { display: inline-block; align-self: flex-start; transform: rotate(-1.5deg); transform-origin: left center; letter-spacing: 2px; }
 body[data-era="1958"] .tag { transform: rotate(-2deg); }
 body[data-era="1958"] .stamp { transform: rotate(-3deg); }
@@ -1293,7 +1294,7 @@ body[data-era="1958"] .say-text p { line-height: 1.1; }
 .explainer { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: none; }
 .ex-svg { display: block; width: 100%; height: auto; border: 3px solid var(--border, #54463a); background: var(--pal-night, #1a1612); pointer-events: none; }
 .ex-hook { display: block; font-family: var(--pixel, "Courier New", monospace); font-size: 20px; line-height: 1.1; color: var(--text, #f2e7d3); }
-.ex-does, .ex-trade { display: block; margin-top: 4px; font-size: 18px; line-height: 1.15; color: var(--text-dim, #bdae95); }
+.ex-does, .ex-trade, .ex-lead { display: block; margin-top: 4px; font-size: 18px; line-height: 1.15; color: var(--text-dim, #bdae95); }
 .ex-tag { color: var(--accent-ink, #f0874f); }
 .explainer.ex-compact { flex-direction: row; align-items: flex-start; gap: 12px; }
 .explainer.ex-compact .ex-svg { flex: 0 0 192px; width: 192px; }

@@ -2210,6 +2210,24 @@
     ]);
   }
 
+  // WORLD (the long pole): one line under the bars, from getSchedule only. Part 1 and every level may show it: it is derived
+  // from the build times the player already sees. "Without it" is left out when no other part is left to take over.
+  function longPoleLine(design) {
+    var s = design && list(design.parts).length && typeof getSchedule === "function" ? getSchedule(design) : null;
+    if (!s || !s.long_pole) return null;
+    function months(n) { return num(n, 0) + (n === 1 ? " month" : " months"); }
+    return el("p", { class: "long-pole", "data-key": "long-pole",
+      text: "Longest part: " + s.long_pole + ", " + months(s.long_pole_months) + "." + (s.next_months > 0 ? " Without it: " + months(s.next_months) + "." : "") });
+  }
+
+  // WORLD (lead time): a part's lead_months is DOSSIER information. The paid builder's StarlineUI.infoKnown gates it; until
+  // that exists it is always shown.
+  function leadLine(p) {
+    if (!p || !isNum(p.lead_months)) return null;
+    var known = window.StarlineUI && window.StarlineUI.infoKnown ? window.StarlineUI.infoKnown(p.id, "dossier") : true;
+    return known ? el("p", { class: "preview-line lead", text: "Lead time: ~" + num(p.lead_months, 0) + " months to arrive" }) : null;
+  }
+
   // "Battery only: runs out in about 2.2 months", from previewScience (its months stop when the battery is spent).
   function batteryNote(design) {
     var s = typeof previewScience === "function" ? previewScience(design) : null;
@@ -2886,6 +2904,8 @@
       ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
       ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
     }
+    var lead = leadLine(p);   // WORLD: the lead time, one line of the part's dossier
+    if (lead) box.appendChild(lead);
     // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
     var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
     if (story) box.insertBefore(story, box.children[why ? 3 : 2] || null);   // under the heading and the WHY box
@@ -2990,6 +3010,7 @@
     var overview = el("div", { class: "panel" }, [
       el("h2", { text: "MISSION OVERVIEW" }),
       resourceBars(d),
+      longPoleLine(d),
       bodyCard(body),
       el("h2", { class: "divided", text: "PROBLEMS" }),
       checkList(d, { short: true, skip: ["no-launcher"] })
@@ -3140,7 +3161,7 @@
       head("5 · READINESS REVIEW"),
       sayLine("review"),
       el("div", { class: "pad" }, [
-        el("div", { class: "stack" }, [padArt(!blocked), satelliteArt(d, null, "small"), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])]),
+        el("div", { class: "stack" }, [padArt(!blocked), satelliteArt(d, null, "small"), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d), longPoleLine(d)])]),
         control
       ]),
       navRow(null)

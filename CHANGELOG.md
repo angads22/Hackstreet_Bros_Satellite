@@ -22,6 +22,8 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 ### Changed
 
 - **Higher levels give less help before a problem.** Normal drops the hover preview's "Fixes" and "Causes" lines and the FIX links; Hard also drops the science forecast and the pay forecast (the contract's terms stay) and shows event risks as bands. Facts, blockers and the debrief's TRY THIS stay on every level. The Part 2 picker says what each level removes.
+- **The long pole.** The Build bars and the readiness review name the slowest part ("Longest part: synthetic aperture radar, 18 months. Without it: 12 months."), from the new `getSchedule(design)`; no timing changes.
+- **Lead time for every part.** Each of the 41 parts has `lead_months` (about how long it takes to arrive, rounded from the engineers' quote; sources in `SOURCES.md` are not yet opened) and the part preview shows "Lead time: ~N months to arrive". It changes no rule.
 
 ## 1.0 (November 15, 2026)
 
