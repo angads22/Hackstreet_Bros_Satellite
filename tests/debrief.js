@@ -3,6 +3,7 @@
 // 1. A battery-only satellite flies until its battery is spent; an event ends a mission only when it breaks a part.
 // 2. The knowledge paragraph: "first real look" only on a topic's first flight; none in a comeback.
 // 3. TRY THIS: always something the player can do with what the design has (Part 1, other eras, Part 2).
+// 4. Event text names no hardware the satellite may not carry.
 var load = require("./load");
 var G = load();
 var passed = 0, failed = 0;
@@ -270,5 +271,14 @@ function adviceProblems(g, m, lim, label) {
   check("3 a target reached on the last tier does not send the player to a next tier", lim.key === "none" && !/next tier/.test(lim.suggestion), lim.suggestion);
 })();
 
+// ---- 4. Event text names no hardware the satellite may not carry: an event can fire on any design for its topic
+// (a Geiger counter or a scintillation counter, solar cells or batteries alone, a tape recorder or none).
+(function () {
+  var named = /Geiger|scintillation|recorder|photometer|spectrometer|hinge|panel|infrared|optics|images|spins/i, bad = [];
+  G.EVENTS.forEach(function (e) {
+    [e.title, e.text].concat(e.choices.map(function (c) { return c.label; })).forEach(function (t) { if (named.test(t)) bad.push(e.id + ": " + t); });
+  });
+  check("4 no event text names a part the satellite may not carry", bad.length === 0, bad.slice(0, 3).join(" | "));
+})();
 console.log(passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;
