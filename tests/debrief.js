@@ -109,7 +109,7 @@ check("1 the safe choice keeps it flying to the end of its battery", !batSafe.en
 })();
 // A comeback client pays by the contract, not by the knowledge curve: neither paragraph applies there.
 var CB = load({ storage: load.memoryStorage() });
-CB.newComeback("standard");
+CB.newComeback("standard", 7);
 // A test contract, added to the open ones the way tests/comeback.js does.
 function cbContract(fields) {
   var c = CB.getCampaign();
@@ -137,7 +137,7 @@ var RAD = ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf
 // The change the advice asks for (limitingFactor's `change`) is applied to the flown design, and the result must clear
 // every blocker the change itself could cause (locks for the era or the research, the body, the rocket, power, thrust)
 // on the money this flight had at launch. The text is checked too.
-var IGNORE = ["budget", "no-contract", "contract-topic", "contract-orbit", "comeback-over", "no-comeback", "too-late"];
+var IGNORE = ["budget", "no-contract", "contract-topic", "contract-orbit", "comeback-over", "no-comeback", "buyout-open", "too-late"];
 function adviceOf(g, m) {
   var t = m.launch_totals, o = g.getObjective(m.design.objective);
   return g.limitingFactor(m, t, Math.min(1, m.science / (o ? o.science_target : 100)));
@@ -273,9 +273,10 @@ function textProblems(obj, label) {
   var all = G.PARTS.map(function (p) { return p.id; });
   for (var n = 0; n < 3000 && flights < 500; n++) {
     var g = CB;
-    if (n % 25 === 0) g.newComeback(G.TIERS[n % 3].id);
+    if (n % 25 === 0) g.newComeback(G.TIERS[n % 3].id, n + 1);
     var c = g.getCampaign();
-    if (c.finished) { g.newComeback(G.TIERS[n % 3].id); c = g.getCampaign(); }
+    if (c.finished) { g.newComeback(G.TIERS[n % 3].id, n + 1); c = g.getCampaign(); }
+    if (c.buyout === "offered") { g.refuseBuyout(); c = g.getCampaign(); }   // Iron Eclipse's offer waits after the second flight
     c.treasury_musd = 60; c.deadline_month = c.month + 600;   // room to fly many designs (the cash is the budget)
     var topics = ["radiation", "solar", "weather", "wildfire", "sea-ice", "ionosphere"], topic = topics[Math.floor(rnd() * topics.length)];
     var orbits = topic === "sea-ice" ? ["sso"] : topic === "ionosphere" ? ["leo", "sso"] : ["leo", "sso", "geo"];
