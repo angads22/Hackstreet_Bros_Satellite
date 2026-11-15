@@ -195,6 +195,35 @@ Tier 1 is a must-have. Tiers 2 and 3 are the first stretch items, because they a
 
 Later, each tier will carry its own weights for every calculation, in the style of Plague Inc's difficulty selection, and a fourth Impossible mode is planned. Both are described in `STRETCH.md` and are not part of the first build.
 
+### Proposal: suppliers, countries and travel (not agreed, do not build yet)
+
+From the team's notes of November 15. Nothing here is in the code or the data. It adds data fields and a cost to the rules, so it needs a yes from the data owner, the rules owner and the Design screens owner before anyone builds it. The questions at the end are the ones to settle first.
+
+The idea, in the team's words: separate places to buy parts; countries that specialise in different parts; travel that costs money; processes such as assembly and shipping shown as animations.
+
+- **Suppliers.** Parts are not all bought in one shop. Each supplier is a place on the base map, in a country, that stocks the parts that country really made or flew. Canada's topside sounders (Alouette 1 and 2) are the data's own example; the data owner fills in the rest with sourced rows.
+- **Travel costs money.** Visiting a supplier costs budget (and, if the team wants it, months). The player pays for a trip when they take it, so a design that needs parts from three countries is dearer than one bought at home. A part is bought once per mission, and only on a visit.
+- **Having the part.** A part that has not been bought is not on the shelf. The bench only offers parts the player owns, so "I have the thing" is a real state, not a label.
+- **Shipping and assembly.** A bought part arrives after a shipping time, and the Workshop assembles the parts on board. Both are animated on the Design screens. The animations only show numbers the rules already computed; they add none.
+- **Tier 1 stays simple.** The first tier has every part at the home supplier and no trips, so the tutorial is no harder than today.
+
+Sketch of what it would need (names open, none agreed):
+
+| Where | Change |
+|---|---|
+| `data/parts.js` | one new field per part, `origin`, the id of its supplier's country |
+| `data/suppliers.js` | one new global, `SUPPLIERS`: `{ id, country, name, trip_cost_musd, trip_months, source }`; trip costs are GAME VALUEs |
+| `js/mission.js` | `visitSupplier(id)` returning `{ ok, reason }`; `getTotals` gains `travel_musd` and `travel_months` |
+| `js/ui-design.js` | supplier places on the base map, a country line on each part card, the shipping and assembly animations |
+
+Questions to settle first:
+
+1. Must the player own a part before fitting it (the bench only shows what was bought), or is travel only a cost on a design that uses a far supplier's parts?
+2. Do trips cost months as well as money?
+3. Is a part bought for good in a campaign, or once per mission?
+4. Who sources each part's country? Every row needs a page a human opened, like `source`.
+5. Out of scope above lists "3D graphics or animated launches". The art is moving to faceted low-poly and the animations are small, so that line needs rewording first.
+
 ## Content choices
 
 Two objectives, three orbits and three instruments, chosen so that different designs win different missions.
