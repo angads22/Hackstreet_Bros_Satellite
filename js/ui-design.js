@@ -1939,6 +1939,7 @@
       : sources + (live.fetched_at ? ". Fetched " + live.fetched_at.slice(0, 16).replace("T", " ") + " UTC." : "");
     node.title = title;
     node.setAttribute("aria-label", node.textContent + ". " + title);
+    node.tabIndex = 0;
   }
 
   function setStatus(text) {
@@ -2117,7 +2118,7 @@
     if (nextTo && gps !== state.screen) nextTo = gps;
     var next = byId(PLACES, nextTo);
     return el("div", { class: "nav-row" }, [
-      button(["< ", "MAP [M]"], openMap, { aria: "Map: back to the base map" }),
+      button(["< ", "MAP [M]"], openMap, { aria: "MAP [M]: back to the base map" }),
       next ? button(["GO TO " + next.name, " >"], function () { travel(nextTo); },
         { primary: true, disabled: !nextOk, aria: "Go to " + next.name.toLowerCase() }) : null
     ]);
@@ -2965,7 +2966,7 @@
       var locked = lockReason(avail.launchers, l.id);
       if (locked && d.launcher !== l.id) {
         return el("button", { type: "button", class: "card locked", disabled: true, "data-key": "rocket-" + l.id }, [
-          el("div", { class: "card-title" }, [el("h3", { text: l.name.toUpperCase() }), el("span", { class: "tag bad", text: locked.toUpperCase() })])
+          el("div", { class: "card-title" }, [el("h2", { text: l.name.toUpperCase() }), el("span", { class: "tag bad", text: locked.toUpperCase() })])
         ]);
       }
       var cap = orbit && l.capacity_kg ? l.capacity_kg[orbit.id] : null;
@@ -2980,7 +2981,7 @@
         "aria-pressed": d.launcher === l.id ? "true" : "false", "data-key": "rocket-" + l.id,
         onclick: function () { setLauncher(d, l.id); redraw(); }
       }, [
-        el("div", { class: "card-title" }, [el("h3", { text: l.name.toUpperCase() }), tag]),
+        el("div", { class: "card-title" }, [el("h2", { text: l.name.toUpperCase() }), tag]),
         facts([
           ["Price", money(l.cost_musd)],
           orbit ? ["Lifts", reach ? num(cap, 0) + " kg" : "no"] : null
@@ -3404,7 +3405,7 @@
       var st = placeStatus(p.id);
       refs.markers[p.id].className = "blip " + st + refs.edge[p.id] + (state.player === p.id ? " here" : "");
       var line = st === "locked" ? lockedReason(p.id) : p.does + ".";
-      refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
+      refs.markers[p.id].setAttribute("aria-label", p.num + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
       refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
       refs.legend[p.id].status.textContent = STATUS_TEXT[st];
     });

@@ -195,7 +195,7 @@ async function run(vp, base) {
   // Order-free: how many scrolls bring the verdict (paid or not), what limited the flight, the advice, the money and the way on
   // into view, in any order a player likes. 0 when they all sit in the first screen.
   {
-    const span = await p.evaluate(() => { await_ = 0; const sels = ['.cb-result, .stamp', '.limit h2', '.try', '.limit .nasa-box, .nasa-box', '.choices .btn.primary'];
+    const span = await p.evaluate(() => { const sels = ['.cb-result, .stamp', '.limit h2', '.try', '.limit .nasa-box, .nasa-box', '.choices .btn.primary'];
       const r = sels.map(s => [...document.querySelectorAll(s)].find(e => e.getClientRects().length)).filter(Boolean).map(e => e.getBoundingClientRect());
       const vh = innerHeight, top = Math.min(...r.map(x => x.top + scrollY)), bottom = Math.max(...r.map(x => x.bottom + scrollY));
       return { vh, top, bottom, found: r.length }; });
