@@ -244,8 +244,11 @@
   }
 
   function showCampaignHub() {
+    // A saved comeback (Part 2) is a campaign too, but it has its own hub: the workshop (js/ui-comeback.js).
+    if (typeof getComeback === "function" && getComeback() !== null && typeof window.showComebackHub === "function") { window.showComebackHub(); return; }
     var info = typeof getHubInfo === "function" ? getHubInfo() : null;
     if (!info) { window.showDesignScreen("title"); return; }   // no campaign saved
+    if (info.finished && typeof window.showChronicle === "function") { window.showChronicle(); return; }   // the ending (js/ui-ending.js)
     UI.leaveMission();
     var objectives = UI.data("OBJECTIVES");
     var missions = UI.list(info.missions);
@@ -279,6 +282,13 @@
         el("h2", { text: "TOPICS" }),
         el("div", { class: "grid" }, UI.list(info.topics).map(topicCard))
       ]),
+      UI.list(info.offers).length ? el("div", { class: "panel" }, [
+        el("h2", { text: "OPEN OFFERS" }),
+        el("p", { class: "nasa-line", text: "Meet one on a flight that brings home new data, and the customer pays a bonus in money and science." }),
+        el("ul", { class: "log" }, UI.list(info.offers).map(function (o) {
+          return el("li", { class: "good", text: o.text + " (" + (o.year_to - info.year) + (o.year_to - info.year === 1 ? " year left)" : " years left)") });
+        }))
+      ]) : null,
       el("div", { class: "panel" }, [
         el("h2", { text: "THE LAB" }),
         el("p", { class: "nasa-line", id: "lab-summary", text: buy.research + " research and " + buy.upgrades + " upgrades can be bought now." }),

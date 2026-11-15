@@ -1,0 +1,210 @@
+[
+ {
+  "id": "engage-07",
+  "title": "The launch is an anticlimax: a T-MINUS that never counts, then a text-only screen; a first flight ends in 1.4 s with 'Mission complete.'",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "5 Readiness review -> 6 Mission",
+  "repro": "Build the first, battery-only design (engage-04), pick Juno I, and press LAUNCH ANYWAY at default speed. Log the time and the screen contents (kid8.js). Repeat with silicon cells added (kid9.js).",
+  "expected": "Launching is the payoff of the whole build, with a countdown, a liftoff and a satellite to watch, and a failure that reads as a failure.",
+  "actual": "'T-MINUS 00:00:10' is static text and never counts down; the click shows the Mission screen at once (log '0.1s MONTH 0/1'). The Mission screen is a large 'MONTH 1 of 1', one science bar and a two-line log. No satellite, Earth or orbit is drawn, although the title screen has a low-poly Earth and satellite. The battery-only flight is over 1.4 s after launch with no event, and the log reads 'Signal ends. Mission complete.' for a satellite whose batteries just died. A full 36-month flight runs about 12 s with one event and nothing to watch in between.",
+  "evidence": "kid8.js log ('0.1s MONTH 0/1 ... 1.4s DEBRIEF reached', 'Signal ends. Mission complete.'); kid9.js month log (36 months in about 12 s, one event); (scratch)/sweep/engage/kid/09-mission-early.png",
+  "cause": "js/ui-design.js:2181 hard-codes the text '00:00:10'; launch() (lines 2602-2608) calls showMissionScreen straight away; js/ui-mission.js draws only the month, the bar and the log.",
+  "fix_hint": "Run a real 3-to-10-second countdown with padArt and a liftoff. Reuse js/lowpoly.js / lp-earth.js on the Mission screen, with the satellite going dark when power dies. Log 'Batteries flat: signal lost in month 1' instead of 'Mission complete'.",
+  "verdict": null
+ },
+ {
+  "id": "engage-10",
+  "title": "Event choices hide the cost of the safe option, and the orange highlight lands on the risky option in some events",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "6 Mission, event dialog",
+  "repro": "Fly the working 1958 design (LEO, Juno) at default speed until an event appears (kid9.js: Solar storm). Fly it again with the first (orange) choice for every event (kid13.js: Software bug).",
+  "expected": "Each choice shows its trade (what you lose, what you risk), so the decision has stakes and the outcome feels earned.",
+  "actual": "Solar storm: 'Shut instruments down' (orange, focused, no cost shown) against 'Keep observing / 40% chance of losing the computer'. The safe option secretly costs a month (data/events.js:48 lose_months: 1), so it looks free and the choice is obvious. After the choice the log only repeats the label ('Solar storm: Shut instruments down'), with no consequence. Software bug: the orange first button is the risky 'Upload the fix now' (20% chance of losing the computer); in kid13 it failed the clock and ended the mission at month 34 of 36. Because the orange style is applied by position, it reads as a recommendation that sometimes points at danger. A solar storm during a radiation-belt mission is also a science opportunity, but no upside is ever offered.",
+  "evidence": "(scratch)/sweep/engage/kid/12-event-1.png; kid9.js log 'after choice log top: Solar storm: Shut instruments down'; kid13.js 'Software bug: Upload the fix now (Clock and command receiver failed)'",
+  "cause": "js/ui-mission.js:135-140 builds a sub-line only for fail_chance and sets primary: i === 0; answer() (from line 160) logs only the label. data/events.js lists the risky option first for software-bug (line 85) and the safe one first for solar-storm (line 48).",
+  "fix_hint": "Give every choice a cost line built from its effect ('lose 1 month, about -4 pts', '-$0.3M', 'science x0.6'). Drop the primary style on event choices. After the choice, log what it cost ('Instruments off for a month: -4 pts').",
+  "verdict": null
+ },
+ {
+  "id": "engage-11",
+  "title": "A 3-star win feels flat: the Van Allen discovery is collapsed, the unlock banners are not buttons, and the main button is still REDESIGN",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "7 Debrief (win) -> Title",
+  "repro": "IGY Initial Feasibility: fly the battery-only design, follow TRY THIS (add Early silicon solar cells), fly again (kid9.js). Then press CHANGE TIER (kid13.js).",
+  "expected": "A win celebrates what the player discovered, and its main action takes them to the content they just unlocked.",
+  "actual": "The debrief shows a score table (99, three stars), two orange boxes 'TRADE SPACE UNLOCKED' and 'NEW ERA: NIMBUS (1964)' that are plain <p> elements, and the generic 'Nothing broke, no resource ran short...'. The best line in the game ('Its cosmic-ray counter went silent high up, and James Van Allen realised it was swamped: the radiation belts. Like yours...') is hidden inside the collapsed 'Closest real mission' link. The orange primary button is 'REDESIGN >'. TRY THIS says 'reach it on a smaller budget' (meaningless: engage-13), and the objective still says 'Read what limited you, then fly again.' CHANGE TIER returns to the top of the title; the newly opened Nimbus start is at y=1126, with nothing marking it as new.",
+  "evidence": "kid9.js debrief dump; kid13.js debrief with details opened, and 'nimbus btn y 1126'; (scratch)/sweep/engage/kid/12-debrief.png, (scratch)/sweep/engage/kid/16-debrief-open.png",
+  "cause": "js/ui-mission.js:251-252 renders the unlocks as <p class=\"banner\">; the real-mission comparison is a <details> element; the REDESIGN button is always primary.",
+  "fix_hint": "On a win, lead with the discovery ('YOU FOUND THE VAN ALLEN BELTS') and show the real-mission line expanded. Turn the unlock banners into the primary button ('PLAY NIMBUS 1964 >') and demote REDESIGN.",
+  "verdict": null
+ },
+ {
+  "id": "engage-14",
+  "title": "REDESIGN lands on Build with stale guidance and does not point at the fix the debrief just named",
+  "severity": "minor",
+  "category": "engagement",
+  "screen": "7 Debrief -> REDESIGN -> 3 Build",
+  "repro": "Fly the battery-only 1958 design. The debrief says 'TRY THIS: ... Fit the early silicon solar cells so the Sun keeps it running.' Press REDESIGN (kid9.js).",
+  "expected": "Build opens with the named part's bin selected or highlighted, and the guidance repeats the suggested change.",
+  "actual": "Build opens with the objective 'OBJECTIVE: Go to the Launch Pad for the readiness review.' and the team line 'The instrument makes more data than the radio can send home.' The POWER bin is neither selected nor highlighted, and the TRY THIS text is not shown on Build, so a player who skimmed the debrief is told the design is ready and pointed at the radio.",
+  "evidence": "kid9.js: 'BUILD on redesign TEAM: ... The instrument makes more data than the radio can send home.' and 'OBJECTIVE: OBJECTIVE: Go to the Launch Pad for the readiness review.'; (scratch)/sweep/engage/kid/11-redesign.png",
+  "cause": "The waypoint (js/ui-design.js:2247-2257) only checks runChecks blockers, and battery-only is a warning; storyBuild picks its line from the current checks, not from the debrief's limiting factor.",
+  "fix_hint": "Carry the debrief's limiting factor and suggested part into Build: preselect that bin, outline the suggested card, and set the objective to 'Try this: fit Early silicon solar cells'.",
+  "verdict": null
+ },
+ {
+  "id": "flight-08",
+  "title": "Mission log says 'Mission over.' and then, in green, 'Signal ends. Mission complete.' after a failure",
+  "severity": "minor",
+  "category": "state",
+  "screen": "6 Mission",
+  "repro": "Any flight that ends early. Example: flight-01, or IGY Point Design with vanguard-rocket, explorer-body, spin-stabilised, scintillation-counter, mercury-battery, silicon-cells, minitrack-beacon, command-timer: choose 'Rock the spacecraft to free it'. Read ol.log during the 900 ms before the debrief.",
+  "expected": "A failed mission ends on a failure line, not a green 'Mission complete'.",
+  "actual": "The log reads 'Early silicon solar cells FAILED.' / 'Mission over.' / 'Signal ends. Mission complete.', and the last line uses the 'good' (green) style.",
+  "evidence": "s7-events.js: '#1 igy/radiation pick 0 ... log [\"Stuck panel hinge: Rock the spacecraft to free it\",\"Early silicon solar cells FAILED.\",\"Mission over.\",\"Signal ends. Mission complete.\"]'. Screenshot: (scratch)/sweep/flight/shots/s2b-log-after-wait.png",
+  "cause": "js/ui-mission.js:202: finish() always logs 'Signal ends. Mission complete.' with class 'good', even after line 175 has logged 'Mission over.'.",
+  "fix_hint": "In finish(), check run.mission.ended_early and skip the line or use a 'bad' variant.",
+  "verdict": {
+   "id": "flight-08",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v10-controls.js (log v10.log). Setup: IGY Point Design, explorer-body, scintillation-counter, mercury-battery, silicon-cells, Vanguard, choice 0. The stuck-hinge event broke the cells. The log items with their classes were 'good: Signal ends. Mission complete.', 'bad: Mission over.', 'bad: Early silicon solar cells FAILED.' The same order shows in v01.log on the battery-only flights. The green line is on screen only for END_PAUSE_MS = 900 ms before the debrief replaces it, which is why I graded it polish. Screenshot: shots/v08-log-end.png. Root cause: js/ui-mission.js:202 always logs 'Signal ends. Mission complete.' with class 'good', even after js/ui-mission.js:175 has logged 'Mission over.'"
+  }
+ },
+ {
+  "id": "flight-09",
+  "title": "A score of 90 or 94 shows two stars, and nothing on the debrief says why",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "7 Debrief",
+  "repro": "ALL_OPEN save. [data-key=\"start-igy-training\"], radiation, leo. Parts: explorer-body, spin-stabilised, cosmic-ray-counter, silicon-cells, minitrack-beacon, command-timer. Rocket vanguard-rocket. Choice 0 (s10-stars.js). Also flight-02 (a) at choice 0: SCORE 90 with 2 stars.",
+  "expected": "When the score reaches 90 but stars are capped because the science target was missed, say so ('3 stars need the science target').",
+  "actual": "The stamp shows \u2605\u2605\u2606 under 'SCORE 94'. The page never mentions the target rule; the word 'target' does not appear anywhere on the debrief. The rule is applied correctly, but the player gets no explanation.",
+  "evidence": "s10-stars.js dump of #app: '\u2605\u2605\u2606 ... SCIENCE RETURNED 90 of 100 points 44.8 / 50 ... SCORE 94'; '---- mentions of \"target\": ' (none). Screenshot: (scratch)/sweep/flight/shots/s9-igy-debrief.png",
+  "cause": "js/mission.js:464 caps stars at 2, and js/ui-mission.js:236-243 renders the stamp with no explanation.",
+  "fix_hint": "When score >= 90 and science < science_target, add a line under the stamp: 'Reach the science target for the third star.'",
+  "verdict": {
+   "id": "flight-09",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v02-advice.js case 03 (IGY training, cosmic-ray-counter, choice 0). Result: '\u2605\u2605\u2606', 'SCIENCE RETURNED 90 of 100 points 44.8 / 50', SCORE 94. Case 02a0 gave SCORE 90 with 2 stars. The cap is correct under SPEC.md:499, but no visible text explains it. The tester said the word 'target' never appears, which is slightly wrong: it appears only inside the collapsed 'The four segments' block ('against a target of 100'), and nothing says that 3 stars need the target. The star thresholds (50/70/90) are not shown anywhere in the UI either (grep of js/ui-*.js and data/hints.js). Screenshot: shots/v03-debrief.png. Cause: js/mission.js:464 caps stars at 2, and js/ui-mission.js:238 renders the stamp with no reason."
+  }
+ },
+ {
+  "id": "flight-10",
+  "title": "Pause button keeps the accessible name 'Pause the mission' while it shows RESUME",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "6 Mission",
+  "repro": "Launch any design. Click the PAUSE button (.controls .btn:nth(0)). Read its aria-label and accessible name (s5-controls.js).",
+  "expected": "The accessible name follows the state ('Resume the mission'), and the visible label is part of the name (WCAG 2.5.3).",
+  "actual": "Visible text 'RESUME', aria-label 'Pause the mission'. ariaSnapshot gives '- button \"Pause the mission\": RESUME'; getByRole('button', {name: /resume/i}) finds 0. Voice-control users saying 'click Resume' miss it, and screen readers announce the wrong action.",
+  "evidence": "s5-controls.js output: 'pause button after click: text= RESUME | aria-label= Pause the mission' and 'aria snapshot while paused: - button \"Pause the mission\": RESUME | getByRole name RESUME count = 0'.",
+  "cause": "js/ui-mission.js:40 sets a fixed aria-label. togglePause (js/ui-mission.js:185) changes only textContent.",
+  "fix_hint": "Update the aria-label in togglePause, or drop the aria-label and use aria-pressed.",
+  "verdict": {
+   "id": "flight-10",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v10-controls.js. Before the click: text PAUSE, aria-label 'Pause the mission'. After the click: text RESUME, aria-label still 'Pause the mission'. ariaSnapshot gives '- button \"Pause the mission\": RESUME'. getByRole('button', {name: /resume/i}) finds 0, and /pause/i finds 1. The month did hold while paused, so the pause works; only the name is wrong. This fails WCAG 2.5.3 (Label in Name), and screen readers announce the wrong action. Root cause: js/ui-mission.js:40 sets a fixed aria-label, and togglePause (js/ui-mission.js:185) changes only textContent."
+  }
+ },
+ {
+  "id": "flight-11",
+  "title": "Fast-forward has no visible 'on' state",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "6 Mission",
+  "repro": "Launch any design. Click the '>>' button (aria-label 'Fast forward'), move the mouse away and blur it. Compare the computed styles before and after (s5-controls.js).",
+  "expected": "A visible pressed or active style while fast-forward is on, as the cards and bins have for aria-pressed=true.",
+  "actual": "aria-pressed changes from false to true, but background, colour, border and outline stay the same (rgb(39,33,28) | rgb(242,231,211) | rgb(84,70,58) | none). The '>>' text never changes, and the only cue is the month counter speeding up.",
+  "evidence": "s5-controls.js output: 'ff before: false rgb(39, 33, 28) | rgb(242, 231, 211) | rgb(84, 70, 58) | none' and 'ff after (blurred, not hovered): true rgb(39, 33, 28) | rgb(242, 231, 211) | rgb(84, 70, 58) | none'. Screenshot: (scratch)/sweep/flight/shots/s5-ff-on.png",
+  "cause": "css/style.css has aria-pressed rules for .card, .bin and .part (lines 228, 292, 341) but none for .controls .btn. See js/ui-mission.js:41-42.",
+  "fix_hint": "Add .controls .btn[aria-pressed=\"true\"] { background: var(--accent); color: var(--on-accent); }, or switch the label to '>> ON'.",
+  "verdict": {
+   "id": "flight-11",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v10-controls.js. The '>>' button was compared blurred and not hovered. Before: aria-pressed false, background rgb(39, 33, 28), colour rgb(242, 231, 211), border rgb(84, 70, 58), outline none, shadow 4px 4px. After: aria-pressed true with every one of those values the same, and the text still '>>'. shots/v11-ff-on.png shows PAUSE and >> looking identical while fast-forward is on. css/style.css has aria-pressed rules only for .card (228), .bin (292) and .part (341), none for .controls .btn (389). Graded polish because the month counter visibly speeds up, which is some feedback. Cause: js/ui-mission.js:41-42 sets aria-pressed, and no CSS styles it."
+  }
+ },
+ {
+  "id": "flight-12",
+  "title": "Star rating's accessible label is on a role-less span",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "7 Debrief",
+  "repro": "Finish any mission and inspect .ledger-head .stamp (s10-stars.js).",
+  "expected": "Assistive technology reads '2 of 3 stars'.",
+  "actual": "The stamp is <span class=\"stamp\" aria-label=\"2 of 3 stars\">\u2605\u2605\u2606</span>. aria-label is not supported on a generic span with no role, so assistive technology will likely ignore it and read the raw glyphs ('black star black star white star'). The ariaSnapshot shows only 'text: \u2605\u2605\u2606'. This was not checked with a real screen reader, and ariaSnapshot drops generic nodes whatever their label, so this rests on the markup.",
+  "evidence": "s10-stars.js: '- heading \"MISSION REPORT\" [level=1] / - text: \u2605\u2605\u2606'. Markup comes from js/ui-mission.js:238.",
+  "cause": "js/ui-mission.js:238 puts aria-label on a span with no role.",
+  "fix_hint": "Add role=\"img\" to the span, or render visually hidden text '2 of 3 stars' and mark the glyphs aria-hidden.",
+  "verdict": {
+   "id": "flight-12",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "I confirmed the markup but not the failure. v10-controls.js gives the stamp's outerHTML as '<span class=\"stamp pass\" aria-label=\"2 of 3 stars\">\u2605\u2605\u2606</span>' with no role. ariaSnapshot gives '- heading \"MISSION REPORT\" [level=1] / - text: \u2605\u2605\u2606'. Chromium's own accessibility tree (CDP Accessibility.getFullAXTree) does expose the name: role generic, name '2 of 3 stars', ignored false. That partly contradicts the claim that assistive technology will ignore it. ARIA 1.2 forbids naming the generic role, so screen-reader support is inconsistent. I did not run a screen reader. Fix: add role=\"img\" at js/ui-mission.js:238. The same pattern is on the title-screen tier stars (js/ui-design.js:1823)."
+  }
+ },
+ {
+  "id": "flight-13",
+  "title": "Limiting-factor icon is a pencil for orbit-, instrument- and attitude-limited missions",
+  "severity": "polish",
+  "category": "visual",
+  "screen": "7 Debrief",
+  "repro": "ALL_OPEN save plus best_stars.standard=3. [data-key=\"start-nimbus-expert\"], ionosphere, leo. Parts: drum-body, spin-stabilised, topside-sounder, n-on-p-cells, mercury-battery, vhf-telemetry, tape-recorder. Rocket thor-able. Choice 0 (s13-verify.js). Inspect '.limit h2 svg'.",
+  "expected": "For 'ORBIT AND TRAJECTORY LIMITED THIS MISSION', the orbit icon, which exists in ICONS.orbit.",
+  "actual": "The icon is the generic 'design' pencil (path 'M2 13L12 3l2 2...'). The other keys reached look right: data cylinder, power bolt, event triangle, none tick. Instrument and attitude cases (discipline 'instruments' or 'attitude') get the same pencil.",
+  "evidence": "s13-verify.js output: '\"ORBIT AND TRAJECTORY LIMITED THIS MISSION\": { svg: true, shapes: \"path:M2 13L12 3l2 2\" }'.",
+  "cause": "js/ui-mission.js:253 calls UI.icon(d.limiting). The key is 'design' for every discipline, and getDebrief does not return lim.discipline.",
+  "fix_hint": "Return the discipline from getDebrief and pick the icon from it (orbit, instrument, attitude), falling back to d.limiting.",
+  "verdict": {
+   "id": "flight-13",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v04-cases.js case 13. Setup: Nimbus Point Design, ionosphere, drum-body, spin-stabilised, topside-sounder, n-on-p-cells, mercury-battery, vhf-telemetry, tape-recorder, Thor-Able, choice 0. Heading: 'ORBIT AND TRAJECTORY LIMITED THIS MISSION'. The .limit h2 svg holds '<path d=\"M2 13L12 3l2 2L4 15H2z\">', which is ICONS.design, the pencil (js/ui-design.js:860). ICONS.orbit exists at js/ui-design.js:856. The other cases looked right: data cylinder (16, 07fire), warning triangle (06hur, 08igy) and tick (04, 05). The pencil is a generic 'design' icon, not a wrong one, hence polish. Root cause: js/ui-mission.js:253 calls UI.icon(d.limiting) with the key 'design', and getDebrief does not return lim.discipline."
+  }
+ },
+ {
+  "id": "flight-14",
+  "title": "At 200% zoom the event heading is scrolled above the viewport when the event opens",
+  "severity": "polish",
+  "category": "mobile",
+  "screen": "6 Mission",
+  "repro": "Viewport 640x360 (1280x720 at 200% zoom). New Space Point Design weather design (as in flight-07). Let the first event open (s6-phone.js).",
+  "expected": "The event's title is in view when the dialog appears.",
+  "actual": "Focusing the first choice scrolls the page so that the dialog's top is at -115 to -155 px. The heading ('FOGGED OPTICS', 'THE TAPE RECORDER JAMS') is cut off at the top edge, and the month counter and controls are off screen. At 390x844 the heading stays visible.",
+  "evidence": "s6-phone.js: 'zoom200 ... event \"FOGGED OPTICS\" @MONTH 12: dialog {\"top\":-115,\"bottom\":290,\"vh\":360,...}'. Screenshot: (scratch)/sweep/flight/shots/s6-zoom200-event-THE_TAPE_REC.png",
+  "cause": "js/ui-mission.js:158 calls choices[0].focus(), which scrolls the button into view but not the heading.",
+  "fix_hint": "Call the dialog's scrollIntoView({block:'start'}) first, then focus({preventScroll:true}).",
+  "verdict": {
+   "id": "flight-14",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Partly reproduced. Ran v14-layout.js (log v14.log) at 640x360, which is 1280x720 at 200%, with the New Space Point Design weather design. FOGGED OPTICS (first event): dialog top -115, but the title sits at top 21 and is fully visible (shots/v14-zoom200-event0.png), so the tester's FOGGED OPTICS claim did not reproduce. The taller dialogs are cut: 'A RARE ALIGNMENT' and 'THE TAPE RECORDER JAMS' put the title at top -19 / bottom 8, half above the viewport (shots/v14-zoom200-event2.png shows only the bottom of the heading). At 390x844 every title stayed in view. The choices and text stay readable, and the dialog is labelled by its heading for assistive technology, hence polish. Cause: js/ui-mission.js:158 calls choices[0].focus(), which scrolls the first button into view, not the dialog's top."
+  }
+ },
+ {
+  "id": "flight-15",
+  "title": "At 320 px wide, the debrief's score column is cut off and the page scrolls sideways",
+  "severity": "polish",
+  "category": "mobile",
+  "screen": "7 Debrief",
+  "repro": "Viewport 320x640 (outside the 390px / 200% brief; this is the WCAG reflow width). IGY Point Design flight with the juno-1 / scintillation-counter design, choice 0 (s6-phone.js 'narrow320').",
+  "expected": "No horizontal scroll, with every row value fully visible.",
+  "actual": "scrollWidth exceeds the viewport. SPAN.row-value reaches right=336, and the SCIENCE RETURNED row shows '50 / 5'. At 390 px and at 640x360 the debrief fits.",
+  "evidence": "s6-phone.js: 'debrief noScroll false', 'elements past the edge: [\"SPAN.row-value right=336\"]', 'clipped text boxes: [\"row SCIENCE RETURNED ... 302>252\"]'. Screenshot: (scratch)/sweep/flight/shots/s6-narrow320-debrief-crop.png",
+  "cause": ".paper .row lays out the label and the 48px value on one line with no wrap (css/style.css, ledger rows).",
+  "fix_hint": "Allow .row to wrap (flex-wrap) or shrink .row-value font under 360px.",
+  "verdict": {
+   "id": "flight-15",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "This happens only at 320 px; the widths in the brief pass. v14-layout.js 'narrow320' (320x640, IGY Point Design, Juno I, scintillation-counter, choice 0): scrollWidth 336 against a viewport of 320, and 'SPAN.row-value right=336 \"50 / 50\"' sits past the paper's right edge (304). shots/v15-narrow320-paper.png shows 'SCIENCE RETURNED ... 50 / 5' cut off. At 390x844 and 640x360 the same debrief has scrollWidth equal to the viewport, with no element past the edge. Cause: css/style.css:402 lays .row out as a flex row with no wrap, and css/style.css:406 sets .row-value to 36px with white-space: nowrap, next to the 28px label."
+  }
+ }
+]

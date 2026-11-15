@@ -1,7 +1,8 @@
 // js/ui-design.js — owned by Design screens.
 // The shared layout (header, minimap, objective line, hints), the base map that
 // players walk around to reach each screen, and the screens before launch:
-// Tier select, 1 Briefing, 2 Orbit, 3 Build, 4 Launch vehicle, 5 Readiness review.
+// the home page (two game modes), Part 1 (Austin's 1958 walkthrough: steps, presets, epilogue),
+// 1 Briefing, 2 Orbit, 3 Build, 4 Launch vehicle, 5 Readiness review.
 // Every number shown comes from a game.js / mission.js call or a plain data field;
 // this file only formats numbers and draws the page.
 //
@@ -31,8 +32,8 @@
 
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
-    title:    "Earn 2 stars on a tier to unlock the next one.",
-    map:      "Walk with the arrow keys or WASD, press E to go in. Or click a marker and you walk there yourself. The gold route leads to your next job.",
+    title:    "",
+    map:      "Tap or click a place to walk there. Or walk with the arrow keys or WASD and press E to go in. The gold route leads to your next job.",
     briefing: "Decide the goal before the hardware. The objective says which instruments count.",
     orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
     build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
@@ -82,10 +83,23 @@
   var DO_TEXT = {
     briefing: "Pick a job for the satellite.",
     orbit:    "Choose an orbit that can see the target.",
-    build:    "Fit an instrument, power, a radio and a computer.",
+    build:    "Fit a body, an instrument, power, a radio, a computer and attitude control.",
     launcher: "Pick a rocket that can lift your satellite.",
     review:   "Clear every NO GO line, then launch."
   };
+  // Part 1, Austin's walkthrough: three standalone missions in the 1958 era, Training tier (hints on).
+  // A field set here is preset: that place counts as visited and its cards are read-only for the step.
+  // Only ids: every number comes from the back end. 1958 has one topic (radiation) and its rockets reach
+  // only low orbit (getAvailability), so every step flies radiation; steps 2 and 3 leave more choices open.
+  var WALK_STEPS = [
+    { step: 1, era: "igy", tier: "training", objective: "radiation", orbit: "leo", launcher: "juno-1" },
+    { step: 2, era: "igy", tier: "training", objective: "radiation", launcher: "vanguard-rocket" },
+    { step: 3, era: "igy", tier: "training" }
+  ];
+  var WALK_KEY = "gravitron-walkthrough-v1";   // { done: { "1": best stars, "2": ..., "3": ... } }, passed steps only
+  var WALK_PASS_STARS = 1;                     // a step passes with this many stars or more (the debrief's stars)
+  var PRESET_FIELD = { briefing: "objective", orbit: "orbit", launcher: "launcher" };   // screen -> design field
+
   var WALK_MS = 9;   // milliseconds per map unit walked (0 if the player asks for less motion)
   var KEY_DIRS = { ArrowUp: [0, -1], w: [0, -1], W: [0, -1], ArrowDown: [0, 1], s: [0, 1], S: [0, 1],
                    ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0], ArrowRight: [1, 0], d: [1, 0], D: [1, 0] };
@@ -104,11 +118,13 @@
     map: null,           // live map elements, while the map is showing
     reached: 0,          // furthest design step visited, as an index into DESIGN_STEPS
     bin: null,           // which parts bin is open on Build (null = the first one)
+    binFor: null,        // the design that bin was chosen for (a new design picks its bin again)
     hover: null,         // part id being previewed on Build
     hintOpen: false,
     avail: null,         // getAvailability(design) for the screen being drawn
     seenHint: {},        // screens whose one-line hint has been shown in this page load
-    introSeen: {},       // chapters whose story intro has been shown in this page load
+    walk: null,          // the walkthrough step being played: { step, design } (matched by the design object itself)
+    walkMemory: null,    // the walkthrough record when the browser blocks storage
     change: null,        // { id, kind } of the part click that is about to be drawn (one draw only)
     touch: false,        // last press on a part card was a finger
     armed: false,        // that part was already previewed when the finger went down
@@ -116,9 +132,10 @@
   };
 
   // STORY-BEGIN  (everything between these two markers is the story: Story rewrites the text freely)
-  // GRAVITRON, "The Gravitronical Odyssey". Two chapters use the same screens:
-  //   "austin": Austin Albert, a NASA engineer in the first satellite project (the tutorial, the FIRST tier).
-  //   "ajay":   Ajay Albert, his grandson, a small-business engineer on loans (every later tier).
+  // GRAVITRON, "The Gravitronical Odyssey". Two chapters use the same screens, one per game mode:
+  //   "austin": Austin Albert, a NASA engineer in 1958 (Part 1, the walkthrough).
+  //   "ajay":   Ajay Albert, his grandson, a founder deep in debt (Part 2, the comeback: a design with `comeback`
+  //             or `contract`). Any other design follows its tier, as before: the first tier is Austin's.
   //
   // STORY holds ALL the words, so a writer can edit them without reading the code below it.
   //   A line is a string, a list of strings (variants, one is chosen from the design), or
@@ -128,8 +145,12 @@
   // How to show a line (the code at the end of this block returns it):
   //   var line = storyLine(key, design, extra);          // "" or { who: "partner", text: "..." }
   //   if (line) { portrait = speakerArt(line.who); name = STORY.speakers[line.who]; text = line.text; }
-  // storyLine("intro", design) returns a list of such beats instead. Keys: intro, map, briefing, orbit,
-  // build, launcher, review, mission-start, mission-end, debrief, closing, notebook, event-calibration.
+  // storyLine("intro", design) returns a list of such beats instead, and so do "step-open" (extra: the step number)
+  // and "epilogue". Keys: intro, step-open, step-close, epilogue, map, briefing, orbit, build, launcher, review,
+  // mission-start, mission-end, debrief, closing, notebook, event-calibration. "closing" on a walkthrough step that
+  // passed is that step's close beat. Part 2 adds: why (extra: the number of flights), hub (extra: "start", "paid",
+  // "halfway" or "late"), contract (extra: "paid", "part" or "nothing") and ending (extra: "won", "deadline" or
+  // "cash"; a list of beats). Call them with a comeback design, or with { comeback: true } outside the design screens.
   // extra: debrief and closing take the getDebrief result; mission-end takes it too (or the chooseEvent
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
@@ -138,17 +159,44 @@
     subtitle: "The Gravitronical Odyssey",
     speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK" },
 
-    // ------------------------------------------------ Story 1: Austin Albert, the tutorial
+    // The home page: one card per mode. No game numbers here (every number on screen comes from the back end).
+    modes: {
+      part1: { kicker: "PART 1 · 1958", name: "AUSTIN'S FIRST SATELLITE", pitch: "Three short missions, one idea each.", tag: "START HERE" },
+      part2: { kicker: "PART 2 · TODAY", name: "AJAY'S COMEBACK", pitch: "Austin's grandson owes the bank. Sell satellite data, pay it back in time.",
+               // The difficulty, in plain words, by tier id (the tier's own name is shown small beside it).
+               levels: { training: "EASY", standard: "NORMAL", expert: "HARD" } }
+    },
+
+    // ------------------------------------------------ Story 1: Austin Albert, Part 1 (the 1958 walkthrough)
     austin: {
       who: { map: "team", briefing: "team", orbit: "team", build: "team", launcher: "team", review: "team",
              "mission-start": "team", "mission-end": "team", debrief: "team", closing: "notebook",
              notebook: "notebook", "event-calibration": "notebook" },
+      // Shown once, before step 1 of the walkthrough (then the step's own opening beats).
       intro: [
-        { who: "team", text: "Austin Albert, NASA engineer. You lead the world's first satellite project." },
-        { who: "team", text: "Your invention is bold. Today we make it a complete mission." },
-        { who: "team", text: "Iron Eclipse is racing to own the view of Earth." },
-        { who: "team", text: "NASA has invested heavily. It needs proof that satellite data serves the public." },
-        { who: "team", text: "Watch wildfires and Arctic sea ice. Bring back observations people can use." }
+        { who: "team", text: "1958. You are Austin Albert, NASA engineer, building the first satellites." }
+      ],
+      // Part 1, the walkthrough: three short missions in 1958, one idea each. name is the step's label on the
+      // home page; open is shown before the step (one or two beats); close is the debrief's last line once it passes.
+      steps: {
+        "1": { name: "THE BASICS",
+               open: [{ who: "team", text: "The rocket and the orbit are set. You build the satellite." },
+                      { who: "team", text: "One of each part. Fit solar cells: batteries alone soon run down." }],
+               close: { who: "notebook", text: "It works. The counter heard radiation nobody expected." } },
+        "2": { name: "POWER AND DATA",
+               open: [{ who: "team", text: "Vanguard is smaller. You choose the orbit, then build." },
+                      { who: "team", text: "Cells go dark in Earth's shadow. Data must reach the ground." }],
+               close: { who: "notebook", text: "Power through the shadow, and data home. It keeps talking." } },
+        "3": { name: "YOUR MISSION",
+               open: [{ who: "team", text: "Your mission now: the job, the orbit, the parts, the rocket." }],
+               close: { who: "notebook", text: "Every choice was mine, and it flew. I write it all down." } }
+      },
+      // After step 3 passes. Name no real launch here unless SOURCES.md has a page for it.
+      epilogue: [
+        { who: "team", text: "His biggest satellite is lost on the launch pad, as many of the first rockets were." },
+        { who: "team", text: "The programme is cut. Rivals call his vision impractical." },
+        { who: "notebook", text: "His notebook goes into a box." },
+        { who: "notebook", text: "Decades later, his grandson Ajay opens it." }
       ],
       map: {
         start: ["Five stops, one mission. Begin at Mission Control.", "Begin at Mission Control. The gold route leads the way."],
@@ -218,7 +266,7 @@
       },
       "mission-start": {
         warned: ["We launched with warnings. Let us hope they stay quiet."],
-        clean: ["Launched. Now we learn what we did not plan for.", "Iron Eclipse is watching this launch."]
+        clean: ["Launched. Now we learn what we did not plan for.", "Launched. The whole world is listening for our signal."]
       },
       "mission-end": {
         lost: ["We lost it in flight. We must learn why."],
@@ -249,27 +297,62 @@
       }
     },
 
-    // ------------------------------------------------ Story 2: Ajay Albert, every later tier
+    // ------------------------------------------------ Story 2: Ajay Albert, Part 2 (the comeback)
+    // Ajay, Austin's grandson, borrowed a fortune for a company that never flew. The player is Ajay. His partner reads
+    // the spreadsheets, the customer is whoever pays for the contract (the briefing names the client), and Austin's
+    // notebook (1958) still has advice. A reckless founder, kept light. No game numbers in any line: amounts, months and
+    // dates come from the back end and are shown beside the text.
     ajay: {
       who: { map: "partner", briefing: "customer", orbit: "partner", build: "partner", launcher: "partner", review: "partner",
              "mission-start": "partner", "mission-end": "partner", debrief: "partner", closing: "partner",
-             notebook: "notebook", "event-calibration": "notebook" },
+             notebook: "notebook", "event-calibration": "notebook", why: "partner", hub: "partner", contract: "customer" },
+      // Shown once, when a comeback starts (after the difficulty), then the workshop.
       intro: [
-        { who: "notebook", text: "Last entry. The mission failed. I leave these notes for whoever tries again." },
-        { who: "partner", text: "Decades later, you open them in your small workshop." },
-        { who: "partner", text: "His failure cost him his name. Rivals call his vision impractical." },
-        { who: "partner", text: "Your business secures the loans. The contract pays only for returned observations." },
-        { who: "customer", text: "Iron Eclipse charges too much. We need reliable observations we can afford." },
-        { who: "partner", text: "Redesign and simulate for free. The loan is spent only at launch." }
+        { who: "partner", text: "Ajay Albert. Last year you borrowed a fortune to start Albert Orbital." },
+        { who: "partner", text: "It never flew. The money went on a launch party, a logo and an office with a slide." },
+        { who: "partner", text: "The lenders want it back by the deadline, or they take your grandfather's workshop." },
+        { who: "notebook", text: "To whoever opens this: build it cheap, build it right, and bring the data home." },
+        { who: "customer", text: "Iron Eclipse charges a fortune for data. Bring it cheaper and we will pay." },
+        { who: "partner", text: "Pick a contract. Every satellite that delivers pays down the debt." }
       ],
+      // The workshop (the hub): why Ajay keeps going, one line, chosen by the number of flights so far.
+      why: [
+        "The lenders don't want satellites. They want their money.",
+        "Your mum co-signed the loan with her house. No pressure.",
+        "Iron Eclipse bought your patents for pocket change. They're laughing.",
+        "Your grandfather was right about all of this. Somebody has to prove it.",
+        "Albert Orbital was a joke. Albert Orbital 2 doesn't have to be.",
+        "Customers are tired of Iron Eclipse prices. That's your opening."
+      ],
+      // The workshop's situation lines: before the first flight, after a paid one, under half the debt, and when a
+      // quarter of the months or less is left.
+      hub: {
+        start: "Three contracts on the table. Pick one you can actually deliver.",
+        paid: "That one paid. Pay some debt, or fly again while the interest ticks.",
+        halfway: "Halfway there. The lenders have stopped calling twice a day.",
+        late: "Clock's nearly out. Fly something cheap and sure."
+      },
+      // The debrief's last line: what the client says about the data (paid in full, in part, or not at all).
+      contract: {
+        paid: "Data received. Payment sent. Pleasure doing business.",
+        part: "Not everything we asked for. We paid for what arrived.",
+        nothing: "Nothing new in that data. We can't pay for it."
+      },
+      // The ending: won, or lost by time or by cash.
+      ending: {
+        won: [{ who: "partner", text: "Debt paid. The workshop is yours." }, { who: "notebook", text: "Well done. Now build the next one." }],
+        deadline: [{ who: "partner", text: "The deadline passed. The lenders took the keys." }, { who: "notebook", text: "Failure is a lesson. Try again." }],
+        cash: [{ who: "partner", text: "Nothing left to launch with. The lenders took the keys." }, { who: "notebook", text: "Build cheaper. Try again." }]
+      },
       map: {
         start: ["Nothing costs money until launch. Try ideas freely."],
         design: ["Test every idea here. After launch, nothing is free."],
-        ready: ["All chosen. Check it twice: launch spends the loan."]
+        ready: ["All chosen. Check it twice: launch spends the cash."]
       },
       briefing: {
-        none: ["Choose what to watch. Then think who will use it."],
-        locked: ["That topic needs research first."],
+        // A contract design: the client speaks its own reason (data/contracts.js). These are for any other design.
+        none: ["Choose what to watch. Then think who will pay for it."],
+        locked: ["That topic is not on offer yet."],
         topics: {
           wildfire: "Crews need to know where fires start, while there is still time.",
           "sea-ice": "Ships and northern towns need ice maps through the polar night.",
@@ -280,28 +363,29 @@
         }
       },
       orbit: {
-        none: ["Pick the orbit your goal needs, not the one you know."],
-        "orbit-fit": ["That orbit cannot see your target. Is that deliberate?"],
-        leo: ["Low orbit is cheap and sharp. You pay in minutes of contact.", "Cheapest to reach. Short ground passes mean little data comes home."],
-        sso: ["Polar orbit sees everything. The fuel to come down costs mass.", "You see every pole, but you must carry fuel to come down."],
-        geo: ["Geostationary never looks away. Detail blurs, and launch costs more.", "Constant view and contact, but blurry detail and a big launch bill."]
+        none: ["The customer pays for data, not for a pretty orbit."],
+        "orbit-fit": ["That orbit cannot see the target. Nobody pays for that."],
+        leo: ["Low orbit is cheap and sharp. You pay in minutes of contact."],
+        sso: ["Polar orbit sees everything. The fuel to come down costs mass."],
+        geo: ["Geostationary never looks away. Detail blurs, and launch costs more."]
       },
       build: {
+        start: { who: "notebook", text: "Every part costs money and weight. Fit only what the job needs." },
         checks: {
-          "no-objective": "You have no goal yet. Without one, nothing here has a purpose.",
+          "no-objective": "No job yet. Without one, nothing here has a purpose.",
           "no-orbit": "No orbit chosen. These numbers will change once you pick one.",
           "empty-structure": "It needs a body. Everything else bolts onto it.",
-          "empty-instrument": "Nothing aboard observes Earth yet. Start with the instrument.",
+          "empty-instrument": "Nothing aboard observes anything yet. Start with the instrument.",
           "empty-power": "No power. Every part you add will draw on it.",
-          "empty-comms": "No radio. The contract pays only for data that reaches us.",
-          "empty-computer": "No computer, so nothing coordinates the other parts.",
+          "empty-comms": "No radio. The client pays only for data that reaches us.",
+          "empty-computer": "No computer, so nothing runs the other parts.",
           "empty-attitude": "It needs attitude control to point and hold steady.",
           "body-count": "Two bodies. A satellite has one.",
           "body-payload": "That body cannot carry this load. Lighter parts, or a bigger body?",
           "body-slots": "That body has no free slot for another part of that kind.",
-          "part-locked": "You have not researched that part yet.",
+          "part-locked": "That part is not on the shelf.",
           "too-late": "It takes too long to build. The window closes before launch.",
-          budget: ["You are over budget. Which part earns its place?", "The loan does not stretch this far. Something has to go."],
+          budget: ["Over budget. Which part earns its place?", "The cash does not stretch this far. Something has to go."],
           power: "Parts draw more than the panels make. Something has to give.",
           "delta-v": "Not enough thrust for this orbit. More fuel, or less mass?",
           mass: "Too heavy. Cut mass, or pay for a bigger rocket.",
@@ -310,66 +394,55 @@
           battery: "Without a bigger battery, instruments go dark in Earth's shadow.",
           "battery-only": "Batteries only. The satellite will go silent when they run out.",
           data: "It records more than the radio can send. Lost data earns nothing.",
-          smear: "Spin smears the images. Reliable data needs steady pointing.",
-          "no-match": "None of these instruments counts for your goal.",
-          "orbit-fit": "This orbit cannot see your target. No instrument can fix that.",
+          smear: "Spin smears the images. Steady pointing gets paid.",
+          "no-match": "None of these instruments counts for this job.",
+          "orbit-fit": "This orbit cannot see the target. No instrument can fix that.",
           resolution: "That instrument is too blurry from here. It will earn nothing."
         },
-        thinBudget: ["Almost the whole budget is spent. Nothing left for surprises."],
-        uncounted: {
-          early: ["{name}: why is it aboard? The goal ignores it.", "{name}: for the goal, or for Austin's design?"],
-          late: ["{name}: you know my question by now."]
-        },
-        good: ["Every part serves the goal. That is what affordable means.", "It balances. Nothing here is there for show."]
+        thinBudget: ["Almost all the cash is spent. Nothing left for surprises."],
+        uncounted: ["{name}: why is it aboard? The job ignores it.", "{name}: does the client pay for that?"],
+        good: ["Every part serves the job. That is what cheap means.", "It balances. Nothing here is there for show."]
       },
       launcher: {
-        none: ["Iron Eclipse sells at a high price. Your edge is wasting nothing.", "Rocket size, mass and money pull against each other. Pick your trade."],
-        locked: ["You have not researched that rocket yet."],
+        none: ["The cheapest rocket that carries it. We are not made of money."],
+        locked: ["That rocket is not on offer."],
         reach: ["It cannot reach this orbit. Another rocket, or another orbit?"],
         mass: ["Too heavy. Cut mass, or pay for a bigger rocket."],
-        budget: ["That breaks the budget. Where is the cheapest place to cut?"],
-        fits: ["It fits. A bigger rocket would be money spent on nothing.", "It fits. Paying for more rocket than you need helps no one."],
+        budget: ["That breaks the bank. Where is the cheapest place to cut?"],
+        fits: ["It fits. A bigger rocket would be money spent on nothing."],
         fitsThinMass: ["It fits, but a full rocket leaves no room for surprises."],
-        fitsThinBudget: ["It fits. But the budget has almost nothing left."]
+        fitsThinBudget: ["It fits. But there is almost no cash left."]
       },
       review: {
-        blocked: ["Not ready. Clear every red line. After launch, nothing can change."],
-        margins: ["Thin margins are a choice. Choose them on purpose.", "Thin margins are a choice. Are you choosing them?"],
-        warnings: ["Each warning is a risk you accept. After launch, it is real."],
-        go: ["All clear. Launch spends the loan, and the contract waits on data.", "Every check passes. Now the design has to earn the contract."]
+        blocked: ["Not ready. Clear every red line before you spend a cent."],
+        late: ["It lands after the deadline. Paid or not, the lenders win."],
+        margins: ["Thin margins are a choice. Are you choosing them?"],
+        warnings: ["A failed launch costs the whole satellite. Check the list."],
+        go: ["All clear. Launch spends the cash; the data pays it back."]
       },
       "mission-start": {
-        warned: ["You launched with warnings. Now we see if they matter."],
-        clean: ["The loan is spent. Now the design has to earn it.", "Everything you could control is done. Now we watch."]
+        warned: ["You launched with warnings. Fingers crossed."],
+        clean: ["Fingers crossed. The data pays only if it reaches the ground."]
       },
       "mission-end": {
         lost: ["We lost it. Let us find out why."],
         done: ["That is the last signal. Let us see what it earned."]
       },
       debrief: {
-        ended: "It ended early. Austin knew that feeling. Find out why.",
+        ended: "It died early. Expensive lesson. Let us find out why.",
         mass: { good: "It flew, but the rocket was nearly full. Keep a reserve.", poor: "The rocket was too full. Spare mass is cheap insurance." },
         power: { good: "Power was the tightest part. Give it more room next time.", poor: "Power ran short. Every part you add draws on it." },
-        budget: { good: "You spent nearly everything. It worked, but there was no cushion.", poor: "The budget ran out of room. Affordable means choosing." },
-        data: { good: "Data was the limit. You saw more than you could send.", poor: "Data decided this one. What never arrives earns nothing." },
+        budget: { good: "You spent nearly every dollar. It worked, but no cushion.", poor: "The cash ran out of room. Cheap means choosing." },
+        data: { good: "The radio was the limit. You saw more than you sent.", poor: "Data decided this one. What never arrives, nobody pays for." },
         event: { good: "An event cost you, but you recovered. Keep those margins.", poor: "Something unplanned broke it. Margins are how you survive that." },
-        design: { good: "The hardware nearly matched the goal. Close.", poor: "Hardware and goal did not match. Start from what people need." },
-        none: { good: "Nothing held it back. That is affordable engineering.", poor: "Target reached, but margins and money cost you stars." }
+        design: { good: "The hardware nearly matched the job. Close.", poor: "Hardware and job did not match. Start from what the client needs." },
+        none: { good: "Nothing held it back. That is how you beat Iron Eclipse.", poor: "Job done, but margins and money cost you stars." }
       },
+      // The last line of a debrief for a design with no contract (a contract design uses "contract" above).
       closing: {
-        success: {
-          early: [{ who: "partner", text: "Austin's notes showed the way. You tested every assumption in them." },
-                  { who: "customer", text: "People can use this, and afford it. That was Austin's hope." }],
-          late: [{ who: "partner", text: "His vision, now affordable. You honoured him by correcting him." }]
-        },
-        partial: {
-          early: ["Part of the contract is earned. Austin's notes still hold answers."],
-          late: ["Part of the contract is earned. You know where to look now."]
-        },
-        failure: {
-          early: ["The satellite is lost; the loan remains. Austin failed too, and learned from it."],
-          late: ["The satellite is lost, but the lesson is not. Write it down, as Austin did."]
-        }
+        success: ["Data delivered, and nobody overpaid. That is the business."],
+        partial: ["Some of the job got done. Next time, all of it."],
+        failure: ["The satellite is lost. Write down why, as Austin did."]
       },
       notebook: {
         briefing: "I built what I admired. I never asked who needed it.",
@@ -418,9 +491,12 @@
     return !!obj && typeof obj === "object" && typeof key === "string" && Object.prototype.hasOwnProperty.call(obj, key);
   }
 
-  // "austin" for the first tier (the tutorial) or no design; "ajay" for every later tier.
+  // The chapter follows the mode: "austin" for a walkthrough step (Part 1), "ajay" for a comeback design (Part 2).
+  // Any other design follows its tier: "austin" for the first tier or no design, "ajay" for every later tier.
   function storyChapter(design) {
     try {
+      if (design && walkStepOf(design)) return "austin";
+      if (design && (design.comeback || design.contract)) return "ajay";
       var tiers = data("TIERS");
       if (!design || !tiers.length || !byId(tiers, design.tier)) return "austin";   // an unknown tier plays as the first, as in newDesign
       return design.tier === tiers[0].id ? "austin" : "ajay";
@@ -523,6 +599,9 @@
 
   function storyBriefing(ctx) {
     var d = ctx.design, t = ctx.c.briefing;
+    // Part 2: the client of the contract this design flies for says why it pays (data/contracts.js), under its own name.
+    var k = d && d.comeback ? contractOf(d) : null;
+    if (k && k.reason) return { who: "customer", text: k.reason, name: k.client };
     if (!d || !d.objective) return storySay(ctx, "briefing", "none", t.none);
     if (!byId(data("OBJECTIVES"), d.objective)) return "";
     if (storyHasCheck(storyChecks(d), "objective-locked")) return storySay(ctx, "briefing", "locked", t.locked);
@@ -542,6 +621,7 @@
   function storyBuild(ctx) {
     var d = ctx.design, t = ctx.c.build, checks = storyChecks(d), i, kind;
     if (!checks.ok) return "";
+    if (t.start && !list(d.parts).length) return storySay(ctx, "build", "start", t.start);
     for (i = 0; i < checks.blockers.length; i++) {
       if (STORY_NOT_BUILD.indexOf(checks.blockers[i]) !== -1) continue;
       kind = storyKind(checks.blockers[i]);
@@ -580,6 +660,7 @@
     var t = ctx.c.review, checks = storyChecks(ctx.design);
     if (!checks.ok) return "";
     if (checks.blockers.length) return storySay(ctx, "review", "blocked", t.blocked);
+    if (t.late && checks.warnings.indexOf("deadline") !== -1) return storySay(ctx, "review", "late", t.late);
     if (checks.warnings.length) {
       var thin = checks.warnings.indexOf("mass-margin") !== -1 || checks.warnings.indexOf("power-margin") !== -1;
       return thin ? storySay(ctx, "review", "margins", t.margins) : storySay(ctx, "review", "warnings", t.warnings);
@@ -613,6 +694,8 @@
   // Closing text: success (2 or 3 stars), partial (1 star) or failure (0 stars or ended early).
   function storyClosing(ctx, extra) {
     if (!extra || typeof extra !== "object") return "";
+    var step = walkStepOf(ctx.design);
+    if (step && typeof extra.stars === "number" && extra.stars >= WALK_PASS_STARS) return storyStepClose(ctx, step);
     if (!extra.ended_early && typeof extra.stars !== "number") return "";
     var result = extra.ended_early || extra.stars <= 0 ? "failure" : extra.stars === 1 ? "partial" : "success";
     return storySay(ctx, "closing", result, ctx.c.closing[result]);
@@ -665,13 +748,35 @@
     return storySay(ctx, "event-calibration", which, t[which]);
   }
 
-  // storyLine(key, design, extra) -> "" or { who, text }; for "intro", a list of those. Never throws.
+  // The walkthrough: a step's opening beats (a list), its closing beat, and the epilogue after step 3.
+  function storyBeats(list0) {
+    return list(list0).filter(function (b) { return b && typeof b.text === "string" && b.text; })
+      .map(function (b) { return { who: b.who || "team", text: b.text }; });
+  }
+  function storyStep(ctx, step) { return ctx.c.steps && storyHas(ctx.c.steps, String(step)) ? ctx.c.steps[String(step)] : null; }
+  function storyStepClose(ctx, step) {
+    var s = storyStep(ctx, step);
+    return s && s.close && s.close.text ? { who: s.close.who || "notebook", text: s.close.text } : "";
+  }
+
+  // Part 2, the workshop: why Ajay keeps going, one line in turn by the number of flights (extra).
+  function storyWhy(ctx, flights) {
+    var lines = list(ctx.c.why);
+    if (!lines.length) return "";
+    var n = typeof flights === "number" && flights >= 0 ? Math.floor(flights) : 0;
+    return storySay(ctx, "why", String(n), lines[n % lines.length]);
+  }
+
+  // storyLine(key, design, extra) -> "" or { who, text }; for "intro", "step-open", "epilogue" and "ending", a list. Never throws.
   function storyLine(key, design, extra) {
     try {
       var chapter = storyChapter(design);
       var ctx = { c: STORY[chapter], design: design || null, stage: storyStage(design) };
       switch (key) {
         case "intro":             return ctx.c.intro.map(function (b) { return { who: b.who, text: b.text }; });
+        case "step-open":         return storyBeats((storyStep(ctx, extra) || {}).open);
+        case "step-close":        return storyStepClose(ctx, extra);
+        case "epilogue":          return storyBeats(ctx.c.epilogue);
         case "map":               return storyMap(ctx);
         case "briefing":          return storyBriefing(ctx);
         case "orbit":             return storyOrbit(ctx);
@@ -684,9 +789,13 @@
         case "closing":           return storyClosing(ctx, extra);
         case "notebook":          return storyNotebook(ctx, extra);
         case "event-calibration": return storyEvent(ctx, extra);
+        case "why":               return storyWhy(ctx, extra);
+        case "hub":               return storyHas(ctx.c.hub, extra) ? storySay(ctx, "hub", extra, ctx.c.hub[extra]) : "";
+        case "contract":          return storyHas(ctx.c.contract, extra) ? storySay(ctx, "contract", extra, ctx.c.contract[extra]) : "";
+        case "ending":            return storyBeats(storyHas(ctx.c.ending, extra) ? ctx.c.ending[extra] : []);
         default:                  return "";
       }
-    } catch (e) { return key === "intro" ? [] : ""; }
+    } catch (e) { return key === "intro" || key === "step-open" || key === "epilogue" || key === "ending" ? [] : ""; }
   }
 
   // speakerArt(who) -> a 16 x 16 pixel portrait (the same size and class as directorArt), or null for an unknown speaker.
@@ -770,6 +879,20 @@
   }
   function money(v) { return isNum(v) ? "$" + num(v, v < 1 ? 2 : 1) + "M" : "–"; }
   function signed(v, places) { return (v > 0 ? "+" : "") + num(v, places); }
+  // Small values keep two significant figures, so a 1958 radio's 0.06 W does not read as 0 W.
+  function fine(v) {
+    if (!isNum(v)) return "–";
+    var a = Math.abs(v);
+    if (a === 0 || a >= 10) return num(v, 0);
+    if (a >= 1) return num(v, 1);
+    return num(v, Math.min(8, 1 - Math.floor(Math.log(a) / Math.LN10)));
+  }
+  // A data rate in GB, MB or kB a day, whichever reads best for the larger of the values (unit formatting only).
+  function dataUnit(gb) { return !(gb > 0) || gb >= 1 ? ["GB", 1] : gb >= 0.001 ? ["MB", 1000] : ["kB", 1e6]; }
+  function dataText(gb, sign) {
+    var u = dataUnit(Math.abs(gb));
+    return (sign && gb > 0 ? "+" : "") + fine(gb * u[1]) + " " + u[0];
+  }
   function starsText(n) {
     n = isNum(n) ? n : 0;
     var s = "";
@@ -830,8 +953,105 @@
       return canvas;
     } catch (e) { return null; }
   }
+  // The home page's picture: the low-poly title scene filling the first screen, drifting slowly (still under reduced
+  // motion). On a wide screen the satellite is framed right of centre, so the title and the menu sit on open sky; on a
+  // tall one it stays centred, between the title and the menu. Its label comes from the scene. Null without the art.
+  // HERO_AIM: [share of the half-width to the right, share of the half-height up, camera distance times].
+  var HERO_AIM = { wide: [0.4, 0.04, 1.12], tall: [0, 0.17, 1] };
   function titleHero() {
-    return lowPoly(function (lp) { return typeof lp.scenes.title === "function" ? lp.scenes.title({}) : null; }, "lp-hero");
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.view !== "function" || !LowPoly.scenes ||
+          typeof LowPoly.scenes.title !== "function") return null;
+      var wrap = LowPoly.scenes.title({});
+      if (!wrap || !wrap.scene || !wrap.scene.camera) return null;
+      var cam = wrap.scene.camera, home = { target: (cam.target || [0, 0, 0]).slice(), dist: cam.dist };
+      var canvas = document.createElement("canvas");
+      canvas.className = "lp lp-hero";
+      var ctl = null, ro = null, seen = false, size = "";
+      // Frame the satellite for the canvas's shape: the scene's own fit (its field of view), then the camera moved
+      // sideways and up so the satellite lands where HERO_AIM puts it. Runs on every resize.
+      var aim = function () {
+        if (!canvas.isConnected) { if (seen && ro) ro.disconnect(); return; }
+        seen = true;
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!(w > 0 && h > 0) || size === w + "x" + h) return;
+        size = w + "x" + h;
+        if (typeof wrap.fit === "function") wrap.fit(w, h);
+        var a = w / h >= 1.15 ? HERO_AIM.wide : HERO_AIM.tall, D = Math.PI / 180;
+        var yaw = cam.yaw * D, pitch = cam.pitch * D;
+        var right = [Math.cos(yaw), 0, -Math.sin(yaw)];
+        var up = [-Math.sin(pitch) * Math.sin(yaw), Math.cos(pitch), -Math.sin(pitch) * Math.cos(yaw)];
+        cam.dist = home.dist * a[2];
+        var hh = cam.dist * Math.tan(cam.fov * D / 2), hw = hh * w / h;
+        cam.target = home.target.map(function (t, i) { return t - right[i] * a[0] * hw - up[i] * a[1] * hh; });
+        if (ctl) ctl.redraw();
+      };
+      if (typeof ResizeObserver === "function") { ro = new ResizeObserver(aim); ro.observe(canvas); }
+      // Sharper than the default budget (the picture fills the screen), and a slower frame rate for a slow drift.
+      ctl = LowPoly.view(canvas, wrap, { drag: false, keys: false, fps: 24, maxPixels: 1200000 });
+      return canvas;
+    } catch (e) { return null; }
+  }
+
+  // The home page without the low-poly art: a flat pixel sky with the curve of the Earth along its foot (static art).
+  function titleSky() {
+    var rects = [], seed = 11, i, y;
+    var rnd = function () { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (i = 0; i < 90; i++) {
+      var r = rnd();
+      rects.push([Math.floor(rnd() * 320), Math.floor(rnd() * 150), r < 0.12 ? 2 : 1, 1, r < 0.08 ? "--pal-light" : r < 0.55 ? "--pal-metal" : "--pal-white"]);
+    }
+    var R = 520, cx = 186, top = 146, cy = top + R, prev = null;
+    for (y = top; y < 200; y++) {
+      var half = Math.round(Math.sqrt(R * R - (cy - y) * (cy - y))), x0 = cx - half, x1 = cx + half;
+      rects.push([x0, y, x1 - x0, 1, "--map-sea"]);
+      if (!prev) rects.push([x0, y, x1 - x0, 1, "--map-shore"]);
+      else { rects.push([x0, y, prev[0] - x0 + 1, 1, "--map-shore"]); rects.push([prev[1] - 1, y, x1 - prev[1] + 1, 1, "--map-shore"]); }
+      prev = [x0, x1];
+    }
+    [[150, 152, 34, 2], [200, 160, 52, 3], [96, 168, 40, 3], [236, 176, 30, 2], [130, 186, 60, 3], [40, 192, 36, 2]].forEach(function (c) {
+      rects.push([c[0], c[1], c[2], c[3], "--map-wave"]);
+    });
+    var svg = art("0 0 320 200", rects, null, "title-sky");
+    svg.setAttribute("preserveAspectRatio", "xMidYMax slice");
+    return svg;
+  }
+
+  // The GRAVITRON logotype: flat letters drawn as shapes on an 11-unit grid, their corners cut at 45 degrees like the
+  // facets of the low-poly art. Drawn, not typed, so it looks the same with or without the web fonts. Static art: the
+  // heading holding it carries the text. [width, path]; a hole is a second outline (even-odd fill).
+  var LOGO_GLYPHS = {
+    G: [6, "M2 0H6V2H2V9H4V6.5H3V4.5H6V9L4 11H2L0 9V2Z"],
+    R: [6, "M0 0H4L6 2V4.5L4 6.5L6 11H4L2 6.5V11H0ZM2 2V4.5H4V2Z"],
+    A: [6, "M0 11V2L2 0H4L6 2V11H4V7H2V11ZM2 2V5H4V2Z"],
+    V: [6, "M0 0H2V6.5L3 8.3L4 6.5V0H6V7L4 11H2L0 7Z"],
+    I: [2, "M0 0H2V11H0Z"],
+    T: [6, "M0 0H6V2H4V11H2V2H0Z"],
+    O: [6, "M2 0H4L6 2V9L4 11H2L0 9V2ZM2 2V9H4V2Z"],
+    N: [6, "M0 11V0H2L4 5V0H6V11H4L2 6V11Z"]
+  };
+  var LOGO_GAP = 1.4;
+  // The title as a heading: the drawn logotype when every letter has a shape, else the plain text.
+  function logotype(text) {
+    var letters = String(text).toUpperCase().split("");
+    var h1 = el("h1", { class: "big-title" });
+    if (!letters.length || letters.some(function (c) { return !LOGO_GLYPHS[c]; })) { h1.textContent = text; return h1; }
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg"), x = 0;
+    letters.forEach(function (c) {
+      var g = LOGO_GLYPHS[c], path = document.createElementNS(NS, "path");
+      path.setAttribute("d", g[1]);
+      path.setAttribute("transform", "translate(" + x + " 0)");
+      svg.appendChild(path);
+      x += g[0] + LOGO_GAP;
+    });
+    svg.setAttribute("viewBox", "0 0 " + (x - LOGO_GAP) + " 11");
+    svg.setAttribute("class", "logo");
+    svg.setAttribute("fill-rule", "evenodd");
+    svg.setAttribute("aria-hidden", "true");
+    h1.appendChild(el("span", { class: "sr-only", text: text }));
+    h1.appendChild(svg);
+    return h1;
   }
 
   // Flat icons: one colour (currentColor), a 16 x 16 grid, drawn here as shapes. They sit beside words and
@@ -862,6 +1082,14 @@
   ICONS.launcher = ICONS.propulsion;
   ICONS.event = ICONS.warning;
   ICONS.cost = ICONS.budget;
+  // The six topics (objective ids), for Part 2's contract cards.
+  ICONS.radiation = [["circle", { cx: 8, cy: 8, r: 1.6 }], ["ellipse", { cx: 8, cy: 8, rx: 6.3, ry: 2.4, transform: "rotate(30 8 8)" }],
+                     ["ellipse", { cx: 8, cy: 8, rx: 6.3, ry: 2.4, transform: "rotate(-30 8 8)" }]];
+  ICONS.solar = [["circle", { cx: 8, cy: 8, r: 3 }], ["path", { d: "M8 1.2v2M8 12.8v2M1.2 8h2M12.8 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4l-1.4 1.4" }]];
+  ICONS.weather = [["path", { d: "M4.6 12.8h7a2.6 2.6 0 0 0 .2-5.2 3.9 3.9 0 0 0-7.4-.8 3 3 0 0 0 .2 6Z" }]];
+  ICONS.wildfire = [["path", { d: "M8 14.6c-2.9 0-4.6-1.9-4.6-4.4 0-2.7 2.1-4.1 2.7-6.8 1.3 1 1.9 2.5 1.9 3.7.7-.6 1.1-1.7 1.1-2.9 2 1.4 3.6 3.5 3.6 6 0 2.5-1.8 4.4-4.7 4.4Z" }]];
+  ICONS["sea-ice"] = [["path", { d: "M8 1.4v13.2M2.3 4.7l11.4 6.6M2.3 11.3l11.4-6.6M6.3 2.6 8 4.2l1.7-1.6M6.3 13.4 8 11.8l1.7 1.6" }]];
+  ICONS.ionosphere = [["path", { d: "M3 14.6a5 5 0 0 1 10 0M1.2 9.8a7.6 7.6 0 0 1 13.6 0M4.4 5.4a6 6 0 0 1 7.2 0" }]];
   // A flat icon by name, or null for an unknown name. With a label it is an image; without one it is decoration.
   function icon(name, label, className) {
     var shapes = ICONS[name];
@@ -905,7 +1133,7 @@
   function button(label, onClick, opts) {
     opts = opts || {};
     return el("button", { type: "button", class: "btn" + (opts.primary ? " primary" : "") + (opts.big ? " big" : "") + (opts.quiet ? " quiet" : ""),
-      disabled: !!opts.disabled, onclick: onClick, "aria-label": opts.aria }, label);
+      disabled: !!opts.disabled, onclick: onClick, "aria-label": opts.aria, "data-key": opts.key }, label);
   }
 
   // ---------------------------------------------------------------- pixel art
@@ -1317,7 +1545,39 @@
     return "Pixel drawing of your satellite. On board, " + bits.filter(Boolean).join("; ") + ".";
   }
 
+  // The low-poly satellite (LowPoly.scenes.satellite, js/lp-satellite.js) in one canvas, drawn once it is on
+  // the page. On the bench it turns slowly (not under reduced motion) and can be dragged round; the next
+  // click keeps the angle. "small" is a still pose. null when the 3D art is missing or fails, and
+  // satelliteArt then draws the pixel satellite below.
+  var satView = null, satLast = null;   // the bench view (for its angle) and the parts it showed last
+  function lpSatellite(design, change, size) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.satellite !== "function" ||
+          typeof LowPoly.view !== "function") return null;
+      var small = size === "small", ids = list(design && design.parts).slice(), parts = data("PARTS");
+      var wrap = LowPoly.scenes.satellite({ parts: ids, data: parts, change: small ? null : change, size: small ? "small" : "bench",
+        spin: small ? 0 : 8, yaw: !small && satView ? satView.yaw : undefined, before: satLast });
+      if (!wrap || !wrap.scene) return null;
+      var canvas = document.createElement("canvas");
+      canvas.width = 0; canvas.height = 0;   // nothing is drawn until the canvas is on the page
+      canvas.className = "sat lp-sat";
+      var view = LowPoly.view(canvas, wrap, { drag: !small, keys: false, fps: 30 });
+      if (!small) { satView = view; satLast = ids; }
+      // The "+ NAME" tag rises from where the new part settles. It is decoration: the canvas label names every part.
+      var tag = null, added = !small && change && change.kind === "add" ? byId(parts, change.id) : null;
+      var at = added && wrap.anchor ? wrap.anchor(added.id) : null;
+      if (at && isNum(at[0]) && isNum(at[1])) {
+        tag = el("div", { class: "sat-tag", "aria-hidden": "true",
+          style: "top:" + Math.min(95, Math.max(4, at[1] * 100)).toFixed(1) + "%;--x:" + Math.min(100, Math.max(0, at[0] * 100)).toFixed(1) + "%" },
+          [el("span", { text: "+ " + String(added.name).replace(/\s*\(.*?\)/g, "").toUpperCase() })]);
+      }
+      return el("div", { class: "sat-bench lp-bench" + (small ? " sat-small" : "") }, [canvas, tag]);
+    } catch (e) { return null; }
+  }
+
   function satelliteArt(design, change, size) {
+    var lp = lpSatellite(design, change, size);
+    if (lp) return lp;
     var ids = list(design && design.parts), parts = data("PARTS");
     var chosen = ids.map(function (id) { return byId(parts, id); }).filter(Boolean);
     var added = change && change.kind === "add" ? change.id : null;
@@ -1392,8 +1652,34 @@
   }
   // SAT-END
 
+  // A speaker's low-poly bust (LowPoly.scenes.portrait, js/lp-people.js) as an <img class="portrait">, or null.
+  // Each face is drawn once, into a canvas off the page at 280 px (sharp at the largest 140 px size), and kept
+  // as a picture: the screens are rebuilt on every click and must not draw the faces again each time.
+  var FACES = {};
+  function lpFace(who) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.has !== "function" || !LowPoly.has("person", who) ||
+          !LowPoly.scenes || typeof LowPoly.scenes.portrait !== "function" || typeof LowPoly.render !== "function") return null;
+      if (!FACES[who]) {
+        var ps = LowPoly.scenes.portrait({ who: who, aspect: 1 });
+        var c = document.createElement("canvas");
+        c.width = 280; c.height = 280;
+        if (!LowPoly.render(c, ps.scene)) return null;
+        FACES[who] = { src: c.toDataURL("image/png"), alt: ps.label || "Portrait" };
+      }
+      return el("img", { class: "portrait lp-face", src: FACES[who].src, alt: FACES[who].alt, width: 140, height: 140 });
+    } catch (e) { return null; }
+  }
+  // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
+  // else null (the caller then shows the director).
+  function speakerFace(who) {
+    return lpFace(who) || (typeof speakerArt === "function" ? speakerArt(who) : null);
+  }
+
   // Mission control, who briefs the player.
   function directorArt() {
+    var face = lpFace("director");
+    if (face) return face;
     return art("0 0 16 16", [
       [0, 0, 16, 16, PAL.portrait],
       [5, 2, 6, 3, PAL.hair], [4, 3, 1, 4, PAL.hair], [11, 3, 1, 4, PAL.hair],
@@ -1404,8 +1690,37 @@
     ], "Portrait of the mission director wearing a headset", "portrait");
   }
 
+  // One low-poly scene in a canvas that is drawn once it is on the page (never before, so no wasted frame) and
+  // stops by itself when its screen is replaced. Not draggable, no tab stop. {canvas, view, wrap} or null.
+  function lpCanvas(make, className) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.view !== "function" || !LowPoly.scenes) return null;
+      var wrap = make(LowPoly);
+      if (!wrap || !wrap.scene) return null;
+      var canvas = document.createElement("canvas");
+      canvas.width = 0; canvas.height = 0;
+      canvas.className = "lp " + (className || "");
+      return { canvas: canvas, view: LowPoly.view(canvas, wrap, { drag: false, keys: false, fps: 30 }), wrap: wrap };
+    } catch (e) { return null; }
+  }
+  function chosenLauncher() {
+    var d = state.design;
+    return d && d.launcher ? byId(data("LAUNCHERS"), d.launcher) : null;
+  }
+  // The design's rocket on the low-poly pad at dusk (LowPoly.scenes.pad, js/lp-pad.js). With no rocket chosen yet,
+  // or without the 3D art, the pixel pad below shows a generic one.
+  function lpPad(ready) {
+    var row = chosenLauncher();
+    var lp = row ? lpCanvas(function (L) {
+      return typeof L.scenes.pad === "function" ? L.scenes.pad({ launcherId: row.id, launcher: row, ready: !!ready }) : null;
+    }, "scene lp-pad") : null;
+    return lp ? lp.canvas : null;
+  }
+
   // Rocket on the pad at night.
   function padArt(ready) {
+    var lp = lpPad(ready);
+    if (lp) return lp;
     var r = [
       [0, 0, 187, 152, PAL.night],
       [14, 12, 1, 1, PAL.ink], [52, 30, 1, 1, PAL.muted], [70, 10, 2, 2, PAL.ink], [110, 22, 1, 1, PAL.ink],
@@ -1439,6 +1754,14 @@
 
   // ---------------------------------------------------------------- shell: header, objective line, minimap, hints
   function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
+  // What the header calls this mission: "PART 1 · STEP 2" for a walkthrough step, else the tier's name.
+  function modeName() {
+    if (isComebackDesign(state.design)) return "PART 2 · " + comebackLevel(state.design.tier);
+    var step = walkStepOf(state.design);
+    if (step) return "PART 1 · STEP " + step;
+    var t = tier();
+    return t ? t.name.toUpperCase() : "";
+  }
 
   // LIVE DATA or SNAPSHOT: which data the game is using. The status comes from getLiveData();
   // js/live-data.js announces a finished fetch with a "livedata" event on window.
@@ -1452,7 +1775,8 @@
     node.className = "data-badge " + (["live", "partial", "snapshot", "loading"].indexOf(status) !== -1 ? status : "snapshot");
     node.textContent = status === "live" ? "LIVE DATA" : status === "partial" ? "PARTLY LIVE" : status === "loading" ? "CHECKING DATA" : "SNAPSHOT";
     var sources = list(live.sources).map(function (s) { return s.name + ": " + (s.ok ? "live" : "snapshot"); }).join(". ");
-    var title = status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
+    var title = status === "loading" ? "Checking for live NASA and NOAA data. The saved data is used until it answers."
+      : status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
       : sources + (live.fetched_at ? ". Fetched " + live.fetched_at.slice(0, 16).replace("T", " ") + " UTC." : "");
     node.title = title;
     node.setAttribute("aria-label", node.textContent + ". " + title);
@@ -1466,13 +1790,14 @@
   function designStatus() {
     var t = tier();
     if (!t) return "Space Mission Design Game";
+    if (isComebackDesign(state.design)) return comebackStatus();
     var totals = getTotals(state.design);
     if (inCampaign()) {
       var info = hubInfo();
       return "CAMPAIGN" + (info ? " · " + info.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd) +
         (info && isNum(info.science_pts) ? " · SCIENCE " + num(info.science_pts, 1) : "");
     }
-    return t.name.toUpperCase() + (state.design.year ? " · " + state.design.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
+    return modeName() + (state.design.year ? " · " + state.design.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
   }
 
   // The header shows the current objective and a minimap (instead of a step bar).
@@ -1527,8 +1852,12 @@
     box.textContent = state.hintOpen ? text : (tutorial || firstSentence(text));
   }
 
+  // body.is-home while the home page is up: it hides the header and the pixel ground strip, and lets the title fill the screen.
+  function markHome(screen) { if (document.body) document.body.classList.toggle("is-home", screen === "title"); }
+
   function mount(screen, node) {
     state.screen = screen;
+    markHome(screen);
     var app = document.getElementById("app");
     while (app.firstChild) app.removeChild(app.firstChild);
     app.appendChild(node);
@@ -1547,9 +1876,14 @@
     }
   }
 
-  function go(screen) {
+  function go(screen, bin) {
+    if (screen === "build" && state.design && (state.screen !== "build" || state.binFor !== state.design || bin)) {
+      state.bin = entryBin(state.design, bin);
+      state.binFor = state.design;
+    }
     var i = DESIGN_STEPS.indexOf(screen);
     if (i > state.reached) state.reached = i;
+    bumpReached();                         // a preset place counts as visited once the one before it is
     if (i !== -1) state.player = screen;   // you are standing in that building
     stopWalking();
     state.swappedAt = Date.now();
@@ -1591,8 +1925,9 @@
     if (!line) return null;
     var who = typeof line === "object" ? line.who : "team", text = typeof line === "object" ? line.text : String(line);
     if (!text) return null;
-    var name = typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : "";
-    var face = typeof speakerArt === "function" ? speakerArt(who) : null;
+    var name = typeof line === "object" && line.name ? line.name
+      : typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : "";
+    var face = speakerFace(who);
     return el("div", { class: "say", role: "note" }, [
       face || directorArt(),
       el("div", { class: "say-text" }, [name ? el("span", { class: "say-name", text: String(name).toUpperCase() }) : null,
@@ -1630,19 +1965,34 @@
     var m = t.margins || {};
     var massRight = t.capacity_kg ? num(t.mass_kg) + " / " + num(t.capacity_kg, 0) + " KG" : num(t.mass_kg) + " KG";
     var dataLost = t.data_gb_day > t.data_returned_gb_day;
+    var du = dataUnit(Math.max(t.data_gb_day || 0, t.data_returned_gb_day || 0));
+    // No limit yet: no rocket, no orbit, or a rocket that cannot reach this orbit (its capacity there is 0).
+    var rocket = design.launcher ? byId(data("LAUNCHERS"), design.launcher) : null;
+    var massNote = t.capacity_kg ? null : !rocket ? "Pick a rocket to see the limit"
+      : !design.orbit ? "Pick an orbit to see the limit" : rocket.name + " cannot reach this orbit";
+    // Batteries and no panel: a warning, not a fault (runChecks warns "battery-only"). The bar says how long they last.
+    var batteryOnly = !(t.power_gen_w > 0) && t.battery_wh > 0 && t.power_draw_w > 0;
+    var power = isNum(m.power) ? { fill: 1 - m.power, cls: barClass(m.power), note: null }
+      : batteryOnly ? { fill: 1, cls: " warn", note: batteryNote(design) }
+      : { fill: t.power_draw_w > 0 ? 1 : 0, cls: t.power_draw_w > 0 ? " bad" : "", note: "Nothing makes power yet" };
     return el("div", { class: "bars" }, [
-      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass),
-          t.capacity_kg ? null : "Pick a rocket to see the limit", "mass"),
-      bar("POWER", num(t.power_draw_w, 0) + " / " + num(t.power_gen_w, 0) + " W",
-          isNum(m.power) ? 1 - m.power : (t.power_draw_w > 0 ? 1 : 0), isNum(m.power) ? barClass(m.power) : (t.power_draw_w > 0 ? " bad" : ""),
-          t.power_gen_w ? null : "Nothing makes power yet", "power"),
+      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass), massNote, "mass"),
+      bar("POWER", fine(t.power_draw_w) + " / " + fine(t.power_gen_w) + " W", power.fill, power.cls, power.note, "power"),
       bar("BUDGET", money(t.cost_musd) + " / " + money(t.budget_musd), isNum(m.budget) ? 1 - m.budget : null, barClass(m.budget), null, "budget"),
       // For data a full bar is good: it is the share of data that reaches the ground.
-      bar("DATA HOME", num(t.data_returned_gb_day) + " / " + num(t.data_gb_day) + " GB/DAY",
+      bar("DATA HOME", fine(t.data_returned_gb_day * du[1]) + " / " + fine(t.data_gb_day * du[1]) + " " + du[0].toUpperCase() + "/DAY",
           t.data_gb_day > 0 ? t.data_returned_gb_day / t.data_gb_day : 0,
           dataLost ? (t.data_returned_gb_day > 0 ? " warn" : " bad") : "",
           !design.orbit ? "Pick an orbit to see ground contact" : null, "data")
     ]);
+  }
+
+  // "Battery only: runs out in about 2.2 months", from previewScience (its months stop when the battery is spent).
+  function batteryNote(design) {
+    var s = typeof previewScience === "function" ? previewScience(design) : null;
+    var orbit = byId(data("ORBITS"), design.orbit);
+    if (!s || !orbit || !isNum(s.months) || !(s.months < orbit.lifetime_months)) return "Battery only";
+    return "Battery only: runs out in about " + fine(s.months) + " months";
   }
 
   // A short label for each readiness check; the back end's full sentence stays one tap away ("Why").
@@ -1666,6 +2016,12 @@
     return c.text;   // an id this list does not know: the back end's own words
   }
 
+  // The bin a FIX line opens on Build: the empty one for "NO POWER" and the like, else none (Build picks).
+  function fixBin(c) {
+    var id = String(c && c.id || "");
+    return id.indexOf("empty-") === 0 && byId(categories(), id.slice(6)) ? id.slice(6) : null;
+  }
+
   function checkList(design, opts) {
     opts = opts || {};
     var checks = runChecks(design);
@@ -1677,20 +2033,20 @@
     checks.warnings.forEach(function (c) { rows.push({ c: c, kind: "warn", status: "WARN" }); });
     if (!rows.length) return opts.short ? el("p", { class: "preview-line fix", text: "No problems right now." }) : null;
     return el("ul", { class: "checks" }, rows.map(function (row) {
-      var target = FIX_SCREEN[row.c.id] || "build";
+      var target = fixPlace(row.c, design);
       var label = checkLabel(row.c);
       return el("li", { class: "check " + row.kind }, [
         el("span", { class: "check-text" }, [icon(row.kind === "bad" ? "blocker" : "warning"), el("strong", { text: label }),
           label !== row.c.text ? el("details", { class: "more why" }, [el("summary", { text: "Why" }), el("span", { text: row.c.text })]) : null]),
         opts.fix && target !== state.screen
-          ? el("button", { type: "button", class: "fix", onclick: function () { go(target); },
+          ? el("button", { type: "button", class: "fix", onclick: function () { go(target, fixBin(row.c)); },
               "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
           : el("span", { class: "status", text: row.status })
       ]);
     }));
   }
 
-  // ---------------------------------------------------------------- tier select (title)
+  // ---------------------------------------------------------------- the home page (two game modes)
   // What a design may use in its era: { parts, launchers, objectives }, each id -> { available, year, reason }.
   // One call per screen refresh. Without eras everything is available.
   function availability(d) {
@@ -1708,135 +2064,331 @@
 
   // "Expected payout $X M, cost $Y M, net $Z M": all three numbers from previewPayout().
   function payoutLine(d) {
+    if (isComebackDesign(d)) return comebackPayLine(d);
     if (!d || !d.campaign || typeof previewPayout !== "function") return null;
     var p = previewPayout(d);
     if (!p) return null;
-    return el("p", { class: "nasa-line payout-line", text: "Expected payout " + money(p.expected_payout_musd) +
-      ", cost " + money(p.cost_musd) + ", net " + (p.net_musd < 0 ? "-" : "") + money(Math.abs(p.net_musd)) });
+    var line = el("p", { class: "nasa-line payout-line", text: "Expected payout " + money(p.expected_payout_musd) +
+      ", cost " + money(p.cost_musd) + ", net " + (p.net_musd < 0 ? "-" : "") + money(Math.abs(p.net_musd)) +
+      (p.topic_complete && !(p.new_data > 0) ? ". Nothing new is left to collect here: no reward." : "") });
+    var offers = list(p.offers).map(function (o) {
+      return el("p", { class: "nasa-line payout-line", text: "Offer: " + o.text + (o.met ? " This design meets it." : " This design falls short of it (" + num(o.min_science, 0) + " points of new data).") });
+    });
+    return offers.length ? el("div", null, [line].concat(offers)) : line;
   }
 
-  function campaignPanel(tiers) {
-    if (typeof newCampaign !== "function" || typeof window.showCampaignHub !== "function") return null;
-    var info = hubInfo();
-    return el("div", { class: "panel campaign-panel" }, [
-      el("h2", { text: "CAMPAIGN" }),
-      more("Start in 1957. Money and knowledge carry from one satellite to the next, and research opens new parts.", "How it works"),
-      info ? button(["CONTINUE: " + info.year + ", " + money(info.treasury_musd), " >"], function () { window.showCampaignHub(); },
-        { primary: true, aria: "Continue the campaign" }) : null,
-      el("div", { class: "tier-list row" }, tiers.map(function (t) {
-        return el("button", {
-          type: "button", class: "tier-btn", "data-key": "campaign-" + t.id,
-          "aria-label": "New campaign, " + t.name + ", treasury " + money(t.budget_musd) + ", " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission",
-          onclick: function () {
-            if (info && !window.confirm("Start a new campaign? It replaces the one you have saved.")) return;
-            newCampaign(t.id);
-            window.showCampaignHub();
-          }
-        }, [el("span", { class: "tier-name", text: "NEW: " + t.name.toUpperCase() }),
-            el("span", { class: "tier-facts", text: money(t.budget_musd) })]);
-      }))
+  // COMEBACK-BEGIN  ---- Part 2, Ajay's comeback, on the shared screens. A comeback design flies one contract: its topic
+  // (and its orbit, when the client names one) is set by the contract; the cash is the budget; the deadline counts.
+  // js/ui-comeback.js draws the workshop, the contract cards and the ending; js/ui-mission.js the debrief's money.
+  // Every number here comes from getComeback(), previewPayout(), getTotals() or runChecks(), or from LAUNCHERS.
+  function isComebackDesign(d) { return !!(d && d.comeback); }
+  function comebackInfo() {
+    try { return typeof getComeback === "function" ? getComeback() : null; } catch (e) { return null; }
+  }
+  // The open contract a design flies for (from getComeback().contracts), kept per design object: ids repeat between comebacks.
+  var contractMemo = { design: null, k: null };
+  function contractOf(d) {
+    if (!d || !d.contract) return null;
+    if (contractMemo.design !== d) {
+      var info = comebackInfo();
+      contractMemo = { design: d, k: info ? byId(list(info.contracts), d.contract) : null };
+    }
+    return contractMemo.k;
+  }
+  // The header in Part 2: the month against the deadline, the cash and the debt.
+  function comebackStatus(info) {
+    info = info || comebackInfo();
+    if (!info) return "PART 2";
+    return "PART 2 · MONTH " + num(info.month, 0) + "/" + num(info.deadline_month, 0) + " · CASH " + money(info.cash_musd) +
+      " · DEBT " + money(info.debt_musd);
+  }
+  function comebackLevel(tierId) {
+    var levels = STORY.modes.part2.levels || {};
+    return levels[tierId] || "";
+  }
+  // Set by the contract: the topic always, the orbit when the client names one. The rocket never is.
+  function comebackPreset(screen, d) {
+    if (screen === "briefing") return !!d.objective;
+    if (screen === "orbit") { var k = contractOf(d); return !!(k && k.orbit); }
+    return false;
+  }
+  // The cheapest rocket on offer that lifts this design to its orbit (a plain data choice, like the FITS tag), or null.
+  function cheapestRocketFor(d, massKg) {
+    if (!d || !d.orbit) return null;
+    var avail = availability(d), best = null;
+    data("LAUNCHERS").forEach(function (l) {
+      var cap = l.capacity_kg ? l.capacity_kg[d.orbit] : null;
+      if (lockReason(avail.launchers, l.id) || !isNum(cap) || !(cap > 0) || cap < massKg) return;
+      if (!best || l.cost_musd < best.cost_musd) best = l;
+    });
+    return best;
+  }
+  // Build and Rocket Yard: "Pays $X · costs $Y with the cheapest rocket · net $Z · 3 stars +$B". Before a rocket is
+  // chosen, the cost counts the cheapest rocket that lifts it, so the line never shows a profit the launch would eat.
+  function comebackPayLine(d) {
+    var p = typeof previewPayout === "function" ? previewPayout(d) : null;
+    var k = p && p.contract;
+    if (!p || !k) return null;
+    if (p.topic_complete && !(p.new_data > 0)) {
+      return el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." });
+    }
+    var t = getTotals(d), rocket = d.launcher ? null : cheapestRocketFor(d, t.mass_kg);
+    var cost = Math.round((p.cost_musd + (rocket ? rocket.cost_musd : 0)) * 1000) / 1000;
+    var net = Math.round((p.expected_payout_musd - cost) * 1000) / 1000;
+    var bits = ["Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
+      "costs " + money(cost) + (rocket ? " with the cheapest rocket" : d.launcher ? "" : " + a rocket"),
+      (d.launcher || rocket) ? "net " + (net < 0 ? "-" : "") + money(Math.abs(net)) : null,
+      "3 stars +" + money(k.bonus_musd)];
+    return el("p", { class: "nasa-line payout-line", "data-key": "contract-pay" }, bits.filter(Boolean).join(" · "));
+  }
+  // Briefing: the contract card (js/ui-comeback.js) and the topic it sets. The topic cannot change here.
+  function comebackBriefing(d) {
+    var k = contractOf(d), o = byId(data("OBJECTIVES"), d.objective);
+    var C = window.StarlineComeback;
+    return el("section", { class: "screen" }, [
+      head("1 · BRIEFING"),
+      sayLine("briefing"),
+      presetNote("briefing"),
+      k && C ? C.contractCard(k, { brief: true, counts: o ? wantsLine(o) : "" }) : el("p", { class: "part-note", text: "That contract is no longer open." }),
+      o ? more(o.briefing, "About this job") : null,
+      navRow("orbit", !!d.objective)
     ]);
   }
+  // Readiness review: a flight that lands on or after the deadline loses the comeback even if it is paid.
+  function comebackDeadline(d, checks) {
+    if (!isComebackDesign(d)) return null;
+    var w = list(checks.warnings).filter(function (c) { return c.id === "deadline"; })[0];
+    return w ? el("div", { class: "deadline-banner", role: "alert", "data-key": "deadline-banner" }, [
+      el("strong", null, [icon("warning"), "TOO LATE: IT LANDS AFTER THE DEADLINE"]), el("p", { text: w.text })]) : null;
+  }
+  function comebackTimeRow(d) {
+    var info = comebackInfo();
+    if (!info || typeof flightMonths !== "function") return null;
+    return ["Time", num(flightMonths(d), 0) + " months (" + num(info.months_left, 0) + " left)"];
+  }
+  CHECK_LABELS.deadline = "LANDS TOO LATE";
+  CHECK_LABELS["no-contract"] = "NO CONTRACT";
+  CHECK_LABELS["contract-topic"] = "WRONG TOPIC FOR THE CONTRACT";
+  CHECK_LABELS["contract-orbit"] = "WRONG ORBIT FOR THE CONTRACT";
+  CHECK_LABELS["comeback-over"] = "THE COMEBACK IS OVER";
+  CHECK_LABELS["no-comeback"] = "NO COMEBACK RUNNING";
+  FIX_SCREEN["contract-topic"] = "briefing";
+  FIX_SCREEN["contract-orbit"] = "orbit";
+  // COMEBACK-END
 
-  function startMissionDesign(tierId, eraId) {
-    state.design = newDesign(tierId);
-    if (eraId && typeof setEra === "function") setEra(state.design, eraId);
-    state.reached = 0;
-    state.player = "gate";
-    if (showIntro()) return;
-    go("map");
+  // ---- Part 1, the walkthrough. The record holds only which steps passed and their best stars (from the debrief).
+  function walkConfig(step) { return WALK_STEPS[step - 1] || null; }
+  function walkStepOf(design) { return state.walk && design && state.walk.design === design ? state.walk.step : 0; }
+  function walkClean(rec) {
+    var out = { done: {} };
+    var done = rec && typeof rec === "object" && rec.done && typeof rec.done === "object" ? rec.done : {};
+    WALK_STEPS.forEach(function (w) {
+      var v = done[String(w.step)];
+      if (isNum(v) && v >= WALK_PASS_STARS && v <= 3) out.done[String(w.step)] = Math.round(v);
+    });
+    return out;
+  }
+  function walkRecord() {
+    try {
+      var raw = window.localStorage ? window.localStorage.getItem(WALK_KEY) : null;
+      if (raw) return walkClean(JSON.parse(raw));
+    } catch (e) { /* storage blocked or garbage: fall back to memory */ }
+    return walkClean(state.walkMemory);
+  }
+  function walkSave(rec) {
+    state.walkMemory = walkClean(rec);
+    try { if (window.localStorage) window.localStorage.setItem(WALK_KEY, JSON.stringify(state.walkMemory)); } catch (e) { /* memory copy still works */ }
+  }
+  function walkForget() {
+    state.walkMemory = null;
+    try { if (window.localStorage) window.localStorage.removeItem(WALK_KEY); } catch (e) { /* nothing saved */ }
+  }
+  function walkStars(step) { var v = walkRecord().done[String(step)]; return isNum(v) ? v : null; }
+  // The first step not passed yet, or 0 when all three have passed.
+  function walkNext() {
+    for (var i = 0; i < WALK_STEPS.length; i++) if (walkStars(WALK_STEPS[i].step) === null) return WALK_STEPS[i].step;
+    return 0;
+  }
+  // Called once by the debrief: keeps the best stars of a step that passed. Returns what the debrief shows.
+  function walkResult(design, stars) {
+    var step = walkStepOf(design);
+    if (!step) return null;
+    var passed = isNum(stars) && stars >= WALK_PASS_STARS;
+    if (passed) {
+      var rec = walkRecord();
+      rec.done[String(step)] = Math.max(rec.done[String(step)] || 0, stars);
+      walkSave(rec);
+    }
+    var best = walkStars(step);
+    // kept: this flight fell short, but the step passed before (a passed step stays passed).
+    return { step: step, passed: passed, kept: !passed && best !== null, best_stars: best, last: step === WALK_STEPS.length };
   }
 
-  // The story's opening: a few short beats, one at a time (NEXT, or SKIP), once per chapter in a page load.
-  // storyLine("intro") returns a list of { who, text } beats; an empty list (or no story block) skips it.
-  function showIntro() {
-    var beats = typeof storyLine === "function" ? list(storyLine("intro", state.design)) : [];
-    var chapter = typeof storyChapter === "function" ? storyChapter(state.design) : "story";
-    if (!beats.length || state.introSeen[chapter]) return false;
-    state.introSeen[chapter] = true;
-    var title = typeof STORY === "object" && STORY.title ? STORY.title : "";
-    var sub = typeof STORY === "object" && STORY.subtitle ? STORY.subtitle : "";
+  // A preset choice: set by the step, so its place counts as visited and its cards are read-only.
+  function isPreset(screen) {
+    if (isComebackDesign(state.design)) return comebackPreset(screen, state.design);
+    var cfg = walkStepOf(state.design) ? walkConfig(state.walk.step) : null;
+    return !!(cfg && PRESET_FIELD[screen] && cfg[PRESET_FIELD[screen]]);
+  }
+  // A preset place counts as visited as soon as the place before it has been: no place stays locked behind a choice
+  // the step already made (the Launch Pad opens once the Workshop has been visited when the rocket is preset).
+  function bumpReached() {
+    while (state.reached + 1 < DESIGN_STEPS.length && isPreset(DESIGN_STEPS[state.reached + 1])) state.reached++;
+  }
+
+  function startWalkStep(step) {
+    var cfg = walkConfig(step);
+    if (!cfg || typeof newDesign !== "function") return showDesignScreen("title");
+    var d = newDesign(cfg.tier);
+    if (cfg.era && typeof setEra === "function") setEra(d, cfg.era);
+    if (cfg.objective) setObjective(d, cfg.objective);
+    if (cfg.orbit) setOrbit(d, cfg.orbit);
+    if (cfg.launcher) setLauncher(d, cfg.launcher);
+    stopWalking();
+    state.walk = { step: step, design: d };
+    state.design = d;
+    state.locked = false;
+    state.reached = 0;
+    state.player = "gate";
+    state.bin = null;
+    bumpReached();
+    var beats = (step === 1 ? list(storyLine("intro", d)) : []).concat(list(storyLine("step-open", d, step)));
+    var name = walkName(step);
+    showBeats(beats, STORY.modes.part1.kicker + " · STEP " + step + (name ? " · " + name : ""), function () { go("map"); });
+  }
+  function walkName(step) {
+    var s = STORY.austin && STORY.austin.steps ? STORY.austin.steps[String(step)] : null;
+    return s && s.name ? s.name : "";
+  }
+
+  // After step 3: the epilogue, then Part 2 (window.showComebackStart, defined by the Part 2 screens) or home.
+  function showEpilogue() {
+    var toPart2 = function () {
+      if (typeof window.showComebackStart === "function") window.showComebackStart();
+      else showDesignScreen("title");
+    };
+    state.walk = null;
+    state.design = null;
+    state.locked = false;
+    showBeats(list(storyLine("epilogue", null)), STORY.modes.part1.kicker + " · " + STORY.modes.part1.name, toPart2,
+      { doneLabel: "CONTINUE TO PART 2", skipToEnd: true, home: true });
+  }
+
+  // A few short story beats, one at a time (NEXT, or SKIP), then onDone. An empty list goes straight to onDone.
+  // opts: doneLabel (the last button, default START), skipToEnd (SKIP shows the last beat instead of leaving),
+  // home (a HOME button beside the last one).
+  function showBeats(beats, kicker, onDone, opts) {
+    opts = opts || {};
+    beats = list(beats).filter(function (b) { return b && b.text; });
+    if (!beats.length) return onDone();
+    setStatus(modeName() || "Space Mission Design Game");   // not the last mission's score
     var at = 0;
     function draw1() {
       var last = at >= beats.length - 1;
       mount("intro", el("section", { class: "screen intro" }, [
-        el("div", { class: "kicker", text: (chapter === "ajay" ? "PART 2 · " : "PART 1 · ") + String(sub || title).toUpperCase() }),
+        el("div", { class: "kicker", text: String(kicker || "").toUpperCase() }),
         el("div", { class: "intro-beats", "aria-live": "polite" }, [sayElement(beats[at])]),
         el("p", { class: "bar-note", text: (at + 1) + " / " + beats.length }),
         el("div", { class: "nav-row" }, [
-          button("SKIP", function () { go("map"); }, { aria: "Skip the introduction" }),
-          button([last ? "START" : "NEXT", " >"], function () { if (last) go("map"); else { at++; draw1(); } }, { primary: true })
+          last ? (opts.home ? button("HOME", function () { showDesignScreen("title"); }) : null)
+            : button("SKIP", function () { if (opts.skipToEnd) { at = beats.length - 1; draw1(); } else onDone(); }, { aria: "Skip the story" }),
+          button([last ? (opts.doneLabel || "START") : "NEXT", " >"], function () { if (last) onDone(); else { at++; draw1(); } }, { primary: true })
         ])
       ]));
+      // Open at the top (the title page may have been scrolled), then focus NEXT without scrolling back down.
+      window.scrollTo(0, 0);
       var next = document.querySelector(".intro .btn.primary");
-      if (next) next.focus();
+      if (next) next.focus({ preventScroll: true });
     }
     draw1();
-    return true;
   }
 
-  function tierButton(t, i, tiers, era, eraOpen, eraLockText) {
-    var tierOpen = typeof isTierUnlocked === "function" ? isTierUnlocked(t.id) : true;
-    var open = tierOpen && eraOpen;
-    var why = !eraOpen ? "Locked" : !tierOpen ? "Earn 2 stars on " + (tiers[i - 1] ? tiers[i - 1].name : "the previous tier") : null;
-    return el("button", {
-      type: "button", class: "tier-btn" + (open ? "" : " locked"), disabled: !open,
-      "data-key": era ? "start-" + era.id + "-" + t.id : "tier-" + t.id,
-      title: why ? (eraOpen ? why : eraLockText) : num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission",
-      "aria-label": (era ? era.name + " " + era.year + ", " : "") + t.name + ", " + money(t.budget_musd) + ", " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + (why ? ". Locked: " + (eraOpen ? why : eraLockText) : ""),
-      onclick: function () { startMissionDesign(t.id, era ? era.id : null); }
-    }, [
-      el("span", { class: "tier-name", text: t.name.toUpperCase() }),
-      el("span", { class: "tier-facts", text: why ? "LOCKED" : money(t.budget_musd) })
+  // ---- the home page: the title and two mode cards. Every star comes from the walkthrough record.
+  function comebackSaved() {
+    try {
+      if (typeof getComeback !== "function") return false;
+      var c = getComeback();
+      return !!c && !c.finished;
+    } catch (e) { return false; }
+  }
+
+  // A menu entry: the whole panel is its button (the button's hit area covers the panel), so the label, the name and
+  // the state read as one choice. lead: the entry to play next, drawn solid.
+  function modeEntry(key, M, lead, extra, go) {
+    return el("div", { class: "mode-card" + (lead ? " lead" : ""), "data-key": key }, [
+      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
+      el("h2", { text: M.name }),
+      el("div", { class: "mode-foot" }, [extra.state || el("span"), el("div", { class: "mode-go" }, [go])])
     ]);
   }
 
-  // Tier select: eras across, tiers (maturity levels) down. All numbers come from getEras(), TIERS and getProgress().
+  function part1Card(lead) {
+    var M = STORY.modes.part1;
+    var next = walkNext();
+    var started = WALK_STEPS.some(function (w) { return walkStars(w.step) !== null; });
+    var label = !next ? "PLAY AGAIN" : started ? "CONTINUE: STEP " + next : "START";
+    // The three steps as their stars, numbered; the step's name is for screen readers and the tooltip.
+    var steps = el("ol", { class: "mode-steps" }, WALK_STEPS.map(function (w) {
+      var stars = walkStars(w.step);
+      return el("li", { class: stars === null ? "" : "passed", "data-key": "walk-step-" + w.step, title: walkName(w.step) }, [
+        el("span", { class: "mode-step-num", text: String(w.step) }),
+        el("span", { class: "mode-step-name sr-only", text: walkName(w.step) }),
+        el("span", { class: "stars", text: starsText(stars || 0), "aria-label": stars === null ? "not passed yet" : stars + " of 3 stars" })
+      ]);
+    }));
+    return modeEntry("mode-part1", M, lead, { tag: next ? el("span", { class: "tag warn", text: M.tag }) : null, state: steps },
+      button([label, " >"], function () { startWalkStep(next || 1); },
+        { primary: true, key: "part1-go", aria: label + ", " + M.kicker + ", " + M.name }));
+  }
+
+  function part2Card(lead) {
+    var M = STORY.modes.part2;
+    var ready = typeof window.showComebackStart === "function";
+    var label = !ready ? "COMING NEXT" : comebackSaved() ? "CONTINUE" : "START";
+    return modeEntry("mode-part2", M, lead && ready, {},
+      button(ready ? [label, " >"] : label, function () { if (typeof window.showComebackStart === "function") window.showComebackStart(); },
+        { primary: ready, disabled: !ready, key: "part2-go", aria: label + ", " + M.kicker + ", " + M.name }));
+  }
+
+  // The home page, a console title screen: the low-poly scene fills the first screen, the drawn title and one line over
+  // its sky, then the two modes as a menu. The entry to play next is solid: Part 1 until its three steps pass, then Part 2.
   function drawTitle() {
     setStatus("Space Mission Design Game");
     state.locked = false;
-    var tiers = data("TIERS");
-    var eras = typeof getEras === "function" ? list(getEras()) : [];
-    var missions = typeof MISSIONS !== "undefined" ? list(MISSIONS) : [];
-
-    var grid;
-    if (eras.length) {
-      grid = el("div", { class: "eras" }, eras.map(function (e, i) {
-        var lockText = e.unlocked ? null : "Earn 2 stars in " + (eras[i - 1] ? eras[i - 1].name : "the previous era");
-        // A locked era is one short card: the rule is its tooltip and accessible name, and the screen's one hint.
-        if (!e.unlocked) {
-          return el("div", { class: "era locked compact", "data-key": "era-" + e.id, role: "group", title: lockText,
-            "aria-label": e.name + " " + e.year + ". Locked. " + lockText }, [
-            el("div", { class: "era-year", text: String(e.year) }),
-            el("div", { class: "card-title" }, [el("h3", { text: String(e.name).toUpperCase() }), el("span", { class: "tag", text: "LOCKED" })])
-          ]);
-        }
-        var real = list(e.real_missions).map(function (id) { var m = byId(missions, id); return m ? m.name : null; }).filter(Boolean);
-        return el("div", { class: "era" + (e.unlocked ? "" : " locked"), "data-key": "era-" + e.id }, [
-          el("div", { class: "era-year", text: String(e.year) }),
-          el("div", { class: "card-title" }, [el("h3", { text: String(e.name).toUpperCase() }),
-            el("span", { class: "stars", text: starsText(e.best_stars), "aria-label": (e.best_stars || 0) + " of 3 stars" })]),
-          more(e.blurb + (real.length ? " Real missions: " + real.join(", ") + "." : ""), "About this era"),
-          el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, e, e.unlocked, lockText); }))
-        ]);
-      }));
-    } else {
-      // No eras in the data: the three tiers alone, everything available.
-      grid = el("div", { class: "eras" }, [el("div", { class: "era" }, [
-        el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, null, true, null); }))])]);
-    }
-
-    return el("section", { class: "title" }, [
-      titleHero(),
-      el("h1", { class: "big-title", text: String(typeof STORY === "object" && STORY.title ? STORY.title : "GRAVITRON").toUpperCase() }),
-      el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-      el("h2", { class: "sr-only", text: eras.length ? "Choose an era and a level" : "Choose a level" }),
-      tiers.length ? grid : el("p", { class: "empty", text: "No tiers in the data yet." }),
-      tiers.length ? campaignPanel(tiers) : null,
-      el("div", null, [button("RESET PROGRESS", function () {
-        if (typeof resetProgress === "function" && window.confirm("Forget every star you have earned?")) { resetProgress(); draw("title"); }
-      }, { quiet: true })])
+    state.walk = null;
+    var hero = titleHero();
+    var part1Next = !!walkNext();
+    return el("section", { class: "title" + (hero ? " has-art" : "") }, [
+      hero || titleSky(),
+      el("div", { class: "title-main" }, [
+        logotype(String(STORY.title || "GRAVITRON").toUpperCase()),
+        el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
+        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)])
+      ]),
+      el("div", { class: "title-foot" }, [button("RESET PROGRESS", function () {
+        if (!window.confirm("Forget every star you have earned?")) return;
+        if (typeof resetProgress === "function") resetProgress();
+        walkForget();
+        draw("title");
+      }, { quiet: true, key: "reset-progress" })])
     ]);
+  }
+
+  // A step that presets this screen's choice: the chosen card becomes a plain card (nothing to click) and the
+  // others are greyed out, under one line saying so.
+  function presetView(card, chosen) {
+    if (chosen) {
+      var div = el("div", { class: card.className + " static chosen", "data-key": card.getAttribute("data-key") });
+      while (card.firstChild) div.appendChild(card.firstChild);
+      return div;
+    }
+    card.disabled = true;
+    card.className += " locked";
+    card.removeAttribute("aria-pressed");
+    return card;
+  }
+  function presetNote(screen) {
+    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : "Set for this step." }) : null;
   }
 
   // ---------------------------------------------------------------- 1 Briefing
@@ -1847,6 +2399,7 @@
 
   function drawBriefing() {
     var d = state.design;
+    if (isComebackDesign(d)) return comebackBriefing(d);
     var objectives = data("OBJECTIVES");
     var chosen = byId(objectives, d.objective);
     var avail = availability(d);
@@ -1869,20 +2422,25 @@
         facts([["Target", num(o.science_target, 0) + " pts"], ["Counts", wantsLine(o)],
           topic ? ["Pays", money(topic.next_payout_estimate_musd)] : null])
       ]);
+      if (isPreset("briefing")) card = presetView(card, d.objective === o.id);
       // The rest of the briefing sits beside the card, not inside it (a button cannot hold a button).
       return el("div", { class: "card-wrap" }, [card, more(o.briefing, "About this job")]);
     });
+    // The "½" in a Counts row, said once under the cards (SPEC: the first type counts fully, the others half).
+    var half = objectives.some(function (o) { return !lockReason(avail.objectives, o.id) && list(o.wants).length > 1; });
     return el("section", { class: "screen" }, [
       head("1 · BRIEFING"),
       sayLine("briefing"),
+      presetNote("briefing"),
       objectives.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No objectives in the data yet." }),
+      half ? el("p", { class: "preset-note", text: "½: counts half." }) : null,
       navRow("orbit", !!d.objective)
     ]);
   }
 
   // ---------------------------------------------------------------- 2 Orbit
   // "In view: 69% of the world's fire detections (NASA FIRMS 2025)": the share comes from getOrbitFacts.
-  // (The badge beside it is about how often the orbit looks, which is a different thing.)
+  // (The badge above it is how well the orbit suits the job, which is a different thing.)
   function inViewText(objectiveId, share) {
     var e = typeof EARTH !== "undefined" && EARTH ? EARTH[objectiveId] : null;
     var KINDS = { "wildfire": ["of the world's fire detections", "NASA FIRMS"],
@@ -1891,6 +2449,15 @@
     var kind = KINDS[objectiveId] || ["of the target", "NASA data"];
     var src = e && e.source ? " (" + kind[1] + (e.year ? " " + e.year : "") + ")" : "";
     return "In view: " + Math.round(share * 100) + "% " + kind[0] + src;
+  }
+  // An orbit the chosen rocket cannot reach, or one no rocket on offer can reach (1958): said on the card before the
+  // click. A plain data field (the rocket's capacity_kg for that orbit), as on the Launch vehicle screen.
+  function reachNote(d, o) {
+    var rocket = d.launcher ? byId(data("LAUNCHERS"), d.launcher) : null;
+    var cap = rocket && rocket.capacity_kg ? rocket.capacity_kg[o.id] : null;
+    if (rocket && !(isNum(cap) && cap > 0)) return el("p", { class: "part-note", text: rocket.name + " cannot reach it" });
+    if (!rocket && !anyRocketReaches(d, o.id)) return el("p", { class: "part-note", text: "No rocket yet can reach it" });
+    return null;
   }
   function drawOrbit() {
     var d = state.design;
@@ -1901,11 +2468,13 @@
       setOrbit(probe, o.id);
       var f = getOrbitFacts(probe);
       var fit = objective && objective.orbit_fit ? objective.orbit_fit[o.id] : undefined;
+      // How well this orbit suits the job (objective.orbit_fit), which is not the share in view printed below it:
+      // so the badge says FIT, never VIEW, and the two cannot contradict each other on one card.
       var badge = !isNum(fit) ? null
         : fit === 0 ? el("span", { class: "tag bad", text: "CANNOT SEE TARGET" })
-        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL VIEW" })
-        : el("span", { class: "tag good", text: "GOOD VIEW" });
-      return el("button", {
+        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL FIT" })
+        : el("span", { class: "tag good", text: "GOOD FIT" });
+      var card = el("button", {
         type: "button", class: "card" + (fit === 0 ? " dim" : ""), "aria-pressed": d.orbit === o.id ? "true" : "false",
         "data-key": "orbit-" + o.id, onclick: function () { setOrbit(d, o.id); redraw(); }
       }, [
@@ -1917,14 +2486,17 @@
           ["In shadow", num(f.eclipse_min) + " min a lap"],
           ["Lifetime", num(o.lifetime_months, 0) + " months"]
         ]),
-        isNum(f.target_in_view) ? el("p", { class: "nasa-line", text: inViewText(d.objective, f.target_in_view) }) : null
+        isNum(f.target_in_view) ? el("p", { class: "nasa-line", text: inViewText(d.objective, f.target_in_view) }) : null,
+        reachNote(d, o)
       ]);
+      return isPreset("orbit") ? presetView(card, d.orbit === o.id) : card;
     });
     return el("section", { class: "screen" }, [
       head("2 · ORBIT"),
       sayLine("orbit"),
+      presetNote("orbit"),
       cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No orbits in the data yet." }),
-      navRow("build", !!d.orbit)
+      navRow("build", !!d.orbit && !blockedAt(d).orbit)
     ]);
   }
 
@@ -1936,9 +2508,9 @@
       bits.push(el("span", { class: "part-stat" }, [icon(kind), text]));
     }
     if (p.mass_kg) stat("mass", num(p.mass_kg) + " kg");
-    if (p.power_draw_w) stat("power", num(p.power_draw_w, 0) + " W draw");
-    if (p.data_gb_day) stat("data", num(p.data_gb_day) + " GB/d made");
-    if (p.downlink_gb_day) stat("comms", num(p.downlink_gb_day) + " GB/d sent");
+    if (p.power_draw_w) stat("power", fine(p.power_draw_w) + " W draw");
+    if (p.data_gb_day) stat("data", dataText(p.data_gb_day) + "/d made");
+    if (p.downlink_gb_day) stat("comms", dataText(p.downlink_gb_day) + "/d sent");
     if (p.battery_wh) stat("power", num(p.battery_wh, 0) + " Wh");
     return bits;
   }
@@ -1961,7 +2533,7 @@
     var note = f.counts === false ? "Does not count for this objective"
       : f.sharp_enough === false ? "Too blurry from this orbit" : null;
     function preview() { state.hover = p.id; refreshPreview(); }
-    return el("button", {
+    var card = el("button", {
       type: "button", class: "part" + (note ? " dim" : ""), "aria-pressed": on ? "true" : "false", "data-key": "part-" + p.id,
       onpointerdown: function (e) {
         // Read before the tap focuses the card (focus also previews).
@@ -1970,15 +2542,15 @@
       },
       onclick: function () {
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
-        if (state.touch && !state.armed) { preview(); state.armed = true; return; }
+        if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
       },
       onfocus: preview,
       // Real mouse only: a phone tap also fires mouse enter/leave, which would undo the tap preview.
-      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); },
-      onpointerleave: function (e) { if (e.pointerType === "mouse") { state.hover = null; refreshPreview(); } }
+      // Leaving a card keeps its preview, so the pointer can move onto the preview and scroll it.
+      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
       el("span", { class: "part-stats" }, partStats(p)),
@@ -1986,38 +2558,92 @@
       note ? el("span", { class: "part-note", text: note }) : null,
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
     ]);
+    if (state.touch && state.hover === p.id) markArmed(card, on);
+    return card;
+  }
+  // A finger's first tap on a card: the card says that a second tap adds (or removes) it. One card at a time.
+  function markArmed(card, on) {
+    Array.prototype.slice.call(document.querySelectorAll(".part.armed")).forEach(function (n) {
+      n.classList.remove("armed");
+      var old = n.querySelector(".part-tap");
+      if (old) old.parentNode.removeChild(old);
+    });
+    card.classList.add("armed");
+    card.appendChild(el("span", { class: "part-tap", text: on ? "TAP AGAIN TO REMOVE" : "TAP AGAIN TO ADD" }));
   }
 
-  // What clicking the hovered part would change (previewToggle), drawn in place.
+  // What clicking the hovered part would change (previewToggle). There is one preview box: a redraw moves the box
+  // already on the page into the new screen and a hover refills it, so its aria-live text is announced, not replaced.
   function drawPreview() {
-    var box = el("div", { class: "panel preview", id: "preview", "aria-live": "polite" }, [el("h2", { text: "IF YOU CLICK" })]);
-    if (!state.hover) {
-      box.appendChild(el("p", { class: "preview-empty", text: "Point at a part to see what it would change." }));
-      return box;
+    var box = document.getElementById("preview") || el("div", { class: "panel preview", id: "preview", "aria-live": "polite" });
+    fillPreview(box);
+    return box;
+  }
+  function refreshPreview() {
+    var box = document.getElementById("preview");
+    if (box) fillPreview(box);
+  }
+  function touchScreen() { return !!(window.matchMedia && window.matchMedia("(hover: none)").matches); }
+
+  // The most useful lines first: the change to the bars, then what it fixes and causes; the part's story last.
+  function fillPreview(box) {
+    while (box.firstChild) box.removeChild(box.firstChild);
+    box.scrollTop = 0;
+    var touch = state.touch || touchScreen();
+    box.appendChild(el("h2", { text: !touch ? "IF YOU CLICK" : state.hover ? "IF YOU TAP AGAIN" : "IF YOU TAP" }));
+    var p = state.hover ? byId(data("PARTS"), state.hover) : null;
+    var t = p ? previewToggle(state.design, state.hover) : null;
+    if (!t) {
+      box.appendChild(el("p", { class: "preview-empty", text: (touch ? "Tap" : "Point at") + " a part to see what it would change." }));
+      return;
     }
-    var p = byId(data("PARTS"), state.hover);
-    var t = previewToggle(state.design, state.hover);
     var dl = t.delta || {};
     var bits = [];
-    if (dl.mass_kg) bits.push(signed(dl.mass_kg) + " kg");
-    if (dl.power_draw_w) bits.push(signed(dl.power_draw_w, 0) + " W draw");
-    if (dl.power_gen_w) bits.push(signed(dl.power_gen_w, 0) + " W made");
+    if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
+    if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
+    if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
     if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
-    if (dl.data_returned_gb_day) bits.push("data home " + signed(dl.data_returned_gb_day) + " GB/day");
+    if (dl.data_returned_gb_day) bits.push("data home " + dataText(dl.data_returned_gb_day, true) + "/day");
     if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
     if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
     if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
-    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + (p ? p.name.toUpperCase() : "") }));
-    if (p && p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
+    var ch = checkChanges(state.design, state.hover);
+    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
-    list(t.fixes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
-    list(t.causes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
-    return box;
+    ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
+    ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
-  function refreshPreview() {
-    var old = document.getElementById("preview");
-    if (old) old.parentNode.replaceChild(drawPreview(), old);
+  // What a click would fix and cause: runChecks on the design and on a full copy of it with the part toggled (every
+  // field kept, so the era's rules still apply). One check id can appear more than once (a BODY FULL line for each
+  // kind of part), so lines that share an id are matched by their text. Checks only: every number is the back end's.
+  function toggledCopy(d, partId) {
+    var a = {};
+    Object.keys(d).forEach(function (k) { a[k] = d[k]; });
+    a.parts = list(d.parts).slice();
+    if (a.parts.indexOf(partId) === -1) addPart(a, partId); else removePart(a, partId);
+    return a;
+  }
+  function checkChanges(d, partId) {
+    function all(r) { return list(r.blockers).concat(list(r.warnings)); }
+    var before = all(runChecks(d)), after = all(runChecks(toggledCopy(d, partId)));
+    // The lines of `from` that `to` no longer has: per id, as many as `to` has fewer, unmatched texts first.
+    function gone(from, to) {
+      var out = [], seen = {};
+      from.forEach(function (c) {
+        if (seen[c.id]) return;
+        seen[c.id] = true;
+        var mine = from.filter(function (x) { return x.id === c.id; });
+        var theirs = to.filter(function (x) { return x.id === c.id; }).map(function (x) { return x.text; });
+        var n = mine.length - theirs.length;
+        if (n <= 0) return;
+        var unmatched = mine.filter(function (x) { return theirs.indexOf(x.text) === -1; });
+        out = out.concat((unmatched.length >= n ? unmatched : mine).slice(0, n));
+      });
+      return out;
+    }
+    return { fixes: gone(before, after), causes: gone(after, before) };
   }
 
   function sciencePanel(design) {
@@ -2051,26 +2677,27 @@
 
     state.avail = availability(d);   // one call per screen refresh; partCard reads it
     var cats = categories();
-    var cat = byId(cats, state.bin) || cats[0];   // the open bin
+    // The open bin: the one chosen on the way in (entryBin) or by the player, else the instrument bin, else the first.
+    var cat = byId(cats, state.bin) || byId(cats, "instrument") || cats[0];
     var body = getTotals(d).body || null;   // { name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null
     var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(cats.map(function (c) {
       var n = count[c.id] || 0;
       var need = c.required && !n;
-      // With a body fitted, each bin shows how many of its slots are used ("2 / 3").
+      // With a body fitted, each bin shows how many of its slots are used ("2 / 3 slots", "1 / 1 slot"). A kind of
+      // part the body has no slot for says so ("No room on this body", or "2 on board, no room").
       var slot = body && body.slots ? body.slots[c.id] : null;
-      if (slot && !slot.max && !slot.used) slot = null;   // no slots at all on this body
-      var noRoom = !!body && !slot && c.id !== "structure";
-      var over = !!slot && slot.used > slot.max;
-      var sub = need ? "Needed" : slot ? slot.used + " / " + slot.max + " slots" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
-        : n ? n + " on board" : c.sub;
+      var noRoom = !!body && c.id !== "structure" && !(slot && slot.max);
+      var over = noRoom ? n > 0 : !!slot && slot.used > slot.max;
+      var sub = need ? "Needed" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
+        : slot ? slot.used + " / " + slot.max + (slot.max === 1 ? " slot" : " slots") : n ? n + " on board" : c.sub;
       return el("button", {
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
-        onclick: function () { state.bin = c.id; state.hover = null; redraw(); }
+        onclick: function () { state.bin = c.id; state.hover = null; redraw(); showShelf(); }
       }, [
         icon(c.id) || art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
         el("span", { class: "bin-text" }, [
           el("span", { class: "bin-name", text: c.name }),
-          el("span", { class: "bin-sub" + (need || over || (noRoom && n) ? " need" : ""), text: sub })
+          el("span", { class: "bin-sub" + (need || over ? " need" : ""), text: sub })
         ])
       ]);
     })));
@@ -2080,8 +2707,7 @@
     var bench = el("div", { class: "bench" }, [
       el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
         el("span", { text: list(d.parts).length + " parts · " + built + " of " + cats.length + " systems" })]),
-      satelliteArt(d, chg),
-      drawPreview()
+      satelliteArt(d, chg)
     ]);
 
     var overview = el("div", { class: "panel" }, [
@@ -2101,15 +2727,38 @@
       shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
         : el("p", { class: "empty", text: "No parts in this bin yet." })
     ]);
+    // The preview sits on top of the shelf and stays in view while you scroll through the parts (CSS sticky).
+    var picker = el("div", { class: "part-picker", id: "part-picker" }, [drawPreview(), shelf]);
 
     return el("section", { class: "screen" }, [
       head("3 · BUILD"),
       sayLine("build"),
-      el("div", { class: "workshop" }, [bins, bench, el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
-      payoutLine(d),
-      shelf,
-      navRow("launcher", true)
+      // On a wide screen the shelf sits under the satellite, and the side panels stay in view while you scroll: you
+      // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
+      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
+        el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
+      // With the rocket preset (Part 1), the next stop after the Workshop is the Launch Pad.
+      navRow(isPreset("launcher") ? "review" : "launcher", true)
     ]);
+  }
+
+  // The bin Build opens on: the one a FIX line asked for, else the first required bin still empty (the team's line
+  // talks about it), else the one the player had open. Chosen on the way in (go), never on a redraw, so the shelf
+  // never changes under the pointer after a click.
+  function entryBin(d, wanted) {
+    if (wanted) return wanted;
+    var have = {};
+    list(d.parts).forEach(function (id) { var p = byId(data("PARTS"), id); if (p) have[p.category] = true; });
+    var missing = categories().filter(function (c) { return c.required && !have[c.id]; })[0];
+    return missing ? missing.id : state.bin;
+  }
+
+  // A narrow screen stacks the Build screen: after a bin is picked, bring its parts (and the preview) into view.
+  function showShelf() {
+    var box = document.getElementById("part-picker");
+    if (!box || !(window.matchMedia && window.matchMedia("(max-width: 929px)").matches)) return;
+    var top = box.getBoundingClientRect().top;
+    if (top > window.innerHeight * 0.5 || top < 0) window.scrollTo(0, window.pageYOffset + top);
   }
 
   // ---------------------------------------------------------------- 4 Launch vehicle
@@ -2132,7 +2781,7 @@
         : !reach ? el("span", { class: "tag bad", text: "CANNOT REACH" })
         : fits ? el("span", { class: "tag good", text: "FITS" })
         : el("span", { class: "tag bad", text: "TOO SMALL" });
-      return el("button", {
+      var card = el("button", {
         type: "button", class: "card" + (orbit && !reach ? " locked" : ""), disabled: !!(orbit && !reach),
         "aria-pressed": d.launcher === l.id ? "true" : "false", "data-key": "rocket-" + l.id,
         onclick: function () { setLauncher(d, l.id); redraw(); }
@@ -2143,10 +2792,12 @@
           orbit ? ["Lifts", reach ? num(cap, 0) + " kg" : "no"] : null
         ])
       ]);
+      return isPreset("launcher") ? presetView(card, d.launcher === l.id) : card;
     });
     return el("section", { class: "screen" }, [
       head("4 · LAUNCH VEHICLE"),
       sayLine("launcher"),
+      presetNote("launcher"),
       el("div", { class: "pad" }, [
         cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No rockets in the data yet." }),
         el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d), payoutLine(d)])
@@ -2168,20 +2819,32 @@
     var objective = byId(data("OBJECTIVES"), d.objective);
     var orbit = byId(data("ORBITS"), d.orbit);
     var rocket = byId(data("LAUNCHERS"), d.launcher);
-    var control = el("div", { class: "panel" }, [
+    // The science this design should bring home if nothing goes wrong, against the job's target (previewScience),
+    // shown before the one click that cannot be undone. Short of the target: amber, and the button says ANYWAY.
+    var sci = d.objective && d.orbit && typeof previewScience === "function" ? previewScience(d) : null;
+    var short = !!sci && sci.target > 0 && sci.share < 1;
+    var forecast = sci && sci.target > 0 ? bar("SCIENCE FORECAST", num(sci.total, 0) + " / " + num(sci.target, 0) + " PTS", sci.share,
+      short ? " warn" : "", short ? "Short of the target" : null, "science") : null;
+    var launchBtn = button(blocked ? "LAUNCH" : warned || short ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked });
+    var control = el("div", { class: "panel launch-control" }, [
       el("span", { class: "countdown-label", text: "T-MINUS" }),
       el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
-      el("p", { class: "verdict " + (blocked ? "bad" : warned ? "warn" : "ok"),
-        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "") : "ALL SYSTEMS GO" }),
+      el("p", { class: "verdict " + (blocked ? "bad" : warned || short ? "warn" : "ok"),
+        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
+          : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),
+      comebackDeadline(d, checks),
+      forecast,
+      // The one thing to do first: with nothing blocking, LAUNCH comes before the warnings (it was below the fold on a
+      // laptop); while something blocks, the NO GO lines and their FIX buttons come first.
+      blocked ? null : launchBtn,
       checkList(d, { fix: true }),
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
         ["Orbit", orbit ? orbit.name : "not chosen"],
         ["Rocket", rocket ? rocket.name : "not chosen"],
-        isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
+        isComebackDesign(d) ? comebackTimeRow(d) : isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
       ]),
-      button(blocked ? "LAUNCH" : warned ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
-      null
+      blocked ? launchBtn : null
     ]);
     return el("section", { class: "screen" }, [
       head("5 · READINESS REVIEW"),
@@ -2222,11 +2885,27 @@
     return categories().every(function (c) { return !c.required || have[c.id]; });
   }
 
-  // Where a NO GO line is fixed. Mass and budget belong to the rocket once one is chosen,
-  // and to the parts before that.
+  // Where a NO GO line (or a warning) is fixed. Mass and budget belong to the rocket once one is chosen, and to the
+  // parts before that or when the step presets the rocket. An orbit no rocket on offer can reach, or one that needs a
+  // thruster when none is on offer (1958), is fixed at the Tracking Station. The route and the FIX links both use this.
   function fixPlace(check, d) {
-    if ((check.id === "mass" || check.id === "budget") && !d.launcher) return "build";
-    return FIX_SCREEN[check.id] || "build";
+    var id = String(check && check.id || "");
+    if (id === "launcher-reach") return isPreset("launcher") || !anyRocketReaches(d, d.orbit) ? "orbit" : "launcher";
+    if (id === "no-launcher" && d.orbit && !anyRocketReaches(d, d.orbit)) return "orbit";
+    if (id === "delta-v" && !anyPartOffered(d, "propulsion")) return "orbit";
+    if ((id === "mass" || id === "budget" || id === "mass-margin") && (!d.launcher || isPreset("launcher"))) return "build";
+    return FIX_SCREEN[id] || "build";
+  }
+  // Plain data fields only: is any rocket on offer able to reach this orbit at all (capacity above 0)?
+  function anyRocketReaches(d, orbitId) {
+    var avail = availability(d);
+    return data("LAUNCHERS").some(function (l) {
+      return !lockReason(avail.launchers, l.id) && !!l.capacity_kg && isNum(l.capacity_kg[orbitId]) && l.capacity_kg[orbitId] > 0;
+    });
+  }
+  function anyPartOffered(d, category) {
+    var avail = availability(d);
+    return data("PARTS").some(function (p) { return p.category === category && !lockReason(avail.parts, p.id); });
   }
 
   function blockedAt(d) {
@@ -2241,7 +2920,8 @@
     if (!d || !d.objective) return "briefing";
     if (!d.orbit) return "orbit";
     var at = blockedAt(d);
-    if (!hasRequiredParts(d) || at.build) return at.orbit ? "orbit" : "build";
+    if (at.orbit) return "orbit";   // an orbit no rocket on offer can reach: nothing later can fix it
+    if (!hasRequiredParts(d) || at.build) return "build";
     if (!d.launcher) return "launcher";
     for (var i = 0; i < DESIGN_STEPS.length - 1; i++) if (at[DESIGN_STEPS[i]]) return DESIGN_STEPS[i];
     return "review";
@@ -2250,6 +2930,7 @@
   // The objective line while you stand where the GPS points.
   function doText(screen) {
     var d = state.design;
+    if (screen === "orbit" && d.orbit && blockedAt(d).orbit) return "Choose an orbit a rocket can reach.";
     if (screen === "build" && hasRequiredParts(d)) return "Clear the problems marked with a cross under the bars.";
     if (screen === "launcher" && d.launcher && blockedAt(d).launcher) return "Still NO GO: try another rocket, or cut mass or cost at the Workshop.";
     if (screen === "review" && !runChecks(d).blockers.length) return "Launch when ready.";
@@ -2345,12 +3026,71 @@
     return path.map(function (id) { return NODES[id].x + "," + NODES[id].y; }).join(" ");
   }
 
+  // The base map in low poly (LowPoly.scenes.base, js/lp-base.js): a canvas under the markers, the gold route and
+  // the player, which all keep their places. The scene is built for the canvas's own size, so its project(x, y)
+  // is exactly where a marker stands (x / 200 and y / 120 of the map box), and built again when the box changes
+  // shape. Once it has drawn, the pixel drawing is hidden (its SVG keeps only the route). Decoration only: the
+  // markers carry the meaning. null without the 3D art (the pixel map stays).
+  var baseScene = null;   // {key, wrap}: building it takes about 20 ms, so it is kept while the size holds
+  function lpBaseMap(board) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.base !== "function" ||
+          typeof LowPoly.view !== "function" || typeof ResizeObserver !== "function") return null;
+      var canvas = document.createElement("canvas"), view = null;
+      canvas.width = 0; canvas.height = 0;
+      canvas.className = "map-lp";
+      var ro = new ResizeObserver(function () {
+        if (!canvas.isConnected && view) { ro.disconnect(); return; }
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!(w > 0 && h > 0)) return;
+        try {
+          var key = w + "x" + h;
+          if (!baseScene || baseScene.key !== key) {
+            baseScene = { key: key, wrap: LowPoly.scenes.base({ width: w, height: h, places: PLACES, nodes: NODES, edges: EDGES }) };
+          }
+          if (view) view.set(baseScene.wrap);
+          else view = LowPoly.view(canvas, baseScene.wrap, { drag: false, keys: false, fps: 30 });
+          canvas.setAttribute("role", "presentation");   // decoration (the engine labels every canvas it draws)
+          if (canvas.width > 0) board.classList.add("lp-on");
+        } catch (e) { ro.disconnect(); board.classList.remove("lp-on"); }
+      });
+      ro.observe(canvas);
+      canvas.setAttribute("aria-hidden", "true");
+      canvas.setAttribute("role", "presentation");
+      return canvas;
+    } catch (e) { return null; }
+  }
+  // The header minimap's picture: the low-poly minimap drawn once and kept (setStep rebuilds the minimap on every
+  // redraw). "" when it cannot be drawn: the pixel map is used.
+  var miniPicture = null;
+  function lpMinimap() {
+    if (miniPicture !== null) return miniPicture;
+    miniPicture = "";
+    try {
+      if (typeof LowPoly === "object" && LowPoly && LowPoly.scenes && typeof LowPoly.scenes.minimap === "function") {
+        var wrap = LowPoly.scenes.minimap({ width: 340, height: 204, places: PLACES, nodes: NODES, edges: EDGES });
+        var c = document.createElement("canvas");
+        c.width = 340; c.height = 204;
+        if (LowPoly.render(c, wrap.scene)) miniPicture = c.toDataURL("image/png");
+      }
+    } catch (e) { miniPicture = ""; }
+    return miniPicture;
+  }
+
   // The map art. `mini` = the header minimap, with the player and the route drawn in.
   function mapSvg(mini, here) {
-    var svg = art("0 0 " + MAP_W + " " + MAP_H, mapRects(),
-      mini ? null : "Pixel map of the space centre: Mission Control, the Tracking Station, the Workshop, the Rocket Yard and the Launch Pad, joined by roads",
+    var picture = mini ? lpMinimap() : "";
+    var svg = art("0 0 " + MAP_W + " " + MAP_H, picture ? [] : mapRects(),
+      mini ? null : "Map of the space centre: Mission Control, the Tracking Station, the Workshop, the Rocket Yard and the Launch Pad, joined by roads",
       mini ? "minimap-art" : "map-art");
     var NS = "http://www.w3.org/2000/svg";
+    if (picture) {
+      var image = document.createElementNS(NS, "image");
+      image.setAttribute("href", picture);
+      image.setAttribute("width", MAP_W); image.setAttribute("height", MAP_H);
+      image.setAttribute("preserveAspectRatio", "none");
+      svg.appendChild(image);
+    }
     var line = document.createElementNS(NS, "polyline");
     line.setAttribute("class", "map-route");
     line.setAttribute("fill", "none");
@@ -2362,7 +3102,8 @@
       [[next.x - 4, next.y - 4, 8, 8, PAL.gold], [at.x - 3, at.y - 3, 6, 6, PAL.ink], [at.x - 2, at.y - 2, 4, 4, PAL.sky]].forEach(function (q) {
         var rect = document.createElementNS(NS, "rect");
         rect.setAttribute("x", q[0]); rect.setAttribute("y", q[1]);
-        rect.setAttribute("width", q[2]); rect.setAttribute("height", q[3]); rect.setAttribute("fill", q[4]);
+        rect.setAttribute("width", q[2]); rect.setAttribute("height", q[3]);
+        rect.style.fill = "var(" + q[4] + ")";   // the PAL names are CSS custom properties (a fill attribute cannot read one)
         svg.appendChild(rect);
       });
     }
@@ -2376,12 +3117,17 @@
     var board = el("div", { class: "map", id: "map", role: "group", tabindex: "0", "aria-label": "Base map. Arrow keys or WASD to walk, E to go in." });
     refs.svg = mapSvg(false);
     refs.route = refs.svg.querySelector(".map-route");
+    var lpMap = lpBaseMap(board);
+    if (lpMap) board.appendChild(lpMap);
     board.appendChild(refs.svg);
 
+    refs.edge = {};
     PLACES.forEach(function (p) {
       var at = pct(NODES[p.id]);
+      // A marker near the map's left or right edge hangs its name towards the middle, so a phone shows all of it.
+      refs.edge[p.id] = NODES[p.id].x < MAP_W * 0.3 ? " edge-l" : NODES[p.id].x > MAP_W * 0.7 ? " edge-r" : "";
       var b = el("button", {
-        type: "button", class: "blip", "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
+        type: "button", class: "blip" + refs.edge[p.id], "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
         onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }), el("span", { class: "blip-name", text: p.name })]);
       refs.markers[p.id] = b;
@@ -2400,23 +3146,23 @@
 
     refs.promptText = el("span", { class: "map-prompt-text" });
     refs.enter = el("button", { type: "button", class: "btn primary", onclick: act, "data-key": "map-enter" }, "ENTER [E]");
-    // Below the map, never on top of it, so it cannot cover a marker.
+    // Below the map, never on top of it, so it cannot cover a marker. The one instruction on the map is the header's
+    // OBJECTIVE line; this box is its button ("GO TO WORKSHOP"), or what the place you stand at is for.
     refs.prompt = el("div", { class: "map-prompt", "aria-live": "polite" }, [refs.promptText, refs.enter]);
 
+    // Names and NEXT / DONE / LOCKED only; why a place is locked is said when you pick it.
     var legend = el("ul", { class: "legend" }, PLACES.map(function (p) {
       var status = el("span", { class: "tag" });
-      var does = el("span", { class: "legend-does", text: p.does });
       // No aria-label: the button's name is its visible text, which updateMap keeps current.
       var item = el("li", null, [el("button", {
         type: "button", class: "legend-item", "data-key": "legend-" + p.id, onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }),
-          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name]), does]),
+          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name])]),
           status])]);
-      refs.legend[p.id] = { status: status, does: does };
+      refs.legend[p.id] = { status: status };
       return item;
     }));
 
-    refs.objective = el("p", { class: "map-objective" });
     state.map = refs;
     return el("section", { class: "screen" }, [
       head("BASE MAP"),
@@ -2424,14 +3170,16 @@
       el("div", { class: "map-layout" }, [
         el("div", { class: "stack" }, [board, refs.prompt]),
         el("aside", { class: "panel" }, [
-          el("h2", { text: "OBJECTIVE" }), refs.objective,
-          el("h2", { class: "divided", text: "PLACES" }), legend,
-          el("h2", { class: "divided", text: "KEYS" }),
-          el("p", { class: "keys", "aria-label": "Arrow keys or WASD walk. E or Enter goes in, or follows the gold route. Click a marker to walk there. M or Esc: back inside." }, [
-            el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " map"]),
-          el("div", null, [inCampaign()
+          el("h2", { text: "PLACES" }), legend,
+          // The keys, for a keyboard (hidden on a touch screen, where the hint says to tap a place). On the map,
+          // M and Esc go back into the place you stand at.
+          el("div", { class: "keys-box" }, [el("h2", { class: "divided", text: "KEYS" }),
+            el("p", { class: "keys" }, [el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " back inside"])]),
+          el("div", null, [isComebackDesign(state.design)
+            ? button("BACK TO THE WORKSHOP", function () { window.showComebackHub(); }, { key: "map-workshop" })
+            : inCampaign()
             ? button("BACK TO THE HUB", function () { window.showCampaignHub(); })
-            : button("CHANGE TIER", function () { showDesignScreen("title"); })])
+            : button("HOME", function () { showDesignScreen("title"); }, { key: "map-home" })])
         ])
       ])
     ]);
@@ -2460,15 +3208,13 @@
     var next = waypoint();
     PLACES.forEach(function (p) {
       var st = placeStatus(p.id);
-      refs.markers[p.id].className = "blip " + st + (state.player === p.id ? " here" : "");
+      refs.markers[p.id].className = "blip " + st + refs.edge[p.id] + (state.player === p.id ? " here" : "");
       var line = st === "locked" ? lockedReason(p.id) : p.does + ".";
       refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
-      refs.legend[p.id].does.textContent = st === "locked" ? lockedReason(p.id) : st === "next" ? p.does : "";
       refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
       refs.legend[p.id].status.textContent = STATUS_TEXT[st];
     });
     refs.route.setAttribute("points", routePoints(route(state.player, next)));
-    refs.objective.textContent = GO_TEXT[next];
 
     var here = byId(PLACES, state.player);
     var openHere = !!here && placeOpen(here.id);
@@ -2478,9 +3224,13 @@
     else if (state.walking) text = "Walking...";
     else if (openHere) text = here.name + ": " + here.does + ".";
     else if (here) text = here.name + " is locked. " + lockedReason(here.id);
-    else text = "Follow the gold route. " + GO_TEXT[next];
+    else text = "";   // at the gate or a crossing: the button says where the gold route goes
     refs.promptText.textContent = text;
-    refs.enter.textContent = canEnter ? "ENTER [E]" : "FOLLOW ROUTE [E]";
+    refs.promptText.hidden = !text;
+    // Two parts, like the GO TO buttons inside a place: a long name wraps, and the key stays on the right.
+    while (refs.enter.firstChild) refs.enter.removeChild(refs.enter.firstChild);
+    refs.enter.appendChild(el("span", { text: canEnter ? "ENTER" : "GO TO " + byId(PLACES, next).name }));
+    refs.enter.appendChild(el("span", { text: "[E]" }));
     // Never disabled while walking: that would drop keyboard focus to the page.
     refs.enter.disabled = !!here && !openHere && here.id === next;
     setStep("map");
@@ -2592,22 +3342,70 @@
   }
 
   function launch() {
+    if (launchShowing) return;
     if (runChecks(state.design).blockers.length) return;
     if (typeof window.showMissionScreen === "function") {
       state.locked = true;
-      window.showMissionScreen(state.design);
+      var design = state.design;
+      launchShow(function () { window.showMissionScreen(design); });
     }
+  }
+
+  // The lift-off: the design's rocket leaves the low-poly pad for a moment, then done() opens the mission
+  // screen. At most LAUNCH_SHOW_MS; a click or a key skips it. It only delays the screen change: the
+  // design is locked at the click and nothing can change it before done(). With reduced motion, with no
+  // rocket chosen or without the 3D art, done() runs at once and nothing is shown.
+  var LAUNCH_SHOW_MS = 2300, launchShowing = false;
+  function launchShow(done) {
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var row = chosenLauncher();
+    if (reduce || !row || typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.pad !== "function") return done();
+    var finished = false, box = null, timer = null;
+    function onKeyShow(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key !== "Tab" && e.key !== "Shift" && !e.repeat) finish();
+    }
+    function finish() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      document.removeEventListener("keydown", onKeyShow, true);
+      if (box && box.parentNode) box.parentNode.removeChild(box);
+      launchShowing = false;
+      done();
+    }
+    launchShowing = true;
+    timer = setTimeout(finish, LAUNCH_SHOW_MS);   // armed first: a hidden tab or a drawing error cannot hold the player here
+    try {
+      var lp = lpCanvas(function (L) { return L.scenes.pad({ launcherId: row.id, launcher: row, ready: true }); }, "lp-launch");
+      if (!lp) return finish();
+      var t0 = null;
+      // About six seconds of the launch in 2.3: the arms swing clear, ignition, smoke, lift-off and the climb.
+      lp.view.onFrame(function (t) {
+        if (t0 === null) t0 = t;
+        lp.wrap.setTime(0.4 + (t - t0) * 2.6);
+      });
+      var skip = el("button", { type: "button", class: "btn launch-skip" }, "SKIP");
+      box = el("div", { class: "launch-show", role: "dialog", "aria-modal": "true", "aria-label": "Lift-off. Click or press any key to skip." }, [lp.canvas, skip]);
+      box.addEventListener("click", finish);
+      document.addEventListener("keydown", onKeyShow, true);
+      document.body.appendChild(box);
+      state.swappedAt = Date.now();   // the second click of a double click on LAUNCH must not skip it at once
+      skip.focus();
+    } catch (e) { finish(); }
   }
 
   // ---------------------------------------------------------------- start-up and shared names
   function showDesignScreen(screenName, design) {
     if (design) state.design = design;
     state.locked = false;
-    if (screenName === "title") { state.design = null; state.reached = 0; state.player = "gate"; }
+    if (screenName === "title") { state.design = null; state.walk = null; state.reached = 0; state.player = "gate"; }
     var i = DESIGN_STEPS.indexOf(screenName);
     if (i !== -1 && i > state.reached) state.reached = i;
     // A fresh design starts over at the gate; coming back to redesign, every place is open.
-    if (design && (screenName === "briefing" || screenName === "map")) { state.reached = 0; state.player = "gate"; }
+    if (design && (screenName === "briefing" || screenName === "map")) { state.reached = 0; state.player = "gate"; bumpReached(); }
     else if (design) state.reached = DESIGN_STEPS.length - 1;
     go(screenName || "briefing");
   }
@@ -2618,9 +3416,10 @@
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
-    speakerArt: function (who) { return typeof speakerArt === "function" ? speakerArt(who) : null; },
+    speakerArt: speakerFace,
     speakerName: function (who) { return typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : ""; },
     satelliteArt: satelliteArt,
+    lpCanvas: lpCanvas,
     setStep: setStep, setHint: setHint, setStatus: setStatus,
     lock: function () { state.locked = true; },
     bar: bar,
@@ -2628,6 +3427,7 @@
     leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; },
     mount: function (screen, node) {
       state.screen = screen;
+      markHome(screen);
       state.swappedAt = Date.now();
       var app = document.getElementById("app");
       while (app.firstChild) app.removeChild(app.firstChild);
@@ -2637,7 +3437,23 @@
       app.focus();
       window.scrollTo(0, 0);
     },
-    tierName: function () { var t = tier(); return t ? t.name.toUpperCase() : ""; }
+    tierName: modeName,
+    // Part 1. walkStep(design): the walkthrough step this design is (1 to 3), or 0. walkResult(design, stars): once per
+    // debrief, keeps the best stars of a step that passed and returns { step, passed, kept, best_stars, last } (null
+    // for any other design; kept: this flight fell short but the step had passed before). startWalkStep(n) starts step n; showEpilogue() follows step 3.
+    walkStep: walkStepOf,
+    walkResult: walkResult,
+    startWalkStep: startWalkStep,
+    showEpilogue: showEpilogue,
+    // A few story beats, one at a time, then onDone: showBeats([{ who, text }], kicker, onDone, { doneLabel, skipToEnd, home }).
+    showBeats: function (beats, kicker, onDone, opts) { showBeats(beats, kicker, typeof onDone === "function" ? onDone : function () { showDesignScreen("title"); }, opts); },
+    home: function () { showDesignScreen("title"); },
+    // Part 2: a story line ({ who, text } from storyLine) as the speech box every screen uses; the header line;
+    // the plain name of a difficulty ("NORMAL"); the mode cards' words.
+    sayEl: sayElement,
+    comebackStatus: comebackStatus,
+    levelName: comebackLevel,
+    modes: STORY.modes
   };
 
   function start() {

@@ -3,15 +3,18 @@
 // Usage: var G = require("./load")();
 var fs = require("fs"), vm = require("vm"), path = require("path");
 
-var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js", "data/campaign.js", "data/research.js",
+var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objectives.js", "data/campaign.js", "data/contracts.js", "data/research.js",
              "data/tiers.js", "data/events.js", "data/debrief.js", "data/missions.js", "data/hints.js", "data/eras.js", "data/earth.js", "js/game.js", "js/mission.js"];
 
 // load({ newCategoriesRequired: true }) loads the game as it will be once the Build
 // screen has bins for structure and attitude (SPEC.md, "Switch-over").
+// load({ storage: load.memoryStorage() }) gives the game a localStorage that keeps only text, as a
+// browser does; loading again with the same storage is a page reload.
 module.exports = function load(opts) {
   opts = opts || {};
   var root = path.join(__dirname, "..");
   var ctx = vm.createContext({ console: console, Math: Math, btoa: btoa, atob: atob });   // browser globals the game uses
+  if (opts.storage) ctx.localStorage = opts.storage;
   var names = [];
   FILES.forEach(function (f) {
     var src = fs.readFileSync(path.join(root, f), "utf8");
@@ -23,6 +26,7 @@ module.exports = function load(opts) {
   if (opts.newCategoriesRequired) vm.runInContext("NEW_CATEGORIES_REQUIRED = true;", ctx);
   var G = {};
   names.forEach(function (n) { G[n] = vm.runInContext(n, ctx); });
+  G.run = function (code) { return vm.runInContext(code, ctx); };   // for tuning scripts: change a game value in place
   // For the sweeps: parts and launchers grouped by era. "era" = open at the start of a
   // campaign or unlocked by research dated before 1965; "modern" = everything later.
   G.eraOf = function (kind, id) {
@@ -34,4 +38,15 @@ module.exports = function load(opts) {
     return (!r || r.year < 1965) ? "era" : "modern";
   };
   return G;
+};
+
+// A localStorage stand-in: values are stored as text, so anything JSON cannot keep is lost, as in a browser.
+module.exports.memoryStorage = function () {
+  var data = {};
+  return {
+    getItem: function (k) { return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
+    setItem: function (k, v) { data[k] = String(v); },
+    removeItem: function (k) { delete data[k]; },
+    clear: function () { data = {}; }
+  };
 };

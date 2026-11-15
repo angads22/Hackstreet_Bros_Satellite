@@ -1,0 +1,447 @@
+[
+ {
+  "id": "build-01",
+  "title": "Hover preview is cut off at 190px, and the hidden lines cannot be reached with a mouse",
+  "severity": "major",
+  "category": "visual",
+  "screen": "3 Build (desktop, 930px and wider)",
+  "repro": "1280x800. New Space / Initial Feasibility, Wildfire, LEO. Add 12U CubeSat frame, Spin stabilisation, Optical camera, Small solar panel, UHF radio, Basic computer. Open [data-key=bin-instrument] and hover [data-key=part-sar-radar]. Then move the mouse onto the #preview box to scroll it.",
+  "expected": "All of the preview is readable, and the red 'Causes:' lines most of all, because the preview exists to show them.",
+  "actual": "#preview has clientHeight 182 and scrollHeight 418, so more than half of it is clipped. Only the first 'Causes:' line shows, and it is cut through the middle. Three more lines stay hidden: payload overload, the second instrument slot and power. Moving the mouse into the box to scroll fires pointerleave on the card, and the preview resets to 'Point at a part to see what it would change.' A mouse user can never read the clipped lines.",
+  "evidence": "Script t4.js logged {client:182, scroll:418} and four Causes lines in the DOM. After the mouse moved into the preview it read 'IF YOU CLICK | | Point at a part to see what it would change.' Screenshot: (scratch)/sweep/build/t4-preview-overflow.png. Web fonts were blocked in this run, but the gap is large enough that real fonts would not close it.",
+  "cause": "css/style.css:315 sets `.preview { height: 190px; overflow-y: auto; }`. js/ui-design.js:1988 clears state.hover on any mouse pointerleave from the card.",
+  "fix_hint": "Let the preview grow (use max-height with the sticky column, or put the fixes and causes first). Alternatively keep the last previewed part while the pointer is over #preview.",
+  "verdict": {
+   "id": "build-01",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v01.js at 1280x800 and 1920x1080: New Space / Initial Feasibility, Wildfire, LEO, with cubesat-12u, spin-stabilised, optical-camera, solar-small, radio-uhf and obc-basic, then hovered part-sar-radar. #preview measured clientHeight 182 against scrollHeight 418 at both sizes. The first Causes line sits at 171-217px inside the 182px box, so it is cut through the middle; the three Causes lines below it (body slots, power, smear) are hidden. Moving the mouse into the box in 20 steps reset it to 'IF YOU CLICK | Point at a part to see what it would change.', so a mouse user cannot scroll it. A wheel over the box left scrollTop at 0. Keyboard users cannot scroll it either: #preview has tabIndex -1, and Tab moves to the next card, which replaces the preview. Font check: fonts were blocked (Courier New fallback, wider than VT323), so v01c.js forced white-space:nowrap on every line as a lower bound that ignores wrapping. It still measured scroll 280 against client 182, with only 1 of 4 Causes lines fitting, so real fonts will not fix this. Screenshot: (scratch)/sweep/verify-build/v01-1280-hover.png. Root cause: css/style.css:315 (.preview { height: 190px; overflow-y: auto }) and js/ui-design.js:1988 (any mouse pointerleave from the card sets state.hover = null and redraws the preview). A player can work around it by clicking the part and reading PROBLEMS, which is why this is major, not blocker."
+  }
+ },
+ {
+  "id": "engage-05",
+  "title": "The 'IF YOU CLICK' preview hides its Fixes and Causes lines, and mouse users cannot reach them",
+  "severity": "major",
+  "category": "broken",
+  "screen": "3 Build, part preview panel",
+  "repro": "Build screen with the structure added. Open the INSTRUMENTS bin and hover [data-key=\"part-scintillation-counter\"]. Measure #preview, then scroll the wheel over the card and move the mouse into the preview (probe2.js, probe3.js).",
+  "expected": "The consequences (what the part fixes and what it breaks) are the core lesson and should be readable while the part is previewed.",
+  "actual": "#preview is 182px tall, but its content is 464px on desktop and 692px at 390px. Visible: the title, the history blurb and, on desktop only, '+3 kg, +0 W draw, +$0.4M'. Hidden: 'Fixes: No instrument part...', 'Causes: Parts draw 0.1 W but the solar panels make only 0 W', 'Causes: Instruments make 0.00004 GB a day...' and 'Causes: Riding through Earth's shadow needs a 0.2 Wh battery...'. Scrolling the wheel over the card scrolls the page instead (preview scrollTop stays 0). The card then leaves the pointer and the preview resets to 'Point at a part to see what it would change.' Moving the mouse into the preview resets it the same way. The rounded card ('0 W draw') also contradicts the hidden line ('Parts draw 0.1 W').",
+  "evidence": "probe2.js: desk client 182 / scroll 464, phone client 182 / scroll 692, with per-line visibility (Fixes/Causes visible:false); probe3.js: 'wheel over card: page scrollY 518 -> 818 preview scrollTop 0 ... Point at a part'; (scratch)/sweep/engage/kid/preview-desk.png and (scratch)/sweep/engage/kid/preview-phone.png",
+  "cause": "css/style.css:315 '.preview { height: 190px; overflow-y: auto; }'; js/ui-design.js:1987-1988 onpointerleave clears state.hover; drawPreview (lines 2013-2021) puts the blurb before the numbers and the Fixes/Causes lines.",
+  "fix_hint": "Order the panel as: delta line, then Fixes/Causes, then blurb last. Let the box grow (min-height instead of a fixed height), or keep the last previewed part shown until another part is hovered.",
+  "verdict": null
+ },
+ {
+  "id": "build-02",
+  "title": "On a phone the first tap shows its preview about 1000px off-screen, so the tap seems to do nothing (same at 200% zoom with a mouse)",
+  "severity": "major",
+  "category": "mobile",
+  "screen": "3 Build (under 930px wide: phone 390 and 200% zoom)",
+  "repro": "Playwright 'iPhone 13' profile (390x664). New Space / Initial Feasibility, Wildfire, LEO. Tap [data-key=bin-instrument], scroll to [data-key=part-thermal-imager] and tap it once. Second repro: viewport 640x400 at DPR 2 (200% zoom of 1280x800), hover the same card with the mouse.",
+  "expected": "The first tap (the preview tap) gives visible feedback near the card, saying what adding it would change, as SPEC 3 Build requires.",
+  "actual": "The preview renders at top=-835 to -1234px in a 664px viewport, far above the shelf. A pixel diff of the viewport before and after the first tap shows only the card border lightening, the same as its hover style. aria-pressed stays false. At 640x400 the hovered card's preview sits at top=-897 / -726. After the second tap the bench with the add animation is also off-screen (benchTop -1175), and the bars sit about 2000px further down.",
+  "evidence": "Scripts t14.js and t3.js logged {previewTop:-835, previewBottom:-645, vh:664, pressed:'false', preview:'ADD THERMAL INFRARED IMAGER'}. t19.js logged '640x400 hover optical-camera {top:-897,...}'. Before/after image: (scratch)/sweep/build/t14-phone-first-tap-side-by-side.png. 200% zoom shot: (scratch)/sweep/build/t19-zoom640-hover.png",
+  "cause": "css/style.css:316 makes .preview sticky only at min-width 930px. js/ui-design.js:2117 puts the preview above the shelf in a single column, so below 930px it scrolls away. The tapped card gets no 'armed' state either.",
+  "fix_hint": "Below 930px, make the preview sticky to the bottom of the viewport, or show it inline under the tapped card, and mark the armed card.",
+  "verdict": {
+   "id": "build-02",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v02.js with the Playwright 'iPhone 13' profile: New Space, Wildfire, LEO. Tapped bin-instrument, scrolled to part-thermal-imager and tapped once. Result: {previewTop:-835, previewBottom:-645, cardTop:243, vh:664, pressed:'false', preview h3:'ADD THERMAL INFRARED IMAGER', card class 'part'}. The preview text is rendered, but about 1,000px above the viewport. A pixel diff of before and after the first tap shows only the card border lightening, the same as the hover/focus style; there is no armed state. Side-by-side image: (scratch)/sweep/verify-build/v02-phone-side-by-side.png. The second tap adds the part (pressed true), but the bench sits at top -1175 and the bars at 2062, so the result of the click is off-screen too. At 640x400 with DPR 2 (200% zoom), hovering part-optical-camera put the preview at top -897 / bottom -707 in a 400px viewport (v02-zoom640-hover.png in the same folder). Root cause: css/style.css:316 makes the preview sticky only at min-width 930px. js/ui-design.js:2117 puts drawPreview() above payoutLine and the shelf in .bench-col, which is a single column below 930px (css:690), so it scrolls away. Nothing is blocked, because the second tap still works, but the preview step SPEC 3 Build asks for is never seen on phones."
+  }
+ },
+ {
+  "id": "engage-09",
+  "title": "Phone build is a scrolling chore: a bin tap shows nothing, parts sit 750px below, the bars 2.5 screens further, and the double tap is never explained",
+  "severity": "major",
+  "category": "mobile",
+  "screen": "3 Build (and the Lab, and the Debrief) at 390x844 with touch",
+  "repro": "Use iPhone-like emulation at 390x844 with hasTouch. Reach Build in IGY, measure element positions, tap [data-key=\"bin-power\"], then tap a part card once and once more (judge2.js, judge9.js). Campaign: open the lab and tap [data-key=\"node-solar-cells\"] (probe5.js).",
+  "expected": "Tapping a bin shows its parts. One tap adds a part, or the screen says 'tap again to add'. The four bars stay visible while choosing.",
+  "actual": "The Build page is 4358px tall: bins at y=588, satellite y=1002, preview y=1342, first part card y=1595, bars y=3139, problems y=3434, nav y=4053. Tapping POWER leaves scrollY at 0, and the first card stays 751px below the bottom of the viewport. The first tap on a card only previews ('MASS 0 KG' after the first tap, '1 KG' after the second). The panel says 'IF YOU CLICK' and its empty state says 'Point at a part'; nothing says 'tap again'. Six parts took 25 taps plus scrolling. Lab: tapping a research box leaves its BUY button at top=969, off screen. Debrief: TRY THIS is at y=1551 and BACK TO THE HUB at y=2555.",
+  "evidence": "judge9.js: 'BUILD positions {bins:588, ..., firstPart:1595, bars:3139, nav:4053, docH:4358}', 'after tapping POWER bin: scrollY 0 -> 0 ... inView false'; judge2.js 'mass after 1st tap: MASS 0 KG | after 2nd: MASS 1 KG'; probe5.js 'lab after node tap: { scrollY: 0, detailTop: 969, inView: false }'; (scratch)/sweep/engage/judge/09-after-power-bin-tap.png, (scratch)/sweep/engage/judge/05c-after-first-tap.png",
+  "cause": "js/ui-design.js:1979-1980 (the first touch tap only previews); drawPreview header text 'IF YOU CLICK' and empty text 'Point at a part' (lines 2000-2003); no scrollIntoView after a bin or a research node is selected.",
+  "fix_hint": "On narrow screens, scroll the parts list into view when a bin is tapped, and pin a compact 4-bar strip. After the first tap show 'TAP AGAIN TO ADD' on the card, or add on the first tap with an undo. Scroll #research-detail into view on a node tap.",
+  "verdict": null
+ },
+ {
+  "id": "build-03",
+  "title": "In the 1964 Nimbus era with a sun-synchronous orbit, every hover preview says 'Causes: ... needs 80 m/s of thrust', but no real check says so",
+  "severity": "major",
+  "category": "wrong-numbers",
+  "screen": "3 Build (standalone era missions before 1995)",
+  "repro": "Open the Nimbus / Initial Feasibility mission [data-key=start-nimbus-training]. Pick Weather, then Sun-synchronous. Add drum-body, spin-stabilised, vidicon-camera, silicon-cells, vhf-telemetry, tape-recorder. Hover any part, for example [data-key=part-command-timer] or [data-key=part-nicad-battery], or hover spin stabilisation to preview removing it.",
+  "expected": "No delta-v cause. runChecks waives the 80 m/s disposal burn before 1995 (DISPOSAL_RULE_YEAR), and the real PROBLEMS list shows no NOT ENOUGH THRUST.",
+  "actual": "Every preview ends with 'Causes: Sun-synchronous polar orbit needs 80 m/s of thrust from the spacecraft, but it has only 0 m/s. Add propulsion or cut mass.' In 1964 all three propulsion parts say 'Arrives in 1998', so the advice is impossible. The real PROBLEMS list at the same moment shows only PICTURES SMEAR and NO SHADOW POWER.",
+  "evidence": "t20.js in-page check returned {year:1964, dvNeededDesign:0, dvNeededNoYear:80, withYearBlockers:['no-launcher'], noYearBlockers:['no-launcher','delta-v'], previewCauses:['delta-v']}. t21.js preview text: 'ADD CLOCK AND COMMAND RECEIVER | +0.5 kg, +$0.02M | Causes: Sun-synchronous polar orbit needs 80 m/s...'. For the screenshot only, the preview height was set to auto so the whole text shows: (scratch)/sweep/build/t21-nimbus-preview-full.png. Campaign designs are not affected, because `campaign` is copied.",
+  "cause": "js/game.js:723-724. previewToggle builds `after` from tier, objective, orbit, launcher, parts and campaign, but drops `year` and `era`. designYear(after) returns null, and dvNeeded falls back to 80 m/s.",
+  "fix_hint": "Copy `year` and `era` into `after` (better: shallow-copy the whole design and replace parts).",
+  "verdict": {
+   "id": "build-03",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v03.js: start-nimbus-training (status '1964'), Weather, Sun-synchronous, with drum-body, spin-stabilised, vidicon-camera, silicon-cells, vhf-telemetry and tape-recorder. The PROBLEMS panel reads only 'PICTURES SMEAR, NO SHADOW POWER'. Hovering command-timer, nicad-battery or spin-stabilised (remove) gives 'Causes: Sun-synchronous polar orbit needs 80 m/s of thrust from the spacecraft, but it has only 0 m/s. Add propulsion or cut mass.' on each. All three propulsion cards are disabled with 'Arrives in 1998', so the advice cannot be followed. An in-page API check on the same design returned {year:1964, runChecks(after with year) blockers:['no-launcher'], previewToggle causes:['delta-v']}. Root cause: js/game.js:723-724. previewToggle builds `after` from tier, objective, orbit, launcher, parts and campaign but drops `year` and `era`, so designYear(after) is null and dvNeeded (game.js:183-186) skips the pre-1995 waiver. Missing year/era also means `after` skips the era part-locked checks. Graded major rather than minor because this is false, impossible advice on every hover in the era's flagship mission, and nothing on screen corrects it (contrast build-04)."
+  }
+ },
+ {
+  "id": "build-04",
+  "title": "A legal battery-only design shows a full red POWER bar '0 / 0 W, Nothing makes power yet'; in the 1957 campaign it can never go out of the red",
+  "severity": "major",
+  "category": "wrong-numbers",
+  "screen": "3 Build, 4 Launch vehicle, 5 Readiness (IGY standalone and the 1957 campaign)",
+  "repro": "Title: [data-key=campaign-training], then START A MISSION. Pick Radiation, then LEO. Add explorer-body, spin-stabilised, cosmic-ray-counter, mercury-battery, minitrack-beacon, command-timer. (Same in standalone [data-key=start-igy-training].)",
+  "expected": "runChecks only warns (BATTERY ONLY), and Readiness reads 'GO, WITH 1 WARNING'. SPEC says a bar is red only when over the limit, so the bar should not show this design as failing. The battery does make power, so 'Nothing makes power yet' is also wrong.",
+  "actual": "The POWER bar has class 'bar bad' at width 100%, text '0 / 0 W', note 'Nothing makes power yet'. The Build hint on the same screen says 'Add parts until every required column has one and the four bars stay out of the red.' In the 1957 campaign every solar part is disabled ('Needs research: Silicon solar cells'), so the player cannot follow the hint. (Draw is 0.1 W, rounded to 0.)",
+  "evidence": "t20.js: 'power bar class bar bad width: 100%', 'problems: BATTERY ONLY | Why | WARN', and the power bin lists part-silicon-cells, part-solar-small and others as [disabled: ... Needs research ...]. t13.js on the same design at Readiness: 'verdict GO, WITH 1 WARNING'. Screenshot: (scratch)/sweep/build/t20-campaign-1957-power-bar.png and t16-igy-bars.png in the same folder.",
+  "cause": "js/ui-design.js:1637-1638. When power_gen_w is 0, any draw gives fill 1 and class ' bad'. The note keys only on power_gen_w and ignores battery_wh or batteryLifeMonths.",
+  "fix_hint": "When the design is battery-only (batteryLifeMonths(d) !== null), show a battery state such as amber with 'Battery only: about N days'. Do not show red.",
+  "verdict": {
+   "id": "build-04",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v04.js. In a new campaign (campaign-training, 1957), START A MISSION, Radiation, LEO, with explorer-body, spin-stabilised, cosmic-ray-counter, mercury-battery, minitrack-beacon and command-timer: the POWER bar has class 'bar bad', width 100% and text 'POWER | 0 / 0 W | Nothing makes power yet' on Build, Launch vehicle and Readiness. PROBLEMS shows only 'BATTERY ONLY ... WARN', and Readiness says 'GO, WITH 1 WARNING' with LAUNCH enabled. The same bar appears in standalone IGY. getTotals: power_draw_w 0.1, power_gen_w 0, battery_wh 160, margins.power null. In the 1957 campaign every solar part is disabled ('Needs research: Silicon solar cells' and similar), so the Build hint (data/hints.js:46, 'keep the four bars out of the red') cannot be followed on the first campaign mission. Research unlocks solar later; standalone IGY does offer silicon-cells. Framing: SPEC:883 makes the bar draw against generation, so 0.1 against 0 is literally 'over'. The bug is the clash with SPEC:422 (battery-only may launch and is a warning, not a blocker). On top of that, '0 / 0 W' hides the 0.1 W draw, and 'Nothing makes power yet' is shown next to a 160 Wh battery. Root cause: js/ui-design.js:1636-1638. When margins.power is null and draw > 0, fill is 1 and the class is ' bad'; the note checks only power_gen_w and ignores battery_wh. Minor, because the team line ('No solar panel. The battery runs out...') and the GO verdict make the situation clear. Screenshots: (scratch)/sweep/verify-build/v04-campaign-build.png and v04-campaign-review.png in the same folder."
+  }
+ },
+ {
+  "id": "build-05",
+  "title": "OVER BUDGET 'FIX >' sends you to the Rocket Yard when no rocket is picked and the parts alone are over budget",
+  "severity": "minor",
+  "category": "broken",
+  "screen": "5 Readiness review, FIX buttons",
+  "repro": "Open New Space / Point Design ($18M; you need best_stars.standard >= 2 to unlock it). Pick Wildfire, then LEO. Add parts until the parts cost more than $18M (22.65 here). Do not pick a rocket. Visit the Rocket Yard, then go to the Launch Pad through the map. Click FIX on 'OVER BUDGET'.",
+  "expected": "FIX goes to the Workshop, where the money was spent. The game's own route logic (fixPlace) sends you there, and so do the objective line and the GO TO button.",
+  "actual": "FIX opens 4 \u00b7 LAUNCH VEHICLE. On that screen the objective line says 'OBJECTIVE: Go to the Workshop and build the satellite.' and the button reads 'GO TO WORKSHOP >'. Every rocket keeps the design over budget (rideshare 23/18, small 30.15/18, heavy 92.4/18, thor-able 28.65/18).",
+  "evidence": "t15.js output: 'OVER BUDGET FIX -> 4 \u00b7 LAUNCH VEHICLE | objective line: OBJECTIVE: Go to the Workshop and build the satellite. | GO TO: GO TO WORKSHOP >'. Screenshot: (scratch)/sweep/build/t15-budget-fix-launcher.png",
+  "cause": "js/ui-design.js:1680 checkList uses `FIX_SCREEN[row.c.id] || \"build\"`. The fixPlace(check, d) helper at js/ui-design.js:2235 sends mass and budget to Build when there is no launcher, but checkList does not use it.",
+  "fix_hint": "In checkList, use `var target = fixPlace(row.c, design);`.",
+  "verdict": {
+   "id": "build-05",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v05.js: New Space / Point Design ($18M; progress set with best_stars.standard 3), Wildfire, LEO. Added parts to $21.6M with no rocket, walked to the Rocket Yard with GO TO ROCKET YARD, then took the map to the Launch Pad. The checks include OVER BUDGET with aria-label 'Fix on the launcher screen: Cost is $21.55M but the budget is $18M.' Clicking FIX opened '4 \u00b7 LAUNCH VEHICLE'. On that screen the objective reads 'OBJECTIVE: Go to the Workshop and build the satellite.' and the nav button reads 'GO TO WORKSHOP >', so the game sends you somewhere and then tells you to leave. Root cause: js/ui-design.js:1680 uses `FIX_SCREEN[row.c.id] || \"build\"` and FIX_SCREEN (ui-design.js:50-55) maps budget to launcher. fixPlace() at ui-design.js:2235-2237 already sends mass and budget to build when there is no launcher, and the waypoint uses it, but checkList does not. Note: the SPEC readiness table (SPEC:925) maps `budget` to 4 Launch vehicle, adding '(mass and budget can also be fixed on Build)'. So FIX going to the Rocket Yard follows the SPEC table, and the real bug is the clash with the game's own route logic (SPEC:800). Changing FIX to use fixPlace needs a SPEC decision, not only a code change. Screenshot: (scratch)/sweep/verify-build/v05-fix-budget.png"
+  }
+ },
+ {
+  "id": "build-06",
+  "title": "MASS bar says 'Pick a rocket to see the limit' while a rocket is already picked (one that cannot reach the orbit)",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "4 Launch vehicle and 5 Readiness",
+  "repro": "Pick Weather, then LEO, and build a complete satellite. On the Rocket Yard pick [data-key=rocket-thor-able]. Through the map, go back to the Tracking Station and choose Sun-synchronous. Open the Rocket Yard or the Launch Pad.",
+  "expected": "The mass bar or its note says the chosen rocket (Thor-Able) cannot reach this orbit, matching the ROCKET CANNOT REACH line.",
+  "actual": "Mass bar: 'MASS 38.5 KG' with the note 'Pick a rocket to see the limit'. At the same time the Thor-Able card shows CANNOT REACH and aria-pressed=true, and Readiness lists 'Rocket: Thor-Able'.",
+  "evidence": "t11.js: 'bars on launcher: MASS | 38.5 KG | Pick a rocket to see the limit | ...', 'thor-able card: THOR-ABLE | CANNOT REACH ... pressed true', 'review facts: ... Rocket | Thor-Able'. Screenshot: (scratch)/sweep/build/t11-cannot-reach.png",
+  "cause": "js/ui-design.js:1635 picks the note from `t.capacity_kg` alone. getTotals returns capacity 0 both when no rocket is chosen and when the rocket cannot reach.",
+  "fix_hint": "When design.launcher is set and capacity is 0, show e.g. '<rocket> cannot reach this orbit'.",
+  "verdict": {
+   "id": "build-06",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v06.js: Weather, LEO, a complete smallsat build, Thor-Able picked (mass bar 'MASS | 39.6 / 130 KG'). Then took the map to the Tracking Station, chose Sun-synchronous and returned to the Rocket Yard. Mass bar: 'MASS | 39.6 KG | Pick a rocket to see the limit'. The Thor-Able card reads 'CANNOT REACH', with aria-pressed true and disabled. Readiness shows the same bar note while its checks list 'ROCKET CANNOT REACH'. Root cause: js/ui-design.js:1635 picks the note from t.capacity_kg alone, and getTotals (game.js:347) returns capacity 0 both with no rocket and with a rocket that cannot reach. This is a gap in the SPEC rather than a code slip: SPEC:883 says 'pick a rocket' while capacity_kg is 0, and the code does exactly that. The ROCKET CANNOT REACH line and the card tag on the same screens tell the player what is wrong, so this is polish, not minor. Screenshot: (scratch)/sweep/verify-build/v06-cannot-reach.png"
+  }
+ },
+ {
+  "id": "build-07",
+  "title": "Small non-zero values are shown as 0 (part cards, preview deltas, DATA HOME bar next to a DATA LOST warning)",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "3 Build (all eras, worst in 1958 to 1964), bars on 3 to 5",
+  "repro": "(a) IGY: open the instrument and comms bins and read the Geiger counter and Minitrack cards. (b) New Space: hover [data-key=part-obc-basic]. (c) IGY Radiation LEO with explorer-body, spin-stabilised, cosmic-ray-counter, scintillation-counter, mercury-battery, minitrack-beacon, command-timer: read the DATA HOME bar.",
+  "expected": "SPEC: 'Show only fields that are not 0'. A field that is shown has a non-zero value, so it should not read 0, and the bar should agree with the DATA LOST warning.",
+  "actual": "(a) 'Geiger counter package ... 2.3 kg \u00b7 0 W draw \u00b7 0 GB/d made', '108 MHz Minitrack beacon ... 0 W draw \u00b7 0 GB/d sent'. (b) '+0.1 kg, +0 W draw, +$0.01M' for a +0.4 W change. (c) DATA HOME reads '0 / 0 GB/DAY' with an amber bar at 41.7%, while the warning says 'Instruments make 0.00006 GB a day but only 0.000025 GB reaches the ground.'",
+  "evidence": "t8.js: instrument and comms card text. t1.js: obc-basic preview, where previewToggle delta.power_draw_w is 0.4. t16.js: 'IGY data bar: ... DATA HOME | 0 / 0 GB/DAY', class 'bar warn', 'width: 41.66%'. Screenshot: (scratch)/sweep/build/t16-igy-bars.png",
+  "cause": "js/ui-design.js:1946-1948 (partStats uses num(v,0) for watts and num(v) at 1 decimal for GB), :2010 (preview watts at 0 places), and resourceBars DATA HOME uses num() at 1 place. num() rounds with maximumFractionDigits and has no significant-figure fallback.",
+  "fix_hint": "Format small values with significant figures (e.g. '<0.1 W', '20 kB/d') or switch units for tiny data rates.",
+  "verdict": {
+   "id": "build-07",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v07.js. (a) IGY cards: Geiger counter reads '2.3 kg \u00b7 0 W draw \u00b7 0 GB/d made' (data power_draw_w 0.05, data_gb_day 0.00002), and the Minitrack beacon reads '0.3 kg \u00b7 0 W draw \u00b7 0 GB/d sent' (0.06 W, 0.001 GB/d). This breaks SPEC:879, 'Show only fields that are not 0'. (b) New Space: the obc-basic card reads '0 W draw', and its hover preview reads '+0.1 kg, +0 W draw, +$0.01M' while the same preview's Causes line says 'Parts draw 0.4 W' (delta.power_draw_w 0.4). (c) IGY with explorer-body, spin-stabilised, cosmic-ray-counter, scintillation-counter, mercury-battery, minitrack-beacon and command-timer: the DATA HOME bar reads '0 / 0 GB/DAY', class 'bar warn', width 41.67%, while the DATA LOST check says 'Instruments make 0.00006 GB a day but only 0.000025 GB reaches the ground.' Root cause: js/ui-design.js:1946-1947 (num(v,0) for W, num(v) for GB), :2010 (preview W at 0 places) and :1641 (DATA HOME with num()). num() at ui-design.js:767 rounds by decimal places and has no significant-figure fallback. Screenshot: (scratch)/sweep/verify-build/v07-igy-bars.png"
+  }
+ },
+ {
+  "id": "build-08",
+  "title": "Hover preview misses a new body-slot overflow (or its fix) when another slot is already over",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "3 Build, hover preview",
+  "repro": "New Space, Wildfire, LEO. Add the 12U CubeSat frame (1 instrument and 1 radio slot), Optical camera, Thermal imager and UHF radio. Open the RADIO bin and hover [data-key=part-radio-sband].",
+  "expected": "'Causes: The 12U CubeSat frame has room for 1 comms part (you fitted 2).' Adding the radio creates this blocker.",
+  "actual": "The preview lists only '+0.3 kg, +10 W draw, +$0.03M, data home +1.6 GB/day', with no cause. runChecks on the design after adding shows both body-slots blockers (instrument and comms).",
+  "evidence": "t16.js: previewToggle causes [] and afterSlots ['...room for 1 instrument part (you fitted 2).', '...room for 1 comms part (you fitted 2).'].",
+  "cause": "js/game.js:745-746 compares checks by id only, and every slot overflow uses the same id 'body-slots' (js/game.js:546). The same applies to repeated 'part-locked' ids.",
+  "fix_hint": "Compare id plus text, or give slot checks per-category ids such as body-slots-comms.",
+  "verdict": {
+   "id": "build-08",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v08.js: New Space, Wildfire, LEO, with cubesat-12u, optical-camera, thermal-imager and radio-uhf. PROBLEMS already shows 'BODY FULL: ...room for 1 instrument part (you fitted 2).' Hovering part-radio-sband shows only '+0.3 kg, +10 W draw, +$0.03M, data home +1.6 GB/day' with no Causes line. After clicking, PROBLEMS gains a second 'BODY FULL: ...room for 1 comms part (you fitted 2).' The reverse case fails the same way: hovering thermal-imager to remove it lists the payload and smear fixes but not the instrument BODY FULL fix, because the comms one still carries the same id. Root cause: js/game.js:745-746 compares checks by id only, and every slot overflow uses the id 'body-slots' (game.js:546). Repeated 'part-locked' ids would behave the same way."
+  }
+ },
+ {
+  "id": "build-09",
+  "title": "The preview's aria-live region is replaced on every hover or focus, so screen readers are not told",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "3 Build",
+  "repro": "Hold a handle to #preview (aria-live='polite') and focus or hover [data-key=part-optical-camera]. Then attach a MutationObserver to the new #preview and hover another card.",
+  "expected": "The live region stays in the DOM and its content changes, so assistive tech announces what the part would change. Keyboard users get the preview on focus, and this is how they would hear it.",
+  "actual": "After each hover the old #preview node is detached (isConnected false) and a new one is inserted. The observer on the region recorded 0 mutations and was then disconnected. A newly inserted live region is usually not announced.",
+  "evidence": "t20.js: 'old #preview still connected after hover? false | new node same? false', 'mutations inside the live region that existed before the hover: 0 | connected false'. Not checked with a real screen reader.",
+  "cause": "js/ui-design.js:2027 `old.parentNode.replaceChild(drawPreview(), old)`. The whole Build screen is also rebuilt on every toggle.",
+  "fix_hint": "Keep one #preview element and replace only its children.",
+  "verdict": {
+   "id": "build-09",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v09.js: kept a handle on #preview (aria-live='polite') with a MutationObserver on it, then focused part-optical-camera. Result: {oldConnected:false, same:false, muts:0}. The live region is replaced by a new node instead of having its content updated. Tab to the next card (part-topside-sounder) replaced it again. Newly inserted live regions are generally not announced, so keyboard and screen-reader users, who get the preview through onfocus, probably hear nothing. This is a DOM-level check only; I did not test with a real screen reader. Root cause: js/ui-design.js:2027, `old.parentNode.replaceChild(drawPreview(), old)`, which builds a fresh aria-live box at ui-design.js:2000 each time."
+  }
+ },
+ {
+  "id": "build-10",
+  "title": "FIX for a missing part opens Build on the last-used bin, not the bin that is missing",
+  "severity": "polish",
+  "category": "engagement",
+  "screen": "5 Readiness to 3 Build",
+  "repro": "Build with only a thermal imager, pick the small launcher, go to the Launch Pad through the map, then click FIX on NO STRUCTURE, NO POWER or NO ATTITUDE.",
+  "expected": "Build opens with the STRUCTURE, POWER or ATTITUDE bin selected.",
+  "actual": "All three open with [data-key=bin-instrument] pressed and the heading 'AVAILABLE INSTRUMENTS'.",
+  "evidence": "t22.js: 'NO STRUCTURE FIX -> open bin: bin-instrument', likewise for NO POWER and NO ATTITUDE.",
+  "cause": "js/ui-design.js:1686 calls go(target) without setting state.bin from the check id (empty-<category>).",
+  "fix_hint": "For empty-<cat> and body-slots, set state.bin before go('build').",
+  "verdict": {
+   "id": "build-10",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v10.js: New Space, Wildfire, LEO, with only thermal-imager added. Picked rocket-small and took the map to the Launch Pad. The checks include NO STRUCTURE, NO POWER, NO RADIO, NO COMPUTER and NO ATTITUDE. Clicking FIX on each opened Build with bin-instrument pressed and the heading 'AVAILABLE INSTRUMENTS', never the missing category. Root cause: the FIX onclick at js/ui-design.js:1686 calls go(target) without setting state.bin from the 'empty-<category>' id, and drawBuild falls back to the instrument bin. It costs the player one extra click, so this is real but polish."
+  }
+ },
+ {
+  "id": "engage-18",
+  "title": "FIRST 2 MINUTES: the map repeats the same instruction four times (150 words), and Build opens on the wrong bin for its first line",
+  "severity": "minor",
+  "category": "engagement",
+  "screen": "Base map, 3 Build",
+  "repro": "Fresh save, start IGY Initial Feasibility, skip the intro and read the map. Continue to Build and read the team line and the selected bin (kid1.js, kid4.js).",
+  "expected": "One clear instruction per screen, and coaching that matches what is on screen.",
+  "actual": "The map has 150 words. 'Go to Mission Control and pick a job' appears in the header objective, the prompt box ('Follow the gold route. Go to Mission Control and pick a job.'), the sidebar OBJECTIVE and the place list ('Pick a job for the satellite'), on top of the team line ('Begin at Mission Control. The gold route leads the way.'), the hint ('Walk with the arrow keys or WASD...') and a KEYS box. The map is a stop between every step and asks no decision on the first run. On Build, the team says 'Every satellite needs a body to hold its parts.' while the INSTRUMENTS bin is preselected.",
+  "evidence": "kid1.js MAP dump (150 words); kid4.js BUILD dump; (scratch)/sweep/engage/kid/02-map.png, (scratch)/sweep/engage/kid/05-build.png",
+  "cause": "drawMap (js/ui-design.js:2382+) renders the objective, the prompt, the side objective and the place list from the same doText(); drawBuild starts on the instrument bin while storyBuild's first line asks for a body.",
+  "fix_hint": "Keep one instruction (the prompt box with its button) and drop the duplicate sidebar OBJECTIVE. On the first run, consider going straight from the intro to Mission Control. Preselect the STRUCTURE bin while the body line is showing.",
+  "verdict": null
+ },
+ {
+  "id": "build-11",
+  "title": "Bin slot text reads '1 / 1 slots', and an over-full no-slot category shows '3 / 0 slots'",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "3 Build, parts bins",
+  "repro": "IGY: add the Explorer body and one part of each kind. Then, in New Space with the Explorer body first, add three propulsion parts.",
+  "expected": "Singular for one ('1 / 1 slot'). For a category the body has no room for, the existing wording 'N on board, no room'.",
+  "actual": "'INSTRUMENTS 1 / 1 slots', 'RADIO 1 / 1 slots'; 'PROPULSION 3 / 0 slots'. The code branch for 'on board, no room' never runs.",
+  "evidence": "t8.js and t10.js bins text: 'INSTRUMENTS | 1 / 1 slots', 'PROPULSION | 3 / 0 slots'.",
+  "cause": "js/ui-design.js:2072. When used > 0, `slot` is non-null, so the noRoom && n branch is dead. Plural is hard-coded.",
+  "fix_hint": "Check max === 0 before the slot text and pluralise on max.",
+  "verdict": {
+   "id": "build-11",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v11.js. IGY, Explorer body plus one part of each kind: bins read 'INSTRUMENTS 1 / 1 slots', 'RADIO 1 / 1 slots', 'ATTITUDE 1 / 1 slots' (wrong plural). New Space, Explorer body (no propulsion slots) plus prop-green-small reads 'PROPULSION 1 / 0 slots'; with three propulsion parts it reads 'PROPULSION 3 / 0 slots'. The 'N on board, no room' wording never shows. Root cause: js/ui-design.js:2068-2072. bodySummary always returns a slot object, and once used > 0, `slot` stays non-null, so noRoom is false and the `noRoom ? (n ? n + ' on board, no room' ...)` branch is dead for n > 0. 'slots' is hard-coded plural. The over-full bin is still marked red (.need), so the meaning comes through; this is wording only."
+  }
+ },
+ {
+  "id": "engage-04",
+  "title": "The readiness review says GO to a design forecast to return 5 of 100 points, and does not show that forecast",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "5 Readiness review",
+  "repro": "IGY Initial Feasibility, radiation, LEO. Add the cylinder, scintillation counter, mercury batteries, Minitrack beacon, clock and spin stabilisation (the path the team's lines walk you through), then pick Juno I and open the Launch Pad (kid6.js, kid7.js, kid8.js).",
+  "expected": "Before the one irreversible click, the review states the expected science against the target and ranks the warnings by the damage each does.",
+  "actual": "Build showed 'SCIENCE PREVIEW 5 / 100 pts', but the review shows only 'GO, WITH 2 WARNINGS'. BATTERY ONLY and DATA LOST are equal-weight WARN rows above 'LAUNCH ANYWAY', and the review shows no science forecast at all. The flight returns 4 of 100 points and 0 stars. BATTERY ONLY kills the mission in month 1; DATA LOST costs about 6% (135 against 144 points), yet both look the same. Following the team's own line-by-line coaching ('Start with an instrument... Add power... Add a radio...') produces this doomed design.",
+  "evidence": "kid6.js: 'SCIENCE PREVIEW 5 / 100 pts'; kid7.js REVIEW dump (no science line); kid8.js debrief '4 of 100 points', SCORE 31; (scratch)/sweep/engage/kid/08-review.png",
+  "cause": "js/ui-design.js drawReview (lines 2167-2204) renders runChecks warnings and facts, but not previewScience; checkList (lines 1669-1693) lists warnings in data order with no measure of their impact.",
+  "fix_hint": "Add a large 'Expected science: 5 of 100, this will miss the goal' line next to T-MINUS. Sort the warnings by points lost ('BATTERY ONLY: about -95 pts'). Turn the verdict amber or red when the forecast misses the target.",
+  "verdict": null
+ },
+ {
+  "id": "engage-17",
+  "title": "Campaign Launch Vehicle screen is 531px wide on a 390px phone (locked-rocket tags do not wrap)",
+  "severity": "minor",
+  "category": "mobile",
+  "screen": "4 Launch vehicle (campaign)",
+  "repro": "390x844. New campaign (Initial Feasibility), START A MISSION, radiation, LEO, build any design, open the Rocket Yard. Measure document.documentElement.scrollWidth and the elements past 390px (judge6.js, judge7.js, judge8.js).",
+  "expected": "No sideways scrolling at 390px; every other campaign screen measured 390.",
+  "actual": "scrollWidth is 531. The overflowing elements are the tags 'NEEDS RESEARCH: THOR-ABLE ROCKET' (right edge 402), 'NEEDS RESEARCH: COMMERCIAL SMALL LAUNCHERS' (510) and 'NEEDS RESEARCH: REUSABLE MEDIUM-LIFT ROCKETS' (531). With mobile emulation the layout viewport grows to innerWidth 531, and Playwright's tap on GO TO LAUNCH PAD was repeatedly reported as intercepted; a plain click at 390px non-mobile worked. Hub, briefing, orbit, build, review, debrief and lab all measured 390.",
+  "evidence": "judge6.js: { iw: 531, vv: 390, docW: 531, wide: [ 'SPAN.tag bad right=402 ...', 'right=510 ...', 'right=531 ...' ] }; judge8.js WIDTH lines (390 for the other screens); (scratch)/sweep/engage/judge/25-camp-launcher-wide.png",
+  "cause": "js/ui-design.js:2131-2133 puts the lockReason text in a .tag span inside .card-title; the tag does not wrap.",
+  "fix_hint": "Let .tag wrap inside cards (white-space: normal; max-width: 100%), or shorten the label to 'RESEARCH NEEDED' and put the research name on its own line.",
+  "verdict": null
+ },
+ {
+  "id": "start-01",
+  "title": "Orbit card badge contradicts the 'In view' share printed on the same card",
+  "severity": "major",
+  "category": "copy",
+  "screen": "2 Orbit",
+  "repro": "Viewport 390x844 (same at 1280x800). Set smdg-progress-v1 to the unlock JSON and reload. Click [data-key=\"start-new-space-training\"], click SKIP (.intro .btn:not(.primary)), click [data-key=\"blip-briefing\"], click [data-key=\"obj-wildfire\"], click .nav-row .btn.primary (GO TO TRACKING STATION). Read the cards [data-key=\"orbit-leo\"], [data-key=\"orbit-sso\"] and [data-key=\"orbit-geo\"]. Repeat with [data-key=\"obj-ionosphere\"].",
+  "expected": "The badge and the 'In view' line agree. The orbit that sees 100% of the fires should not be labelled the partial one, and the one that sees 69% should not be labelled the good one. Otherwise the badge should say what it really measures.",
+  "actual": "Wildfire: SSO shows 'PARTIAL VIEW' next to 'In view: 100% of the world's fire detections (NASA FIRMS 2025)'. GEO shows 'GOOD VIEW' next to 'In view: 69%'. LEO shows 'PARTIAL VIEW' next to 'In view: 92%'. Ionosphere: LEO shows 'GOOD VIEW' next to 'In view: 42% of Alouette's soundings', the same badge SSO gets at 100%. This is the screen whose job is to teach orbit choice.",
+  "evidence": "t6-brief-orbit.js output. Screenshots: (scratch)/sweep/start/shots/L-phone-orbit.png and (scratch)/sweep/start/shots/orbit-eos-obj-wildfire.png",
+  "cause": "js/ui-design.js:1907-1914 builds the badge from objective.orbit_fit (data/objectives.js:57, wildfire {leo:0.85, sso:0.5, geo:1.0}). js/ui-design.js:1929 builds the line from getOrbitFacts().target_in_view (data/earth.js:20, orbit_view {leo:0.921, sso:1.0, geo:0.687}). Both values follow SPEC line 847, and the comment at ui-design.js:1890-1891 admits they measure different things. The player still sees the word 'view' in both labels.",
+  "fix_hint": "Fix the wording, not the data. Rename the badge to what orbit_fit means (how well the orbit catches the target when it looks, for example a science factor), or relabel the line as targets within reach.",
+  "verdict": {
+   "id": "start-01",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v01.js and v01b.js (1280x800 and 390x844, unlock JSON, new-space-training, SKIP, Mission Control, pick an objective, GO TO TRACKING STATION). Wildfire: LEO 'PARTIAL VIEW' + 'In view: 92%', SSO 'PARTIAL VIEW' + 'In view: 100%', GEO 'GOOD VIEW' + 'In view: 69%'. Ionosphere: LEO 'GOOD VIEW' + 'In view: 42%', SSO 'GOOD VIEW' + 'In view: 100%', GEO 'CANNOT SEE TARGET' + 0%. The science factor the game actually uses is fit x view (game.js:442,462). For wildfire that is LEO 0.783, GEO 0.687 and SSO 0.500, so neither label ranks the orbits correctly. The badge points the player at GEO, which SPEC:984 says never wins. Neither the hint nor the say line explains the difference. The strongest case is ionosphere: LEO is fit 1.0 x view 0.424, yet it gets the same GOOD VIEW as SSO at 100%. Cause: the badge comes from objective.orbit_fit at js/ui-design.js:1910-1914, and the 'In view' line comes from getOrbitFacts().target_in_view at js/ui-design.js:1927 (data/earth.js:20 and :123). The code follows SPEC.md:846-847 to the letter, and the comment at ui-design.js:1890-1891 admits they measure different things. So the fix is a wording or SPEC decision, for example a badge built from fit x view, or a badge that does not say 'view'. Screenshots: (scratch)/sweep/verify-start/shots/v01-1280-wildfire-orbit.png and (scratch)/sweep/verify-start/shots/v01-390-wildfire-orbit.png"
+  }
+ },
+ {
+  "id": "start-04",
+  "title": "The 'MISSION CONTROL' label on the next place is cut off at the map's left edge on phones",
+  "severity": "minor",
+  "category": "mobile",
+  "screen": "Base map",
+  "repro": "Viewport 390x844 (also 360x740, 320x640 and landscape 844x390). Click [data-key=\"start-new-space-training\"], then SKIP. Look at [data-key=\"blip-briefing\"] .blip-name.",
+  "expected": "The full place name shows inside the map frame.",
+  "actual": "The label reads 'ISSION CONTROL'. Its left edge is at 2.98px while the map's content starts at 20px (16px plus a 4px border), so 17px is clipped at 390, 23px at 360, 31px at 320 and 9px at 844x390. At 760px and narrower this is the only place name drawn on the map.",
+  "evidence": "t8-clip.js output. Screenshots: (scratch)/sweep/start/shots/clip-p360-map.png and (scratch)/sweep/start/shots/L-phone-map.png",
+  "cause": "css/style.css:540-547 sets overflow:hidden on .map. The nowrap .blip-name (578-584) is centred on a marker at x=20% (NODES.briefing x=40 of 200, js/ui-design.js:69), so it spills past the left edge.",
+  "fix_hint": "Keep labels inside the map (left-align them for markers near an edge) or let them wrap.",
+  "verdict": {
+   "id": "start-04",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v04.js after new-space-training and SKIP, comparing the .blip-name rect with the map's inner left edge (after the border). [data-key=blip-briefing] .blip-name 'MISSION CONTROL' is clipped on the left by 17px at 390x844, 23px at 360x740, 31px at 320x640 and 9px at 844x390. Nothing is clipped at 760x900 or 1280x800. The screenshot reads 'ISSION CONTROL'. The PLACES list below the map still has the full name, so this is minor. Cause: .map has overflow:hidden (css/style.css:540-547), and the nowrap .blip-name (css/style.css:578-584) is centred on the marker at NODES.briefing x=40 of MAP_W=200 (js/ui-design.js:70), so at 20% it spills past the left edge. Screenshot: (scratch)/sweep/verify-start/shots/v04-map-390.png"
+  }
+ },
+ {
+  "id": "start-05",
+  "title": "The '\u00bd' in the Counts row is never explained, and the hint that explains it is never shown",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "1 Briefing",
+  "repro": "Viewport 1280x800 with the unlock JSON. Start [data-key=\"start-new-space-training\"] (hints on) and then [data-key=\"start-new-space-standard\"] (hints on request). At Mission Control read the Counts rows, open every 'About this job' (details.more summary) and press #help-btn ('?').",
+  "expected": "The player can find out that the first type counts fully and the rest count half. SPEC.md's 1 Briefing table also asks for instrument names here, not raw tags.",
+  "actual": "Cards show raw tags with a bare \u00bd, such as 'radar \u00b7 imaging \u00bd' and 'solar \u00b7 radiation \u00bd'. No 'About this job' text mentions it. The '?' shows only 'Choose what your satellite will study... Decide what you want to learn before you choose any hardware.' The explaining tip in data/hints.js:13 never appears. In expert, hints are off, so nothing explains it.",
+  "evidence": "t9-hint.js output (full ? text for briefing). t25-gaps.js prints 'mentions half/\u00bd explanation on screen? false'. Screenshot: (scratch)/sweep/start/shots/gap-about-jobs.png",
+  "cause": "js/ui-design.js:1517: setHint keeps only list(h.tips).slice(0, 1), so the second briefing tip (and the second orbit tip) is dropped. wantsLine (1851-1853) prints the tags.",
+  "fix_hint": "Show all tips when '?' is open, or add a short legend next to Counts ('\u00bd = counts half').",
+  "verdict": {
+   "id": "start-05",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v05.js and v05b.js at 1280x800 with the unlock JSON. Cards read 'Counts / solar \u00b7 radiation \u00bd', 'thermal \u00b7 imaging \u00bd' and 'radar \u00b7 imaging \u00bd'. With every 'About this job' open, the screen never matches /half|counts fully|first type/. Standard tier '?': 'Decide what you want to learn before you choose any hardware.' Training '?' on a revisit: 'Choose what your satellite will study. Everything else follows from this. Decide what you want to learn before you choose any hardware.' The tip that explains it, data/hints.js:13 ('the first type counts fully, the others half'), never appears. A grep of js/ui-*.js finds no 'half' text anywhere, so Build does not explain it either. Build only says 'Does not count' or shows per-month numbers. Expert was not run because it is locked by the unlock JSON. It has hints:'off' (data/tiers.js:15), so from the code, nothing explains it there. Cause: setHint at js/ui-design.js:1516 keeps list(h.tips).slice(0,1), which drops the second briefing tip and the second orbit tip. wantsLine at js/ui-design.js:1851-1853 prints raw tags, while SPEC.md:837 asks for instrument names and says the first type counts fully and the others half."
+  }
+ },
+ {
+  "id": "start-06",
+  "title": "Story intro opens scrolled down at 200% zoom and on landscape phones, hiding its first lines",
+  "severity": "minor",
+  "category": "visual",
+  "screen": "Story intro",
+  "repro": "Viewport 640x400 (1280x800 at 200%), fresh save. Scroll to [data-key=\"start-igy-training\"] and click it. Read window.scrollY and the top of .intro .kicker. Also try 844x390 with [data-key=\"start-new-space-training\"].",
+  "expected": "The intro starts at the top, with the header, the 'PART 1' line and the speaker name visible.",
+  "actual": "At 640x400, scrollY is 170. The kicker sits at -93px and the speaker block at -20px, so 'PART 1 \u00b7 THE GRAVITRONICAL ODYSSEY', 'YOUR TEAM' and the header are above the viewport. At 844x390, scrollY is 131 and the kicker is at -48px. Portrait phone and desktop are not affected.",
+  "evidence": "t16-introscroll.js output. Screenshot: (scratch)/sweep/start/shots/introscroll-zoom200.png",
+  "cause": "js/ui-design.js:1767: showIntro draws with mount(), which never calls window.scrollTo(0, 0). go() does (line 1562). The scroll from the title survives, clamped, and NEXT.focus() only scrolls as far as the button.",
+  "fix_hint": "Call window.scrollTo(0, 0) before drawing the first beat, as go() does.",
+  "verdict": {
+   "id": "start-06",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v06.js. At 640x400 with a fresh save, scrolled to start-igy-training (scrollY 1098) and clicked: the intro opens with scrollY=170, the .kicker at top -93px, the .say at -20px and the header at -170px. Focus is on NEXT. After NEXT, scrollY is 143 and the kicker is at -66. At 844x390 with new-space-training: scrollY=131 and the kicker at -48. At 390x844 and 1280x800, scrollY=0 and the kicker is visible. In the screenshot the 'YOUR TEAM' speaker label and the 'PART 1 \u00b7' kicker are cut off at the top. The story text and NEXT are still visible. Cause: showIntro's draw1 calls mount() (js/ui-design.js:1767), which never scrolls. Only go() calls window.scrollTo(0,0) (js/ui-design.js:1562). Screenshot: (scratch)/sweep/verify-start/shots/v06-zoom200.png"
+  }
+ },
+ {
+  "id": "start-07",
+  "title": "At 200% zoom on a 1920x1080 screen the sticky header covers the top of the focused card",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "Header on 1 Briefing (any design screen)",
+  "repro": "Viewport 960x540 (1920x1080 at 200%), unlock JSON. Click [data-key=\"start-new-space-standard\"], then SKIP. Wait 700ms, click [data-key=\"blip-briefing\"], then [data-key=\"obj-sea-ice\"]. Focus .nav-row .btn.primary and press Shift+Tab repeatedly.",
+  "expected": "A focused control is never under the sticky header.",
+  "actual": "The sticky header is 197px tall (36% of the viewport) because the '?' button wraps onto its own row. scroll-padding-top is 144px, so focusing obj-weather, obj-solar or obj-radiation leaves its top 53px, the card title, under the header. At 853x533 (1280x800 at 150%) the sticky header is 228px (43%), and at 800x600 it is 253px.",
+  "evidence": "t26-gaps2.js prints '960x540 partially covered ... hiddenPx 53' for obj-weather, obj-solar and obj-radiation. t11-header.js output. Screenshots: (scratch)/sweep/start/shots/gap-sticky-960.png and (scratch)/sweep/start/shots/hdr-960x540.png",
+  "cause": "css/style.css:88-94: the header is sticky from 761px wide and scroll-padding-top is 144px from 930px wide, but the header wraps to about 197px there. Stickiness is only turned off when max-height is 500px or less.",
+  "fix_hint": "Turn stickiness off for short viewports (for example max-height 600px), keep '?' on the first row, or match scroll-padding to the real header height.",
+  "verdict": {
+   "id": "start-07",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v07.js with new-space-standard, SKIP, briefing, sea ice picked, then Shift+Tab back from the GO TO button. At 960x540 the sticky .topbar is 197px tall (36% of the viewport) because '?' wraps onto its own row, and scroll-padding-top is 144px. obj-weather, obj-solar and obj-radiation each end up with 53px of 153 under the header, which hides the card title (the screenshot shows only 'PICTURES'). At 800x600 the header is 253px (42%) against 240px of padding, so obj-wildfire and obj-weather lose 13px. At 853x533 it is 228px (43%) and nothing is covered. Part of each control stays visible, so this passes WCAG 2.4.11 AA. The real cost is a header that takes 36-43% of the screen at 150-200% zoom. Cause: css/style.css:88-98. The header is sticky from 761px wide and scroll-padding-top is 144px from 930px wide, but the header wraps well past that. Stickiness only turns off at max-height:500px. Screenshot: (scratch)/sweep/verify-start/shots/v07-960-weather-focus.png"
+  }
+ },
+ {
+  "id": "start-08",
+  "title": "Map key legend says 'M map' but on the map M goes back inside; touch players get only keyboard instructions",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "Base map",
+  "repro": "Desktop 1280x800: start a training tier and SKIP. Press ArrowRight, then ArrowUp (you are now at Mission Control), then press m. Phone 390x844 with touch: start a training tier, SKIP, and read #hint and the KEYS panel.",
+  "expected": "The key legend describes what M does on the map, and a touch player is told to tap a place.",
+  "actual": "The KEYS panel reads 'WASD walk E enter M map'. On the map, M goes into the place you stand at (the run went to '1 \u00b7 BRIEFING'), and at the gate it does nothing. The correct text, 'M or Esc: back inside', is an aria-label on a <p>, which screen readers ignore: ariaSnapshot shows 'paragraph: WASD walk E enter M map'. On a touch phone the first-visit hint is only 'Walk with the arrow keys or WASD, press E to go in.' The sentence about clicking a marker is cut off.",
+  "evidence": "t5-map.js ('key m' leads to 1 \u00b7 BRIEFING). t19-touch.js ('map hint on touch phone'). t25-gaps.js MAP ariaSnapshot. Screenshot: (scratch)/sweep/start/shots/L-phone-map.png",
+  "cause": "js/ui-design.js:2438-2439 puts the aria-label on a <p>. HINTS.map (line 35) is cut to its first sentence by setHint's firstSentence (around 1521-1523).",
+  "fix_hint": "Change the visible legend to 'M back inside' and put the tap instruction first in the map hint.",
+  "verdict": {
+   "id": "start-08",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v04.js. Measured parts: (1) the KEYS <p> has aria-label 'Arrow keys or WASD walk... M or Esc: back inside.', but ariaSnapshot shows 'paragraph: WASD walk E enter M map', so the label is ignored on a <p> (js/ui-design.js:2438-2439). (2) On an iPhone 13 touch context the first-visit #hint is only 'Walk with the arrow keys or WASD, press E to go in.' firstSentence in setHint (js/ui-design.js:1522) cuts HINTS.map (js/ui-design.js:35) before 'Or click a marker'. Touch players still see a tappable FOLLOW ROUTE button and the PLACES list, so they are not blocked. (3) On the map, M at the gate does nothing, and M at Mission Control goes to '1 \u00b7 BRIEFING' (js/ui-design.js:2588-2591). Inside a place, M opens the map. 'M map' reads as a common map toggle, so this is the weakest part. Screenshot: (scratch)/sweep/verify-start/shots/v08-touch-map.png"
+  }
+ },
+ {
+  "id": "start-09",
+  "title": "While live data is loading, the badge's label already says every source is on the snapshot",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "Header badge",
+  "repro": "This needs a mocked slow response and is separate from the expected SNAPSHOT state in this sandbox. Route services.swpc.noaa.gov to answer after 3s and mock the other three hosts as OK. Load index.html at 390x844 and read #data-badge's text, title and aria-label at 400ms.",
+  "expected": "The 'CHECKING DATA' state says the check is still running.",
+  "actual": "The text is 'CHECKING DATA', but the title and aria-label read 'NOAA SWPC solar cycle indices (SILSO sunspot number): snapshot. NASA EONET open wildfire events: snapshot. NASA EONET open sea and lake ice events: snapshot. Natural Resources Canada CWFIS ...: snapshot', with no closing full stop. About 3s later it becomes LIVE DATA. In every state the explanation is only a title tooltip on a span that cannot take focus (tabindex null), so sighted keyboard and touch users cannot read what the badge means.",
+  "evidence": "t20-badge.js output, the 'slow @400ms' line, compared with '@3.9s'.",
+  "cause": "js/ui-design.js:1454-1457: for status 'loading' it lists each source with ok:false as 'snapshot'.",
+  "fix_hint": "Handle 'loading' on its own ('Checking live NASA and NOAA data...'). Consider making the badge focusable or giving the explanation visible text.",
+  "verdict": {
+   "id": "start-09",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v09.js at 390x844 with page.route mocks: SWPC answers after 3s, and EONET and CWFIS answer OK at once, with CORS headers. At 400ms: text 'CHECKING DATA', class 'data-badge loading'. Title and aria-label are 'NOAA SWPC ...: snapshot. NASA EONET open wildfire events: snapshot. ... CWFIS ..., last 24 hours: snapshot', with no final full stop, even though two sources had already succeeded (ok is only set in allSettled). At 3.9s: 'LIVE DATA' and every source is live. tabindex is null and role is 'status', so the title tooltip cannot be reached by keyboard or touch. TIMEOUT_MS is 8000 (js/live-data.js:10), so on a hanging network the wrong label can last up to 8s. Cause: setDataBadge at js/ui-design.js:1454-1456 builds the source list for the 'loading' status as well."
+  }
+ },
+ {
+  "id": "start-11",
+  "title": "RESET PROGRESS drops keyboard focus to the page body",
+  "severity": "polish",
+  "category": "a11y",
+  "screen": "Title (tier select)",
+  "repro": "Viewport 1280x800, unlock JSON. Focus 'RESET PROGRESS', press Enter and accept the confirm dialog.",
+  "expected": "Focus stays on a control on the redrawn title, for example the reset button or the first open tier.",
+  "actual": "Progress resets correctly (open tier buttons drop from 11 to 4; dismissing the dialog changes nothing). Afterwards document.activeElement is BODY, and the next Tab starts again from 'How it works' at the top.",
+  "evidence": "t10-reset.js prints 'focus after reset BODY.'",
+  "cause": "js/ui-design.js:1843-1845: draw('title') replaces the whole screen and moves focus nowhere.",
+  "fix_hint": "After draw('title'), focus the new RESET PROGRESS button or #app.",
+  "verdict": {
+   "id": "start-11",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v11.js at 1280x800 with the unlock JSON. Focused RESET PROGRESS, pressed Enter and accepted 'Forget every star you have earned?'. Open tiers went from 11 to 4, and document.activeElement became BODY. The next Tab landed on SUMMARY 'How it works' at the top. Dismissing the dialog changed nothing and focus stayed on the button. Cause: js/ui-design.js:1843-1844 calls draw('title'), which replaces the screen and moves focus nowhere."
+  }
+ },
+ {
+  "id": "engage-03",
+  "title": "FIRST 2 MINUTES: the first decisions each have one obvious answer (one open topic, an orbit tag that gives the answer away, bins with one part)",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "1 Briefing, 2 Orbit, 3 Build (1958, Initial Feasibility)",
+  "repro": "Fresh save, start IGY Initial Feasibility, skip the intro, open Mission Control, then the Tracking Station, then the Workshop (kid2.js to kid5.js). Compare the orbit tags with the Build science preview for LEO and SSO using the same parts (probe1.js).",
+  "expected": "The first choices offer a real trade-off with a reason to care, as SPEC's 'Teaches: decide the goal before the hardware' and 'where you fly changes everything' intend.",
+  "actual": "Briefing: 5 of 6 topic cards are disabled with red 'ARRIVES IN 19xx' tags, so the 'decision' is a single card showing only 'Target 100 pts / Counts radiation'; the reason to care ('It is 1957 and nobody knows what lies just above the atmosphere...') sits behind a small 'About this job' link. Orbit: LEO is tagged GOOD VIEW in teal and SSO and GEO PARTIAL VIEW in orange, so the tag makes the choice. It is also misleading: with the same parts, SSO previews 207/100 points against LEO's 135/100 (no 1958 rocket can reach SSO; see engage-06). Build: 3 of the 6 required bins (structure, radio, attitude) hold exactly one usable part, and propulsion has none.",
+  "evidence": "kid2.js: only obj-radiation enabled; kid3.js orbit dump ('GOOD VIEW' / 'PARTIAL VIEW' / 'PARTIAL VIEW'); kid5.js bin lists; probe1.js: ssoSci.total 207.4, LEO 135; kid11.js build panel 'SCIENCE PREVIEW 207 / 100 pts'; (scratch)/sweep/engage/kid/04-orbit.png",
+  "cause": "data/objectives.js:13 orbit_fit { leo: 1.0, sso: 0.8, geo: 0.5 } drives the badge in js/ui-design.js:1910-1913, separately from previewScience. In the IGY era only radiation has no research gate.",
+  "fix_hint": "Show the briefing sentence on the card itself. Replace GOOD/PARTIAL VIEW with the outcome the player cares about, for example '~135 pts, reachable by Juno and Vanguard' against '~207 pts, but no 1958 rocket can reach it'. Consider opening a second 1958 topic so the first choice is a real one.",
+  "verdict": null
+ }
+]

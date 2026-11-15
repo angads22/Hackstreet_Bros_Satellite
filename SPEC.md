@@ -179,6 +179,25 @@ Start poor (small budget, basic parts)
 - **Rewards are for new data only.** Money pays for the knowledge the new data adds (the same diminishing curve as before), and science points equal the new data. A flight that brings back nothing new earns **no reward**: no payout (the repeat floor is gone for it) and no science points. The annual grant and the rescue grant still arrive, so the programme can always fly again.
 - The hub shows each topic as `data_collected` of `data_cap`, and marks it `complete` at the cap. The Build screen's payout preview and the debrief say how much of a flight's data would be new, and name another type to try (`best_next_topic`).
 
+### Offers: customers ask for something specific (proposed, November 15, branch only)
+
+Each campaign year the hub shows up to two **open offers**: a customer (the National Academy of Sciences, the Weather Bureau, the coast guard, Canada's Defence Research Telecommunications Establishment...) wants a topic, sometimes from a particular orbit, by a year. Any flight that returns enough data for it, **and some of it new**, claims the bonus in money and science points (offers follow the core loop: no new data, no reward). A topic already at its data cap gets no offers. Offers give the player a choice each year and a reason to use different orbits and topics.
+
+- Generated in code (`makeOffers` in `js/mission.js`) from the topics, orbits and rockets the programme can use now, with a seed from the year and flight count. No data file and no new data fields; the bonus is `0.2 x value_musd` and `0.3 x min_science`, the minimum is 60% of the topic's target, and the customer's name comes from a small table in the code.
+- `getHubInfo().offers`: `[{ id, topic, topic_name, orbit, orbit_name, min_science, bonus_musd, bonus_sci, year_to, client, text }]`.
+- `previewPayout(design).offers`: the open offers this design's topic and orbit match, `[{ text, bonus_musd, bonus_sci, min_science, met }]`; `met` is true when the preview science reaches the minimum and some of it would be new data.
+- `recordResult(m).offers_claimed`: `[{ text, client, topic, bonus_musd, bonus_sci }]`, and `best_next_topic` as before.
+- Saved as `offers` in the campaign; older saves without it get fresh offers at the next flight.
+
+### The ending: the programme chronicle (proposed, November 15, branch only)
+
+A campaign's ending used to be one banner line. The chronicle tells the player's own story from what they did, and from the real missions in `data/missions.js`.
+
+- `getChronicle()` works for a campaign in progress or a finished one: `{ title, finished, won, rating: { id, name, text }, headline, totals: { flights, stars, data, spent_musd, research, upgrades, knowledge, year }, topics: [{ id, name, knowledge, data, flights, best_stars, real_mission }], timeline: [{ year, kind: "flight" | "research" | "upgrade", title, text, flight?, stars? }], epilogue }`.
+- **Rating** (by the sum of the knowledge of all topics, and whether the programme won): Architects of the space age, Pioneers, An established programme, A promising start, Lessons learned. The text is in `js/mission.js` with the lessons; no new data fields.
+- Each flight is named G-1, G-2 and so on, gets a newspaper-style headline from what it did, and its real twin from the debrief's `closest_mission`.
+- The save remembers more per flight (`flight, new_data, first_look, months, ended_early, limiting, parts, real`) and a log of when research and upgrades were bought (`log`). Older saves without them still work.
+
 ### The lab, the archive and open choices (0.7, approved November 14)
 
 Playtest verdict: the campaign was one corridor (fly, get paid, buy the next node) with too much hand-holding, and science points paid for nothing. 0.7 makes it an incremental and simulator hybrid: every launch is still a hard design puzzle (simulator), and what the programme learns keeps piling up between launches (incremental).
@@ -496,7 +515,7 @@ Checks and formulas live in `js/game.js`, owned by Rules. The simulation, events
 - Total mass is over the launcher's `capacity_kg` for the chosen orbit.
 - Total cost of parts plus launcher is over the tier's budget.
 - Total `power_draw_w` is over total `power_gen_w`.
-- A category is empty. The spacecraft needs at least one instrument, power, comms and computer part.
+- A category is empty. The spacecraft needs at least one body, instrument, power, comms, computer and attitude part (structure and attitude since the switch-over; the five-part rule before it).
 
 **Warnings** let the launch go ahead and cost points:
 
@@ -772,6 +791,7 @@ getHubInfo()                    // { year, treasury_musd, science_pts, archive_s
                                 //   missions, finished, won }
                                 // depth = longest chain of prerequisites, so a tree screen can place each node in a column.
 buyResearch(id)                 // { ok, reason }; spends cost_musd and cost_sci
+getChronicle()                  // the programme's story (see "The ending"): { title, finished, won, rating, headline, totals, topics, timeline, epilogue }
 getLab()                        // { science_pts, treasury_musd, upgrades: [{ id, name, of, of_name, year, cost_musd, cost_sci,
                                 //   owned, can_buy, missing: [plain-English reasons], gains: [plain-English differences],
                                 //   blurb }] } or null outside a campaign. Research stays in getResearchTree().

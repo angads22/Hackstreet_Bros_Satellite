@@ -13,11 +13,23 @@ var seed = 12345;
 function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
 
 var FIRE = ["thermal-imager", "solar-small", "battery-28v", "radio-sband", "obc-basic"];   // standalone only (research-locked in a campaign)
-var ERA = ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"];    // Explorer 1, open from the start
+var ERA = ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer", "explorer-body", "spin-stabilised"];    // Explorer 1, open from the start
 function campaignDesign(obj, orbit, launcher, parts) {
   var d = G.newCampaignDesign();
   G.setObjective(d, obj); G.setOrbit(d, orbit); G.setLauncher(d, launcher);
   parts.forEach(function (p) { G.addPart(d, p); });
+  // Every satellite needs a body and an attitude part: add the first that fits, unless the test chose its own.
+  function has(cat) { return d.parts.some(function (id) { return G.getPart(id).category === cat; }); }
+  if (!has("attitude") && G.isPartAvailable("spin-stabilised", d)) G.addPart(d, "spin-stabilised");
+  if (!has("structure")) {
+    G.PARTS.filter(function (p) { return p.category === "structure" && G.isPartAvailable(p.id, d); })
+      .sort(function (a, b) { return a.payload_kg - b.payload_kg; })
+      .some(function (b) {
+        G.addPart(d, b.id);
+        if (!G.runChecks(d).blockers.some(function (x) { return /^body-/.test(x.id); })) return true;
+        G.removePart(d, b.id); return false;
+      });
+  }
   return d;
 }
 function fly(d, choose) {
@@ -57,7 +69,7 @@ var m4 = G.startMission(d4);
 check("4 launch deducts the cost", near(G.getCampaign().treasury_musd, before4 - cost4, 0.001), before4 + " - " + cost4);
 G.addPart(d4, "silver-zinc-battery"); G.addPart(d4, "radio-xband"); G.setLauncher(d4, "vanguard-rocket");
 var s4; do { s4 = G.stepMonth(m4); if (s4.event) G.chooseEvent(m4, 0); } while (!m4.ended);
-check("4 the flown design is a copy", m4.design !== d4 && m4.design.parts.length === 4 && m4.design.launcher === "juno-1");
+check("4 the flown design is a copy", m4.design !== d4 && m4.design.parts.length === d4.parts.length - 2 && m4.design.launcher === "juno-1");
 check("4 debrief spent matches the launch", near(G.getDebrief(m4).spent_musd, cost4 + m4.extra_cost_musd, 0.001));
 
 // 5. No soft lock over 200 random campaigns with careless players.
@@ -144,7 +156,7 @@ check("6 hub explains what is missing and what a node unlocks", hub6.missing.len
 G.resetProgress();
 var e9 = G.setEra(G.newDesign("training"), "igy");
 G.setObjective(e9, "radiation"); G.setOrbit(e9, "leo"); G.setLauncher(e9, "juno-1");
-["cosmic-ray-counter", "silicon-cells", "minitrack-beacon", "command-timer"].forEach(function (p) { G.addPart(e9, p); });
+["cosmic-ray-counter", "silicon-cells", "minitrack-beacon", "command-timer", "explorer-body", "spin-stabilised"].forEach(function (p) { G.addPart(e9, p); });
 var m9 = fly(e9, function (ev) { var j = ev.choices.findIndex(function (c) { return !c.fail_chance_now; }); return j < 0 ? 0 : j; });
 var r9 = G.recordResult(m9);
 check("9 a good 1958 mission opens the Nimbus era", r9.stars >= 2 && r9.era_unlocked === "nimbus" && G.getEras()[1].unlocked,
@@ -205,6 +217,90 @@ check("11 a flight on a finished topic earns no money and no science points",
   m11.science > 0 && d11.nothing_new && d11.payout_musd === 0 && r11.science_pts_earned === 0 && r11.nothing_new, "science " + m11.science + " payout " + d11.payout_musd);
 check("11 and the hub marks the topic complete", G.getHubInfo().topics.filter(function (t) { return t.id === "radiation"; })[0].complete);
 check("11 the grant still arrives, so the programme can fly again", r11.grant_musd > 0 && G.getCampaign().treasury_musd >= G.cheapestLaunchCost(G.getCampaign()));
+
+// 12. The chronicle tells the player's own story.
+G.resetCampaign();
+check("12 no campaign, no chronicle", G.getChronicle() === null);
+G.newCampaign("training");
+var f12 = fly(campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"]));
+G.recordResult(f12);
+var c12 = G.getCampaign(); c12.science_pts = 50; G.saveCampaign(c12);
+G.buyResearch("solar-cells");
+G.recordResult(fly(campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmic-ray-counter", "mercury-battery", "silicon-cells", "minitrack-beacon", "command-timer"])));
+var ch12 = G.getChronicle();
+check("12 the chronicle lists flights and research in year order",
+  ch12.timeline.length === 3 && ch12.timeline[0].kind === "flight" && ch12.timeline.some(function (e) { return e.kind === "research"; }) &&
+  ch12.timeline.every(function (e, i, a) { return i === 0 || a[i - 1].year <= e.year; }), ch12.timeline.map(function (e) { return e.year + e.kind; }).join(" "));
+check("12 it names the topics flown and what history says", ch12.topics.length === 1 && ch12.topics[0].id === "radiation" && /Explorer/.test(ch12.topics[0].real_mission));
+check("12 every flight has a headline and its real twin", ch12.timeline.filter(function (e) { return e.kind === "flight"; }).every(function (e) { return e.title && /real twin/.test(e.text); }));
+check("12 an unfinished campaign has no epilogue yet", ch12.finished === false && ch12.epilogue === null && ch12.rating.name);
+var c12b = G.getCampaign(); c12b.finished = true; c12b.won = true; c12b.knowledge_science.radiation = 450; c12b.knowledge_science.solar = 500; c12b.knowledge_science.weather = 450; c12b.knowledge_science.ionosphere = 450; G.saveCampaign(c12b);
+var ch12b = G.getChronicle();
+check("12 a won campaign with broad knowledge rates highest", ch12b.won && ch12b.rating.id === "architects" && /^By /.test(ch12b.epilogue), ch12b.rating.id);
+var c12c = G.getCampaign(); delete c12c.log; c12c.missions.forEach(function (m) { delete m.real; delete m.flight; }); G.saveCampaign(c12c);
+check("12 a save without the newer fields still works", G.getChronicle().timeline.length >= 2);
+
+// 13. Yearly offers: customers ask for a topic (sometimes from an orbit) and pay a bonus.
+G.resetCampaign(); G.newCampaign("training");
+var h13 = G.getHubInfo();
+check("13 a new campaign opens an offer for each open topic, up to two", h13.offers.length === 1 && h13.offers.every(function (o) {
+  return G.isObjectiveAvailable(o.topic) && o.min_science > 0 && o.bonus_musd > 0 && o.bonus_sci > 0 && o.year_to > h13.year && /wants/.test(o.text); }),
+  h13.offers.map(function (o) { return o.topic; }).join(","));
+var c13 = G.getCampaign();
+c13.offers = [
+  { id: "t-any", topic: "radiation", orbit: null, min_science: 5, bonus_musd: 4, bonus_sci: 20, year_from: c13.year, year_to: c13.year + 2, client: "a test", done: false, text: "a test wants radiation data" },
+  { id: "t-sso", topic: "radiation", orbit: "sso", min_science: 5, bonus_musd: 9, bonus_sci: 90, year_from: c13.year, year_to: c13.year + 2, client: "a test", done: false, text: "a test wants radiation data from a polar orbit" }
+];
+G.saveCampaign(c13);
+var d13 = campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"]);
+var pp13 = G.previewPayout(d13);
+check("13 the Build screen's preview names the offer this flight would meet", pp13.offers.length === 1 && pp13.offers[0].met === true, JSON.stringify(pp13.offers));
+var t13 = G.getCampaign().treasury_musd, sp13 = G.getCampaign().science_pts, m13 = fly(d13), cost13 = G.getTotals(d13).cost_musd;
+var r13 = G.recordResult(m13), c13b = G.getCampaign();
+check("13 a flight that meets an offer claims the bonus in money and science", r13.offers_claimed.length === 1 && r13.offers_claimed[0].bonus_musd === 4 &&
+  near(r13.science_pts - sp13, r13.science_pts_earned + 20 + r13.archive_sci, 0.2), JSON.stringify(r13.offers_claimed));
+check("13 an offer for another orbit is left open", c13b.offers.filter(function (o) { return o.id === "t-sso" && !o.done; }).length === 1);
+check("13 an offer is claimed once", c13b.offers.filter(function (o) { return o.id === "t-any"; })[0].done === true);
+var c13c = G.getCampaign(); c13c.offers.forEach(function (o) { o.year_to = c13c.year - 1; }); G.saveCampaign(c13c);
+G.recordResult(fly(campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"])));
+check("13 expired offers are replaced by new ones", G.getHubInfo().offers.length >= 1 && G.getHubInfo().offers.every(function (o) { return o.year_to >= G.getHubInfo().year; }));
+var c13d = G.getCampaign(); delete c13d.offers; G.saveCampaign(c13d);
+check("13 a save without offers still works", Array.isArray(G.getHubInfo().offers));
+
+// 13b. Offers follow the core loop: a topic at its cap gets no offers, and a flight with no new data claims nothing.
+var c13e = G.getCampaign();
+c13e.knowledge_science.radiation = G.getObjective("radiation").knowledge_scale * G.CAMPAIGN.cap_scales; c13e.offers = [
+  { id: "t-cap", topic: "radiation", orbit: null, min_science: 5, bonus_musd: 4, bonus_sci: 20, year_from: c13e.year, year_to: c13e.year + 2, client: "a test", done: false, text: "a test wants radiation data" }];
+G.saveCampaign(c13e);
+var dcap = campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"]);
+check("13 the preview says the offer is not met when nothing would be new", G.previewPayout(dcap).offers.every(function (o) { return o.met === false; }));
+var rcap = G.recordResult(fly(dcap));
+check("13 a flight with no new data claims no offer", rcap.nothing_new && rcap.offers_claimed.length === 0 && G.getCampaign().offers.some(function (o) { return o.id === "t-cap" && !o.done; }));
+check("13 a topic at its cap gets no new offers", G.getHubInfo().offers.every(function (o) { return o.topic !== "radiation" || o.id === "t-cap"; }));
+
+// 14. Never soft-locked by the lab: a purchase that would leave less than the cheapest launch is refused and changes
+// nothing (the bug report's path B: 1963, $4.72M, Topside sounding for $4M on Point Design).
+G.newCampaign("expert");
+var c14 = G.getCampaign();
+c14.year = 1963; c14.treasury_musd = 4.72; c14.science_pts = 35.8;
+c14.research = ["thor-rockets", "solar-cells"].concat(c14.research.filter(function (r) { return r !== "thor-rockets" && r !== "solar-cells"; }));
+c14.lessons = ["all_data", "margins", "three_stars", "new_topic", "spare", "protected", "storm_survived", "batteries_ran_out"];
+G.saveCampaign(c14);
+var floor14 = G.cheapestLaunchCost(G.getCampaign()), before14 = JSON.stringify(G.getCampaign());
+var b14 = G.buyResearch("topside-sounding");
+check("14 a lab purchase that would leave less than the cheapest launch is refused", !b14.ok && /cheapest launch/.test(b14.reason) &&
+  JSON.stringify(G.getCampaign()) === before14, b14.reason + " (floor $" + floor14 + "M)");
+var c14b = G.getCampaign(); c14b.treasury_musd = G.round(4 + floor14 + 0.5, 3); G.saveCampaign(c14b);
+check("14 with enough left over for a launch, the same purchase goes through", G.buyResearch("topside-sounding").ok &&
+  G.getCampaign().treasury_musd >= G.cheapestLaunchCost(G.getCampaign()));
+// An upgrade raises the floor itself (the bug report's path A): checked after the upgrade, not before.
+G.newCampaign("expert");
+var c14c = G.getCampaign(); c14c.year = 1967; c14c.science_pts = 95; G.saveCampaign(c14c);
+var floor14c = G.cheapestLaunchCost(G.getCampaign());
+c14c = G.getCampaign(); c14c.treasury_musd = G.round(1 + floor14c + 0.01, 3); G.saveCampaign(c14c);   // enough before the upgrade, not after
+var u14 = G.buyUpgrade("scintillation-counter"), after14 = G.getCampaign();
+check("14 an upgrade that raises the floor above what is left is refused", u14.ok ? after14.treasury_musd >= G.cheapestLaunchCost(after14) : /cheapest launch/.test(u14.reason) &&
+  after14.upgrades.indexOf("scintillation-counter") === -1, (u14.reason || "bought") + "; floor before $" + floor14c + "M");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

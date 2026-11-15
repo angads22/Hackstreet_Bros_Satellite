@@ -1,5 +1,6 @@
 // js/ui-mission.js — owned by Story.
-// 6 Mission and 7 Debrief. Uses the drawing helpers from ui-design.js
+// 6 Mission and 7 Debrief (for a Part 1 walkthrough step, the step result and NEXT STEP / TRY AGAIN; for a Part 2
+// contract, what it paid and what the flight did to the cash, the debt and the clock). Uses the drawing helpers from ui-design.js
 // (StarlineUI) and only the mission.js calls listed in SPEC.md.
 // Everything lives inside one function so no name here can clash with
 // the back end's globals. One name is shared: showMissionScreen(design).
@@ -24,9 +25,11 @@
   // ---------------------------------------------------------------- 6 Mission
   function showMissionScreen(design) {
     stopTimer();
+    // Part 2: the cash and the debt before the launch is paid, for the debrief's money story.
+    var before = design.comeback && typeof getComeback === "function" ? getComeback() : null;
     var mission = startMission(design);
     var objective = UI.byId(UI.data("OBJECTIVES"), design.objective);
-    run = { design: design, mission: mission, objective: objective, timer: null, paused: false, fast: false, waiting: false, nodes: {} };
+    run = { design: design, mission: mission, objective: objective, timer: null, paused: false, fast: false, waiting: false, nodes: {}, before: before };
     UI.lock();
 
     var n = run.nodes;
@@ -41,11 +44,17 @@
     n.fastBtn = UI.button(">>", toggleFast, { aria: "Fast forward" });
     n.fastBtn.setAttribute("aria-pressed", "false");
 
+    // A small low-poly Earth with this orbit beside the month (LowPoly.scenes.earth); nothing without the 3D art.
+    var earth = UI.lpCanvas ? UI.lpCanvas(function (L) {
+      return typeof L.scenes.earth === "function" ? L.scenes.earth({ orbitId: design.orbit, objectiveId: design.objective, spin: 5 }) : null;
+    }, "mission-earth") : null;
+
     UI.mount("mission", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
       UI.say ? UI.say("mission-start", null) : null,
       el("div", { class: "mission-head" }, [
-        el("div", { class: "stack" }, [n.month, n.of]),
+        // The month and the Earth stay on one line: on a narrow phone the Earth gets smaller instead of wrapping.
+        el("div", { class: "month-row" }, [el("div", { class: "stack" }, [n.month, n.of]), earth ? earth.canvas : null]),
         el("div", { class: "controls" }, [n.pause, n.fastBtn])
       ]),
       el("div", { class: "panel" }, [
@@ -65,6 +74,8 @@
 
   function status() {
     var m = run.mission;
+    // Part 2: the header keeps the comeback's own clock, cash and debt (the satellite's month is on the screen).
+    if (run.design.comeback && UI.comebackStatus) { UI.setStatus(UI.comebackStatus()); return; }
     UI.setStatus(UI.tierName() + " · MONTH " + num(m.month, 0) + "/" + num(m.lifetime_months, 0));
   }
 
@@ -76,6 +87,7 @@
   function stopTimer() { if (run && run.timer) { clearTimeout(run.timer); run.timer = null; } }
 
   function schedule() {
+    if (run.finishing) return;   // the mission is over: nothing may cancel the walk to the debrief
     stopTimer();
     if (run.paused || run.waiting) return;
     run.timer = setTimeout(tick, run.fast ? FAST_MS : TICK_MS);
@@ -131,12 +143,12 @@
     stopTimer();
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
-    var choices = UI.list(event.choices).map(function (c, i) {
-      // Each choice shows its odds right now (fail_chance_now), protection and thin margins included.
-      var risk = c.fail_chance_now > 0 && c.effect && c.effect.fails
-        ? Math.round(c.fail_chance_now * 100) + "% chance of losing " + (FAIL_NAMES[c.effect.fails] || c.effect.fails) : null;
-      return UI.button(risk ? [el("span", { text: c.label }), el("span", { class: "odds", text: risk })] : c.label,
-        function () { answer(i); }, { primary: i === 0 });
+    run.choices = UI.list(event.choices);
+    // Each choice shows what it costs in a few words, from the event data and the back end's odds right now
+    // (fail_chance_now: protection and thin margins included). None is styled as the answer.
+    var choices = run.choices.map(function (c, i) {
+      return UI.button([el("span", { text: c.label }), el("span", { class: "odds", text: choiceCost(c) })],
+        function () { answer(i); });
     });
     // Who speaks is whoever opened the mission (the story's speaker); the plain director when there is no story.
     var opener = UI.storyLine ? UI.storyLine("mission-start", run.design) : "";
@@ -145,23 +157,51 @@
     var speaker = who && UI.speakerName ? UI.speakerName(who) : "";
     // The calibration event also gets a line from Austin's notebook, for Ajay only (the story layer says "" otherwise).
     var extra = event.id === "calibration-drift" && UI.storyLine ? UI.storyLine("event-calibration", run.design, "ask") : "";
-    box.appendChild(el("div", { class: "dialogue", role: "alertdialog", "aria-labelledby": "event-title" }, [
+    var title = el("h2", { id: "event-title", tabindex: "-1", text: event.title.toUpperCase() });
+    var dialog = el("div", { class: "dialogue", role: "alertdialog", "aria-labelledby": "event-title", "aria-describedby": "event-text" }, [
       face || UI.directorArt(),
       el("div", { class: "stack" }, [
-        el("div", { class: "speaker" }, [el("h2", { id: "event-title", text: event.title.toUpperCase() }), el("span", { text: speaker ? speaker.toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) : "Mission director" })]),
-        el("p", { class: "speech", text: event.text }),
+        el("div", { class: "speaker" }, [title, el("span", { text: speaker ? speaker.toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) : "Mission director" })]),
+        el("p", { class: "speech", id: "event-text", text: event.text }),
         extra && extra.text ? el("p", { class: "speech note", text: (extra.who && UI.speakerName && UI.speakerName(extra.who) ? UI.speakerName(extra.who) + ": " : "") + extra.text }) : null,
         el("div", { class: "choices" }, choices)
       ])
-    ]));
-    if (choices[0]) choices[0].focus();
+    ]);
+    box.appendChild(dialog);
+    // The event comes into view from its heading down (at 200% zoom, focusing the first button scrolled the heading
+    // off the top), and focus goes to the heading: it names the dialog and leaves every choice equal.
+    var tall = dialog.getBoundingClientRect().height > window.innerHeight * 0.8;
+    if (dialog.scrollIntoView) dialog.scrollIntoView({ block: tall ? "start" : "nearest" });
+    try { title.focus({ preventScroll: true }); } catch (e) { title.focus(); }
+  }
+
+  // "Lose 1 month", "Science ×0.6 from now on", "Costs $0.30M", "20% chance of losing the computer", or "No cost".
+  // A part that protects against the event cancels everything the risky choice would do, its upside too (chooseEvent).
+  function costBits(c, withRisk) {
+    var e = c.effect || {}, bits = [];
+    if (withRisk && c.fail_chance_now > 0 && e.fails) bits.push(Math.round(c.fail_chance_now * 100) + "% chance of losing " + (FAIL_NAMES[e.fails] || e.fails));
+    if (e.lose_months) bits.push("lose " + num(e.lose_months, 0) + " month" + (e.lose_months === 1 ? "" : "s"));
+    if (e.science_mult) bits.push("science \u00d7" + e.science_mult + " from now on");
+    if (e.cost_musd && !/\$/.test(c.label || "")) bits.push("costs " + UI.money(e.cost_musd));
+    return bits;
+  }
+  function protectedChoice(c) { var e = c.effect || {}; return !!(e.fail_chance && e.fails && !(c.fail_chance_now > 0)); }
+  function sentence(bits) { var t = bits.join(", "); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function choiceCost(c) {
+    if (protectedChoice(c)) return "Protected: no effect";
+    var bits = costBits(c, true);
+    return bits.length ? sentence(bits) : "No cost";
   }
 
   function answer(i) {
     var out = chooseEvent(run.mission, i);
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
-    log((out.title || "Event") + ": " + (out.label || ""), "");
+    // What the choice did, beside it in the log: its costs, "nothing broke" after a risk that passed, or "no cost".
+    var c = run.choices && run.choices[out.choice] ? run.choices[out.choice] : null;
+    var did = c && !out.protected ? costBits(c, false) : [];
+    if (c && !out.protected && c.effect && c.effect.fail_chance && !out.failed_part) did.push("nothing broke");
+    log((out.title || "Event") + ": " + (out.label || "") + (did.length ? " (" + did.join(", ") + ")" : c && !out.protected && !out.failed_part ? " (no cost)" : ""), "");
     if (out.id === "calibration-drift" || /calibration/i.test(out.title || "")) {   // the story's reply to the choice (Ajay only; "" otherwise)
       var reply = UI.storyLine ? UI.storyLine("event-calibration", run.design, i) : "";
       if (reply && reply.text) log((reply.who && UI.speakerName && UI.speakerName(reply.who) ? UI.speakerName(reply.who) + ": " : "") + reply.text, "");
@@ -171,7 +211,7 @@
       var p = UI.byId(UI.data("PARTS"), out.failed_part);
       log((p ? p.name : out.failed_part) + " FAILED.", "bad");
     }
-    if (out.ended_early || out.ended) log("Mission over.", "bad");
+    if (out.ended_early) log("Mission over.", "bad");   // a normal last month ends in finish(), not as a loss
     run.waiting = false;
     if (out.ended) { finish(); return; }
     schedule();
@@ -179,12 +219,16 @@
   }
 
   function togglePause() {
+    if (run.finishing) return;
     run.paused = !run.paused;
     run.nodes.pause.textContent = run.paused ? "RESUME" : "PAUSE";
+    // The name follows the label, so "Resume" finds it by voice and a screen reader says what it will do.
+    run.nodes.pause.setAttribute("aria-label", run.paused ? "Resume the mission" : "Pause the mission");
     schedule();
   }
 
   function toggleFast() {
+    if (run.finishing) return;
     run.fast = !run.fast;
     run.nodes.fastBtn.setAttribute("aria-pressed", run.fast ? "true" : "false");
     schedule();
@@ -192,17 +236,32 @@
 
   function finish() {
     stopTimer();
-    log("Signal ends. Mission complete.", "good");
+    if (run.finishing) return;
+    run.finishing = true;
+    run.nodes.pause.disabled = true;
+    run.nodes.fastBtn.disabled = true;
+    // The last line agrees with the debrief: an early end already said "Mission over."; a flight with no star did not
+    // complete anything. getDebrief only reads the finished mission (the debrief calls it again).
+    var d = typeof getDebrief === "function" ? getDebrief(run.mission) : null;
+    if (!(d && d.ended_early)) {
+      if (d && d.stars > 0) log("Signal ends. Mission complete.", "good");
+      else log("Signal ends. Too little came home.", "bad");
+    }
     var done = run;
     run.timer = setTimeout(function () { showDebrief(done); }, END_PAUSE_MS);
   }
 
   // ---------------------------------------------------------------- 7 Debrief (the ledger)
   function showDebrief(done) {
+    var comeback = !!done.design.comeback;
+    var landed = comeback && typeof getComeback === "function" ? getComeback() : null;   // after the launch, before the pay
     var result = recordResult(done.mission);       // once per finished mission
     var d = getDebrief(done.mission);
+    // Part 1: a walkthrough step passes with the stars the debrief gives (the record keeps the best). null otherwise.
+    var walk = UI.walkResult ? UI.walkResult(done.design, d.stars) : null;
     var b = d.breakdown || {};
-    UI.setStatus(UI.tierName() + " · SCORE " + num(d.score, 0));
+    UI.setStatus(comeback && UI.comebackStatus ? UI.comebackStatus() : UI.tierName() + " · SCORE " + num(d.score, 0));
+    var outcome = comeback ? contractOutcome(done, result) : null;
 
     function row(label, sub, value, of) {
       return el("div", { class: "row" }, [
@@ -228,7 +287,7 @@
     var paper = el("div", { class: "panel paper" }, [
       el("div", { class: "ledger-head" }, [
         el("h1", { text: "MISSION REPORT" }),
-        el("span", { class: "stamp" + (d.stars > 0 ? " pass" : ""), text: UI.starsText(d.stars), "aria-label": d.stars + " of 3 stars" })
+        el("span", { class: "stamp" + (d.stars > 0 ? " pass" : ""), role: "img", text: UI.starsText(d.stars), "aria-label": d.stars + " of 3 stars" })
       ])
     ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
@@ -241,9 +300,13 @@
     });
 
     var side = el("div", { class: "panel limit" }, [
-      result && result.unlocked ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
-      result && result.era_unlocked ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
-      el("h2", null, [UI.icon(d.limiting), limitingHeading(d)]),
+      comeback ? comebackBlock(done, d, result, landed, outcome) : null,
+      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
+        text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
+      // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them.
+      result && result.unlocked && !done.design.campaign && !walk ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
+      result && result.era_unlocked && !walk && !comeback ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
+      el("h2", null, [UI.icon(limitIcon(d)) || UI.icon(d.limiting), limitingHeading(d)]),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
       campaignBlock(done.design, d, result),
@@ -253,9 +316,11 @@
       closestLine(d),
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
-      done.design.campaign
+      walk ? walkButtons(walk, done.design)
+      : comeback ? comebackButtons(result)
+      : done.design.campaign
         ? el("div", { class: "choices" }, [
-            UI.button(["BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
+            UI.button([result && result.campaign_over ? "THE STORY OF YOUR PROGRAMME" : "BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
             // A fresh launch of the same satellite, paid for again.
             result && result.campaign_over ? null : UI.button("REBUILD THIS SATELLITE", function () {
               var again = rebuildDesign(done.design);
@@ -265,23 +330,154 @@
         : el("div", { class: "choices" }, [
             UI.button(["REDESIGN", " >"], function () { window.showDesignScreen("build", done.design); }, { primary: true }),
             UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
-            UI.button("CHANGE TIER", function () { window.showDesignScreen("title"); })
+            UI.button("HOME", function () { window.showDesignScreen("title"); })
           ])
     ]);
 
     UI.mount("debrief", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
-      UI.say ? UI.say("debrief", d) : null,
+      teamLine(done.design, d),
       el("div", { class: "ledger" }, [paper, side]),
-      UI.say ? UI.say("closing", d) : null
+      comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null
     ]));
     run = null;
+  }
+
+  // ---- One verdict everywhere. The story's lines read ended_early and the stars; a flight lost after it earned a star
+  // was not a failure, so its closing line goes by the stars, and one lost after it met its goal says so.
+  function storyView(d) {
+    if (!d || !d.ended_early || !(d.stars > 0)) return d;
+    var copy = {};
+    Object.keys(d).forEach(function (k) { copy[k] = d[k]; });
+    copy.ended_early = false;
+    return copy;
+  }
+  function teamLine(design, d) {
+    if (d && d.ended_early && d.stars > 0 && d.science >= d.science_target && UI.storyLine && UI.sayEl) {
+      var line = UI.storyLine("debrief", design, d);   // who speaks in this chapter
+      if (line && line.who) return UI.sayEl({ who: line.who, text: "Goal met before we lost it." });
+    }
+    return UI.say ? UI.say("debrief", d) : null;
+  }
+
+  // ---- Part 2: a contract flight. The money story adds up: the cash before the launch, the launch, what the client
+  // paid (and the 3-star bonus), the event costs, then the cash now; the debt before, the interest, then the debt now.
+  // Every number is from recordResult(), getComeback() (just before the launch, and just before recordResult) or the
+  // mission (its launch cost, and the contract's terms copied at launch: the contract itself is closed by now).
+  function contractOutcome(done, result) {
+    var paid = result && result.contract_paid_musd > 0 ? result.contract_paid_musd : 0;
+    var k = done.mission.contract || {};
+    if (!paid) return "nothing";
+    return paid >= k.price_musd || done.mission.science >= k.min_science ? "paid" : "part";
+  }
+  function cents(v) { return Math.round((v || 0) * 100) / 100; }
+  function ledgerMoney(v, sign) {
+    return (sign ? (v < 0 ? "-" : "+") : "") + "$" + num(Math.abs(v), 2) + "M";
+  }
+  // Rows [label, musd], then the total. Shown to the cent; if rounding to cents would make the column not add up, the
+  // largest row takes the cent, so what is on screen always sums to the total shown.
+  function ledger(id, rows, totalLabel, total) {
+    rows = rows.filter(Boolean);
+    var shown = rows.map(function (r) { return cents(r[1]); });
+    var diff = cents(cents(total) - shown.reduce(function (a, v) { return a + v; }, 0));
+    if (diff !== 0 && rows.length) {
+      var big = 0;
+      rows.forEach(function (r, i) { if (Math.abs(r[1]) > Math.abs(rows[big][1])) big = i; });
+      shown[big] = cents(shown[big] + diff);
+    }
+    return el("div", { class: "cb-ledger", "data-key": id }, rows.map(function (r, i) {
+      return el("div", { class: "cb-row", "data-musd": String(r[1]) }, [el("span", { text: r[0] }),
+        el("span", { class: "cb-amount", text: ledgerMoney(shown[i], i > 0) })]);
+    }).concat([el("div", { class: "cb-row cb-total", "data-musd": String(total) }, [el("span", { text: totalLabel }),
+      el("span", { class: "cb-amount", text: ledgerMoney(cents(total), false) })])]));
+  }
+  function comebackBlock(done, d, result, landed, outcome) {
+    if (!result || typeof result.cash_musd !== "number") return null;
+    var before = done.before || null;
+    var k = done.mission.contract || {};
+    var launch = done.mission.launch_totals ? done.mission.launch_totals.cost_musd : 0;
+    var paid = result.contract_paid_musd || 0, bonus = result.contract_bonus_musd || 0;
+    var stamp = outcome === "paid" ? "PAID" : outcome === "part" ? "PAID IN PART" : "NOT PAID";
+    var why = outcome !== "nothing" ? null
+      : result.nothing_new ? (d.knowledge_paragraph || "No new data: this topic is already known.")
+      : "No data came home, so there was nothing to pay for.";
+    var C = window.StarlineComeback;
+    var cashBefore = before ? before.cash_musd : null, debtBefore = before ? before.debt_musd : null;
+    return el("div", { class: "nasa-box cb-result " + outcome, "data-key": "contract-result" }, [
+      el("div", { class: "cb-result-top" }, [
+        el("span", { class: "cb-stamp " + (outcome === "nothing" ? "fail" : "pass"), role: "status", text: stamp }),
+        el("span", { class: "cb-client", text: k.client || "" })
+      ]),
+      why ? el("p", { class: "part-note", text: why }) : null,
+      result.comeback_over ? el("p", { class: "banner", role: "alert",
+        text: result.lost_reason === "cash" ? "OUT OF CASH: THE COMEBACK IS OVER" : "THE DEADLINE HAS PASSED: THE COMEBACK IS OVER" }) : null,
+      typeof cashBefore === "number" ? ledger("cash-ledger", [
+        ["CASH BEFORE LAUNCH", cashBefore],
+        ["LAUNCH", -launch],
+        [outcome === "part" ? "PAID (" + num(done.mission.science, 0) + " OF " + num(k.min_science, 0) + " POINTS)" : "CONTRACT PAID", paid],
+        bonus > 0 ? ["3-STAR BONUS", bonus] : null,
+        result.event_costs_musd > 0 ? ["EVENT COSTS", -result.event_costs_musd] : null
+      ], "CASH NOW", result.cash_musd) : null,
+      typeof debtBefore === "number" ? ledger("debt-ledger", [
+        ["DEBT BEFORE", debtBefore],
+        ["INTEREST, " + num(result.months_used, 0) + " MONTHS", result.interest_musd]
+      ], "DEBT NOW", result.debt_musd) : null,
+      C && landed ? C.meter({ debt: result.debt_musd, cash: result.cash_musd, start: landed.start_debt_musd },
+        { debt: landed.debt_musd, cash: landed.cash_musd }, "Debt " + UI.money(result.debt_musd) + ", cash " + UI.money(result.cash_musd)) : null,
+      el("p", { class: "cb-months", "data-key": "months-left" }, [el("strong", { text: num(result.months_left, 0) }), " MONTHS LEFT"])
+    ]);
+  }
+  function comebackButtons(result) {
+    var over = result && result.comeback_over;
+    return el("div", { class: "choices" }, [over
+      ? UI.button(["SEE THE ENDING", " >"], function () { window.showComebackEnding(); }, { primary: true, key: "debrief-ending" })
+      : UI.button(["BACK TO THE WORKSHOP", " >"], function () { window.showComebackHub(); }, { primary: true, key: "debrief-workshop" })]);
+  }
+  // The client's last word, under its own name.
+  function contractLine(done, outcome) {
+    var line = UI.storyLine ? UI.storyLine("contract", done.design, outcome) : "";
+    if (!line || !UI.sayEl) return null;
+    var k = done.mission.contract || {};
+    return UI.sayEl({ who: line.who, text: line.text, name: k.client ? String(k.client).toUpperCase() : "" });
+  }
+
+  // Part 1: NEXT STEP (or, after step 3, the epilogue) once the step passes; TRY AGAIN (the same design on Build) if not.
+  function walkButtons(walk, design) {
+    var redesign = function () { window.showDesignScreen("build", design); };
+    var home = function () { window.showDesignScreen("title"); };
+    var next = function (primary) {
+      return walk.last
+        ? UI.button(primary ? ["EPILOGUE", " >"] : "EPILOGUE", function () { UI.showEpilogue(); }, { primary: primary, key: "walk-next" })
+        : UI.button(primary ? ["NEXT STEP", " >"] : "NEXT STEP", function () { UI.startWalkStep(walk.step + 1); }, { primary: primary, key: "walk-next" });
+    };
+    if (!walk.passed) {
+      // Never passed: TRY AGAIN only. Passed before (a replay that fell short): the next step stays open.
+      return el("div", { class: "choices" }, [
+        UI.button(["TRY AGAIN", " >"], redesign, { primary: true, key: "walk-retry" }),
+        walk.kept ? next(false) : null,
+        UI.button("HOME", home, { key: "walk-home" })
+      ]);
+    }
+    return el("div", { class: "choices" }, [
+      next(true),
+      UI.button("REDESIGN", redesign, { key: "walk-redesign" }),
+      UI.button("HOME", home, { key: "walk-home" })
+    ]);
   }
 
   // "POWER LIMITED THIS MISSION": the name is a NASA Mission Design Lab discipline from the back end.
   function limitingHeading(d) {
     var name = d.limiting_name || LIMIT_NAMES[d.limiting] || String(d.limiting || "");
     return (name + " limited this mission").toUpperCase();
+  }
+
+  // The icon beside that heading: the discipline's own (orbit, instrument, attitude) when the back end names one, else
+  // the limiting key's. getDebrief gives the discipline only by name, so the name is looked up in DEBRIEF.disciplines.
+  var DISCIPLINE_ICONS = { orbit: "orbit", instruments: "instrument", attitude: "attitude" };
+  function limitIcon(d) {
+    var names = typeof DEBRIEF !== "undefined" && DEBRIEF && DEBRIEF.disciplines ? DEBRIEF.disciplines : {};
+    var key = Object.keys(names).filter(function (k) { return names[k] === d.limiting_name; })[0];
+    return DISCIPLINE_ICONS[key] || d.limiting;
   }
 
   // The four mission segments (launch, space, ground, user), one short line each.
@@ -315,7 +511,7 @@
 
   // ---- campaign: what the flight paid and taught. Every number is from recordResult() or getDebrief().
   function campaignBlock(design, d, result) {
-    if (!design.campaign || !result) return null;
+    if (!design.campaign || design.comeback || !result) return null;   // a comeback flight has comebackBlock instead
     var objectives = UI.data("OBJECTIVES");
     var next = d.best_next_topic && d.best_next_topic !== design.objective ? UI.byId(objectives, d.best_next_topic) : null;
     var lessonNames = typeof LESSONS !== "undefined" && LESSONS ? LESSONS : {};
@@ -325,6 +521,7 @@
     var pct = function (x) { return Math.max(0, Math.min(1, x || 0)) * 100 + "%"; };
     return el("div", { class: "nasa-box payout-box" }, [
       el("h2", { text: "PAYOUT " + UI.money(result.payout_musd) }),
+      result.nothing_new ? el("p", { class: "banner", role: "alert", text: "NO REWARD: ALREADY COLLECTED. TRY ANOTHER TYPE." }) : null,
       el("div", { class: "bar" }, [
         el("div", { class: "bar-top" }, [el("span", { text: "KNOWLEDGE OF THIS TOPIC" }),
           el("span", { text: Math.round((before || 0) * 100) + "% to " + Math.round((after || 0) * 100) + "%" })]),
@@ -335,6 +532,9 @@
         ])
       ]),
       d.knowledge_paragraph ? el("p", { text: d.knowledge_paragraph }) : null,
+      UI.list(result.offers_claimed).length ? el("div", { class: "offers-claimed" }, UI.list(result.offers_claimed).map(function (o) {
+        return el("p", { class: "banner info", text: "OFFER MET: " + o.client + " paid " + UI.money(o.bonus_musd) + " and " + UI.num(o.bonus_sci, 0) + " science." });
+      })) : null,
       next ? el("p", { class: "nasa-line", text: "Try a new topic: " + next.name + "." }) : null,
       lessons.length ? el("p", { class: "nasa-line", text: "Shown in flight: " + lessons.join("; ") + "." }) : null,
       result.bailout ? el("p", { class: "part-note", text: "An emergency grant of " + UI.money(result.bailout_musd) + " topped up the treasury." }) : null,

@@ -1,0 +1,153 @@
+[
+ {
+  "id": "campaign-04",
+  "title": "A failed import shows its error off-screen and wipes the pasted code",
+  "severity": "minor",
+  "category": "state",
+  "screen": "Campaign hub, SAVE CODE panel",
+  "repro": "s3-codes.js, at 1280x800 and at 390x844.\n1. On the hub, scroll down to SAVE CODE.\n2. Paste \"nope\" (or a code with its end cut off) into #import-box.\n3. Click IMPORT.",
+  "expected": "The error appears next to the box, in view, and the pasted text stays so the player can fix it.",
+  "actual": "The hub is re-mounted and scrolled to the top. #import-error (\"That is not a save code.\") is drawn at y=1487px in an 800px viewport (phone: y=2755 in 844). The import box is empty again, and focus moves to #app. To the player, nothing seems to happen.",
+  "evidence": "Log: \"IMPORT \\\"nope\\\" -> That is not a save code. | inView {top:1487,bottom:1509,vh:800,visible:false} | box kept text? false | focus app\"; phone: {top:2755, vh:844, visible:false}.\n\nScreenshots:\n- (scratch)/sweep/campaign/shots/s3-desktop-import-error.png\n- (scratch)/sweep/campaign/shots/s3-phone-import-error.png",
+  "cause": "js/ui-campaign.js:218-222: the IMPORT handler calls showCampaignHub(), which goes through UI.mount (js/ui-design.js:2646 window.scrollTo(0, 0); app.focus()). A new empty #import-box is built.",
+  "fix_hint": "On failure, update the error line in place (no re-mount), or after the re-mount restore the box value and scroll and focus #import-error.",
+  "verdict": {
+   "id": "campaign-04",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v03.js (second half); log (scratch)/sweep/verify-campaign/v03.log. I scrolled to #import-box, typed a bad code and clicked IMPORT.\n\n- Desktop: #import-error at top=1487 in an 800px viewport, scrollY 0, box emptied (length 0), focus on #app.\n- Phone 390x844: top=2755, scrollY 0, box emptied.\n- This held for all four bad codes.\n\nScreenshots:\n- (scratch)/sweep/verify-campaign/shots/v03-desktop-import-error-viewport.png\n- (scratch)/sweep/verify-campaign/shots/v03-phone-import-error-viewport.png\n\nRoot cause: js/ui-campaign.js:216-222. The IMPORT handler calls showCampaignHub(), and UI.mount (js/ui-design.js:2640-2646) runs app.focus() and scrollTo(0,0) and builds an empty #import-box."
+  }
+ },
+ {
+  "id": "campaign-06",
+  "title": "Debrief money does not add up: the $2M agency grant (and event costs) are never shown",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "7 Debrief payout box (and Campaign hub)",
+  "repro": "s1-flights.js, s11-offer.js and s13-checks.js.\n1. Start a new Standard campaign ($20M) and fly the basic radiation design on Juno ($3.46M).\n2. Read the payout box.\n\nAlso: IMPORT code-offer.txt and fly the silicon-cells design, which meets the open offer.",
+  "expected": "Every amount that changes the treasury is listed, so the old treasury minus cost plus payout plus offer plus grant equals \"Treasury now\".",
+  "actual": "Flight 1 shows \"PAYOUT $1M ... Treasury now $19.6M\". 20 - 3.46 + 1.04 = 17.58, so $2M is unexplained.\n\nThe offer flight shows a hub at $87.6M, cost $3.91M, PAYOUT $8.4M and \"OFFER MET ... paid $4M\", which adds up to $96.0M, but the screen says \"Treasury now $98M\".\n\nThe whole Debrief text and the hub contain no \"grant\" at all; only the emergency grant line ever appears.",
+  "evidence": "Logs:\n- \"FLIGHT 1 debrief= ... PAYOUT $1M ... Treasury now $19.6M\"\n- s11: \"hub before {T:$87.6M} ... Treasury now $98M\"\n- s13: \"DEBRIEF full text mentions grant? false | agency? false | $2M? false\", \"HUB mentions grant? false\"\n\nScreenshot: (scratch)/sweep/campaign/shots/s11-offer-debrief.png",
+  "cause": "recordResult returns grant_musd and event_costs_musd (js/mission.js, settleCampaign around lines 910-913). js/ui-mission.js:324-357 campaignBlock draws payout, offers, the emergency grant and \"Treasury now\", but not the grant or event costs.",
+  "fix_hint": "Add one line: \"Agency grant +$2M\" (and \"Event costs -$X M\" when non-zero) above \"Treasury now\".",
+  "verdict": {
+   "id": "campaign-06",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v05.js; log (scratch)/sweep/verify-campaign/v05.log. New Standard campaign, three basic Juno flights.\n\n- Flight 1: before 20, spent 3.46, payout 1.039. 20 - 3.46 + 1.039 = 17.579, but the box says \"Treasury now $19.6M\".\n- Flights 2 and 3 are also off by exactly +$2M.\n- The Debrief screen text and the hub never contain \"grant\" or \"agency\". grep of js/ui-*.js finds only the emergency grant line.\n\nOnly the hidden-grant half is confirmed. No event cost happened in my runs, so the event-cost half was not exercised.\n\nScreenshot: (scratch)/sweep/verify-campaign/shots/v05-debrief2.png\n\nRoot cause: settleCampaign returns grant_musd and event_costs_musd (js/mission.js:910-911), but campaignBlock (js/ui-mission.js:324-357) does not draw them."
+  }
+ },
+ {
+  "id": "campaign-12",
+  "title": "Build's payout line shows a profit because the cost leaves out the rocket",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "3 Build (campaign)",
+  "repro": "s1-flights.js and s7-upgrades-plural.js: a new campaign, START A MISSION, radiation, low Earth orbit, add the 6 basic parts, then read .payout-line on Build and on Launch vehicle after picking Juno.",
+  "expected": "The cost and net match what the launch will actually cost, or the line says the rocket is not counted yet.",
+  "actual": "Build says \"Expected payout $0.87M, cost $0.46M, net $0.41M\". After Juno is picked on Launch vehicle, the same line reads \"cost $3.5M, net -$2.8M\". With an offer design: Build says \"net $7.6M\", but the actual net is about $4.6M.",
+  "evidence": "Logs: \"FLIGHT 1 build= Expected payout $0.87M, cost $0.46M, net $0.41M\" and \"LV line with Juno: Expected payout $0.63M, cost $3.5M, net -$2.8M\".",
+  "cause": "js/ui-design.js:1710-1716 payoutLine uses previewPayout(d).cost_musd = getTotals(design).cost_musd, which has no launcher yet on Build.",
+  "fix_hint": "On Build, add \"+ rocket\" or use the cheapest rocket that can lift the design for the estimate.",
+  "verdict": {
+   "id": "campaign-12",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v05.js; log (scratch)/sweep/verify-campaign/v05.log.\n\n- Build: \"Expected payout $0.87M, cost $0.46M, net $0.41M\".\n- After Juno is picked on Launch vehicle, the same design reads \"cost $3.5M, net -$2.6M\".\n- Flights 2 and 3 show the same pattern.\n\nRoot cause: previewPayout uses getTotals(design).cost_musd (js/mission.js:1173), which has no launcher on Build. The label is at js/ui-design.js:1710-1716."
+  }
+ },
+ {
+  "id": "campaign-16",
+  "title": "Offer copy: \"(0 years left)\" in an offer's final year, and offer sentences start in lower case",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "Campaign hub OPEN OFFERS; Debrief OFFER MET",
+  "repro": "s1-flights.js: a new campaign, then fly twice. The 1959 hub lists the \"by 1959\" offer. s11-offer.js: meet an offer and read the banner.",
+  "expected": "\"(last year)\" or \"(this year)\" while the offer can still be met, and sentences that start with a capital letter.",
+  "actual": "The hub shows \"the National Academy of Sciences wants radiation around Earth data: at least 60 points by 1959. Bonus $4M and 18 science. (0 years left)\" in 1959, although a 1959 flight still claims it. The Debrief banner reads \"OFFER MET: the National Academy of Sciences paid $4M...\".",
+  "evidence": "Log: \"HUB2 ... offers:[\\\"the National Academy of Sciences wants radiation ... by 1959. ... (0 years left)\\\"]\".\n\nScreenshot: (scratch)/sweep/campaign/shots/s1-desktop-hub3.png",
+  "cause": "js/ui-campaign.js:287 computes year_to - year. js/mission.js offerText (just before makeOffers at line 960) starts with the client name, which begins with \"the\".",
+  "fix_hint": "Say \"last year to deliver\" when year_to == year, and capitalise the first letter of the offer text in the list.",
+  "verdict": {
+   "id": "campaign-16",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Script v05.js; log (scratch)/sweep/verify-campaign/v05.log.\n\n- The 1959 hub lists \"the National Academy of Sciences wants radiation ... by 1959. ... (0 years left)\".\n- Every offer text starts in lower case (\"the National Academy...\", \"the Air Force research office...\").\n\nThat a 1959 flight can still claim the offer comes from reading claimOffers (yearFlown > o.year_to). It was not observed, because my 1959 flight returned only 8 points.\n\nRoot cause: js/ui-campaign.js:287 (year_to - year) and offerText at js/mission.js:955, which starts with the client name."
+  }
+ },
+ {
+  "id": "campaign-18",
+  "title": "A save code with its end cut off says \"That is not a save code\" instead of \"damaged or incomplete\"",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "Campaign hub, IMPORT",
+  "repro": "s3-codes.js: EXPORT, remove the last 20 characters of the code, paste it into #import-box and click IMPORT.",
+  "expected": "\"The code is damaged or incomplete.\", which tells the player to copy the whole code again.",
+  "actual": "\"That is not a save code.\"",
+  "evidence": "Log: \"IMPORT \\\"SMDG1.eyJ2IjozLCJjYW1wYWlnbiI6eyJ2ZXJzaW\\\" -> That is not a save code.\"",
+  "cause": "js/mission.js:1202-1203: a truncated code loses its final \".checksum\" part, so split(\".\") gives 2 parts and fails the parts.length !== 3 check first.",
+  "fix_hint": "If the text starts with \"SMDG1.\", report it as damaged or incomplete.",
+  "verdict": {
+   "id": "campaign-18",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Script v03.js; log (scratch)/sweep/verify-campaign/v03.log.\n\n- An exported code with its last 20 characters cut, or cut to 40 characters, gives \"That is not a save code.\"\n- A code that keeps its final dot but has a wrong checksum (.zzz) correctly gives \"The code is damaged or incomplete.\"\n- So only a cut that removes the last dot gets the wrong message.\n\nRoot cause: js/mission.js:1202-1203. parts.length !== 3 is checked first."
+  }
+ },
+ {
+  "id": "engage-08",
+  "title": "Judge persona: the NASA FIRMS and NSIDC data (the project's Relevance pillar) cannot be reached in a 5-minute session from a fresh save",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "Title, 1 Briefing, Campaign hub / lab, Debrief",
+  "repro": "Fresh save on a phone. Play the only open start (IGY Initial Feasibility) and the campaign. Win IGY on desktop, press CHANGE TIER and look at the era grid. Search the radiation debrief text for NASA (kid2.js, kid13.js, judge3.js, judge10.js).",
+  "expected": "A judge can see real NASA data driving a mission within a few minutes, since SPEC lists 'NASA FIRMS and NSIDC data drive the simulation' as the answer to Relevance and aims at Best Use of Data.",
+  "actual": "The briefing shows WILDFIRE MONITORING 'ARRIVES IN 1999' and ARCTIC SEA-ICE MAPPING 'ARRIVES IN 1978'. After a 3-star IGY win the title shows NIMBUS open and EARTH OBSERVING SYSTEM still LOCKED. In the campaign, wildfire needs 'Thermal infrared imaging' (1999, $10M, 300 science) and sea ice needs 'Imaging radar' (350 science); after two good flights I had 182 science. The full radiation debrief, with every details element opened, never mentions NASA ('mentions NASA: false'). A judge who fails once with the obvious first design (engage-04) plays only 1958 radiation in 5 minutes. Nimbus and EOS were not played, so the exact number of flights needed was not measured.",
+  "evidence": "kid2.js objective list; kid13.js: 'mentions NASA: false', title after the win '1999 | EARTH OBSERVING SYSTEM | LOCKED'; judge10.js lab dump ('Thermal infrared imaging 1999 \u00b7 $10M \u00b7 300 sci', 'Imaging radar 1978 \u00b7 $12M \u00b7 350 sci', science 182 after flight 2); (scratch)/sweep/engage/kid/17-title-after-win.png",
+  "cause": "Progression design: eras open with 2 stars in the previous era (SPEC 'Eras'), and no demo or quick-tour entry exists (grep of js/ for demo, location.search and hash found nothing).",
+  "fix_hint": "Add a 'Judge's tour: play the NASA wildfire mission (2026)' button on the title that opens New Space with wildfire pre-selected, or a 'see real data' card on the IGY debrief. Keep the era lock for normal play.",
+  "verdict": null
+ },
+ {
+  "id": "engage-16",
+  "title": "Campaign money text contradicts itself: 'pays about $9.7M', then $0.87M, then '$1M... the payout was large', and a silent grant",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "Campaign hub, 1 Briefing, 4 Launch vehicle, 7 Debrief",
+  "repro": "Fresh save at 390px. Press [data-key=\"campaign-training\"], read the hub, then START A MISSION and fly the battery-only radiation design on Vanguard. Fly a second time after buying Silicon solar cells (judge3.js, judge8.js, judge10.js).",
+  "expected": "The expected payout matches across the hub, the Build screen and the debrief, and every treasury change is explained.",
+  "actual": "The hub says 'Next mission pays about $9.7M' and the briefing card 'Pays $9.7M'. The Rocket Yard says 'Expected payout $0.87M, cost $3M, net -$2.1M'. The debrief says 'PAYOUT $1M ... This was a first real look at the topic... That is why the payout was large.', then 'Treasury now $90.1M' (up, after a -$2.1M flight, because an unmentioned $2M grant arrived). The second flight says 'This was a first real look at the topic' again, although knowledge went 5% -> 64%. The offer sentence starts in lower case ('the National Academy of Sciences wants...'), and the campaign debrief header reads 'INITIAL FEASIBILITY \u00b7 SCORE 35', not CAMPAIGN.",
+  "evidence": "judge3.js hub dump; judge5.js launcher text ('Expected payout $0.87M, cost $3M, net -$2.1M'); judge8.js and judge10.js debrief dumps; (scratch)/sweep/engage/judge/26-camp-debrief-full.png",
+  "cause": "data/campaign.js grant_musd 2 is applied in js/mission.js:869-872 but not shown in the debrief text; the hub figure is the payout at full target; the 'first real look' sentence is not tied to the knowledge share; the offer text is built from the client name in lower case.",
+  "fix_hint": "Show the grant as its own line ('Agency grant +$2M'). Have the hub say 'up to $9.7M for a full-target flight'. Pick the payout sentence from the actual knowledge gain. Capitalise the start of the offer sentence.",
+  "verdict": null
+ },
+ {
+  "id": "engage-13",
+  "title": "The budget never matters in 1958: the most a flyable design can cost is about 5% of the $90M bar",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "3 Build / 4 Launch vehicle budget bar, Debrief 'Value for money', Campaign treasury",
+  "repro": "IGY Initial Feasibility. Compute the cost of every flyable 1958 design (probe1.js, probe4.js). Pick Juno or Vanguard on the Rocket Yard. Fly two campaign flights (judge10.js).",
+  "expected": "Budget is one of the 'four bars' the SPEC says every part pulls on, so it should constrain some choice.",
+  "actual": "The 3-star designs cost $3.6M to $4.14M of $90M (Geiger, tape recorder, Juno: $4.14M). Even an overweight, unflyable 'everything' design costs only $4.29M. The budget bar stays near 5%, so a part's price never affects a choice. On the Rocket Yard, Vanguard saves $0.5M (worthless against $90M) but leaves a 4% mass margin (Margins 7.5/15, against 15/15 with Juno), so the trade is one-sided. After a win, TRY THIS says 'reach it on a smaller budget'. Campaign: the treasury went $90M -> $90.1M after a net -$2.1M flight, then to $101.8M after the second. The Trade Space ($20M) and Point Design ($18M) IGY tiers were locked on a fresh save and not played; from the data, the $4.3M ceiling is under their budgets too.",
+  "evidence": "probe4.js costs (geiger+clock 3.96, scint+clock 4.06, geiger+tape 4.14); probe1.js tot3 cost_musd 4.29; kid13.js (Vanguard: MARGINS 7.5/15) against kid9.js (Juno: 15/15); judge10.js 'Treasury now $90.1M', '$101.8M'; data/tiers.js comment says the $90M is sized for 'the $69.75M rocket to geostationary orbit'",
+  "cause": "data/tiers.js: one budget per tier for every era (training 90, standard 20, expert 18), sized for 2026 launch prices; 1958 parts and rockets cost $0.02M to $3M.",
+  "fix_hint": "Scale budgets by era (for example a 1958 Initial Feasibility of about $5M, so Juno against Vanguard and the tape recorder become real trades), or scale prices by era. Drop the 'smaller budget' TRY THIS when spending is under 20%.",
+  "verdict": null
+ },
+ {
+  "id": "engage-01",
+  "title": "FIRST 2 MINUTES: the title screen has no visible Play button, and the two start buttons look the same and are named in jargon",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "Title / tier select",
+  "repro": "Clear localStorage. Open file:///home/user/Hackstreet_Bros_Satellite/index.html at 1280x800 and at 390x844. List the buttons inside the first viewport, then measure where the start buttons sit (scripts probe5.js and judge1.js in the scratch folder).",
+  "expected": "One obvious PLAY or START control above the fold, labelled in plain words, so a new player knows what to press within 5 seconds.",
+  "actual": "At 1280x800 the first viewport contains zero buttons (probe5 printed 'aboveFold buttons: []'). The first sentence a player reads is the unlock rule 'Earn 2 stars on a tier to unlock the next one.', and GRAVITRON appears twice. The first button is the campaign's 'NEW: INITIAL FEASIBILITY $90M' (y=820 on desktop, y=747 on phone). The single-mission start is a near-identical 'INITIAL FEASIBILITY $90M' at y=1176 on desktop and y=1272 on phone, about 1.5 screens down. Nothing explains what 'Initial Feasibility' (a JPL Concept Maturity Level) or '$90M' means. On a phone, the judge's first button is therefore the campaign.",
+  "evidence": "(scratch)/sweep/engage/kid/00-title-fold.png, (scratch)/sweep/engage/kid/00-title-full.png, (scratch)/sweep/engage/judge/00-title.png; probe5.js: campaign-training y=820, start-igy-training y=1176; judge1.js: start-igy-training y=1272, campaign-training y=747",
+  "cause": "js/ui-design.js drawTitle (from line 1800) and campaignPanel (line 1723) draw the banner, the hero canvas, the big title and the campaign panel before the era grid; tierButton (line 1783) labels each button only with the tier name and its budget.",
+  "fix_hint": "Put one primary button under the tagline, above the fold: 'PLAY: 1958, launch America's first science satellite'. Give the tiers plain names (Easy, Normal, Hard), with the CML name as a subtitle. Move the unlock rule and the campaign panel below the first play button.",
+  "verdict": null
+ }
+]
