@@ -2828,7 +2828,7 @@
     var launchBtn = button(blocked ? "LAUNCH" : warned || short ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked });
     var control = el("div", { class: "panel launch-control" }, [
       el("span", { class: "countdown-label", text: "T-MINUS" }),
-      el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
+      el("span", { class: "countdown", text: blocked ? "HOLD" : "READY" }),   // the count runs at LAUNCH (launchShow)
       el("p", { class: "verdict " + (blocked ? "bad" : warned || short ? "warn" : "ok"),
         text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
           : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),

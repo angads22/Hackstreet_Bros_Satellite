@@ -92,6 +92,7 @@ async function lowPolyOn(viewport, label) {
   ok(await page.locator('.pad canvas.scene.lp-pad').count() === 1, 'the pad is a low-poly canvas');
   ok(/small dedicated launcher/i.test(await page.locator('.pad canvas.lp-pad').getAttribute('aria-label')), '...with the chosen rocket in its label');
   ok(await page.locator('.sat-small canvas').count() === 1, 'the small satellite is a low-poly canvas');
+  ok(!/\d/.test(await page.locator('.launch-control .countdown').innerText()), 'the T-MINUS box shows no frozen time (the count runs at LAUNCH)');
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(shots, `lowpoly-${label}-review.png`), fullPage: true });
   ok(await noSideScroll(page), 'Readiness: no sideways scroll');
