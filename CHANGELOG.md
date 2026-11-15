@@ -4,6 +4,9 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- **The next button stays in view.** On every design step the button to the next place sits at the bottom of the screen, labelled with where it goes, with a one-line reason beside it when something is still in the way (it never locks you out of the readiness review).
+- **No step title.** The page no longer spends a row on "3 · BUILD": the minimap key names the step, and the title stays as a heading for screen readers.
+- **One line, not three.** The objective, the hint row and the team's speech become one line: the speech with its face, carrying the instruction; the "?" button still opens the hint; on a visit after the first, the speech shows only its first sentence.
 - **Higher levels give less help before a problem.** Normal drops the hover preview's "Fixes" and "Causes" lines and the FIX links; Hard also drops the science forecast and the pay forecast (the contract's terms stay) and shows event risks as bands. Facts, blockers and the debrief's TRY THIS stay on every level. The Part 2 picker says what each level removes.
 - **Fewer words.** Events are a short title, one line and one-to-three-word choices; the debrief, hints, briefings, launch checks and client reasons say the same in about half the words.
 - **Clearer Build.** A part that adds nothing to the job gets a WHY box (what the job wants against what the part is); Part 2 shows PROFIT (green or red) on Build and first on the debrief; selecting a part shows one line of what it does with its animation; a body leads with what it CARRIES and says what it WEIGHS.

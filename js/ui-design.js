@@ -2001,6 +2001,9 @@
     return modeName() + (state.design.year ? " · " + state.design.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
   }
 
+  // The step's name in the minimap key ("3 BUILD"); the visible title on the page is gone.
+  var STEP_NAME = { briefing: "1 BRIEFING", orbit: "2 ORBIT", build: "3 BUILD", launcher: "4 ROCKET", review: "5 REVIEW" };
+
   // The header shows the current objective and a minimap (instead of a step bar).
   function setStep(screen) {
     var line = document.getElementById("objective");
@@ -2023,7 +2026,8 @@
       mini.hidden = !show;
       if (show) {
         mini.appendChild(mapSvg(true, screen));
-        mini.appendChild(el("span", { class: "minimap-key" }, [icon(screen), "MAP [M]"]));
+        // The screen's own name moved here from the page (its title is a heading for screen readers only, css/shell.css).
+        mini.appendChild(el("span", { class: "minimap-key" }, [el("span", { class: "mk-step" }, [icon(screen), STEP_NAME[screen] || ""]), el("span", { class: "mk-map", text: "MAP [M]" })]));
       }
     }
   }
@@ -2054,6 +2058,47 @@
     box.textContent = state.hintOpen ? text : (tutorial || firstSentence(text));
   }
 
+  // One line instead of three: the objective line, the hint and the team's speech used to stack above every design step.
+  // The speech with its face is the line; the objective's instruction rides in it (.say-do), the hint stays behind the
+  // "?" button, and the objective element stays in the page, out of sight, for screen readers (aria-live) and the tests.
+  // Nothing is reworded: on a screen already visited the speech shows only its first sentence. The observer keeps the
+  // instruction current when another file writes the objective line after the screen is drawn (REDESIGN names a fix).
+  var MERGE_SCREENS = DESIGN_STEPS.concat(["map"]);
+  function mergeSay(screen, collapse) {
+    var app = document.getElementById("app");
+    var line = document.getElementById("objective");
+    if (!app) return;
+    Array.prototype.slice.call(app.querySelectorAll(".say-do")).forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+    if (MERGE_SCREENS.indexOf(screen) === -1 || !state.design) return;
+    var text = line && !line.hidden ? String(line.textContent || "").replace(/^\s*OBJECTIVE:?\s*/, "").trim() : "";
+    var box = app.querySelector(".screen > .say");
+    if (box && !box.classList.contains("say-merged")) box.classList.add("say-merged");
+    if (!box) {
+      if (!text) return;
+      var screenNode = app.querySelector(".screen");
+      if (!screenNode) return;
+      var who = isComebackDesign(state.design) ? "partner" : "team";
+      var name = typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : "";
+      box = el("div", { class: "say say-merged", role: "note" }, [speakerFace(who) || directorArt(),
+        el("div", { class: "say-text" }, [name ? el("span", { class: "say-name", text: String(name).toUpperCase() }) : null])]);
+      screenNode.insertBefore(box, screenNode.firstElementChild && screenNode.firstElementChild.nextSibling);
+    }
+    var speech = box.querySelector(".say-text p");
+    if (speech && collapse && state.seenHint[screen]) {
+      var full = speech.textContent, first = firstSentence(full);
+      if (first && first !== full) { speech.setAttribute("data-full", full); speech.textContent = first; }
+    }
+    var holder = box.querySelector(".say-text");
+    if (text && holder) holder.appendChild(el("span", { class: "say-do", text: " " + text }));
+  }
+  var mergeWatch = null;
+  function watchObjective() {
+    var line = document.getElementById("objective");
+    if (mergeWatch || !line || typeof MutationObserver !== "function") return;
+    mergeWatch = new MutationObserver(function () { mergeSay(state.screen, false); });
+    mergeWatch.observe(line, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+  }
+
   // body.is-home while the home page is up: it hides the header and the pixel ground strip, and lets the title fill the screen.
   function markHome(screen) { if (document.body) document.body.classList.toggle("is-home", screen === "title"); }
 
@@ -2076,8 +2121,11 @@
     var app = document.getElementById("app");
     while (app.firstChild) app.removeChild(app.firstChild);
     app.appendChild(node);
+    app.setAttribute("data-screen", screen);   // css/shell.css reads it (motion.js sets it too)
     setStep(screen);
     setHint(screen);
+    watchObjective();
+    mergeSay(screen, true);
     if (window.GravMotion) GravMotion.mounted(app, screen, sayKey);   // entry animations only when the screen changes
   }
 
@@ -2153,15 +2201,30 @@
   }
 
   // Every place has a way out to the map. CONTINUE walks you to the next place.
+  // The row is the next bar (css/shell.css): it stays at the bottom of the viewport on the design steps. A reason line
+  // sits beside the button when something is still in the way. The button itself is never disabled for a NO GO: the
+  // readiness review is where a player learns why (only a missing choice, which has nothing to go on with, disables it).
+  function nextWhy(nextTo, nextOk) {
+    var d = state.design;
+    if (!d || !nextTo) return null;
+    if (!nextOk && !placeOpen(nextTo) && lockedReason(nextTo)) return { text: lockedReason(nextTo), icon: "warning" };
+    var here = 0;
+    try {
+      runChecks(d).blockers.forEach(function (c) { if (fixPlace(c, d) === state.screen) here++; });
+    } catch (e) { here = 0; }
+    return here ? { text: here + " NO GO TO FIX", icon: "blocker" } : null;
+  }
   function navRow(nextTo, nextOk) {
     // The button follows the gold route, forwards or back (after a redesign, a FIX link or a new NO GO).
     var gps = waypoint();
     if (nextTo && gps !== state.screen) nextTo = gps;
     var next = byId(PLACES, nextTo);
-    return el("div", { class: "nav-row" }, [
-      button(["< ", "MAP [M]"], openMap, { aria: "Map: back to the base map" }),
+    var why = next ? nextWhy(nextTo, nextOk) : null;
+    return el("div", { class: "nav-row" + (next ? " next-bar" : "") }, [
+      button(["< ", "MAP", el("span", { class: "key-hint", text: " [M]" })], openMap, { aria: "Map: back to the base map" }),
+      why ? el("span", { class: "next-why", role: "status" }, [icon(why.icon), why.text]) : null,
       next ? button(["GO TO " + next.name, " >"], function () { travel(nextTo); },
-        { primary: true, disabled: !nextOk, aria: "Go to " + next.name.toLowerCase() }) : null
+        { primary: true, disabled: !nextOk, aria: "Go to " + next.name.toLowerCase() + (why ? ". " + why.text : "") }) : null
     ]);
   }
 

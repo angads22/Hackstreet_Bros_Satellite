@@ -1,1 +1,65 @@
 /* v1.2 shell: owned by builder A (shell and chrome). Loaded after style.css and story.css. */
+
+/* ---------------------------------------------------------------- the next bar
+   One fixed place for the next button on the design steps: sticky at the bottom of the viewport (the row is the last
+   thing in the screen, so at the end of the page it simply sits below the content: nothing is covered). The hub, the
+   journal and the story beats use a plain .nav-row; only navRow() in js/ui-design.js adds .next-bar. */
+.nav-row.next-bar {
+  position: sticky; bottom: 0; z-index: 4;
+  margin-top: 4px; padding: 10px 0 12px;
+  background: var(--bg); border-top: 1px solid var(--line);
+  flex-wrap: nowrap;
+}
+.next-bar .btn { flex: none; }
+.next-bar .btn.primary { margin-left: auto; }
+/* The reason a player might hesitate: beside the button, one line, cross or triangle + words (never colour alone). */
+.next-why { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; justify-content: flex-end;
+  font-size: 18px; letter-spacing: 1px; color: var(--bad); text-align: right; }
+.next-why svg.icon { flex: none; }
+/* The sticky columns on Build stop short of the bar. */
+@media (min-width: 930px) {
+  #app[data-screen="build"] .workshop > .bins,
+  #app[data-screen="build"] .workshop > .stack { max-height: calc(100vh - var(--sticky-top, 8px) - 8px - var(--next-bar-h, 72px)); }
+}
+@media (max-width: 560px) {
+  .nav-row.next-bar { flex-wrap: wrap; gap: 6px 10px; padding: 8px 0 10px; }
+  .next-why { order: -1; flex-basis: 100%; justify-content: flex-start; text-align: left; }
+  .next-bar .btn.primary { flex: 1 1 auto; justify-content: center; }
+}
+@media (max-height: 500px) { .nav-row.next-bar { position: static; } }   /* landscape phones: no room to spare */
+@media (max-width: 560px) {
+  .next-bar .key-hint { display: none; }   /* a key for a keyboard: a phone has none */
+  .next-bar .btn { padding-left: 14px; padding-right: 14px; }
+}
+@media (pointer: coarse) { .next-bar .key-hint { display: none; } }
+
+/* ---------------------------------------------------------------- the title, for screen readers only
+   The step is named in the minimap key. The h1 stays in the page (a heading to navigate by, and what the tests wait on):
+   the whole head is taken out of the flow with the usual 1px technique, so it leaves no gap. The Part 2 workshop and
+   the level picker have real titles and are not in this list. */
+#app:is([data-screen="briefing"], [data-screen="orbit"], [data-screen="build"], [data-screen="launcher"], [data-screen="review"],
+        [data-screen="map"], [data-screen="mission"], [data-screen="debrief"]) .screen-head {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+/* The minimap key: the step's name, then the map's key. */
+.minimap { width: 120px; }
+.minimap-key { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; padding: 1px 4px; }
+.minimap-key .mk-step { display: inline-flex; align-items: center; gap: 3px; color: var(--text); }
+.minimap-key .mk-map { color: var(--accent-ink); }
+@media (max-width: 929px) { .minimap { width: 112px; } }
+
+/* ---------------------------------------------------------------- one line: the speech carries the instruction
+   The objective line leaves the header (its element stays for screen readers); its words ride in the team's speech. */
+.topbar .objective:not([hidden]) {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.say-merged .say-text { display: block; }
+.say-merged .say-text p { display: inline; }
+.say-merged .say-name { display: block; margin-bottom: 2px; }
+.say-do { color: var(--accent-ink); font-size: 26px; line-height: 1.05; }
+@media (max-width: 760px) { .say-do { font-size: 22px; } }
+body[data-era="1958"] .say-do { font-family: var(--font-story); line-height: 1.1; }
+.topbar .minimap { margin-left: auto; }   /* the objective used to push it to the right edge */
+.topbar .objective:not([hidden]) { min-width: 0; }
