@@ -5,6 +5,7 @@
 // 3. TRY THIS: always something the player can do with what the design has (Part 1, other eras, Part 2).
 // 4. Event text names no hardware the satellite may not carry.
 // 5. The readiness review points an orbit no rocket reaches (or no thruster can hold) back to the orbit.
+// 6. The solar topic in 2026, after the sunspot record ends: the latest full year, never a made-up 0.
 var load = require("./load");
 var G = load();
 var passed = 0, failed = 0;
@@ -301,6 +302,21 @@ function adviceProblems(g, m, lim, label) {
   var mb = G.runChecks(m).blockers;
   check("5 2026: a rocket that exists can reach it, and a thruster fits, so those fixes stay", /pick another rocket/.test(text(mb, "launcher-reach")) &&
     /Add propulsion/.test(text(mb, "delta-v")), text(mb, "launcher-reach") + " / " + text(mb, "delta-v"));
+})();
+// ---- 6. The solar topic after the sunspot record ends (2026): the latest full year is quoted, never a made-up 0
+(function () {
+  var rec = G.EARTH.solar.sunspots, last = rec.start_year + rec.monthly.length - 1;
+  var m = fly(eraDesign("new-space", "training", "solar", "leo", "thor-agena",
+    ["smallsat-bus", "reaction-wheels", "oso-xray-spectrometer", "solar-xray-photometer", "solar-small", "battery-28v", "radio-sband", "obc-radtol"]), 0);
+  var rw = G.getDebrief(m).real_world;
+  check("6 a 2026 solar flight quotes the latest full year of sunspots, not 0", m.start_year > last && rw.sunspots > 0 &&
+    rw.text.indexOf("In " + last + ", the latest full year on record") === 0 && !/averaged 0 /.test(rw.text), rw.text.slice(0, 90));
+  var months = [], s0 = G.startMission(m.design), st;
+  do { st = G.stepMonth(s0); if (st.event) G.chooseEvent(s0, 0); months.push(st.real); } while (!st.ended);
+  check("6 its mission months make no sunspot claim for years with no data", months.every(function (r) { return r === null || r.sunspots > 0; }));
+  var m58 = fly(eraDesign("nimbus", "training", "solar", "leo", "thor-agena",
+    ["drum-body", "spin-stabilised", "oso-xray-spectrometer", "n-on-p-cells", "nicad-battery", "pcm-telemetry", "tape-recorder"]), 0);
+  check("6 a 1964 solar flight still quotes its own year", G.getDebrief(m58).real_world.text.indexOf("In 1964 the Sun averaged") === 0, G.getDebrief(m58).real_world.text.slice(0, 60));
 })();
 console.log(passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;
