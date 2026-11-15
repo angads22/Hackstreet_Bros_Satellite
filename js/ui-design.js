@@ -2932,6 +2932,16 @@
     ]);
   }
 
+  // An empty slot under the satellite for the verdict strip (js/ui-verdict.js). That file sets StarlineUI.fillVerdict =
+  // function (slot, design) and fills the slot on every Build draw; with no filler the slot stays empty and takes no room.
+  function verdictSlot(d) {
+    var slot = el("div", { class: "vstrip-slot", "data-key": "verdict-slot" });
+    if (window.StarlineUI && typeof window.StarlineUI.fillVerdict === "function") {
+      try { window.StarlineUI.fillVerdict(slot, d); } catch (e) { while (slot.firstChild) slot.removeChild(slot.firstChild); }
+    }
+    return slot;
+  }
+
   function drawBuild() {
     var d = state.design;
     var parts = data("PARTS");
@@ -2998,7 +3008,7 @@
       sayLine("build"),
       // On a wide screen the shelf sits under the satellite, and the side panels stay in view while you scroll: you
       // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
-      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
+      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, verdictSlot(d), payoutLine(d), picker]),
         el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
       // With the rocket preset (Part 1), the next stop after the Workshop is the Launch Pad.
       navRow(isPreset("launcher") ? "review" : "launcher", true)
@@ -3778,6 +3788,7 @@
     // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
     era: function (name) { markEra("era", name); },
     assist: assist,
+    verdictSlot: function () { return document.querySelector("[data-key=\"verdict-slot\"]"); },   // the Build screen's verdict slot, or null
     mount: function (screen, node) {
       state.screen = screen;
       markHome(screen);
