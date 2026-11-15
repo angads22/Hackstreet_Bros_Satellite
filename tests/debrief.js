@@ -6,6 +6,7 @@
 // 4. Event text names no hardware the satellite may not carry.
 // 5. The readiness review points an orbit no rocket reaches (or no thruster can hold) back to the orbit.
 // 6. The solar topic in 2026, after the sunspot record ends: the latest full year, never a made-up 0.
+// 7. An instrument card's science figure is what it delivers on this satellite, after the radio's and the power's losses.
 var load = require("./load");
 var G = load();
 var passed = 0, failed = 0;
@@ -354,5 +355,36 @@ function textProblems(obj, label) {
     ["drum-body", "spin-stabilised", "oso-xray-spectrometer", "n-on-p-cells", "nicad-battery", "pcm-telemetry", "tape-recorder"]), 0);
   check("6 a 1964 solar flight still quotes its own year", G.getDebrief(m58).real_world.text.indexOf("In 1964 the Sun averaged") === 0, G.getDebrief(m58).real_world.text.slice(0, 60));
 })();
+// ---- 7. An instrument card's science figure is what the part delivers on this satellite (engage-12)
+// The 1958 report: the scintillation counter's card read 6 sci/mo against the Geiger counter's 4, but on the only 1958
+// radio it delivered 3.8 a month, less than the Geiger. The card now counts the radio's and the power's losses.
+(function () {
+  var rest = ["explorer-body", "spin-stabilised", "mercury-battery", "silicon-cells", "minitrack-beacon", "command-timer"];
+  var d = eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket", rest);
+  var scint = G.getPartFacts(d, "scintillation-counter").science_per_month, geiger = G.getPartFacts(d, "cosmic-ray-counter").science_per_month;
+  check("7 on the 1958 beacon, the scintillation counter's card reads below the Geiger counter's, as the flights earn", scint < geiger, scint + " against " + geiger);
+  // An event-free flight earns the card's figure each month.
+  var withScint = eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket", rest.concat(["scintillation-counter"]));
+  var m = G.startMission(withScint); m.schedule = []; finish(m, 0);
+  check("7 an event-free flight earns the card's figure each month", Math.abs(m.science / m.month - G.getPartFacts(withScint, "scintillation-counter").science_per_month) < 0.05,
+    G.round(m.science / m.month, 2) + " a month against the card's " + G.getPartFacts(withScint, "scintillation-counter").science_per_month);
+  // Before the radio and the power are chosen, the card does not read 0.
+  var bare = eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket", ["explorer-body"]);
+  check("7 with no radio or power chosen yet, an instrument's card still reads its rate", G.getPartFacts(bare, "scintillation-counter").science_per_month > 0 &&
+    G.getPartFacts(bare, "cosmic-ray-counter").science_per_month > 0);
+  // Every era: the fitted instruments' cards add up to the Build screen's science a month.
+  var off = [];
+  [["igy", "radiation", "leo", "juno-1", ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "scintillation-counter", "silicon-cells", "mercury-battery", "minitrack-beacon", "command-timer"]],
+   ["nimbus", "weather", "leo", "thor-able", ["nimbus-bus", "reaction-wheels", "vidicon-camera", "n-on-p-cells", "nicad-battery", "vhf-telemetry", "tape-recorder"]],
+   ["new-space", "wildfire", "leo", "rideshare", ["cubesat-12u", "spin-stabilised", "optical-camera", "solar-small", "radio-uhf", "obc-basic"]],
+   ["new-space", "weather", "leo", "thor-able", ["nimbus-bus", "reaction-wheels", "avcs-camera", "solar-small", "radio-sband", "obc-radtol", "prop-green-small"]]
+  ].forEach(function (x) {
+    var dd = eraDesign(x[0], "training", x[1], x[2], x[3], x[4]);
+    var sum = dd.parts.reduce(function (t, id) { var f = G.getPartFacts(dd, id); return t + (f.science_per_month || 0); }, 0);
+    if (Math.abs(sum - G.previewScience(dd).per_month) > 0.05) off.push(x[0] + "/" + x[1] + ": cards " + G.round(sum, 2) + ", build " + G.previewScience(dd).per_month);
+  });
+  check("7 the fitted instruments' cards add up to the Build screen's science a month", off.length === 0, off.join(" | "));
+})();
+
 console.log(passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;
