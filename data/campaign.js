@@ -12,7 +12,7 @@ const CAMPAIGN = {
   grant_musd: 2,              // agency grant after each mission: small, so money still matters
   cap_scales: 3,              // GAME VALUE: a topic's data cap = this x its knowledge_scale (95% known)
   archive_share: 0.1,         // GAME VALUE: each year the archive pays this share of all science banked, as science points
-  save_version: 4,            // bump when the saved shape changes; an older save is discarded
+  save_version: 5,            // bump when the saved shape changes; an older save is discarded (5: a comeback keeps its seed and its buyout)
 
   // Part 2, Ajay's comeback (SPEC.md, "Two game modes"): a mode of this campaign in the present day.
   // Every value is a GAME VALUE, tuned by simulating hundreds of comebacks per difficulty: a sensible
@@ -28,6 +28,9 @@ const CAMPAIGN = {
     launch_campaign_months: 2,    // GAME VALUE: months from a finished satellite to its data reaching the client
     contracts_open: 3,            // GAME VALUE: contracts on offer at a time
     contract_months: 12,          // GAME VALUE: months a contract stays open
-    bonus_3_stars: 0.25           // GAME VALUE: share of the contract price paid on top for a 3-star flight
+    bonus_3_stars: 0.25,          // GAME VALUE: share of the contract price paid on top for a 3-star flight
+    buyout_after_flights: 2,      // GAME VALUE: Iron Eclipse offers to buy the company once this many flights are settled and the debt stands
+    legend_avg_stars: 2.5,        // GAME VALUE: a win with at least this many stars a flight on average is the "legend" ending
+    close_share: 0.1              // GAME VALUE: a win with this share of the deadline or less left is the "close" ending
   }
 };
