@@ -1,17 +1,16 @@
 # Active continuation checkpoint — November 15, 2026
 
-The latest continuation fetched through `b58e88b` and preserved older, superseded local art work in git stash (`Preserve local standalone art and small UI fixes before newer Codex handoff`). Do not apply that stash over the newer implementation.
+Branch: `claude/pensive-allen-ujtdag`. Remote work through `68e0c6b` is merged locally in `f876d5b`; this supersedes the earlier checkpoint in `cddf861`. The previous session cut 0.9 beta on this branch in `9c65b46` and updated the main spec in `59196fc`; main still has the 0.8 game code. Do not repeat the version cut. The code release remains pending the advisor.
 
-**User constraint still active:** keep 3D integration and main updates pending the advisor. The tool is unavailable here. Existing integrated art from Claude is retained; this continuation does not authorize a release to main. No contributor credit or SI_USE rows.
+**User constraint still active:** keep new 3D integration and all main updates pending the advisor. No advisor or remote-session messaging tool is exposed here. Existing integrated art is retained. No contributor credit, co-author trailers or SI_USE rows.
 
-**Current work in the shared checkout (not yet all verified):**
-- Title screen redesigned around the existing hero, two compact mode menus and progress; `css/home.css`. Home browser checks pass.
-- Three requested polish fixes: single icon-spacing rule, part-card separators kept with values, distinct Rocket Yard silhouette. Instrument-card science labelled as an upper bound.
-- Mission/debrief edits in `js/ui-mission.js` plus `css/mission-polish.css`: cost/consequence labels, pause/fast states, accessible stars, success feedback and mobile layout. Needs full verification.
-- Backend edits in `js/mission.js`: actionable suggestions, battery-only event handling, preflight checkpoint/refund approach. Needs inspection and regression tests; parallel worker stopped at its usage limit.
-- Design-screen worker may have left partial changes in `js/ui-design.js`; inspect the diff and finish before claiming its findings fixed. `css/design-fixes.css` currently linked.
+**Current continuation:**
+- Preserved overlapping local work in two named git stashes before merging the newer remote implementation. Do not apply those stashes over the current code.
+- Fixed the three user-reported polish issues: shared icon spacing, part-card separator wrapping and a dedicated Rocket Yard icon. Instrument science now says "up to".
+- Replaced the frozen readiness countdown with READY/HOLD status. Added full-star feedback and an explanation of the science requirement for the third star.
+- Design-screen, smoke and home browser suites pass on these edits. Full Node and browser regression checks are still in progress. Do not treat previous-session results as verification of these edits. Logs and screenshots go outside the repo in `/workspace/work/final-checks`.
 
-Two parallel workers reported a usage limit; no remaining-usage meter is exposed to the parent. This checkpoint is intentionally written before starting further work. Continue by inspecting the diffs and running targeted tests, then update `handoff/HANDBACK.md` with actual results and commits before pushing completed work. Preserve the original handoff below as the task list.
+No remaining-usage meter is exposed. This checkpoint is being maintained before further work. Update this section and `handoff/HANDBACK.md` with actual results and commit hashes, commit and push the branch before ending. The detailed older task list follows; its in-flight and release status is superseded above.
 
 ---
 
