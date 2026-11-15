@@ -154,6 +154,7 @@ async function run(viewport, label) {
   ok(/Pleasure doing business/.test(await p.locator('.screen > .say').last().innerText()), "the client's last word: paid");
   ok(/MONTH \d+\/\d+ · CASH/.test(await p.locator('#status').innerText()) && !/SCORE/.test(await p.locator('#status').innerText()), 'debrief header: the comeback, not a score');
   ok(await T.noScroll(p), 'debrief: no sideways scroll');
+  await p.waitForTimeout(700);   // the stamp has landed
   await shot('4-debrief');
 
   // ---- back at the workshop: the flight log, then PAY BACK
@@ -172,30 +173,71 @@ async function run(viewport, label) {
   await p.click('[data-key="hub-home"]'); await p.click('[data-key="part2-go"]'); await T.waitHead(p, 'WORKSHOP');
   ok(await p.locator('#pay-note').count() === 0, 'the payment message does not come back on a later visit');
 
-  // ---- a flight that lands after the deadline (the saved campaign moved close to it): the banner, then the lost ending
-  await editSave(p, 'c.month = c.deadline_month - 3; c.offers.forEach(function (k) { if (!k.done) k.expires_month = c.month + 12; });');
+  // ---- a payment the back end refuses (the cash changed under the open workshop): its own reason is shown
+  const cashNow = (await hub()).cash_musd;
+  await editSave(p, 'c.treasury_musd = 0.05;');
+  const tryAmount = parseM(await p.locator('[data-key="pay-panel"] .btn').first().innerText());
+  await p.locator('[data-key="pay-panel"] .btn').first().click();
+  const reason = await p.evaluate(a => payDebt(a).reason, tryAmount);
+  ok(!!reason && await p.locator('#pay-note.bad').innerText() === reason, 'a refused payment shows payDebt\'s reason: ' + reason);
+  await editSave(p, 'c.treasury_musd = ' + cashNow + ';');
+  await p.evaluate(() => window.showComebackHub());
+
+  // ---- a contract that names no orbit: the Tracking Station is the next stop and its cards can be chosen
+  const free = (await hub()).contracts.find(x => !x.orbit);
+  if (free) {
+    await p.click(`[data-key="fly-${free.topic}"]`); await T.waitHead(p, 'BASE MAP');
+    ok(/NEXT/.test(await p.locator('[data-key="legend-orbit"]').innerText()) && /Tracking Station/i.test(await p.locator('#objective').innerText()),
+      `${free.topic} (no orbit named): the Tracking Station is next`);
+    await p.click('[data-key="blip-orbit"]'); await T.waitHead(p, 'ORBIT');
+    ok(await p.locator('.preset-note').count() === 0 && await p.locator('button.card[data-key^="orbit-"]:not([disabled])').count() > 0, 'its orbit cards can be chosen');
+    await p.locator('button.card[data-key^="orbit-"]:not([disabled]):not(.dim)').first().click();
+    await p.click('.nav-row .btn.primary');
+    ok(await T.waitHead(p, 'BUILD'), 'an orbit chosen: on to the Workshop');
+    await p.keyboard.press('m'); await T.waitHead(p, 'BASE MAP');
+    await p.click('[data-key="map-workshop"]'); await T.waitHead(p, 'WORKSHOP');
+  } else console.log('     (every open contract names an orbit: the free-orbit check is skipped)');
+
+  // ---- a topic with nothing new left (the save says it is fully known): Build says so, the debrief says NOT PAID and why
+  const nothing = (await hub()).contracts.find(x => T.CONTRACT[x.topic] && (!x.orbit || x.orbit === T.CONTRACT[x.topic].orbit));
+  if (nothing) {
+    await editSave(p, 'c.knowledge_science["' + nothing.topic + '"] = 1e6;');
+    await T.launchContract(p, nothing.topic, { review: true });
+    await p.keyboard.press('m'); await T.waitHead(p, 'BASE MAP'); await p.click('[data-key="blip-build"]'); await T.waitHead(p, 'BUILD');
+    ok(/Nothing new is left to collect/.test(await p.locator('.payout-line').innerText()), `Build: nothing new to collect on ${nothing.topic}, the client pays nothing`);
+    await p.keyboard.press('m'); await T.waitHead(p, 'BASE MAP'); await p.click('[data-key="blip-review"]'); await T.waitHead(p, 'READINESS');
+    await p.locator('.btn.big').click(); await T.waitHead(p, 'MISSION');
+    await T.fly(p, 'first'); await T.waitHead(p, 'DEBRIEF');
+    const res = await p.locator('[data-key="contract-result"]').innerText();
+    ok(/NOT PAID/.test(await p.locator('.cb-stamp').innerText()) && /Nothing new/.test(res), 'debrief: NOT PAID, and why (nothing new)');
+    ok(/can't pay for it/.test(await p.locator('.screen > .say').last().innerText()), "the client's last word: nothing paid");
+    const c2 = addsUp(await ledger(p, 'cash-ledger'));
+    ok(c2.raw && c2.shown, 'NOT PAID: the cash still adds up');
+    await p.waitForTimeout(700);
+    await shot('5b-not-paid');
+    await p.click('[data-key="debrief-workshop"]'); await T.waitHead(p, 'WORKSHOP');
+  } else console.log('     (no open contract has a proof design here: the NOT PAID check is skipped)');
+
+  // ---- a flight that lands after the deadline (the saved campaign moved close to it, and the solar contract flown
+  // first opened again, with the back end's own terms): the TOO LATE banner, then the lost ending
+  await editSave(p, 'c.month = c.deadline_month - 3; c.offers.forEach(function (k) { if (!k.done) k.expires_month = c.month + 12; });' +
+    'var s = c.offers.filter(function (k) { return k.topic === "solar"; })[0];' +
+    'if (s && !c.offers.some(function (k) { return k.topic === "solar" && !k.done; })) c.offers.push(Object.assign({}, s, { id: s.id + "-again", done: false, expires_month: c.month + 12 }));' +
+    'c.knowledge_science.solar = 0;');
   await p.reload(); await p.click('[data-key="part2-go"]'); await T.waitHead(p, 'WORKSHOP');
   ok(/No flight can land before the deadline/.test(await p.locator('[data-key="stat-months"]').innerText()) &&
      /warn/.test(await p.locator('[data-key="stat-months"]').getAttribute('class')), 'workshop: the countdown warns that no flight can land in time');
-  const open = (await hub()).contracts;
-  const topic = open.map(x => x.topic).find(t => T.CONTRACT[t] && (!open.find(x => x.topic === t).orbit || open.find(x => x.topic === t).orbit === T.CONTRACT[t].orbit));
-  if (topic) {
-    console.log('     flying ' + topic + ' with 3 months left');
-    await T.launchContract(p, topic, { review: true });
-    ok(await p.locator('[data-key="deadline-banner"]').isVisible() && /TOO LATE/.test(await p.locator('[data-key="deadline-banner"]').innerText()),
-      'review: a prominent TOO LATE banner for a flight that lands after the deadline');
-    ok(/LAUNCH ANYWAY/.test(await p.locator('.btn.big').innerText()), 'review: it is a warning (LAUNCH ANYWAY), not a blocker');
-    await shot('6-too-late');
-    await p.locator('.btn.big').click(); await T.waitHead(p, 'MISSION');
-    await T.fly(p, 'first'); await T.waitHead(p, 'DEBRIEF');
-    ok(/THE DEADLINE HAS PASSED/.test(await p.locator('[data-key="contract-result"]').innerText()) && await p.locator('[data-key="debrief-ending"]').count() === 1,
-      'debrief: the comeback is over, and the one button goes to the ending');
-    await p.click('[data-key="debrief-ending"]');
-  } else {
-    console.log('     (no open contract has a proof design here: the lost ending is opened from the edited save)');
-    await editSave(p, 'c.month = c.deadline_month; c.finished = true; c.won = false;');
-    await p.evaluate(() => window.showComebackHub());
-  }
+  ok(await p.locator('[data-key="fly-solar"]').count() === 1, 'a solar contract is open (opened again if needed)');
+  await T.launchContract(p, 'solar', { review: true });
+  ok(await p.locator('[data-key="deadline-banner"]').isVisible() && /TOO LATE/.test(await p.locator('[data-key="deadline-banner"]').innerText()),
+    'review: a prominent TOO LATE banner for a flight that lands after the deadline');
+  ok(/LAUNCH ANYWAY/.test(await p.locator('.btn.big').innerText()), 'review: it is a warning (LAUNCH ANYWAY), not a blocker');
+  await shot('6-too-late');
+  await p.locator('.btn.big').click(); await T.waitHead(p, 'MISSION');
+  await T.fly(p, 'first'); await T.waitHead(p, 'DEBRIEF');
+  ok(/THE DEADLINE HAS PASSED/.test(await p.locator('[data-key="contract-result"]').innerText()) && await p.locator('[data-key="debrief-ending"]').count() === 1,
+    'debrief: the comeback is over, and the one button goes to the ending');
+  await p.click('[data-key="debrief-ending"]');
   await T.waitHead(p, 'OUT OF TIME');
   let e = await p.evaluate(() => getComebackEnding());
   ok(e && !e.won && e.lost_reason === 'deadline' && (await p.locator('.cb-end').innerText()).includes(e.headline), 'the lost ending (by time): its headline');

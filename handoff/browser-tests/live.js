@@ -64,6 +64,7 @@ const { ok, count } = T.checker();
     ok(/^RIGHT NOW: NASA EONET is tracking 5 open wildfire events/.test(rn), 'debrief: the right-now line from live data');
     ok(/NASA's MODIS/.test(await p.locator('.nasa-box').filter({ hasText: 'AGAINST THE REAL EARTH' }).innerText()), 'debrief: against the real Earth (NASA FIRMS)');
     ok(await T.noScroll(p), 'debrief: no sideways scroll');
+    await p.waitForTimeout(700);   // the PAID IN PART stamp has landed
     await p.screenshot({ path: path.join(shots, `live-${label}-7-debrief.png`), fullPage: true });
     ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
     await b.close();
