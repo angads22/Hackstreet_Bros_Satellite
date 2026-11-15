@@ -44,7 +44,7 @@
     n.fastBtn = UI.button(">>", toggleFast, { aria: "Fast forward" });
     n.fastBtn.setAttribute("aria-pressed", "false");
 
-    // A small low-poly Earth with this orbit beside the month (LowPoly.scenes.earth); nothing without the 3D art. The
+    // A low-poly Earth with this orbit, big, with the month as a small counter at its side (LowPoly.scenes.earth); nothing without the 3D art. The
     // satellite on the ring is the player's own (the model the Build bench shows), flying the whole mission at the
     // mission's pace (setPace); the built-in one when the model cannot be made.
     var earth = UI.lpCanvas ? UI.lpCanvas(function (L) {
@@ -61,11 +61,14 @@
     UI.mount("mission", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
       UI.say ? UI.say("mission-start", null) : null,
-      el("div", { class: "mission-head" }, [
-        // The month and the Earth stay on one line: on a narrow phone the Earth gets smaller instead of wrapping.
-        el("div", { class: "month-row" }, [el("div", { class: "stack" }, [n.month, n.of]), earth ? earth.canvas : null]),
-        el("div", { class: "controls" }, [n.pause, n.fastBtn])
-      ]),
+      // The orbit is the picture; the month is a small counter at its side, with PAUSE and fast-forward under it. On a
+      // narrow phone the Earth gets smaller instead of the counter wrapping below it.
+      (n.head = el("div", { class: "mission-head orbit-head" }, [
+        el("div", { class: "orbit-row" }, [
+          earth ? earth.canvas : null,
+          el("div", { class: "side-counter" }, [n.month, n.of, el("div", { class: "controls" }, [n.pause, n.fastBtn])])
+        ])
+      ])),
       el("div", { class: "panel" }, [
         el("div", { class: "bar" }, [
           el("div", { class: "bar-top" }, [el("span", { text: "SCIENCE" }), n.sciText]),
@@ -160,6 +163,7 @@
     run.waiting = true;
     stopTimer();
     setPace();
+    run.nodes.head.classList.add("event-open");   // the orbit shrinks so the question is on the screen
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
     run.choices = UI.list(event.choices);
@@ -232,6 +236,7 @@
     }
     if (out.ended_early) log("Mission over.", "bad");   // a normal last month ends in finish(), not as a loss
     run.waiting = false;
+    run.nodes.head.classList.remove("event-open");
     if (out.ended) { finish(); return; }
     schedule();
     run.nodes.pause.focus();
