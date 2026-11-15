@@ -76,6 +76,7 @@
   function stopTimer() { if (run && run.timer) { clearTimeout(run.timer); run.timer = null; } }
 
   function schedule() {
+    if (run.finishing) return;   // the mission is over: nothing may cancel the walk to the debrief
     stopTimer();
     if (run.paused || run.waiting) return;
     run.timer = setTimeout(tick, run.fast ? FAST_MS : TICK_MS);
@@ -179,12 +180,14 @@
   }
 
   function togglePause() {
+    if (run.finishing) return;
     run.paused = !run.paused;
     run.nodes.pause.textContent = run.paused ? "RESUME" : "PAUSE";
     schedule();
   }
 
   function toggleFast() {
+    if (run.finishing) return;
     run.fast = !run.fast;
     run.nodes.fastBtn.setAttribute("aria-pressed", run.fast ? "true" : "false");
     schedule();
@@ -192,6 +195,10 @@
 
   function finish() {
     stopTimer();
+    if (run.finishing) return;
+    run.finishing = true;
+    run.nodes.pause.disabled = true;
+    run.nodes.fastBtn.disabled = true;
     log("Signal ends. Mission complete.", "good");
     var done = run;
     run.timer = setTimeout(function () { showDebrief(done); }, END_PAUSE_MS);
