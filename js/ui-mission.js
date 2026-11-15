@@ -360,22 +360,23 @@
   // ---- REDESIGN (and a step's TRY AGAIN) open the screen where the debrief's fix is made, with the fix in the objective
   // line. The same places as the Readiness review's FIX buttons: a part is changed in the Workshop (Build), a rocket at
   // the Rocket Yard, an orbit at the Tracking Station. getDebrief names the fix only in words, so the first part, other
-  // rocket or other orbit the suggestion names (by its name in the data) decides; nothing named, or an orbit the debrief
+  // rocket or other orbit the suggestion names (by its name in the data, not one it flew) decides; nothing named, or an orbit the debrief
   // calls blind with no other named: Build, or the Tracking Station. A place this step or contract has set ("Set for
   // this step.") cannot take the fix, so Build instead. The line stays until the screen is drawn again.
   function fixFor(design, d) {
     var text = String(d && d.suggestion || ""), low = text.toLowerCase();
     var best = null;
+    // Skip what the satellite already flew: "your early silicon solar cells failed" names the problem, not the fix.
     function look(items, screen, skip) {
       UI.list(items).forEach(function (x) {
         var name = x && x.name ? String(x.name).toLowerCase() : "";
-        var at = name && x.id !== skip ? low.indexOf(name) : -1;
+        var at = name && skip.indexOf(x.id) === -1 ? low.indexOf(name) : -1;
         if (at !== -1 && (!best || at < best.at || at === best.at && name.length > best.name.length)) best = { at: at, name: name, screen: screen };
       });
     }
-    look(UI.data("PARTS"), "build");
-    look(UI.data("LAUNCHERS"), "launcher", design.launcher);
-    look(UI.data("ORBITS"), "orbit", design.orbit);
+    look(UI.data("PARTS"), "build", UI.list(design.parts));
+    look(UI.data("LAUNCHERS"), "launcher", [design.launcher]);
+    look(UI.data("ORBITS"), "orbit", [design.orbit]);
     var screen = best ? best.screen : limitIcon(d) === "orbit" ? "orbit" : "build";
     // The sentence that asks for the change: the first with the named thing in it, else the last one.
     var sentences = text.replace(/([.!?])\s+(?=[A-Z\u201c"])/g, "$1\n").split("\n");

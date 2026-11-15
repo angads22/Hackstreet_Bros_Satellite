@@ -138,6 +138,19 @@ async function quiet(label, viewport) {
   ok(/silicon solar cells/i.test(await page.locator('#objective').innerText()), '...which names the solar cells');
   ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await browser.close();
+  // A flight an event ended (the stuck-hinge event at month 2, its risky choice always failing: the only solar cells
+  // break). TRY THIS first names the part that failed, then the fix: the objective is the fix, not the failure.
+  ({ browser, page, errors } = await open(viewport));
+  await page.evaluate(() => {
+    const orig = window.startMission;
+    window.startMission = function (d) { const m = orig(d); if (m) { m.schedule = [{ month: 2, event: EVENTS.filter(e => e.id === 'stuck-hinge')[0] }]; m.rand = () => 0; } return m; };
+  });
+  ok(await walkStep1(page, T.WALK[1].parts), 'step 1 with a forced part failure flown to the debrief');
+  ok(/failed/.test(await page.locator('.try').innerText()), '...TRY THIS names the part that failed');
+  await fixLanding(page, '[data-key="walk-retry"]', 'BUILD', 'a part failed, TRY AGAIN');
+  ok(!/failed/.test(await page.locator('#objective').innerText()), '...and the objective is the fix, not the failure');
+  ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
+  await browser.close();
   // A flight whose orbit cannot see its target (sea ice from low orbit): REDESIGN opens the Tracking Station.
   ({ browser, page, errors } = await open(viewport));
   await page.evaluate(() => {
