@@ -310,7 +310,15 @@ button:disabled { cursor: not-allowed; }
   padding: 10px;
 }
 
-.preview { min-height: 120px; }
+/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. */
+.preview { height: 190px; overflow-y: auto; }
+@media (min-width: 930px) { .bench-col > .preview { position: sticky; top: var(--sticky-top, 8px); z-index: 3; align-self: stretch; } }
+.bench-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.workshop > .bins, .workshop > .stack { position: sticky; top: var(--sticky-top, 8px); align-self: start; max-height: calc(100vh - var(--sticky-top, 8px) - 8px); overflow-y: auto; }
+@media (min-width: 930px) { .workshop { --sticky-top: 140px; } }   /* just under the sticky header */
+.workshop .sat { max-width: 340px; }
+.workshop .sat-bench { max-width: 320px; }
+.workshop .shelf { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .preview h3 { font-size: 20px; color: var(--accent-ink); }
 .preview-line { font-size: 20px; }
 .preview-line.fix { color: var(--info-ink); }
@@ -657,9 +665,12 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 }
 
 /* ---------------------------------------------------------------- narrower screens */
-@media (max-width: 1080px) {
-  .workshop { grid-template-columns: 1fr 1fr; }
-  .workshop .bench { grid-column: 1 / -1; order: -1; }
+@media (min-width: 930px) and (max-width: 1080px) {
+  .workshop { grid-template-columns: 210px minmax(0, 1fr) 250px; }
+}
+@media (max-width: 929px) {
+  .workshop { grid-template-columns: 1fr; }
+  .workshop > .bins, .workshop > .stack { position: static; max-height: none; }
 }
 
 @media (max-width: 760px) {

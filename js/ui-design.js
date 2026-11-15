@@ -2009,8 +2009,7 @@
     var bench = el("div", { class: "bench" }, [
       el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
         el("span", { text: list(d.parts).length + " parts · " + built + " of " + cats.length + " systems" })]),
-      satelliteArt(d, chg),
-      drawPreview()
+      satelliteArt(d, chg)
     ]);
 
     var overview = el("div", { class: "panel" }, [
@@ -2034,9 +2033,10 @@
     return el("section", { class: "screen" }, [
       head("3 · BUILD"),
       sayLine("build"),
-      el("div", { class: "workshop" }, [bins, bench, el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
-      payoutLine(d),
-      shelf,
+      // The shelf sits under the satellite, in the same grid as the side panels, and the side
+      // panels stay in view while you scroll: you always see what a click did to the bars.
+      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, drawPreview(), payoutLine(d), shelf]),
+        el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
       navRow("launcher", true)
     ]);
   }
