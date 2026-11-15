@@ -98,6 +98,22 @@ function known(G, d, part) { return GROUPS.map(function (g) { return G.partInfoK
   check("5 exactly the fee in cash is enough, and leaves 0", exact.ok && cash(G) === 0);
 })();
 
+// ---- 5b. No dead end: a fee that would leave the cash (and the loans still allowed) unable to pay for any launch is refused.
+(function () {
+  var f = start("hard"), G = f.G, c = G.getCampaign(), k = G.CAMPAIGN.comeback.credit, fee = G.CAMPAIGN.comeback.info_fee_musd;
+  c.credit = k.seize + k.per_loan;   // one more loan would put credit on the seize line: no loan helps
+  G.saveCampaign(c);
+  var h = G.getComeback(), cheapest = h.cheapest_launch_musd;
+  check("5b the setup: no loan is allowed and a launch has a price", h.max_borrow_musd === 0 && cheapest > 0, JSON.stringify({ max: h.max_borrow_musd, cheapest: cheapest }));
+  c = G.getCampaign(); c.treasury_musd = cents(cheapest + fee.sheet - 0.005); G.saveCampaign(c);
+  var r = G.buyPartInfo(f.d, "radio-uhf", "sheet");
+  check("5b a fee that leaves less than the cheapest launch (and no loan) is refused, nothing is taken", r.ok === false && /not enough cash/i.test(r.reason) && cash(G) === cents(cheapest + fee.sheet - 0.005) && !G.partInfoKnown(f.d, "radio-uhf", "sheet"), JSON.stringify(r));
+  c = G.getCampaign(); c.treasury_musd = cents(cheapest + fee.sheet); G.saveCampaign(c);
+  var ok = G.buyPartInfo(f.d, "radio-uhf", "sheet");
+  check("5b a fee that leaves exactly the cheapest launch is allowed", ok.ok === true && cash(G) === cents(cheapest), JSON.stringify(ok));
+  check("5b the run is still on, not lost", !G.getComeback().finished);
+})();
+
 // ---- 6. Part 1, standalone designs and the lab are free; a bad request is refused.
 (function () {
   var f = fresh(), G = f.G;

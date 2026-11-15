@@ -63,6 +63,7 @@ async function normal(viewport, label) {
   ok(/DOSSIER \?/.test(pv) && /ASK THE ENGINEERS/.test(pv), 'Normal: the preview shows DOSSIER ? and ASK THE ENGINEERS');
   ok(await page.locator('#preview figure.explainer').count() === 0, 'Normal: no explainer before the dossier is paid');
   ok(await page.locator('#preview .part-why').count() === 0, 'Normal: no WHY box before the dossier is paid');
+  ok(await page.locator('#preview .preview-line.fix, #preview .preview-line.cause').count() === 0, 'Normal: no Fixes or Causes lines before the dossier is paid');
   if (viewport.width > 600) await page.screenshot({ path: path.join(shots, `v2paid-normal-${label}-unknown.png`) });
 
   // Pay for the performance: the value appears and the cash drops by the fee.
@@ -78,6 +79,7 @@ async function normal(viewport, label) {
   const cash2 = await T.cashNow(page);
   ok(near(cash1 - cash2, 0.04), `Normal: the dossier cost its own fee (${cash1} -> ${cash2})`);
   ok(await page.locator('#preview figure.explainer, #preview .blurb').count() > 0, 'Normal: the explainer shows once the dossier is paid');
+  ok(await page.locator('#preview .preview-line.fix').count() > 0 && /Fixes:/.test(await page.locator('#preview').innerText()), 'Normal: a paid dossier shows what the part fixes ("Fixes: ...")');
   ok(await asks(page) === 0 || await page.locator(`[data-key="ask-${INSTR}-dossier"]`).count() === 0, 'Normal: no ASK left for that part');
   // Once per run: change bins and come back, and it stays known; the same part's other groups were never charged twice.
   await page.click('[data-key="bin-power"]'); await page.click('[data-key="bin-instrument"]');

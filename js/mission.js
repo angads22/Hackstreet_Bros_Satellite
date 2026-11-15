@@ -2399,6 +2399,11 @@ function buyPartInfo(design, partId, group) {
   if (c.treasury_musd < fee - 1e-9) {
     return no("Not enough cash: the engineers charge $" + fee + "M and Ajay has $" + c.treasury_musd + "M.", fee);
   }
+  // Like PAY BACK, never spend into a dead end: after the fee the cash and the loans the lenders still allow must pay for a launch.
+  var cheapest = comebackCheapest(c);
+  if (isFinite(cheapest) && c.treasury_musd - fee + maxBorrow(c) < cheapest - 1e-9) {
+    return no("Not enough cash: after the fee Ajay could not pay for any launch, even with a loan.", fee);
+  }
   c.treasury_musd = round(c.treasury_musd - fee, 3);
   c.info = c.info || {};
   c.info[partId] = (c.info[partId] || []).concat(group);

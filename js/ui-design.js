@@ -2934,7 +2934,8 @@
     if (why) box.appendChild(why);
     if (bits.length || !unknown.length) box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
     unknown.forEach(function (g) { box.appendChild(askLine(p, g, false)); });   // "?" and ASK THE ENGINEERS, with the fee
-    if (assist() === "full") {   // above Easy the player works out what a part fixes or breaks
+    // Above Easy the player works out what a part fixes or breaks, unless the engineers were paid for the DOSSIER (which holds it).
+    if (assist() === "full" || (isComebackDesign(state.design) && dossierOk)) {
       ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
       ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
     }
