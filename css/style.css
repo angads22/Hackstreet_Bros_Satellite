@@ -994,3 +994,68 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 /* An event: focus lands on its heading (not a control, so no ring), and every choice reads the same, with its cost under it. */
 .dialogue h2[tabindex="-1"]:focus { outline: none; }
 .choices .btn .odds { opacity: 1; color: var(--text-dim); }
+
+/* ================================================================ MOTION (js/motion.js) ================================================================
+   One block. Everything is inside prefers-reduced-motion: no-preference, so with reduced motion the game is static.
+   Opacity and transform only; fill-mode "backwards" (the resting style is the final one: nothing stays "running" and no
+   transform is left on a panel). Every animation is under about 1.2 s and none blocks input. Names start with gm-.
+   js/motion.js adds the classes only when the screen changes (never on a redraw), the word spans of a story line, and
+   --gm-i (the place in the stagger) and --gm-base (a start delay). */
+@media (prefers-reduced-motion: no-preference) {
+  /* screen entry: headings and the story box slide up a little, the panels only fade (cards inside must not move) */
+  .gm-up   { animation: gm-up 0.32s cubic-bezier(0.2, 0.7, 0.3, 1) backwards; animation-delay: calc(var(--gm-base, 0ms) + var(--gm-i, 0) * 45ms); }
+  .gm-fade { animation: gm-fade 0.3s ease-out backwards; animation-delay: calc(var(--gm-base, 0ms) + var(--gm-i, 0) * 45ms); }
+  .gm-drop { animation: gm-drop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) backwards; animation-delay: calc(var(--gm-base, 0ms) + var(--gm-i, 0) * 110ms); }
+  @keyframes gm-up   { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes gm-fade { from { opacity: 0; } }
+  @keyframes gm-drop { from { opacity: 0; transform: translateY(-14px); } }
+
+  /* the home page: the logotype's letters rise out of its baseline (the svg clips them), one by one */
+  .gm-letter { transform-box: fill-box; animation: gm-letter 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) backwards; animation-delay: calc(var(--gm-i, 0) * 40ms + 80ms); }
+  @keyframes gm-letter { from { opacity: 0; transform: translateY(70%); } }
+
+  /* story lines: Part 2 (and anywhere else) slides each word up and fades it in; Part 1 types it with a block cursor */
+  .gm-words .gm-w { display: inline-block; animation: gm-word 0.24s ease-out backwards; }
+  @keyframes gm-word { from { opacity: 0; transform: translateY(0.35em); } }
+  body[data-era="1958"] .gm-words .gm-w { display: inline; animation: gm-type 1ms steps(1, start) backwards; }
+  @keyframes gm-type { from { opacity: 0; } }
+  /* the cursor sits just after the last word and takes no room (it must never wrap the line or move the text), appears
+     with that word (--gm-d) and blinks twice */
+  body[data-era="1958"] .gm-words .gm-w:last-child { position: relative; }
+  body[data-era="1958"] .gm-words .gm-w:last-child::after { content: ""; position: absolute; left: 100%; top: 0.12em; width: 0.5em; height: 0.7em; margin-left: 0.14em;
+    background: currentColor; opacity: 0; animation: gm-cursor 0.3s steps(1) 2; animation-delay: var(--gm-d, 0ms); }
+  @keyframes gm-cursor { 0% { opacity: 1; } 50% { opacity: 0; } }
+
+  /* the mission: each log line slides in, the event card drops in, the month flips, the science bar moves */
+  [data-screen="mission"] .log > li { animation: gm-log 0.28s ease-out backwards; }
+  @keyframes gm-log { from { opacity: 0; transform: translateY(-6px); } }
+  [data-screen="mission"] .dialogue { animation: gm-drop 0.34s cubic-bezier(0.2, 0.8, 0.3, 1) backwards; }
+  [data-screen="mission"] .bar-fill { transition: width 0.28s ease-out; }
+  .gm-flip { display: inline-block; transform-origin: 50% 100%; animation: gm-flip 0.24s ease-out backwards; }
+  @keyframes gm-flip { from { opacity: 0.2; transform: perspective(300px) rotateX(-70deg); } }
+
+  /* the debrief: stars land one by one with a thud, the stamp slams in, the rows come in order */
+  .gm-star { display: inline-block; animation: gm-star 0.3s ease-in backwards; }
+  @keyframes gm-star {
+    0%   { opacity: 0; transform: translateY(-0.8em) scale(1.7); }
+    70%  { opacity: 1; transform: translateY(0) scale(0.9); }
+    100% { transform: none; }
+  }
+  .cb-stamp.gm-slam { animation: gm-slam 0.38s cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
+  @keyframes gm-slam { from { opacity: 0; scale: 1.4; rotate: -7deg; } 65% { opacity: 1; scale: 0.96; rotate: 1deg; } }
+  .gm-rise { animation: gm-rise 0.28s ease-out backwards; animation-delay: calc(var(--gm-base, 0ms) + var(--gm-i, 0) * 55ms); }
+  @keyframes gm-rise { from { opacity: 0; transform: translateY(6px); } }
+  .gm-anchor { position: relative; }
+  .gm-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+  .gm-burst i { position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background: var(--c, var(--accent)); opacity: 0;
+    animation: gm-bit 0.7s ease-out backwards; }
+  @keyframes gm-bit { from { opacity: 1; transform: translate(0, 0) rotate(0deg); } to { opacity: 0; transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--r, 0deg)); } }
+
+  /* numbers: a changed value flashes once, a changed bar grows from its old width (never counted through values) */
+  .gm-flash { display: inline-block; transform-origin: 50% 60%; animation: gm-flash 0.6s ease-out backwards; }
+  @keyframes gm-flash { from { color: var(--accent-ink); transform: scale(1.16); } }
+  .gm-grow { transition: width 0.4s ease-out; }
+
+  /* buttons: a tiny pressed state, nothing more */
+  .btn:active:not(:disabled), .icon-btn:active:not(:disabled), .cb-level:active { transform: translateY(1px); }
+}

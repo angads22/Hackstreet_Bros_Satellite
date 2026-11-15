@@ -95,7 +95,9 @@
 
   function showProgress(s) {
     var target = run.objective ? run.objective.science_target : 0;
-    run.nodes.month.textContent = "MONTH " + num(s.month, 0);
+    var monthText = "MONTH " + num(s.month, 0);
+    if (run.nodes.month.textContent !== monthText && !run.fast && window.GravMotion) GravMotion.flip(run.nodes.month);
+    run.nodes.month.textContent = monthText;
     run.nodes.sciText.textContent = num(s.science, 0) + " / " + num(target, 0);
     // Bar width only; the score itself comes from getDebrief.
     run.nodes.fill.style.width = (target > 0 ? Math.min(1, s.science / target) * 100 : 0) + "%";
