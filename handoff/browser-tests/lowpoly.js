@@ -38,7 +38,8 @@ function show(page, screen, parts, launcher) {
   }, [screen, parts || [], launcher || null]);
 }
 const noSideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-const head = (page, text) => page.locator('.screen-head h1', { hasText: text }).waitFor({ timeout: 8000 }).then(() => true, () => false);
+// 20 s: LAUNCH plays the lift-off (about 9.5 s) before the Mission screen opens.
+const head = (page, text) => page.locator('.screen-head h1', { hasText: text }).waitFor({ timeout: 20000 }).then(() => true, () => false);
 // A fingerprint of a canvas's pixels (changes when anything moves).
 const pixels = (page, sel) => page.locator(sel).first().evaluate(c => { try { const s = c.toDataURL(); let h = 0; for (let i = 0; i < s.length; i += 7) h = (h * 31 + s.charCodeAt(i)) | 0; return h; } catch (e) { return null; } });
 
@@ -92,6 +93,7 @@ async function lowPolyOn(viewport, label) {
   ok(await page.locator('.pad canvas.scene.lp-pad').count() === 1, 'the pad is a low-poly canvas');
   ok(/small dedicated launcher/i.test(await page.locator('.pad canvas.lp-pad').getAttribute('aria-label')), '...with the chosen rocket in its label');
   ok(await page.locator('.sat-small canvas').count() === 1, 'the small satellite is a low-poly canvas');
+  ok(!/\d/.test(await page.locator('.launch-control .countdown').innerText()), 'the T-MINUS box shows no frozen time (the count runs at LAUNCH)');
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(shots, `lowpoly-${label}-review.png`), fullPage: true });
   ok(await noSideScroll(page), 'Readiness: no sideways scroll');
@@ -101,12 +103,12 @@ async function lowPolyOn(viewport, label) {
   await page.click('.btn.big');
   ok(await page.locator('.launch-show').count() === 1, 'LAUNCH shows the lift-off');
   ok(await page.locator('.screen-head h1', { hasText: 'READINESS' }).count() === 1, '...over the Readiness review (the screen has not changed yet)');
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(5500);
   await page.screenshot({ path: path.join(shots, `lowpoly-${label}-liftoff.png`) });
   ok(await head(page, 'MISSION'), 'then the mission screen');
   const took = Date.now() - t0;
   console.log(`     lift-off lasted ${took} ms`);
-  ok(took > 1800 && took < 3200, 'the lift-off ends by itself in about 2.5 s');
+  ok(took > 8500 && took < 11000, 'the lift-off ends by itself in about 9.5 s');
   ok(await page.locator('.launch-show').count() === 0, '...and is gone');
   ok(await page.locator('.mission-earth').count() === 1, 'the mission screen shows a small Earth with the orbit');
   // Past month 10 the month is wider: the Earth beside it must shrink, not wrap and push the screen down.
@@ -129,6 +131,17 @@ async function lowPolyOn(viewport, label) {
   await page.waitForTimeout(200);
   await page.mouse.click(viewport.width / 2, 100);
   ok(await head(page, 'MISSION') && Date.now() - t1 < 1500, 'a click skips the lift-off');
+  // So does Space, Enter or Escape (any key does), at any moment of the show.
+  for (const key of ['Space', 'Enter', 'Escape']) {
+    await show(page, 'review', PARTS, 'small');
+    await head(page, 'READINESS');
+    const tk = Date.now();
+    await page.click('.btn.big');
+    await page.waitForTimeout(1500);
+    ok(await page.locator('.launch-show').count() === 1, `${key}: the lift-off is still playing 1.5 s in`);
+    await page.keyboard.press(key);
+    ok(await head(page, 'MISSION') && Date.now() - tk < 3500 && await page.locator('.launch-show').count() === 0, `${key} skips the lift-off`);
+  }
   // So does a key, and M cannot open the map: the design is locked from the click on.
   await show(page, 'review', PARTS, 'small');
   await head(page, 'READINESS');
@@ -137,6 +150,37 @@ async function lowPolyOn(viewport, label) {
   await page.waitForTimeout(200);
   await page.keyboard.press('m');
   ok(await head(page, 'MISSION') && Date.now() - t2 < 1500 && await page.locator('.screen-head h1', { hasText: 'BASE MAP' }).count() === 0, 'a key skips it too, and M does not open the map');
+  // The lift-off counts a T-MINUS down to zero, lifts off on zero (not before) and climbs, then the mission screen
+  // opens. A status line follows (no digits in it) and SKIP stays on screen the whole time.
+  await show(page, 'review', PARTS, 'small');
+  await head(page, 'READINESS');
+  await page.click('.btn.big');
+  const counts = [], phases = [], seen = [], says = [];
+  let skipVisible = true, samples = 0;
+  for (let i = 0; i < 500; i++) {
+    const s = await page.evaluate(() => {
+      const box = document.querySelector('.launch-show'), c = box && box.querySelector('[data-key="launch-count"]');
+      if (!box) return null;
+      const k = box.querySelector('.launch-skip').getBoundingClientRect(), st = box.querySelector('[data-key="launch-status"]');
+      return { n: c ? parseInt(c.textContent.replace(/\D/g, ''), 10) : NaN, phase: box.getAttribute('data-phase'), word: box.querySelector('.launch-word').textContent,
+        say: st ? st.textContent : '', skip: k.top >= 0 && k.bottom <= innerHeight && k.left >= 0 && k.right <= innerWidth && k.height > 10 };
+    });
+    if (!s) break;
+    samples++;
+    if (!s.skip) skipVisible = false;
+    if (counts[counts.length - 1] !== s.n) { counts.push(s.n); phases.push(s.phase + (s.word === 'LIFT-OFF' ? '+word' : '')); }
+    if (seen[seen.length - 1] !== s.phase) seen.push(s.phase);
+    if (says[says.length - 1] !== s.say) says.push(s.say);
+    await page.waitForTimeout(40);
+  }
+  console.log(`     the count read ${counts.join(', ')} (${phases.join(', ')}); phases ${seen.join(' > ')}; status: ${says.join(' / ')}`);
+  ok(counts.length >= 5 && counts[0] > 3 && counts.every((n, i) => i === 0 || n === counts[i - 1] - 1), 'the lift-off counts down one at a time from more than 3');
+  ok(counts[counts.length - 1] === 0, '...to zero before the mission screen opens');
+  ok(phases.every((ph, i) => (counts[i] === 0) === (ph === 'liftoff+word')), '...and it says LIFT-OFF on zero, never before');
+  ok(seen.join(' > ') === 'count > liftoff > climb', '...then the lift-off and the climb follow the zero');
+  ok(says.length >= 3 && says.every(t => t.length > 0 && !/\d/.test(t)), 'a status line follows the sequence, with no numbers in it');
+  ok(skipVisible && samples > 100, 'SKIP stays on screen the whole time (' + samples + ' samples)');
+  ok(await head(page, 'MISSION'), '...then the mission screen');
 
   // The base map, when it is low-poly: the canvas sits under the markers, which keep their places.
   await show(page, 'map', PARTS);

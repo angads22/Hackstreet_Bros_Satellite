@@ -3359,16 +3359,28 @@
     }
   }
 
-  // The lift-off: the design's rocket leaves the low-poly pad for a moment, then done() opens the mission
-  // screen. At most LAUNCH_SHOW_MS; a click or a key skips it. It only delays the screen change: the
-  // design is locked at the click and nothing can change it before done(). With reduced motion, with no
-  // rocket chosen or without the 3D art, done() runs at once and nothing is shown.
-  var LAUNCH_SHOW_MS = 2300, launchShowing = false;
+  // The lift-off, about 9.5 s: T-MINUS 5 counts down to zero over the design's rocket on the low-poly pad (the arms
+  // swing clear, the engines start, smoke billows), it lifts off on zero, climbs with the camera following, and leaves
+  // the frame; then done() opens the mission screen. A click or any key skips it (a SKIP button stays on screen the
+  // whole time). It only delays the screen change: the design is locked at the click and nothing can change it before
+  // done(). With reduced motion, with no rocket chosen or without the 3D art, done() runs at once and nothing is shown.
+  // The count is the show's clock, not the game's. The pad scene (js/lp-pad.js) has its own launch clock: 0 on the pad,
+  // about 0.4 ignition, 3 lift-off, then the climb. It plays at its natural speed through the count, so lift-off lands
+  // on zero; only the climb is a little faster than natural.
+  var LAUNCH_COUNT = 5, LAUNCH_TICK_MS = 800, LAUNCH_HOLD_MS = 1000, LAUNCH_LIFTOFF_MS = 2000, LAUNCH_CLIMB_MS = 3500;
+  var LAUNCH_SCENE_LIFTOFF = 3, LAUNCH_SCENE_END = 9.8, LAUNCH_FOLLOW_UNTIL = 5, LAUNCH_FOLLOW_EASE = 2;
+  var LAUNCH_SHOW_MS = LAUNCH_COUNT * LAUNCH_TICK_MS + LAUNCH_LIFTOFF_MS + LAUNCH_CLIMB_MS, launchShowing = false;
+  // What the status line says from each moment (ms into the show).
+  var LAUNCH_STATUS = [[0, "ALL SYSTEMS GO"], [1400, "ENGINES START"], [LAUNCH_COUNT * LAUNCH_TICK_MS, "CLEAR OF THE TOWER"],
+    [LAUNCH_COUNT * LAUNCH_TICK_MS + LAUNCH_LIFTOFF_MS, "CLIMBING"]];
   function launchShow(done) {
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var row = chosenLauncher();
     if (reduce || !row || typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.pad !== "function") return done();
-    var finished = false, box = null, timer = null;
+    var finished = false, box = null, timer = null, ticker = null, count = null, status = null, word = null;
+    var countMs = LAUNCH_COUNT * LAUNCH_TICK_MS, climbAt = countMs + LAUNCH_LIFTOFF_MS;
+    var now = function () { return window.performance && performance.now ? performance.now() : Date.now(); };
+    var start = now();
     function onKeyShow(e) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault();
@@ -3379,27 +3391,66 @@
       if (finished) return;
       finished = true;
       clearTimeout(timer);
+      clearInterval(ticker);
       document.removeEventListener("keydown", onKeyShow, true);
       if (box && box.parentNode) box.parentNode.removeChild(box);
       launchShowing = false;
       done();
+    }
+    // T-MINUS 00:00:05 ... 01, then 00:00:00 and LIFT-OFF; the status line follows the sequence.
+    function showCount() {
+      if (!count || !box) return;
+      var ms = now() - start;
+      var left = Math.max(0, Math.ceil(LAUNCH_COUNT - ms / LAUNCH_TICK_MS));
+      var text = "00:00:0" + left;
+      if (count.textContent !== text) count.textContent = text;
+      var phase = left > 0 ? "count" : ms < climbAt ? "liftoff" : "climb";
+      if (box.getAttribute("data-phase") !== phase) box.setAttribute("data-phase", phase);
+      var say = "";
+      LAUNCH_STATUS.forEach(function (s) { if (ms >= s[0]) say = s[1]; });
+      if (status.textContent !== say) status.textContent = say;
+      var w = left > 0 ? "T-MINUS" : "LIFT-OFF";
+      if (word.textContent !== w) word.textContent = w;
+    }
+    // The pad scene's clock for a moment of the show: held on the pad for a second, its natural speed through the count
+    // (lift-off at zero) and the lift-off, then the climb.
+    function sceneAt(ms) {
+      if (ms <= LAUNCH_HOLD_MS) return 0;
+      if (ms <= countMs) return (ms - LAUNCH_HOLD_MS) / (countMs - LAUNCH_HOLD_MS) * LAUNCH_SCENE_LIFTOFF;
+      if (ms <= climbAt) return LAUNCH_SCENE_LIFTOFF + (ms - countMs) / LAUNCH_LIFTOFF_MS * (LAUNCH_FOLLOW_UNTIL - LAUNCH_SCENE_LIFTOFF);
+      return LAUNCH_FOLLOW_UNTIL + Math.min(1, (ms - climbAt) / LAUNCH_CLIMB_MS) * (LAUNCH_SCENE_END - LAUNCH_FOLLOW_UNTIL);
     }
     launchShowing = true;
     timer = setTimeout(finish, LAUNCH_SHOW_MS);   // armed first: a hidden tab or a drawing error cannot hold the player here
     try {
       var lp = lpCanvas(function (L) { return L.scenes.pad({ launcherId: row.id, launcher: row, ready: true }); }, "lp-launch");
       if (!lp) return finish();
-      var t0 = null;
-      // About six seconds of the launch in 2.3: the arms swing clear, ignition, smoke, lift-off and the climb.
-      lp.view.onFrame(function (t) {
-        if (t0 === null) t0 = t;
-        lp.wrap.setTime(0.4 + (t - t0) * 2.6);
+      var cam = lp.wrap.scene.camera, followed = null;
+      lp.wrap.setTime(0);
+      lp.view.onFrame(function () {
+        var T = sceneAt(now() - start);
+        lp.wrap.setTime(T);
+        // The scene's camera follows the rocket up. From LAUNCH_FOLLOW_UNTIL it slows to a stop over LAUNCH_FOLLOW_EASE
+        // seconds, so the rocket climbs out of the top of the frame instead of staying in it.
+        if (T > LAUNCH_FOLLOW_UNTIL && cam.target) {
+          if (followed === null) followed = { y: cam.target[1], T: T, v: 0 };
+          var tau = Math.min(T - LAUNCH_FOLLOW_UNTIL, LAUNCH_FOLLOW_EASE);
+          if (followed.v === 0) followed.v = (cam.target[1] - followed.y) / Math.max(1e-3, T - followed.T);
+          cam.target = [cam.target[0], followed.y + followed.v * (tau - tau * tau / (2 * LAUNCH_FOLLOW_EASE)), cam.target[2]];
+        } else followed = null;
       });
+      word = el("span", { class: "launch-word", text: "T-MINUS" });
+      count = el("span", { class: "countdown", "data-key": "launch-count", text: "00:00:0" + LAUNCH_COUNT });
+      status = el("p", { class: "launch-status", "data-key": "launch-status", text: LAUNCH_STATUS[0][1] });
       var skip = el("button", { type: "button", class: "btn launch-skip" }, "SKIP");
-      box = el("div", { class: "launch-show", role: "dialog", "aria-modal": "true", "aria-label": "Lift-off. Click or press any key to skip." }, [lp.canvas, skip]);
+      box = el("div", { class: "launch-show", role: "dialog", "aria-modal": "true", "data-phase": "count",
+        "aria-label": "Countdown and lift-off. Click, or press any key, to skip." }, [
+        el("div", { class: "launch-clock", "aria-hidden": "true" }, [word, count]), status,
+        lp.canvas, skip]);
       box.addEventListener("click", finish);
       document.addEventListener("keydown", onKeyShow, true);
       document.body.appendChild(box);
+      ticker = setInterval(showCount, 50);   // its own timer: the count goes on even if the canvas stops drawing
       state.swappedAt = Date.now();   // the second click of a double click on LAUNCH must not skip it at once
       skip.focus();
     } catch (e) { finish(); }
