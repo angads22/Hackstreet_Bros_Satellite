@@ -21,7 +21,7 @@ const ORBITS = [
     science_mult: 1.0,
     downlink_mult: 0.025,
     lifetime_months: 36,      // GAME VALUE: drag brings a 500 km smallsat down in a few years
-    blurb: "Close and sharp, and the cheapest to reach. Short ground passes, and it never flies over the poles.",
+    blurb: "Close, sharp and cheap. Short ground passes. Never over the poles.",
     altitude_km: 500,
     dv_needed_ms: 0
   },
@@ -31,7 +31,7 @@ const ORBITS = [
     science_mult: 0.9,
     downlink_mult: 0.07,
     lifetime_months: 48,
-    blurb: "Passes over every part of Earth, poles included, at the same local time each day. Since 1995 you must also bring fuel to come down at the end.",
+    blurb: "Covers all of Earth, poles included, at the same local time daily. Since 1995, bring fuel to come down.",
     altitude_km: 700,
     dv_needed_ms: 80
   },
@@ -41,7 +41,7 @@ const ORBITS = [
     science_mult: 0.4,
     downlink_mult: 1.0,
     lifetime_months: 60,
-    blurb: "Hovers over one spot, always in contact, always watching. But it is 70 times farther away than low orbit, so details blur.",
+    blurb: "Hovers over one spot, always in contact. 70 times farther than low orbit, so details blur.",
     altitude_km: 35786,
     dv_needed_ms: 260
   }
