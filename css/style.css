@@ -874,3 +874,16 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
   .cb-meter-debt, .cb-meter-cash { transition: none; }
   .cb-stamp { animation: none; }
 }
+
+/* ---------------------------------------------------------------- mission and debrief: sweep fixes (flat, rounded)
+   Fast forward shows when it is on (aria-pressed), not only by the month counting faster. */
+.controls .btn[aria-pressed="true"] { background: var(--info); color: var(--on-info); border-color: var(--info); }
+/* The debrief's score rows wrap on a narrow phone (320px): the value drops under its label instead of off the page. */
+.paper .row { flex-wrap: wrap; row-gap: 2px; }
+.paper .row-label { min-width: 0; overflow-wrap: anywhere; }
+.paper .row-value { margin-left: auto; }
+@media (max-width: 360px) {
+  .paper .row-label span:first-child { font-size: 24px; }
+  .paper .row-value { font-size: 30px; }
+  .ledger-head h1 { font-size: 30px; }
+}

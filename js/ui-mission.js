@@ -194,6 +194,8 @@
     if (run.finishing) return;
     run.paused = !run.paused;
     run.nodes.pause.textContent = run.paused ? "RESUME" : "PAUSE";
+    // The name follows the label, so "Resume" finds it by voice and a screen reader says what it will do.
+    run.nodes.pause.setAttribute("aria-label", run.paused ? "Resume the mission" : "Pause the mission");
     schedule();
   }
 
@@ -251,7 +253,7 @@
     var paper = el("div", { class: "panel paper" }, [
       el("div", { class: "ledger-head" }, [
         el("h1", { text: "MISSION REPORT" }),
-        el("span", { class: "stamp" + (d.stars > 0 ? " pass" : ""), text: UI.starsText(d.stars), "aria-label": d.stars + " of 3 stars" })
+        el("span", { class: "stamp" + (d.stars > 0 ? " pass" : ""), role: "img", text: UI.starsText(d.stars), "aria-label": d.stars + " of 3 stars" })
       ])
     ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
@@ -270,7 +272,7 @@
       // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them.
       result && result.unlocked && !done.design.campaign && !walk ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
       result && result.era_unlocked && !walk && !comeback ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
-      el("h2", null, [UI.icon(d.limiting), limitingHeading(d)]),
+      el("h2", null, [UI.icon(limitIcon(d)) || UI.icon(d.limiting), limitingHeading(d)]),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
       campaignBlock(done.design, d, result),
@@ -416,6 +418,15 @@
   function limitingHeading(d) {
     var name = d.limiting_name || LIMIT_NAMES[d.limiting] || String(d.limiting || "");
     return (name + " limited this mission").toUpperCase();
+  }
+
+  // The icon beside that heading: the discipline's own (orbit, instrument, attitude) when the back end names one, else
+  // the limiting key's. getDebrief gives the discipline only by name, so the name is looked up in DEBRIEF.disciplines.
+  var DISCIPLINE_ICONS = { orbit: "orbit", instruments: "instrument", attitude: "attitude" };
+  function limitIcon(d) {
+    var names = typeof DEBRIEF !== "undefined" && DEBRIEF && DEBRIEF.disciplines ? DEBRIEF.disciplines : {};
+    var key = Object.keys(names).filter(function (k) { return names[k] === d.limiting_name; })[0];
+    return DISCIPLINE_ICONS[key] || d.limiting;
   }
 
   // The four mission segments (launch, space, ground, user), one short line each.
