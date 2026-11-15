@@ -72,7 +72,7 @@
     UI.leaveMission();
     var cfg = config();
     var running = info();
-    UI.setStatus(kicker() + " · " + title());
+    UI.setStatus(kicker());
     var cards = ["training", "standard", "expert"].map(function (id) {
       var t = cfg && cfg.tiers ? cfg.tiers[id] : null, row = tierRow(id);
       if (!t) return null;
@@ -212,7 +212,8 @@
       ])
     ]);
 
-    var situation = !c.flights ? line("hub", "start") : last && last.payout_musd > 0 ? line("hub", "paid") : null;
+    var situation = !c.flights ? line("hub", "start") : c.debt_musd < c.start_debt_musd / 2 ? line("hub", "halfway")
+      : last && last.payout_musd > 0 ? line("hub", "paid") : null;
     var jobs = UI.list(c.contracts).map(function (k) {
       return contractCard(k, { onFly: function () {
         var d = typeof newComebackDesign === "function" ? newComebackDesign(k.id) : null;
@@ -247,7 +248,7 @@
     if (!e) { showPicker(); return; }
     var c = info();
     UI.leaveMission();
-    UI.setStatus(kicker() + " · " + String(e.title).toUpperCase());
+    UI.setStatus(title());
     var kind = e.won ? "won" : e.lost_reason === "cash" ? "cash" : "deadline";
     var t = e.totals || {};
     var scene = e.won && UI.lpCanvas ? UI.lpCanvas(function (L) {
@@ -256,11 +257,11 @@
     var beats = UI.list(line("ending", kind)).map(say);
     var stat = function (v, label) { return el("div", null, [el("strong", { text: v }), el("span", { text: label })]); };
     UI.mount("comeback-end", el("section", { class: "screen cb" }, [
-      el("div", { class: "screen-head" }, [el("span", { class: "kicker", text: kicker() + (c ? " · " + levelName(c.tier) : "") }),
+      el("div", { class: "screen-head" }, [el("span", { class: "kicker", text: "PART 2" + (c ? " · " + levelName(c.tier) : "") }),
         el("h1", { text: String(e.title).toUpperCase() })]),
       el("div", { class: "panel cb-end " + kind }, [
         scene ? scene.canvas : null,
-        el("p", { class: "cb-stamp " + (e.won ? "pass" : "fail"), text: e.won ? "PAID OFF" : kind === "cash" ? "OUT OF CASH" : "OUT OF TIME" }),
+        el("p", { class: "cb-stamp " + (e.won ? "pass" : "fail"), text: e.won ? "PAID OFF" : "KEYS TAKEN" }),
         el("h2", { class: "cb-headline", text: e.headline }),
         el("div", { class: "chron-stats" }, [
           stat(num(t.flights, 0), "FLIGHTS"), stat(money(t.earned_musd), "EARNED"),

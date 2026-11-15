@@ -855,7 +855,8 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-stamp { display: inline-block; padding: 4px 16px; border: 5px solid var(--bad); border-radius: 10px; color: var(--bad); font-family: var(--pixel); font-weight: 700;
   font-size: clamp(30px, 6vw, 44px); line-height: 1.1; transform: rotate(-4deg); animation: cb-stamp 0.45s ease-out both; }
 .cb-stamp.pass { border-color: var(--info); color: var(--info-ink); }
-@keyframes cb-stamp { from { opacity: 0; transform: rotate(-4deg) scale(1.8); } to { opacity: 1; transform: rotate(-4deg) scale(1); } }
+@keyframes cb-stamp { from { opacity: 0; transform: rotate(-4deg) scale(1.6); } to { opacity: 1; transform: rotate(-4deg) scale(1); } }
+.cb-result, .cb-end { overflow: hidden; }   /* the stamp lands from larger: it must not widen the page while it does */
 .cb-ledger { display: flex; flex-direction: column; }
 .cb-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-top: 2px dashed var(--border); font-size: 21px; }
 .cb-row.cb-total { border-top: 3px solid var(--text-dim); font-family: var(--pixel); font-weight: 700; font-size: 24px; }
@@ -866,7 +867,7 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-end .chron-stats { border-color: var(--border); }
 .cb-end .chron-stats strong { color: var(--accent-ink); }
 .cb-end .chron-stats span { color: var(--text-dim); }
-.cb-headline { font-size: clamp(26px, 4vw, 34px); color: var(--text); max-width: 32ch; }
+.cb-end .cb-headline { font-size: clamp(26px, 4vw, 34px); color: var(--text); max-width: 32ch; }
 .cb-scene { display: block; width: 100%; height: auto; aspect-ratio: 16 / 7; border-radius: 10px; }
 .cb-epilogue { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {

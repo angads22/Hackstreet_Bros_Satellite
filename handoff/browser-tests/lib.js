@@ -66,7 +66,21 @@ const BIN = { 'explorer-body': 'structure', 'spin-stabilised': 'attitude', 'cosm
   'silver-zinc-battery': 'power',
   // present-day parts (modern.js)
   'smallsat-bus': 'structure', 'reaction-wheels': 'attitude', 'sar-radar': 'instrument', 'solar-large': 'power', 'radio-xband': 'comms',
-  'obc-basic': 'computer', 'battery-28v': 'power', 'prop-green-large': 'propulsion' };
+  'obc-basic': 'computer', 'battery-28v': 'power', 'prop-green-large': 'propulsion',
+  // Part 2's contract designs (CONTRACT below)
+  'drum-body': 'structure', 'cubesat-12u': 'structure', 'oso-xray-spectrometer': 'instrument', 'avcs-camera': 'instrument',
+  'alouette-2-sounder': 'instrument', 'solar-small': 'power', 'n-on-p-cells': 'power', 'radio-uhf': 'comms', 'radio-sband': 'comms',
+  'prop-ion': 'propulsion' };
+
+// Part 2's proof designs, one per contract topic the tests fly, found with the back end in Node (today's parts):
+//   solar: 3 stars on Normal's opening solar contract (low orbit): full pay and the 3-star bonus, about $2.7M with the rocket.
+//   wildfire: 2 stars on Normal's opening wildfire contract (low orbit): paid in part (a little under the minimum of data).
+//   ionosphere: Easy's opening ionosphere contract (polar orbit); it costs more than Easy's starting cash, so iono.js adds cash.
+const CONTRACT = {
+  solar: { orbit: 'leo', launcher: 'rideshare', parts: ['drum-body', 'spin-stabilised', 'scintillation-counter', 'oso-xray-spectrometer', 'solar-small', 'mercury-battery', 'radio-uhf', 'obc-basic'] },
+  wildfire: { orbit: 'leo', launcher: 'rideshare', parts: ['cubesat-12u', 'spin-stabilised', 'avcs-camera', 'n-on-p-cells', 'mercury-battery', 'radio-sband', 'obc-basic'] },
+  ionosphere: { orbit: 'sso', launcher: 'small', parts: ['smallsat-bus', 'spin-stabilised', 'alouette-2-sounder', 'solar-small', 'mercury-battery', 'radio-uhf', 'obc-basic', 'prop-ion'] }
+};
 
 async function addParts(page, parts) {
   for (const part of parts) {
@@ -99,10 +113,38 @@ async function fly(page, choice) {
   }
   return events;
 }
+// Part 2: from the home page, start a comeback on a difficulty ('training', 'standard' or 'expert') and go through Ajay's
+// intro to the workshop. Returns the intro beats' text.
+async function startComeback(page, tierId) {
+  await page.click('[data-key="part2-go"]');
+  await page.click(`[data-key="level-${tierId}"]`);
+  const beats = await throughBeats(page);
+  await waitHead(page, 'WORKSHOP');
+  return beats;
+}
+// Part 2: from the workshop, take the contract on `topic` (FLY THIS), build CONTRACT[topic] and launch it (the orbit is
+// chosen at the Tracking Station only when the contract leaves it open). Stops on the mission screen, or on the
+// readiness review with { review: true }.
+async function launchContract(page, topic, opts) {
+  const c = CONTRACT[topic];
+  await page.click(`[data-key="fly-${topic}"]`); await waitHead(page, 'BASE MAP');
+  if (c.orbit) {
+    await page.click('[data-key="blip-orbit"]'); await waitHead(page, 'ORBIT');
+    if (await page.locator(`button[data-key="orbit-${c.orbit}"]:not([disabled])`).count()) await page.click(`[data-key="orbit-${c.orbit}"]`);
+    await page.click('.nav-row .btn.primary');
+  } else await page.click('[data-key="blip-build"]');
+  await waitHead(page, 'BUILD');
+  await addParts(page, c.parts);
+  await page.click('.nav-row .btn.primary'); await waitHead(page, 'LAUNCH VEHICLE');
+  await page.click(`[data-key="rocket-${c.launcher}"]`);
+  await page.click('.nav-row .btn.primary'); await waitHead(page, 'READINESS');
+  if (opts && opts.review) return;
+  await page.locator('.btn.big').click(); await waitHead(page, 'MISSION');
+}
 async function stars(page) {
   const label = await page.locator('.stamp').getAttribute('aria-label');
   return parseInt(label, 10);
 }
 
 module.exports = { args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
-  addParts, throughBeats, fly, stars };
+  CONTRACT, addParts, throughBeats, fly, stars, startComeback, launchContract };

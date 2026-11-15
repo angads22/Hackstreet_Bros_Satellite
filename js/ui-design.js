@@ -2037,7 +2037,7 @@
   function comebackTimeRow(d) {
     var info = comebackInfo();
     if (!info || typeof flightMonths !== "function") return null;
-    return ["Time", num(flightMonths(d), 0) + " of " + num(info.months_left, 0) + " months left"];
+    return ["Time", num(flightMonths(d), 0) + " months (" + num(info.months_left, 0) + " left)"];
   }
   CHECK_LABELS.deadline = "LANDS TOO LATE";
   CHECK_LABELS["no-contract"] = "NO CONTRACT";
