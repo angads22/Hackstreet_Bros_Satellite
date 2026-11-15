@@ -793,3 +793,6 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 /* The small Earth beside the month on the mission screen; the controls keep to the right (or wrap below on a phone). */
 .mission-earth { width: 144px; height: auto; aspect-ratio: 4 / 3; margin-right: auto; background: var(--pal-night); border: 3px solid var(--border); }
 @media (max-width: 760px) { .mission-earth { width: 112px; } }
+/* The low-poly base map under the markers; once it has drawn, the pixel map's squares are hidden and only its route stays. */
+.map-lp { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.map.lp-on .map-art > rect { display: none; }

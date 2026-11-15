@@ -2440,12 +2440,71 @@
     return path.map(function (id) { return NODES[id].x + "," + NODES[id].y; }).join(" ");
   }
 
+  // The base map in low poly (LowPoly.scenes.base, js/lp-base.js): a canvas under the markers, the gold route and
+  // the player, which all keep their places. The scene is built for the canvas's own size, so its project(x, y)
+  // is exactly where a marker stands (x / 200 and y / 120 of the map box), and built again when the box changes
+  // shape. Once it has drawn, the pixel drawing is hidden (its SVG keeps only the route). Decoration only: the
+  // markers carry the meaning. null without the 3D art (the pixel map stays).
+  var baseScene = null;   // {key, wrap}: building it takes about 20 ms, so it is kept while the size holds
+  function lpBaseMap(board) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.base !== "function" ||
+          typeof LowPoly.view !== "function" || typeof ResizeObserver !== "function") return null;
+      var canvas = document.createElement("canvas"), view = null;
+      canvas.width = 0; canvas.height = 0;
+      canvas.className = "map-lp";
+      var ro = new ResizeObserver(function () {
+        if (!canvas.isConnected && view) { ro.disconnect(); return; }
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!(w > 0 && h > 0)) return;
+        try {
+          var key = w + "x" + h;
+          if (!baseScene || baseScene.key !== key) {
+            baseScene = { key: key, wrap: LowPoly.scenes.base({ width: w, height: h, places: PLACES, nodes: NODES, edges: EDGES }) };
+          }
+          if (view) view.set(baseScene.wrap);
+          else view = LowPoly.view(canvas, baseScene.wrap, { drag: false, keys: false, fps: 30 });
+          canvas.setAttribute("role", "presentation");   // decoration (the engine labels every canvas it draws)
+          if (canvas.width > 0) board.classList.add("lp-on");
+        } catch (e) { ro.disconnect(); board.classList.remove("lp-on"); }
+      });
+      ro.observe(canvas);
+      canvas.setAttribute("aria-hidden", "true");
+      canvas.setAttribute("role", "presentation");
+      return canvas;
+    } catch (e) { return null; }
+  }
+  // The header minimap's picture: the low-poly minimap drawn once and kept (setStep rebuilds the minimap on every
+  // redraw). "" when it cannot be drawn: the pixel map is used.
+  var miniPicture = null;
+  function lpMinimap() {
+    if (miniPicture !== null) return miniPicture;
+    miniPicture = "";
+    try {
+      if (typeof LowPoly === "object" && LowPoly && LowPoly.scenes && typeof LowPoly.scenes.minimap === "function") {
+        var wrap = LowPoly.scenes.minimap({ width: 340, height: 204, places: PLACES, nodes: NODES, edges: EDGES });
+        var c = document.createElement("canvas");
+        c.width = 340; c.height = 204;
+        if (LowPoly.render(c, wrap.scene)) miniPicture = c.toDataURL("image/png");
+      }
+    } catch (e) { miniPicture = ""; }
+    return miniPicture;
+  }
+
   // The map art. `mini` = the header minimap, with the player and the route drawn in.
   function mapSvg(mini, here) {
-    var svg = art("0 0 " + MAP_W + " " + MAP_H, mapRects(),
-      mini ? null : "Pixel map of the space centre: Mission Control, the Tracking Station, the Workshop, the Rocket Yard and the Launch Pad, joined by roads",
+    var picture = mini ? lpMinimap() : "";
+    var svg = art("0 0 " + MAP_W + " " + MAP_H, picture ? [] : mapRects(),
+      mini ? null : "Map of the space centre: Mission Control, the Tracking Station, the Workshop, the Rocket Yard and the Launch Pad, joined by roads",
       mini ? "minimap-art" : "map-art");
     var NS = "http://www.w3.org/2000/svg";
+    if (picture) {
+      var image = document.createElementNS(NS, "image");
+      image.setAttribute("href", picture);
+      image.setAttribute("width", MAP_W); image.setAttribute("height", MAP_H);
+      image.setAttribute("preserveAspectRatio", "none");
+      svg.appendChild(image);
+    }
     var line = document.createElementNS(NS, "polyline");
     line.setAttribute("class", "map-route");
     line.setAttribute("fill", "none");
@@ -2457,7 +2516,8 @@
       [[next.x - 4, next.y - 4, 8, 8, PAL.gold], [at.x - 3, at.y - 3, 6, 6, PAL.ink], [at.x - 2, at.y - 2, 4, 4, PAL.sky]].forEach(function (q) {
         var rect = document.createElementNS(NS, "rect");
         rect.setAttribute("x", q[0]); rect.setAttribute("y", q[1]);
-        rect.setAttribute("width", q[2]); rect.setAttribute("height", q[3]); rect.setAttribute("fill", q[4]);
+        rect.setAttribute("width", q[2]); rect.setAttribute("height", q[3]);
+        rect.style.fill = "var(" + q[4] + ")";   // the PAL names are CSS custom properties (a fill attribute cannot read one)
         svg.appendChild(rect);
       });
     }
@@ -2471,6 +2531,8 @@
     var board = el("div", { class: "map", id: "map", role: "group", tabindex: "0", "aria-label": "Base map. Arrow keys or WASD to walk, E to go in." });
     refs.svg = mapSvg(false);
     refs.route = refs.svg.querySelector(".map-route");
+    var lpMap = lpBaseMap(board);
+    if (lpMap) board.appendChild(lpMap);
     board.appendChild(refs.svg);
 
     PLACES.forEach(function (p) {
