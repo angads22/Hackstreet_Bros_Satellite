@@ -46,7 +46,7 @@ function check(o) {
     await p.waitForTimeout(400);
     const keys = await p.$$eval('[data-key^="fly-"]', es => es.map(e => e.dataset.key.slice(4)));
     const topic = keys.find(k => T.CONTRACT[k]);
-    const out = { level, card: card.slice(-70), topic };
+    const out = { level, card: card.slice(-140), topic };
     if (topic) {
       const c = T.CONTRACT[topic];
       await p.click('[data-key="fly-' + topic + '"]');
