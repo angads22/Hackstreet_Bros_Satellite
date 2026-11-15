@@ -6,6 +6,8 @@
 // 4. Event text names no hardware the satellite may not carry.
 // 5. The readiness review points an orbit no rocket reaches (or no thruster can hold) back to the orbit.
 // 6. The solar topic in 2026, after the sunspot record ends: the latest full year, never a made-up 0.
+// 7. An instrument card's science figure is what it delivers on this satellite, after the radio's and the power's losses.
+// 8. One verdict: a flight lost after it beat its target says the goal was met; a sliver of a target is never a success.
 var load = require("./load");
 var G = load();
 var passed = 0, failed = 0;
@@ -165,6 +167,22 @@ function adviceProblems(g, m, lim, label) {
   if (ch.thruster && text.toLowerCase().indexOf(g.getPart(ch.thruster).name.toLowerCase()) === -1) out.push("the text does not name the thruster: " + text);
   return out.map(function (x) { return label + ": " + x; });
 }
+// Every string the back end returns for a flight (getDebrief, and recordResult's result when given): readable
+// sentences and numbers. No doubled article ("The a hurricane"), no raw number ("0.000025 of 0.00004 GB"), no
+// proper noun lower-cased ("arctic sea-ice", "sun-synchronous"), no "0%" beside an amount that is not 0.
+function textProblems(obj, label) {
+  var out = [];
+  (function walk(v, at) {
+    if (typeof v === "string") {
+      if (/\b(?:the|a|an) (?:a|an|the)\b/i.test(v)) out.push(at + " article: " + v);
+      if (/\d\.\d{4,}|\b0\.0\d{3,}/.test(v)) out.push(at + " raw number: " + v);
+      if (/\b(?:arctic|sun-synchronous)\b/.test(v)) out.push(at + " lower-cased name: " + v);
+      if (/\b0\.0*[1-9][\d.]* ?[kMGT]?B\b[^.]*\(0%\)|\b[1-9][\d.]* ?[kMGT]?B\b[^.]*\(0%\)/.test(v)) out.push(at + " 0% of something: " + v);
+      if (/undefined|NaN|\bnull\b|Infinity/.test(v)) out.push(at + " broken text: " + v);
+    } else if (v && typeof v === "object") Object.keys(v).forEach(function (k) { walk(v[k], at + "." + k); });
+  })(obj, "");
+  return out.map(function (x) { return label + ": " + x; });
+}
 // Part 1: every launchable 1958 design, on each rocket, under each event choice; steps 1 and 2 preset the rocket.
 (function () {
   var base = G.newDesign("training"); G.setEra(base, "igy");
@@ -180,7 +198,8 @@ function adviceProblems(g, m, lim, label) {
       [0, 1, 2].forEach(function (choice) {
         var m = fly(d, choice), lim = adviceOf(G, m);
         flights++; kinds[lim.key] = (kinds[lim.key] || 0) + 1;
-        problems = problems.concat(adviceProblems(G, m, lim, ps.join("+") + " " + l + " choice " + choice));
+        problems = problems.concat(adviceProblems(G, m, lim, ps.join("+") + " " + l + " choice " + choice),
+                                   textProblems(G.getDebrief(m), ps.join("+") + " " + l + " choice " + choice));
         if (lim.suggestion !== G.getDebrief(m).suggestion) problems.push("getDebrief and limitingFactor disagree");
       });
     }); });
@@ -200,6 +219,22 @@ function adviceProblems(g, m, lim, label) {
   var lb = adviceOf(G, b);
   check("3 the eclipse advice fits the Explorer body and the 1958 rocket", lb.key === "power" && !/silver-zinc/.test(lb.suggestion) &&
     lb.change && adviceProblems(G, b, lb, "").length === 0, lb.suggestion);
+})();
+// The bug report's flights (flight-06): an event that ends the mission is named as written, and data in readable units.
+(function () {
+  var hur = fly(eraDesign("nimbus", "expert", "weather", "leo", "thor-able",
+    ["nimbus-bus", "reaction-wheels", "vidicon-camera", "n-on-p-cells", "nicad-battery", "vhf-telemetry", "tape-recorder"]), 0);
+  var ion = fly(eraDesign("nimbus", "expert", "ionosphere", "leo", "thor-agena",
+    ["drum-body", "spin-stabilised", "topside-sounder", "n-on-p-cells", "mercury-battery", "pcm-telemetry", "tape-recorder"]), 0);
+  var fire = fly(eraDesign("new-space", "expert", "wildfire", "leo", "rideshare",
+    ["cubesat-12u", "spin-stabilised", "optical-camera", "solar-small", "radio-uhf", "obc-basic"]), 0);
+  var dh = G.getDebrief(hur), di = G.getDebrief(ion), df = G.getDebrief(fire);
+  check("3 an event that ends a flight is named as written, never 'The a hurricane' or 'The the long antennas'",
+    hur.ended_early && ion.ended_early && dh.suggestion.indexOf(hur.end_reason.title + ":") === 0 && di.suggestion.indexOf(ion.end_reason.title + ":") === 0 &&
+    textProblems([dh, di], "").length === 0, dh.suggestion + " | " + di.suggestion);
+  var ground = df.segments.filter(function (x) { return x.id === "ground"; })[0].text;
+  check("3 a sliver of data reaching the ground reads 'under 1%' in readable units, not 0% or 0.01025 GB",
+    /MB of the 15 GB/.test(df.suggestion) && /under 1%/.test(ground) && textProblems(df, "").length === 0, df.suggestion + " | " + ground);
 })();
 // The other eras (standalone): random designs, random choices. Nothing from a later year, nothing that cannot launch.
 (function () {
@@ -223,7 +258,8 @@ function adviceProblems(g, m, lim, label) {
       if (G.runChecks(d).blockers.length) continue;
       var m = fly(d, function (ev) { return Math.floor(rnd() * ev.choices.length); });
       flights++;
-      problems = problems.concat(adviceProblems(G, m, adviceOf(G, m), era + " " + d.objective + " " + d.orbit + " " + d.launcher));
+      problems = problems.concat(adviceProblems(G, m, adviceOf(G, m), era + " " + d.objective + " " + d.orbit + " " + d.launcher),
+                                 textProblems(G.getDebrief(m), era + " " + d.objective + " " + d.orbit + " " + d.launcher));
     }
   });
   check("3 other eras: TRY THIS can be done in the design's own era", problems.length === 0 && flights > 300,
@@ -257,10 +293,11 @@ function adviceProblems(g, m, lim, label) {
     if (g.runChecks(d).blockers.length) continue;
     var m = g.startMission(d), st;
     do { st = g.stepMonth(m); if (st.event) g.chooseEvent(m, Math.floor(rnd() * st.event.choices.length)); } while (!st.ended);
-    g.recordResult(m);   // the debrief reads the advice after the flight is recorded, as the screen does
+    var rec = g.recordResult(m);   // the debrief reads the advice after the flight is recorded, as the screen does
     flights++; if (k.orbit) named++;
     var lim = adviceOf(g, m);
-    problems = problems.concat(adviceProblems(g, m, lim, topic + "/" + (k.orbit || "any") + " " + d.orbit + " " + d.launcher));
+    problems = problems.concat(adviceProblems(g, m, lim, topic + "/" + (k.orbit || "any") + " " + d.orbit + " " + d.launcher),
+                               textProblems([g.getDebrief(m), rec, g.getComeback(), g.getComebackEnding()], topic + "/" + (k.orbit || "any") + " " + d.orbit));
   }
   check("3 Part 2: TRY THIS for a comeback flight can be done, keeps the contract's topic and named orbit, and never says research",
     problems.length === 0 && flights > 200 && named > 50, flights + " flights, " + named + " with a named orbit" +
@@ -272,6 +309,33 @@ function adviceProblems(g, m, lim, label) {
     ["nimbus-bus", "reaction-wheels", "avcs-camera", "solar-small", "radio-sband", "obc-radtol", "prop-green-small"]), 0);
   var lim = adviceOf(G, m);
   check("3 a target reached on the last tier does not send the player to a next tier", lim.key === "none" && !/next tier/.test(lim.suggestion), lim.suggestion);
+  // Part 1: the back end cannot see the step, so the line must fit all three (no tier, contract, lender or lab).
+  var basic = ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "minitrack-beacon", "command-timer", "silicon-cells", "mercury-battery"];
+  var p1 = [fly(eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket", basic), 0), fly(eraDesign("igy", "training", "radiation", "leo", "juno-1", basic), 1)]
+    .map(function (x) { return G.getDebrief(x); });
+  check("3 Part 1: a target reached says something every step can do: no tier, contract, lender or lab",
+    p1.every(function (x) { return x.limiting === "none" && !/tier|contract|lender|lab\b|research/i.test(x.suggestion); }), p1.map(function (x) { return x.suggestion; }).join(" | "));
+  // Part 2: a flight with the game still on points to the lenders and the next contract; the flight that ends it does not.
+  var H = load({ storage: load.memoryStorage() });
+  H.newComeback("training");
+  function cbFlight(id, lastMonth) {
+    var c = H.getCampaign();
+    c.offers = c.offers.concat({ id: id, topic: "radiation", orbit: null, client: "A test client", reason: "It tests things.", min_science: 60,
+                                 price_musd: 10, bonus_musd: 2.5, expires_month: c.month + 12, done: false, text: "A test contract." });
+    if (lastMonth) c.deadline_month = c.month + 1;   // this flight's months run past the deadline: the game ends
+    H.saveCampaign(c);
+    var d = H.newComebackDesign(id); H.setOrbit(d, "leo");
+    ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf", "command-timer", "spin-stabilised", "cubesat-12u"].forEach(function (x) { H.addPart(d, x); });
+    H.setLauncher(d, "rideshare");
+    var m = H.startMission(d), st;
+    do { st = H.stepMonth(m); if (st.event) H.chooseEvent(m, 0); } while (!st.ended);
+    return { result: H.recordResult(m), debrief: H.getDebrief(m) };
+  }
+  var open = cbFlight("t-open", false), last = cbFlight("t-last", true);
+  check("3 Part 2: a target reached with the game still on points to the lenders and the next contract",
+    !open.result.campaign_over && open.debrief.limiting === "none" && /contract/.test(open.debrief.suggestion), open.debrief.suggestion);
+  check("3 Part 2: the flight that ends the game offers no next contract", last.result.campaign_over && last.debrief.limiting === "none" &&
+    !/contract|lender|tier/i.test(last.debrief.suggestion), last.debrief.suggestion);
 })();
 
 // ---- 4. Event text names no hardware the satellite may not carry: an event can fire on any design for its topic
@@ -319,5 +383,63 @@ function adviceProblems(g, m, lim, label) {
     ["drum-body", "spin-stabilised", "oso-xray-spectrometer", "n-on-p-cells", "nicad-battery", "pcm-telemetry", "tape-recorder"]), 0);
   check("6 a 1964 solar flight still quotes its own year", G.getDebrief(m58).real_world.text.indexOf("In 1964 the Sun averaged") === 0, G.getDebrief(m58).real_world.text.slice(0, 60));
 })();
+// ---- 7. An instrument card's science figure is what the part delivers on this satellite (engage-12)
+// The 1958 report: the scintillation counter's card read 6 sci/mo against the Geiger counter's 4, but on the only 1958
+// radio it delivered 3.8 a month, less than the Geiger. The card now counts the radio's and the power's losses.
+(function () {
+  var rest = ["explorer-body", "spin-stabilised", "mercury-battery", "silicon-cells", "minitrack-beacon", "command-timer"];
+  var d = eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket", rest);
+  var scint = G.getPartFacts(d, "scintillation-counter").science_per_month, geiger = G.getPartFacts(d, "cosmic-ray-counter").science_per_month;
+  check("7 on the 1958 beacon, the scintillation counter's card reads below the Geiger counter's, as the flights earn", scint < geiger, scint + " against " + geiger);
+  // An event-free flight earns the card's figure each month.
+  var withScint = eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket", rest.concat(["scintillation-counter"]));
+  var m = G.startMission(withScint); m.schedule = []; finish(m, 0);
+  check("7 an event-free flight earns the card's figure each month", Math.abs(m.science / m.month - G.getPartFacts(withScint, "scintillation-counter").science_per_month) < 0.05,
+    G.round(m.science / m.month, 2) + " a month against the card's " + G.getPartFacts(withScint, "scintillation-counter").science_per_month);
+  // Before the radio and the power are chosen, the card does not read 0.
+  var bare = eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket", ["explorer-body"]);
+  check("7 with no radio or power chosen yet, an instrument's card still reads its rate", G.getPartFacts(bare, "scintillation-counter").science_per_month > 0 &&
+    G.getPartFacts(bare, "cosmic-ray-counter").science_per_month > 0);
+  // Every era: the fitted instruments' cards add up to the Build screen's science a month.
+  var off = [];
+  [["igy", "radiation", "leo", "juno-1", ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "scintillation-counter", "silicon-cells", "mercury-battery", "minitrack-beacon", "command-timer"]],
+   ["nimbus", "weather", "leo", "thor-able", ["nimbus-bus", "reaction-wheels", "vidicon-camera", "n-on-p-cells", "nicad-battery", "vhf-telemetry", "tape-recorder"]],
+   ["new-space", "wildfire", "leo", "rideshare", ["cubesat-12u", "spin-stabilised", "optical-camera", "solar-small", "radio-uhf", "obc-basic"]],
+   ["new-space", "weather", "leo", "thor-able", ["nimbus-bus", "reaction-wheels", "avcs-camera", "solar-small", "radio-sband", "obc-radtol", "prop-green-small"]]
+  ].forEach(function (x) {
+    var dd = eraDesign(x[0], "training", x[1], x[2], x[3], x[4]);
+    var sum = dd.parts.reduce(function (t, id) { var f = G.getPartFacts(dd, id); return t + (f.science_per_month || 0); }, 0);
+    if (Math.abs(sum - G.previewScience(dd).per_month) > 0.05) off.push(x[0] + "/" + x[1] + ": cards " + G.round(sum, 2) + ", build " + G.previewScience(dd).per_month);
+  });
+  check("7 the fitted instruments' cards add up to the Build screen's science a month", off.length === 0, off.join(" | "));
+})();
+
+// ---- 8. One verdict (engage-15): the back end's text agrees with the target and the stars
+// (a) A flight that beat its target and was then lost: the advice, the space segment and the chronicle headline say the
+// goal was met before they say it was lost. (b) A battery-only flight that brought home a sliver: nothing calls it a success.
+(function () {
+  var basic = ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "minitrack-beacon", "command-timer", "silicon-cells", "mercury-battery"];
+  var m = G.startMission(eraDesign("igy", "training", "radiation", "leo", "juno-1", basic));
+  m.schedule = [{ month: m.lifetime_months - 2, event: G.EVENTS.filter(function (e) { return e.id === "software-bug"; })[0] }];
+  m.rand = function () { return 0; };   // its risky choice fails: the only computer breaks late in the flight
+  finish(m, 0);
+  var db = G.getDebrief(m), space = db.segments.filter(function (x) { return x.id === "space"; })[0].text;
+  check("8 a flight lost after it beat its target: the advice and the space segment say the target was met",
+    m.ended_early && m.science >= db.science_target && db.stars >= 2 && /^Target reached first\./.test(db.suggestion) && /met its target before a failure ended it/.test(space),
+    db.stars + " stars | " + db.suggestion.slice(0, 60) + " | " + space);
+  var o = G.getObjective("radiation");
+  var won = G.flightHeadline({ ended_early: true, months: 34, science: o.science_target + 1, stars: 2, new_data: 10 }, o, "Low Earth orbit");
+  var lost = G.flightHeadline({ ended_early: true, months: 3, science: 5, stars: 0, new_data: 5 }, o, "Low Earth orbit");
+  check("8 the chronicle and the ending headline a lost flight that met its goal as such, and a lost flight that did not as lost",
+    /^Goal met/.test(won) && /^Satellite lost/.test(lost), won + " | " + lost);
+  var tiny = fly(eraDesign("igy", "training", "radiation", "leo", "juno-1",
+    ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "minitrack-beacon", "command-timer", "mercury-battery"]), 0);
+  var dt = G.getDebrief(tiny), said = [];
+  (function walk(v) { if (typeof v === "string") said.push(v); else if (v && typeof v === "object") Object.keys(v).forEach(function (k) { walk(v[k]); }); })
+    ([dt.suggestion, dt.paragraph, dt.segments, dt.limiting_name]);
+  check("8 a battery-only flight with a sliver of its target: 0 stars and no text calls it a success",
+    dt.stars === 0 && dt.limiting !== "none" && !said.some(function (t) { return /target reached|complete|success|proud|well done/i.test(t); }), dt.score + " points | " + dt.suggestion);
+})();
+
 console.log(passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

@@ -73,9 +73,9 @@ function refundLostFlights(c) {
   saveCampaign(c);
   return c;
 }
-// Called when a flight is recorded: its launch is no longer pending.
+// Called when a flight is recorded: its launch is no longer pending. The id stays live, so a read of the saved
+// copy before the settle saves (cheapestLaunchCost reads it) never refunds the flight being recorded.
 function landFlight(c, mission) {
-  delete liveFlights[mission.id];
   if (c.log) c.log = c.log.filter(function (e) { return !(e.kind === "launch" && e.id === mission.id); });
 }
 
@@ -106,7 +106,7 @@ function startMission(design) {
     var launchId = missionId(seed);
     liveFlights[launchId] = true;
     (c.log = c.log || []).push({ year: c.year, month: isComeback(c) ? c.month : undefined, kind: "launch", id: launchId,
-                                 flight: flight, musd: launchTotals.cost_musd });
+                                 musd: launchTotals.cost_musd });
     saveCampaign(c);
   }
 
@@ -743,7 +743,10 @@ function limitingFactor(mission, totals, scienceShare) {
     if (sharper) return say("design", "Nothing ran short, but the science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
     return say("design", "Nothing ran short, but the science fell below target. No single change you can make earns more: try a different design.", null, "instruments");
   }
-  // In a campaign there is no "next tier": the next step is the lab, or another topic.
+  // In a campaign there is no "next tier": the next step is the lab, or another topic. A flight whose record ended
+  // the game (the debrief reads the advice after recordResult) has no next flight or contract.
+  var saved = mission.campaign_flight ? getCampaign() : null;
+  if (saved && saved.finished && isComeback(saved) === !!mission.comeback) return say("none", "Target reached. That was the last flight: see how it ends.");
   if (mission.comeback) return say("none", "Target reached. Pay back the lenders, or take the next contract.");
   if (mission.campaign_flight) return say("none", "Target reached. Spend the science in the lab, or fly a different topic.");
   // Tiers are chosen as a ladder only in the old tier select (no era); Part 1's steps and the last tier have no next one.
@@ -1169,7 +1172,7 @@ var OFFER_CLIENTS = {
 };
 
 function offerText(o, topic, orbit) {
-  return o.client + " wants " + lcFirst(topic.name) + " data" + (orbit ? " from " + lcFirst(orbit.name) : "") +
+  return o.client + " wants " + inText(topic.name) + " data" + (orbit ? " from " + inText(orbit.name) : "") +
     ": at least " + o.min_science + " points by " + o.year_to + ". Bonus $" + o.bonus_musd + "M and " + o.bonus_sci + " science.";
 }
 
@@ -1255,7 +1258,9 @@ function ratingFor(c, K) {
 
 function flightHeadline(m, o, orbitName) {
   var topic = o ? o.name : m.objective;
-  if (m.ended_early) return "Satellite lost" + (isCount(m.months) ? " after " + m.months + (m.months === 1 ? " month" : " months") : "");
+  // A flight lost after it met its goal says so first: the stars and the headline tell the same story.
+  var met = o && isNumber(m.science) && m.science >= o.science_target;
+  if (m.ended_early) return (met ? "Goal met, then lost" : "Satellite lost") + (isCount(m.months) ? " after " + m.months + (m.months === 1 ? " month" : " months") : "");
   if (m.new_data <= 0) return "Old news: " + topic + " measured again";
   if (m.first_look && m.stars >= 2) return topic + ": the first data comes home";
   if (m.stars === 3) return "Flawless flight adds to the record on " + topic;
@@ -1284,7 +1289,7 @@ function getChronicle() {
     var o = getObjective(m.objective), orbit = getOrbit(m.orbit);
     var orbitName = orbit ? orbit.name : m.orbit;
     var parts = [];
-    parts.push("G-" + (m.flight || i + 1) + " flew in " + lcFirst(orbitName) + " for " + (m.months || "?") + (m.months === 1 ? " month" : " months"));
+    parts.push("G-" + (m.flight || i + 1) + " flew in " + inText(orbitName) + " for " + (m.months || "?") + (m.months === 1 ? " month" : " months"));
     parts.push(round(m.science, 0) + " points of data" + (m.new_data < m.science ? " (" + round(m.new_data, 0) + " of it new)" : ""));
     parts.push((m.stars || 0) + (m.stars === 1 ? " star" : " stars"));
     parts.push("paid $" + round(m.payout_musd, 1) + "M");
@@ -1491,7 +1496,7 @@ function validOffer(o, comeback) {
 function validLogEntry(e) {
   if (!isRecord(e) || !isText(e.kind) || !isNumber(e.year)) return false;
   if (e.kind === "payment") return isNumber(e.musd) && isNumber(e.month);
-  if (e.kind === "launch") return isText(e.id) && isNumber(e.musd) && isCount(e.flight);
+  if (e.kind === "launch") return isText(e.id) && isNumber(e.musd);
   return isText(e.id);
 }
 function validCampaign(c) {
@@ -1692,8 +1697,8 @@ function closestMission(design) {
   var best = null;
   MISSIONS.forEach(function (m) {
     var shared = [], score = 0;
-    if (m.objective === design.objective) { score += 10; shared.push("both studied " + lcFirst((getObjective(m.objective) || {}).name || m.objective)); }
-    if (m.orbit === design.orbit) { score += 4; shared.push("both flew in " + (orbit ? lcFirst(orbit.name) : m.orbit)); }
+    if (m.objective === design.objective) { score += 10; shared.push("both studied " + inText((getObjective(m.objective) || {}).name || m.objective)); }
+    if (m.orbit === design.orbit) { score += 4; shared.push("both flew in " + (orbit ? inText(orbit.name) : m.orbit)); }
     var common = m.tags.filter(function (t) { return tags.indexOf(t) !== -1; });
     if (common.length) { score += 3 * common.length; shared.push("both carried " + common.join(" and ") + " instruments"); }
     if ((m.power === "solar") === hasSolar) { score += 2; shared.push(hasSolar ? "both ran on solar power" : "both ran on batteries alone"); }
@@ -1730,15 +1735,18 @@ function segmentLines(mission, t, k, cpay) {
   var lines = [];
   lines.push({ id: "launch", name: "Launch segment",
     text: (launcher ? launcher.name : "The rocket") + " carried " + round(t.mass_kg, 1) + " kg to " +
-      (orbit ? lcFirst(orbit.name) : "orbit") + (spare !== null ? ", with " + spare + "% of its capacity to spare." : ".") });
+      (orbit ? inText(orbit.name) : "orbit") + (spare !== null ? ", with " + spare + "% of its capacity to spare." : ".") });
   lines.push({ id: "space", name: "Space segment",
     text: parts.length + " parts drawing " + round(t.power_draw_w, 1) + " W" +
       (t.power_gen_w > 0 ? " from " + round(t.power_gen_w, 1) + " W of solar cells" : " from batteries alone") +
       "; it worked for " + mission.month + " of " + mission.lifetime_months + " months planned" +
-      (mission.ended_early ? ", then a failure ended it." : mission.end_cause === "batteries" ? ", until the batteries ran down." : ".") });
-  var share = t.data_gb_day > 0 ? Math.round(100 * t.data_returned_gb_day / t.data_gb_day) : 100;
+      (mission.ended_early ? (objective && mission.science >= objective.science_target ? " and met its target before a failure ended it." : ", then a failure ended it.")
+       : mission.end_cause === "batteries" ? ", until the batteries ran down." : ".") });
+  // The share as a person would say it: never "0%" beside data that did reach the ground, never "100%" when some was lost.
+  var pct = t.data_gb_day > 0 ? 100 * t.data_returned_gb_day / t.data_gb_day : 100;
+  var share = pct >= 100 ? "100%" : pct > 0 && pct < 1 ? "under 1%" : Math.min(99, Math.round(pct)) + "%";
   lines.push({ id: "ground", name: "Ground segment",
-    text: formatData(t.data_returned_gb_day) + " of the " + formatData(t.data_gb_day) + " made each day reached the ground (" + share + "%)" +
+    text: formatData(t.data_returned_gb_day) + " of the " + formatData(t.data_gb_day) + " made each day reached the ground (" + share + ")" +
       (orbit ? ", in contact with a ground station " + round(orbit.downlink_mult * 100, orbit.downlink_mult < 0.1 ? 1 : 0) + "% of the time." : ".") });
   lines.push({ id: "user", name: "User segment",
     text: "Scientists received " + Math.round(mission.science) + " science points against a target of " +
@@ -1817,7 +1825,7 @@ function cheapestRocketTo(orbitId) {
     .reduce(function (m, l) { return Math.min(m, l.cost_musd); }, Infinity);
 }
 function contractText(k, topic, orbit) {
-  return k.client + ": " + topic.name + (orbit ? ", from " + lcFirst(orbit.name) : "") + ". $" + k.price_musd +
+  return k.client + ": " + topic.name + (orbit ? ", from " + inText(orbit.name) : "") + ". $" + k.price_musd +
     "M for at least " + k.min_science + " points of data, less for less; 3 stars adds $" + k.bonus_musd +
     "M. Open until month " + k.expires_month + ".";
 }
@@ -1965,10 +1973,10 @@ function comebackChecks(design, t) {
   } else {
     var topic = getObjective(k.topic), orb = k.orbit ? getOrbit(k.orbit) : null;
     if (design.objective && design.objective !== k.topic) {
-      out.blockers.push({ id: "contract-topic", text: k.client + " is paying for " + lcFirst(topic ? topic.name : k.topic) + " data, not this." });
+      out.blockers.push({ id: "contract-topic", text: k.client + " is paying for " + inText(topic ? topic.name : k.topic) + " data, not this." });
     }
     if (orb && design.orbit && design.orbit !== k.orbit) {
-      out.blockers.push({ id: "contract-orbit", text: k.client + " wants the data from " + lcFirst(orb.name) + "." });
+      out.blockers.push({ id: "contract-orbit", text: k.client + " wants the data from " + inText(orb.name) + "." });
     }
   }
   var months = flightMonths(design), left = c.deadline_month - c.month;
@@ -2164,7 +2172,7 @@ function getComebackEnding() {
     var o = getObjective(m.objective), orbit = getOrbit(m.orbit);
     var k = (c.offers || []).filter(function (x) { return x.id === m.contract; })[0];
     timeline.push({ month: m.month, title: "G-" + (m.flight || i + 1) + ": " + flightHeadline(m, o, orbit ? orbit.name : m.orbit),
-      text: "Flown for " + (k ? lcFirst(k.client) : "no client") + " from " + lcFirst(orbit ? orbit.name : m.orbit) + ": " +
+      text: "Flown for " + (k ? lcFirst(k.client) : "no client") + " from " + inText(orbit ? orbit.name : m.orbit) + ": " +
         round(m.science, 0) + " points of data, " + (m.stars || 0) + (m.stars === 1 ? " star" : " stars") + ", paid " + money(m.payout_musd || 0) + "." +
         (m.real ? " Its real twin: " + m.real.name + " (" + m.real.year + ")." : "") });
   });
