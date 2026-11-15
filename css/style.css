@@ -887,3 +887,6 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
   .paper .row-value { font-size: 30px; }
   .ledger-head h1 { font-size: 30px; }
 }
+/* An event: focus lands on its heading (not a control, so no ring), and every choice reads the same, with its cost under it. */
+.dialogue h2[tabindex="-1"]:focus { outline: none; }
+.choices .btn .odds { opacity: 1; color: var(--text-dim); }

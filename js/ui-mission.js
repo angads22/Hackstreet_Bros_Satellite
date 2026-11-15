@@ -143,12 +143,12 @@
     stopTimer();
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
-    var choices = UI.list(event.choices).map(function (c, i) {
-      // Each choice shows its odds right now (fail_chance_now), protection and thin margins included.
-      var risk = c.fail_chance_now > 0 && c.effect && c.effect.fails
-        ? Math.round(c.fail_chance_now * 100) + "% chance of losing " + (FAIL_NAMES[c.effect.fails] || c.effect.fails) : null;
-      return UI.button(risk ? [el("span", { text: c.label }), el("span", { class: "odds", text: risk })] : c.label,
-        function () { answer(i); }, { primary: i === 0 });
+    run.choices = UI.list(event.choices);
+    // Each choice shows what it costs in a few words, from the event data and the back end's odds right now
+    // (fail_chance_now: protection and thin margins included). None is styled as the answer.
+    var choices = run.choices.map(function (c, i) {
+      return UI.button([el("span", { text: c.label }), el("span", { class: "odds", text: choiceCost(c) })],
+        function () { answer(i); });
     });
     // Who speaks is whoever opened the mission (the story's speaker); the plain director when there is no story.
     var opener = UI.storyLine ? UI.storyLine("mission-start", run.design) : "";
@@ -157,23 +157,51 @@
     var speaker = who && UI.speakerName ? UI.speakerName(who) : "";
     // The calibration event also gets a line from Austin's notebook, for Ajay only (the story layer says "" otherwise).
     var extra = event.id === "calibration-drift" && UI.storyLine ? UI.storyLine("event-calibration", run.design, "ask") : "";
-    box.appendChild(el("div", { class: "dialogue", role: "alertdialog", "aria-labelledby": "event-title" }, [
+    var title = el("h2", { id: "event-title", tabindex: "-1", text: event.title.toUpperCase() });
+    var dialog = el("div", { class: "dialogue", role: "alertdialog", "aria-labelledby": "event-title", "aria-describedby": "event-text" }, [
       face || UI.directorArt(),
       el("div", { class: "stack" }, [
-        el("div", { class: "speaker" }, [el("h2", { id: "event-title", text: event.title.toUpperCase() }), el("span", { text: speaker ? speaker.toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) : "Mission director" })]),
-        el("p", { class: "speech", text: event.text }),
+        el("div", { class: "speaker" }, [title, el("span", { text: speaker ? speaker.toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) : "Mission director" })]),
+        el("p", { class: "speech", id: "event-text", text: event.text }),
         extra && extra.text ? el("p", { class: "speech note", text: (extra.who && UI.speakerName && UI.speakerName(extra.who) ? UI.speakerName(extra.who) + ": " : "") + extra.text }) : null,
         el("div", { class: "choices" }, choices)
       ])
-    ]));
-    if (choices[0]) choices[0].focus();
+    ]);
+    box.appendChild(dialog);
+    // The event comes into view from its heading down (at 200% zoom, focusing the first button scrolled the heading
+    // off the top), and focus goes to the heading: it names the dialog and leaves every choice equal.
+    var tall = dialog.getBoundingClientRect().height > window.innerHeight * 0.8;
+    if (dialog.scrollIntoView) dialog.scrollIntoView({ block: tall ? "start" : "nearest" });
+    try { title.focus({ preventScroll: true }); } catch (e) { title.focus(); }
+  }
+
+  // "Lose 1 month", "Science ×0.6 from now on", "Costs $0.30M", "20% chance of losing the computer", or "No cost".
+  // A part that protects against the event cancels everything the risky choice would do, its upside too (chooseEvent).
+  function costBits(c, withRisk) {
+    var e = c.effect || {}, bits = [];
+    if (withRisk && c.fail_chance_now > 0 && e.fails) bits.push(Math.round(c.fail_chance_now * 100) + "% chance of losing " + (FAIL_NAMES[e.fails] || e.fails));
+    if (e.lose_months) bits.push("lose " + num(e.lose_months, 0) + " month" + (e.lose_months === 1 ? "" : "s"));
+    if (e.science_mult) bits.push("science \u00d7" + e.science_mult + " from now on");
+    if (e.cost_musd && !/\$/.test(c.label || "")) bits.push("costs " + UI.money(e.cost_musd));
+    return bits;
+  }
+  function protectedChoice(c) { var e = c.effect || {}; return !!(e.fail_chance && e.fails && !(c.fail_chance_now > 0)); }
+  function sentence(bits) { var t = bits.join(", "); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function choiceCost(c) {
+    if (protectedChoice(c)) return "Protected: no effect";
+    var bits = costBits(c, true);
+    return bits.length ? sentence(bits) : "No cost";
   }
 
   function answer(i) {
     var out = chooseEvent(run.mission, i);
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
-    log((out.title || "Event") + ": " + (out.label || ""), "");
+    // What the choice did, beside it in the log: its costs, "nothing broke" after a risk that passed, or "no cost".
+    var c = run.choices && run.choices[out.choice] ? run.choices[out.choice] : null;
+    var did = c && !out.protected ? costBits(c, false) : [];
+    if (c && !out.protected && c.effect && c.effect.fail_chance && !out.failed_part) did.push("nothing broke");
+    log((out.title || "Event") + ": " + (out.label || "") + (did.length ? " (" + did.join(", ") + ")" : c && !out.protected && !out.failed_part ? " (no cost)" : ""), "");
     if (out.id === "calibration-drift" || /calibration/i.test(out.title || "")) {   // the story's reply to the choice (Ajay only; "" otherwise)
       var reply = UI.storyLine ? UI.storyLine("event-calibration", run.design, i) : "";
       if (reply && reply.text) log((reply.who && UI.speakerName && UI.speakerName(reply.who) ? UI.speakerName(reply.who) + ": " : "") + reply.text, "");
@@ -183,7 +211,7 @@
       var p = UI.byId(UI.data("PARTS"), out.failed_part);
       log((p ? p.name : out.failed_part) + " FAILED.", "bad");
     }
-    if (out.ended_early || out.ended) log("Mission over.", "bad");
+    if (out.ended_early) log("Mission over.", "bad");   // a normal last month ends in finish(), not as a loss
     run.waiting = false;
     if (out.ended) { finish(); return; }
     schedule();
