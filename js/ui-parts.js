@@ -420,7 +420,7 @@ var PartExplainer = (function () {
         // WORLD: the lead time is part of the dossier; StarlineUI.infoKnown (the paid builder) gates it, always shown until then.
         var pt = typeof getPart === "function" ? getPart(id) : null;
         var known = window.StarlineUI && window.StarlineUI.infoKnown ? window.StarlineUI.infoKnown(id, "dossier") : true;
-        if (pt && typeof pt.lead_months === "number" && known) cap.appendChild(line("ex-lead", "", "Lead time: ~" + pt.lead_months + " months to arrive"));
+        if (pt && typeof pt.lead_months === "number" && known) cap.appendChild(line("ex-lead", "", "Lead time: ~" + pt.lead_months + (pt.lead_months === 1 ? " month" : " months") + " to arrive"));
       }
       fig.appendChild(cap);
       return fig;

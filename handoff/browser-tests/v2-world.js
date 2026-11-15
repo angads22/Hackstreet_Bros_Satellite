@@ -29,6 +29,10 @@ async function check(p, label, ids, extra) {
   ok(LINE.test(got), `${label}: the line has the right shape: ${got}`);
   ok(got === want.text, `${label}: it matches getSchedule: ${want.text}`);
   ok(await p.locator('.long-pole').count() === 1, `${label}: it is shown once`);
+  ok(await p.locator('.long-pole').first().isVisible(), `${label}: it is visible`);
+  await p.locator('.long-pole').first().scrollIntoViewIfNeeded();
+  const box = await p.locator('.long-pole').first().boundingBox();
+  ok(!!box && box.width > 50 && box.x >= 0 && box.x + box.width <= (await p.evaluate(() => window.innerWidth)) + 1, `${label}: it sits inside the page width`);
   ok(got.split(/\s+/).length <= 22, `${label}: it is short (${got.split(/\s+/).length} words)`);
   ok(await T.noScroll(p), `${label}: no sideways scroll`);
   return want;
@@ -65,6 +69,10 @@ async function check(p, label, ids, extra) {
       const prev = await p.locator('#preview').innerText().then(t => t.replace(/\s+/g, ' '));
       ok(/Lead time: ~2 months to arrive/.test(prev), 'the preview shows the part\'s lead time: ' + prev.slice(-60));
       ok((prev.match(/Lead time/g) || []).length === 1, 'the lead time is one line');
+      await p.click('[data-key="bin-computer"]');
+      await p.locator('[data-key="part-command-timer"]').hover();
+      const prev1 = await p.locator('#preview').innerText().then(t => t.replace(/\s+/g, ' '));
+      ok(/Lead time: ~1 month to arrive/.test(prev1), 'one month is singular: ' + prev1.slice(-40));
       await p.mouse.move(0, 0);
     }
     await p.screenshot({ path: path.join(shots, `v2world-p1-${phone ? 'phone' : 'desk'}-build.png`) });

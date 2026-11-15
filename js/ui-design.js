@@ -2225,7 +2225,7 @@
   function leadLine(p) {
     if (!p || !isNum(p.lead_months)) return null;
     var known = window.StarlineUI && window.StarlineUI.infoKnown ? window.StarlineUI.infoKnown(p.id, "dossier") : true;
-    return known ? el("p", { class: "preview-line lead", text: "Lead time: ~" + num(p.lead_months, 0) + " months to arrive" }) : null;
+    return known ? el("p", { class: "preview-line lead", text: "Lead time: ~" + num(p.lead_months, 0) + (p.lead_months === 1 ? " month" : " months") + " to arrive" }) : null;
   }
 
   // "Battery only: runs out in about 2.2 months", from previewScience (its months stop when the battery is spent).

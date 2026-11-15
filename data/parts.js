@@ -132,7 +132,7 @@ const PARTS = [
     blurb: "Spinning wheels inside the satellite hold it steady and pointed, so cameras get sharp pictures.",
     source: "Small reaction wheels with flight heritage are listed in NASA's Small Spacecraft Technology State of the Art 2025, Table 5-3 (https://www.nasa.gov/wp-content/uploads/2026/05/soa-2026.pdf). Mass, power and cost are ESTIMATES.",
     build_months: 4,
-    lead_months: 8   // GAME VALUE rounded from the engineers' quote: reaction wheels and star trackers 18 to 52 weeks, middle of the range
+    lead_months: 8   // GAME VALUE rounded from the engineers' quote and the web sources in docs/real-world-plan.md: reaction wheels and star trackers 18 to 52 weeks, middle of the range
   },
   // ======================================================== 1957-1960 era parts
   // The campaign starts with these (SPEC.md, "The 1957 campaign"). Research unlocks the rest.
@@ -275,7 +275,7 @@ const PARTS = [
     panel_area_m2: 0.2,      // ESTIMATE: the share of body-mounted cells facing the Sun at once
     efficiency: 0.08,
     build_months: 3,          // GAME VALUE: months to build and test
-    lead_months: 6   // GAME VALUE rounded from the engineers' quote: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, low end for 1950s cells
+    lead_months: 6   // GAME VALUE rounded from the engineers' quote and the web sources in docs/real-world-plan.md: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, low end for 1950s cells
   },
   {
     id: "nicad-battery",
@@ -460,7 +460,7 @@ const PARTS = [
     panel_area_m2: 0.66,     // 0.6 m x 1.1 m
     efficiency: 0.204, // panel-level: cells (about 30%, SOA p.48) minus gaps and wiring
     build_months: 4,          // GAME VALUE: months to build and test
-    lead_months: 9   // GAME VALUE rounded from the engineers' quote: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, about 9 months
+    lead_months: 9   // GAME VALUE rounded from the engineers' quote and the web sources in docs/real-world-plan.md: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, about 9 months
   },
   {
     id: "solar-large",
@@ -481,7 +481,7 @@ const PARTS = [
     panel_area_m2: 1.177,    // 1.07 m x 1.1 m
     efficiency: 0.228,
     build_months: 5,          // GAME VALUE: months to build and test
-    lead_months: 12   // GAME VALUE rounded from the engineers' quote: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, a year for the big array
+    lead_months: 12   // GAME VALUE rounded from the engineers' quote and the web sources in docs/real-world-plan.md: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, a year for the big array
   },
   {
     id: "battery-28v",
@@ -825,6 +825,6 @@ const PARTS = [
     panel_area_m2: 0.2,      // ESTIMATE
     efficiency: 0.10,        // ESTIMATE
     build_months: 3,          // GAME VALUE: months to build and test
-    lead_months: 9   // GAME VALUE rounded from the engineers' quote: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, about 9 months
+    lead_months: 9   // GAME VALUE rounded from the engineers' quote and the web sources in docs/real-world-plan.md: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, about 9 months
   }
 ];
