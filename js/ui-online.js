@@ -200,8 +200,8 @@
       api().duelPoll(room.code, pid).then(function (r) {
         if (mine !== epoch) return;
         if (r && r.ok && r.state !== "waiting") { duel = { code: room.code, seed: r.seed, sent: false }; intro(r); return; }
-        if (r && !r.ok && r.reason && r.reason !== FAIL && !r.off) { say(msg, r.reason, true); return; }   // gone for good (expired)
-        if (r && !r.ok) say(msg, FAIL + ". Trying again.", true); else say(msg, "Waiting for the other player.");
+        if (r && !r.ok && r.status === 404) { say(msg, r.reason || FAIL, true); return; }   // the room is gone (it expired)
+        if (r && !r.ok) say(msg, r.reason || FAIL, true); else say(msg, "Waiting for the other player.");   // any other trouble: keep asking
         setTimeout(poll, cfg().poll_ms || 2000);
       });
     }
@@ -251,7 +251,8 @@
         api().duelPoll(duel.code, player().id).then(function (r) {
           if (!document.body.contains(verdict)) return;
           if (r && r.ok && r.state === "done") { showVerdict(r); return; }
-          if (r && !r.ok && r.reason && r.reason !== FAIL && !r.off) { say(msg, r.reason, true); return; }
+          if (r && !r.ok && r.status === 404) { say(msg, r.reason || FAIL, true); return; }   // the room is gone (it expired)
+          if (r && !r.ok) say(msg, r.reason || FAIL, true);   // any other trouble: keep asking
           setTimeout(tick, cfg().poll_ms || 2000);
         });
       }

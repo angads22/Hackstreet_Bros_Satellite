@@ -80,6 +80,16 @@ const fits = (p) => p.evaluate(() => {
     ok(f.scrollW <= f.innerW, 'no sideways scroll');
     ok(f.rowBottom <= f.innerH && f.mainBottom <= f.innerH, `the home page still fits the first screen (row bottom ${f.rowBottom}, content bottom ${f.mainBottom}, screen ${f.innerH})`);
     await p.screenshot({ path: path.join(shots, `online-home-file-${label}.png`) });
+    // A returning player: Part 1 passed, a comeback saved (the JOURNAL button shows): the row still fits above RESET EVERYTHING.
+    await p.evaluate(() => { localStorage.setItem('gravitron-walkthrough-v1', JSON.stringify({ done: { 1: 3, 2: 3, 3: 3 } })); newComeback('standard', 7); });
+    await p.reload();
+    await p.waitForTimeout(600);
+    const g = await p.evaluate(() => { const r = document.querySelector('.online-row').getBoundingClientRect(), f = document.querySelector('.title-foot').getBoundingClientRect();
+      return { rowBottom: Math.round(r.bottom), footTop: Math.round(f.top), sh: document.documentElement.scrollHeight, ih: window.innerHeight, sw: document.documentElement.scrollWidth, iw: window.innerWidth }; });
+    ok(g.rowBottom <= g.footTop && g.sh <= g.ih && g.sw <= g.iw, `a returning player's home page fits (row bottom ${g.rowBottom}, RESET top ${g.footTop}, page ${g.sh}/${g.ih})`);
+    await p.screenshot({ path: path.join(shots, `online-home-returning-${label}.png`) });
+    await p.evaluate(() => { localStorage.clear(); });
+    await p.reload();
     // An endpoint is set, but the address is a file: still no request.
     await p.evaluate(() => { ONLINE.endpoint = 'https://dummy.invalid'; });
     const st = await p.evaluate(() => LiveData.onlineStatus());
@@ -194,6 +204,10 @@ const fits = (p) => p.evaluate(() => {
     // a stars record and no comeback: the duel must leave both as they are
     const record = JSON.stringify({ best_stars: { training: 2 }, best_score: { training: 50 }, best_stars_by_era: {} });
     for (const p of [H, G]) await p.evaluate(r => localStorage.setItem('smdg-progress-v1', r), record);
+    // The host has a comeback in progress: the duel must leave that save byte for byte as it is.
+    await H.evaluate(() => { newComeback('standard', 7); });
+    const comeback = await H.evaluate(() => localStorage.getItem('smdg-campaign'));
+    ok(!!comeback, 'the host has a comeback saved before the duel');
 
     await H.click('[data-key="online-duel"]');
     await H.click('[data-key="duel-create"]');
@@ -261,7 +275,7 @@ const fits = (p) => p.evaluate(() => {
     for (const [p, who] of [[H, 'host'], [G, 'guest']]) {
       const after = await p.evaluate(() => [localStorage.getItem('smdg-progress-v1'), localStorage.getItem('smdg-campaign')]);
       ok(after[0] === record, who + ': the stars record is exactly as it was');
-      ok(after[1] === null, who + ': no comeback save was made');
+      ok(after[1] === (who === 'host' ? comeback : null), who === 'host' ? 'host: the comeback in progress is byte for byte as it was' : 'guest: no comeback save was made');
     }
     await H.click('[data-key="duel-home"]');
     ok(await H.locator('[data-key="part1-go"]').isVisible(), 'HOME goes back to the home page');

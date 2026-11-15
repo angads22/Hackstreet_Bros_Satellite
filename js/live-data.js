@@ -165,7 +165,7 @@
       clearTimeout(timer);
       var j = x.json && typeof x.json === "object" ? x.json : null;
       if (x.status >= 200 && x.status < 300 && j) { j.ok = true; return j; }
-      return { ok: false, reason: j && typeof j.reason === "string" && j.reason ? j.reason : FAIL };
+      return { ok: false, status: x.status, reason: j && typeof j.reason === "string" && j.reason ? j.reason : FAIL };   // status: 404 means the room is gone
     }, function () { clearTimeout(timer); return { ok: false, reason: FAIL }; });
   }
 
