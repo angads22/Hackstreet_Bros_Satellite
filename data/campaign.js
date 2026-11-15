@@ -8,7 +8,7 @@ const CAMPAIGN = {
   years_per_mission: 1,       // the year advances by this after each recorded mission
   end_year: 1969,             // the campaign ends here, or earlier on a win
   repeat_floor_musd: 0.3,     // minimum payout for any finished mission
-  win: { topics_known: 3, knowledge: 0.6 },   // win when this many topics (or all, if fewer) reach this share
+  win: { topics_known: 3, knowledge: 0.7 },   // win when this many topics (or all, if fewer) reach this share
   grant_musd: 2,              // agency grant after each mission: small, so money still matters
   cap_scales: 3,              // GAME VALUE: a topic's data cap = this x its knowledge_scale (95% known)
   archive_share: 0.1,         // GAME VALUE: each year the archive pays this share of all science banked, as science points
