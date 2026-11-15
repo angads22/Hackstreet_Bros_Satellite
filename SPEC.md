@@ -121,6 +121,36 @@ Readiness checks (only when a body is fitted, which becomes always once the swit
 | **Relevance** | The challenge asks for "different difficulty levels, mission types, or scenarios" and "simple and advanced components depending on the difficulty level". Eras are both, and they rest on NASA's own mission history (NSSDCA). | — |
 | **Presentation** | A 30-second demo can open in 1958 with Explorer 1 and close in 2026, which is a story in itself. The screens need only an era picker and slot counts on the body. | The research-tree screen is the biggest new screen; it is only needed for the campaign, so eras come first. |
 
+### Two game modes (approved November 15, replaces tier select)
+
+The home page offers **only two modes**. The era grid, the three levels as a separate choice and the 1957 campaign leave the screen. Their code stays (the back-end tests still use it), but no player reaches them.
+
+**Part 1 · 1958, Austin's first satellite (the walkthrough).** Austin Albert, NASA engineer, runs the world's first satellite project. Three short standalone missions in the `igy` era, tier `training` (hints on), each teaching one idea:
+
+1. **The basics.** A satellite needs a body, a way to point, an instrument, power, a radio and a computer, and must fit its rocket. Orbit and rocket are preset; the player only builds. Topic: the radiation belts (Explorer 1).
+2. **Power and data.** A battery runs out, and data that never reaches the ground earns nothing. The rocket is preset; the player chooses the orbit and builds.
+3. **Your mission.** Nothing preset.
+
+A step passes with 1 star or more. Each step is proven winnable with 1958 parts by the back end's own checks, not by guesswork. After step 3, a short epilogue: Austin's biggest satellite is lost on the launch pad (as Vanguard TV3 was, December 1957), the programme is cut, rivals call his vision impractical, and his notebook goes into a box, until his grandson opens it. That leads straight into Part 2. Part 1 progress is a front-end record, `gravitron-walkthrough-v1` (`{ done: { step: best stars } }`); RESET PROGRESS clears it.
+
+**Part 2 · today, Ajay's comeback.** Ajay is Austin's grandson, a reckless founder (kept light). He borrowed big for a satellite company, "Albert Orbital", that flopped before it flew. The lenders give him one chance: pay the debt back before the deadline, or they take the family workshop. Why he builds satellites: the lenders and the workshop; his grandfather's name; his own name; his mother co-signed the loan; Iron Eclipse, the rival, bought his patents for almost nothing; and customers who will pay for data he can deliver cheaper than Iron Eclipse.
+
+- **Difficulty** is chosen when a comeback starts: the three tiers (Initial Feasibility, Trade Space, Point Design) set the starting cash, the debt and the deadline. This keeps the challenge's "different difficulty levels".
+- **A mode of the existing campaign** (`mode: "comeback"`), so it reuses the offers, the chronicle and the money rules. Present-day parts (the 2026 era), no research and no lab in this mode.
+- **Contracts** are the offers with a client and a reason (`data/contracts.js`). Three are open at a time. Each names a topic, sometimes an orbit, a minimum of data, a full price and a month it expires. A flight is paid in proportion to the data it returns, up to the full price at the minimum, plus a small bonus for 3 stars. New data only: a topic already fully known pays nothing.
+- **Cash** (the treasury) pays for parts and launches, and is the readiness review's budget. **Debt** grows by a small monthly interest. **Months:** each flight uses the design's development time plus a launch campaign, and the hub counts down to the deadline. **PAY BACK** moves cash to the debt at any time.
+- **Win:** the debt reaches 0 before the deadline. **Lose:** the deadline passes with debt left, or the cash can no longer buy any launchable design. There is no bail-out in this mode.
+- **Ending:** a short chronicle for a win ("the workshop is yours") or a loss (by time or by cash), with TRY AGAIN.
+
+**New fields (approved by the user, November 15):**
+
+| Where | Field |
+| --- | --- |
+| `data/campaign.js` | `CAMPAIGN.comeback`: per difficulty the starting cash, debt and deadline in months; the monthly interest; the launch campaign in months; the number of open contracts; a contract's length in months; the 3-star bonus. All game values. |
+| `data/contracts.js` (new) | One global, `CONTRACTS`: for each topic, a list of `{ client, reason }`. |
+| The campaign save | `mode`, `month`, `debt_musd`, `deadline_month`. The save version goes up, so an old 1957 save is discarded. |
+| A design | `contract`, the id of the contract it flies for. |
+
 ### The core loop (approved November 15)
 
 ```
@@ -820,6 +850,9 @@ Tier select -> Base map -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle 
 - **Debrief** keeps the limiting factor and the "Try this" line **first**, then shows the payout, knowledge before and after as a bar, the `saturated` or `breakthrough` paragraph, and a "try a new topic" line from `best_next_topic`. "Redesign" becomes "Rebuild this satellite" (a fresh launch, paid again), and a new button returns to the hub.
 
 ### Tier select (before Briefing)
+
+**Replaced by the two game modes** (see "Two game modes" above). The table below describes the screen as it was, kept for the code that still uses it.
+
 
 | Element | Source | Behaviour |
 | --- | --- | --- |
