@@ -250,6 +250,7 @@ button:disabled { cursor: not-allowed; }
   font-size: 18px;
   white-space: nowrap;
 }
+.card-title .tag { white-space: normal; max-width: 100%; }   /* a long "NEEDS RESEARCH: ..." wraps inside its card */
 .tag.good { color: var(--info-ink); }
 .tag.warn { color: var(--accent-ink); }
 .tag.bad { color: var(--bad); }
