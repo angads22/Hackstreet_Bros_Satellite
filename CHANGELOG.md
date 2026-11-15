@@ -4,6 +4,8 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- **No more walking from the second flight.** In Part 2 the walk across the base map is instant once a flight is done (the first one keeps it). From `docs/ui-review.md`, problem 9.
+
 ### Changed
 
 - **Higher levels give less help before a problem.** Normal drops the hover preview's "Fixes" and "Causes" lines and the FIX links; Hard also drops the science forecast and the pay forecast (the contract's terms stay) and shows event risks as bands. Facts, blockers and the debrief's TRY THIS stay on every level. The Part 2 picker says what each level removes.

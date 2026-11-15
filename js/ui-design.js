@@ -3436,6 +3436,14 @@
     setStep("map");
   }
 
+  // The walk across the base is a treat for the first flight; from the second flight of a comeback it is a tax (ui-review.md,
+  // problem 9): the player arrives at once. Reduced motion already sets WALK_MS to 0.
+  function walkMs() {
+    try {
+      if (WALK_MS && isComebackDesign(state.design) && typeof getComeback === "function") { var c = getComeback(); if (c && c.flights >= 1) return 0; }
+    } catch (e) { /* walk as usual */ }
+    return WALK_MS;
+  }
   function stopWalking() {
     if (state.walkTimer) clearTimeout(state.walkTimer);
     state.walkTimer = null;
@@ -3453,7 +3461,7 @@
     function next() {
       if (i >= path.length || state.screen !== "map") { state.walking = false; state.walkTimer = null; updateMap(); if (done) done(); return; }
       var from = NODES[path[i - 1]], to = NODES[path[i]];
-      var ms = (Math.abs(to.x - from.x) + Math.abs(to.y - from.y)) * WALK_MS;
+      var ms = (Math.abs(to.x - from.x) + Math.abs(to.y - from.y)) * walkMs();
       state.player = path[i];
       placePlayer(path[i], ms, from);
       i++;
