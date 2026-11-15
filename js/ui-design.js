@@ -33,7 +33,7 @@
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
     title:    "",
-    map:      "Walk with the arrow keys or WASD, press E to go in. Or click a marker and you walk there yourself. The gold route leads to your next job.",
+    map:      "Tap or click a place to walk there. Or walk with the arrow keys or WASD and press E to go in. The gold route leads to your next job.",
     briefing: "Decide the goal before the hardware. The objective says which instruments count.",
     orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
     build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
@@ -118,6 +118,7 @@
     map: null,           // live map elements, while the map is showing
     reached: 0,          // furthest design step visited, as an index into DESIGN_STEPS
     bin: null,           // which parts bin is open on Build (null = the first one)
+    binFor: null,        // the design that bin was chosen for (a new design picks its bin again)
     hover: null,         // part id being previewed on Build
     hintOpen: false,
     avail: null,         // getAvailability(design) for the screen being drawn
@@ -952,8 +953,105 @@
       return canvas;
     } catch (e) { return null; }
   }
+  // The home page's picture: the low-poly title scene filling the first screen, drifting slowly (still under reduced
+  // motion). On a wide screen the satellite is framed right of centre, so the title and the menu sit on open sky; on a
+  // tall one it stays centred, between the title and the menu. Its label comes from the scene. Null without the art.
+  // HERO_AIM: [share of the half-width to the right, share of the half-height up, camera distance times].
+  var HERO_AIM = { wide: [0.4, 0.04, 1.12], tall: [0, 0.17, 1] };
   function titleHero() {
-    return lowPoly(function (lp) { return typeof lp.scenes.title === "function" ? lp.scenes.title({}) : null; }, "lp-hero");
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.view !== "function" || !LowPoly.scenes ||
+          typeof LowPoly.scenes.title !== "function") return null;
+      var wrap = LowPoly.scenes.title({});
+      if (!wrap || !wrap.scene || !wrap.scene.camera) return null;
+      var cam = wrap.scene.camera, home = { target: (cam.target || [0, 0, 0]).slice(), dist: cam.dist };
+      var canvas = document.createElement("canvas");
+      canvas.className = "lp lp-hero";
+      var ctl = null, ro = null, seen = false, size = "";
+      // Frame the satellite for the canvas's shape: the scene's own fit (its field of view), then the camera moved
+      // sideways and up so the satellite lands where HERO_AIM puts it. Runs on every resize.
+      var aim = function () {
+        if (!canvas.isConnected) { if (seen && ro) ro.disconnect(); return; }
+        seen = true;
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!(w > 0 && h > 0) || size === w + "x" + h) return;
+        size = w + "x" + h;
+        if (typeof wrap.fit === "function") wrap.fit(w, h);
+        var a = w / h >= 1.15 ? HERO_AIM.wide : HERO_AIM.tall, D = Math.PI / 180;
+        var yaw = cam.yaw * D, pitch = cam.pitch * D;
+        var right = [Math.cos(yaw), 0, -Math.sin(yaw)];
+        var up = [-Math.sin(pitch) * Math.sin(yaw), Math.cos(pitch), -Math.sin(pitch) * Math.cos(yaw)];
+        cam.dist = home.dist * a[2];
+        var hh = cam.dist * Math.tan(cam.fov * D / 2), hw = hh * w / h;
+        cam.target = home.target.map(function (t, i) { return t - right[i] * a[0] * hw - up[i] * a[1] * hh; });
+        if (ctl) ctl.redraw();
+      };
+      if (typeof ResizeObserver === "function") { ro = new ResizeObserver(aim); ro.observe(canvas); }
+      // Sharper than the default budget (the picture fills the screen), and a slower frame rate for a slow drift.
+      ctl = LowPoly.view(canvas, wrap, { drag: false, keys: false, fps: 24, maxPixels: 1200000 });
+      return canvas;
+    } catch (e) { return null; }
+  }
+
+  // The home page without the low-poly art: a flat pixel sky with the curve of the Earth along its foot (static art).
+  function titleSky() {
+    var rects = [], seed = 11, i, y;
+    var rnd = function () { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (i = 0; i < 90; i++) {
+      var r = rnd();
+      rects.push([Math.floor(rnd() * 320), Math.floor(rnd() * 150), r < 0.12 ? 2 : 1, 1, r < 0.08 ? "--pal-light" : r < 0.55 ? "--pal-metal" : "--pal-white"]);
+    }
+    var R = 520, cx = 186, top = 146, cy = top + R, prev = null;
+    for (y = top; y < 200; y++) {
+      var half = Math.round(Math.sqrt(R * R - (cy - y) * (cy - y))), x0 = cx - half, x1 = cx + half;
+      rects.push([x0, y, x1 - x0, 1, "--map-sea"]);
+      if (!prev) rects.push([x0, y, x1 - x0, 1, "--map-shore"]);
+      else { rects.push([x0, y, prev[0] - x0 + 1, 1, "--map-shore"]); rects.push([prev[1] - 1, y, x1 - prev[1] + 1, 1, "--map-shore"]); }
+      prev = [x0, x1];
+    }
+    [[150, 152, 34, 2], [200, 160, 52, 3], [96, 168, 40, 3], [236, 176, 30, 2], [130, 186, 60, 3], [40, 192, 36, 2]].forEach(function (c) {
+      rects.push([c[0], c[1], c[2], c[3], "--map-wave"]);
+    });
+    var svg = art("0 0 320 200", rects, null, "title-sky");
+    svg.setAttribute("preserveAspectRatio", "xMidYMax slice");
+    return svg;
+  }
+
+  // The GRAVITRON logotype: flat letters drawn as shapes on an 11-unit grid, their corners cut at 45 degrees like the
+  // facets of the low-poly art. Drawn, not typed, so it looks the same with or without the web fonts. Static art: the
+  // heading holding it carries the text. [width, path]; a hole is a second outline (even-odd fill).
+  var LOGO_GLYPHS = {
+    G: [6, "M2 0H6V2H2V9H4V6.5H3V4.5H6V9L4 11H2L0 9V2Z"],
+    R: [6, "M0 0H4L6 2V4.5L4 6.5L6 11H4L2 6.5V11H0ZM2 2V4.5H4V2Z"],
+    A: [6, "M0 11V2L2 0H4L6 2V11H4V7H2V11ZM2 2V5H4V2Z"],
+    V: [6, "M0 0H2V6.5L3 8.3L4 6.5V0H6V7L4 11H2L0 7Z"],
+    I: [2, "M0 0H2V11H0Z"],
+    T: [6, "M0 0H6V2H4V11H2V2H0Z"],
+    O: [6, "M2 0H4L6 2V9L4 11H2L0 9V2ZM2 2V9H4V2Z"],
+    N: [6, "M0 11V0H2L4 5V0H6V11H4L2 6V11Z"]
+  };
+  var LOGO_GAP = 1.4;
+  // The title as a heading: the drawn logotype when every letter has a shape, else the plain text.
+  function logotype(text) {
+    var letters = String(text).toUpperCase().split("");
+    var h1 = el("h1", { class: "big-title" });
+    if (!letters.length || letters.some(function (c) { return !LOGO_GLYPHS[c]; })) { h1.textContent = text; return h1; }
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg"), x = 0;
+    letters.forEach(function (c) {
+      var g = LOGO_GLYPHS[c], path = document.createElementNS(NS, "path");
+      path.setAttribute("d", g[1]);
+      path.setAttribute("transform", "translate(" + x + " 0)");
+      svg.appendChild(path);
+      x += g[0] + LOGO_GAP;
+    });
+    svg.setAttribute("viewBox", "0 0 " + (x - LOGO_GAP) + " 11");
+    svg.setAttribute("class", "logo");
+    svg.setAttribute("fill-rule", "evenodd");
+    svg.setAttribute("aria-hidden", "true");
+    h1.appendChild(el("span", { class: "sr-only", text: text }));
+    h1.appendChild(svg);
+    return h1;
   }
 
   // Flat icons: one colour (currentColor), a 16 x 16 grid, drawn here as shapes. They sit beside words and
@@ -1677,7 +1775,8 @@
     node.className = "data-badge " + (["live", "partial", "snapshot", "loading"].indexOf(status) !== -1 ? status : "snapshot");
     node.textContent = status === "live" ? "LIVE DATA" : status === "partial" ? "PARTLY LIVE" : status === "loading" ? "CHECKING DATA" : "SNAPSHOT";
     var sources = list(live.sources).map(function (s) { return s.name + ": " + (s.ok ? "live" : "snapshot"); }).join(". ");
-    var title = status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
+    var title = status === "loading" ? "Checking for live NASA and NOAA data. The saved data is used until it answers."
+      : status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
       : sources + (live.fetched_at ? ". Fetched " + live.fetched_at.slice(0, 16).replace("T", " ") + " UTC." : "");
     node.title = title;
     node.setAttribute("aria-label", node.textContent + ". " + title);
@@ -1753,8 +1852,12 @@
     box.textContent = state.hintOpen ? text : (tutorial || firstSentence(text));
   }
 
+  // body.is-home while the home page is up: it hides the header and the pixel ground strip, and lets the title fill the screen.
+  function markHome(screen) { if (document.body) document.body.classList.toggle("is-home", screen === "title"); }
+
   function mount(screen, node) {
     state.screen = screen;
+    markHome(screen);
     var app = document.getElementById("app");
     while (app.firstChild) app.removeChild(app.firstChild);
     app.appendChild(node);
@@ -1773,7 +1876,11 @@
     }
   }
 
-  function go(screen) {
+  function go(screen, bin) {
+    if (screen === "build" && state.design && (state.screen !== "build" || state.binFor !== state.design || bin)) {
+      state.bin = entryBin(state.design, bin);
+      state.binFor = state.design;
+    }
     var i = DESIGN_STEPS.indexOf(screen);
     if (i > state.reached) state.reached = i;
     bumpReached();                         // a preset place counts as visited once the one before it is
@@ -1859,12 +1966,18 @@
     var massRight = t.capacity_kg ? num(t.mass_kg) + " / " + num(t.capacity_kg, 0) + " KG" : num(t.mass_kg) + " KG";
     var dataLost = t.data_gb_day > t.data_returned_gb_day;
     var du = dataUnit(Math.max(t.data_gb_day || 0, t.data_returned_gb_day || 0));
+    // No limit yet: no rocket, no orbit, or a rocket that cannot reach this orbit (its capacity there is 0).
+    var rocket = design.launcher ? byId(data("LAUNCHERS"), design.launcher) : null;
+    var massNote = t.capacity_kg ? null : !rocket ? "Pick a rocket to see the limit"
+      : !design.orbit ? "Pick an orbit to see the limit" : rocket.name + " cannot reach this orbit";
+    // Batteries and no panel: a warning, not a fault (runChecks warns "battery-only"). The bar says how long they last.
+    var batteryOnly = !(t.power_gen_w > 0) && t.battery_wh > 0 && t.power_draw_w > 0;
+    var power = isNum(m.power) ? { fill: 1 - m.power, cls: barClass(m.power), note: null }
+      : batteryOnly ? { fill: 1, cls: " warn", note: batteryNote(design) }
+      : { fill: t.power_draw_w > 0 ? 1 : 0, cls: t.power_draw_w > 0 ? " bad" : "", note: "Nothing makes power yet" };
     return el("div", { class: "bars" }, [
-      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass),
-          t.capacity_kg ? null : "Pick a rocket to see the limit", "mass"),
-      bar("POWER", fine(t.power_draw_w) + " / " + fine(t.power_gen_w) + " W",
-          isNum(m.power) ? 1 - m.power : (t.power_draw_w > 0 ? 1 : 0), isNum(m.power) ? barClass(m.power) : (t.power_draw_w > 0 ? " bad" : ""),
-          t.power_gen_w ? null : "Nothing makes power yet", "power"),
+      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass), massNote, "mass"),
+      bar("POWER", fine(t.power_draw_w) + " / " + fine(t.power_gen_w) + " W", power.fill, power.cls, power.note, "power"),
       bar("BUDGET", money(t.cost_musd) + " / " + money(t.budget_musd), isNum(m.budget) ? 1 - m.budget : null, barClass(m.budget), null, "budget"),
       // For data a full bar is good: it is the share of data that reaches the ground.
       bar("DATA HOME", fine(t.data_returned_gb_day * du[1]) + " / " + fine(t.data_gb_day * du[1]) + " " + du[0].toUpperCase() + "/DAY",
@@ -1872,6 +1985,14 @@
           dataLost ? (t.data_returned_gb_day > 0 ? " warn" : " bad") : "",
           !design.orbit ? "Pick an orbit to see ground contact" : null, "data")
     ]);
+  }
+
+  // "Battery only: runs out in about 2.2 months", from previewScience (its months stop when the battery is spent).
+  function batteryNote(design) {
+    var s = typeof previewScience === "function" ? previewScience(design) : null;
+    var orbit = byId(data("ORBITS"), design.orbit);
+    if (!s || !orbit || !isNum(s.months) || !(s.months < orbit.lifetime_months)) return "Battery only";
+    return "Battery only: runs out in about " + fine(s.months) + " months";
   }
 
   // A short label for each readiness check; the back end's full sentence stays one tap away ("Why").
@@ -1895,6 +2016,12 @@
     return c.text;   // an id this list does not know: the back end's own words
   }
 
+  // The bin a FIX line opens on Build: the empty one for "NO POWER" and the like, else none (Build picks).
+  function fixBin(c) {
+    var id = String(c && c.id || "");
+    return id.indexOf("empty-") === 0 && byId(categories(), id.slice(6)) ? id.slice(6) : null;
+  }
+
   function checkList(design, opts) {
     opts = opts || {};
     var checks = runChecks(design);
@@ -1912,7 +2039,7 @@
         el("span", { class: "check-text" }, [icon(row.kind === "bad" ? "blocker" : "warning"), el("strong", { text: label }),
           label !== row.c.text ? el("details", { class: "more why" }, [el("summary", { text: "Why" }), el("span", { text: row.c.text })]) : null]),
         opts.fix && target !== state.screen
-          ? el("button", { type: "button", class: "fix", onclick: function () { go(target); },
+          ? el("button", { type: "button", class: "fix", onclick: function () { go(target, fixBin(row.c)); },
               "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
           : el("span", { class: "status", text: row.status })
       ]);
@@ -2168,8 +2295,10 @@
           button([last ? (opts.doneLabel || "START") : "NEXT", " >"], function () { if (last) onDone(); else { at++; draw1(); } }, { primary: true })
         ])
       ]));
+      // Open at the top (the title page may have been scrolled), then focus NEXT without scrolling back down.
+      window.scrollTo(0, 0);
       var next = document.querySelector(".intro .btn.primary");
-      if (next) next.focus();
+      if (next) next.focus({ preventScroll: true });
     }
     draw1();
   }
@@ -2183,52 +2312,60 @@
     } catch (e) { return false; }
   }
 
-  function part1Card() {
+  // A menu entry: the whole panel is its button (the button's hit area covers the panel), so the label, the name and
+  // the state read as one choice. lead: the entry to play next, drawn solid.
+  function modeEntry(key, M, lead, extra, go) {
+    return el("div", { class: "mode-card" + (lead ? " lead" : ""), "data-key": key }, [
+      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
+      el("h2", { text: M.name }),
+      el("div", { class: "mode-foot" }, [extra.state || el("span"), el("div", { class: "mode-go" }, [go])])
+    ]);
+  }
+
+  function part1Card(lead) {
     var M = STORY.modes.part1;
     var next = walkNext();
     var started = WALK_STEPS.some(function (w) { return walkStars(w.step) !== null; });
     var label = !next ? "PLAY AGAIN" : started ? "CONTINUE: STEP " + next : "START";
+    // The three steps as their stars, numbered; the step's name is for screen readers and the tooltip.
     var steps = el("ol", { class: "mode-steps" }, WALK_STEPS.map(function (w) {
       var stars = walkStars(w.step);
-      return el("li", { class: stars === null ? "" : "passed", "data-key": "walk-step-" + w.step }, [
+      return el("li", { class: stars === null ? "" : "passed", "data-key": "walk-step-" + w.step, title: walkName(w.step) }, [
         el("span", { class: "mode-step-num", text: String(w.step) }),
-        el("span", { class: "mode-step-name", text: walkName(w.step) }),
+        el("span", { class: "mode-step-name sr-only", text: walkName(w.step) }),
         el("span", { class: "stars", text: starsText(stars || 0), "aria-label": stars === null ? "not passed yet" : stars + " of 3 stars" })
       ]);
     }));
-    return el("div", { class: "mode-card", "data-key": "mode-part1" }, [
-      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), next ? el("span", { class: "tag warn", text: M.tag }) : null]),
-      el("h2", { text: M.name }),
-      el("p", { class: "mode-pitch", text: M.pitch }),
-      steps,
-      el("div", { class: "mode-go" }, [button([label, " >"], function () { startWalkStep(next || 1); },
-        { primary: true, key: "part1-go", aria: label + ", part 1" })])
-    ]);
+    return modeEntry("mode-part1", M, lead, { tag: next ? el("span", { class: "tag warn", text: M.tag }) : null, state: steps },
+      button([label, " >"], function () { startWalkStep(next || 1); },
+        { primary: true, key: "part1-go", aria: label + ", " + M.kicker + ", " + M.name }));
   }
 
-  function part2Card() {
+  function part2Card(lead) {
     var M = STORY.modes.part2;
     var ready = typeof window.showComebackStart === "function";
     var label = !ready ? "COMING NEXT" : comebackSaved() ? "CONTINUE" : "START";
-    return el("div", { class: "mode-card", "data-key": "mode-part2" }, [
-      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker })]),
-      el("h2", { text: M.name }),
-      el("p", { class: "mode-pitch", text: M.pitch }),
-      el("div", { class: "mode-go" }, [button(ready ? [label, " >"] : label, function () { if (typeof window.showComebackStart === "function") window.showComebackStart(); },
-        { primary: ready, disabled: !ready, key: "part2-go", aria: label + ", part 2" })])
-    ]);
+    return modeEntry("mode-part2", M, lead && ready, {},
+      button(ready ? [label, " >"] : label, function () { if (typeof window.showComebackStart === "function") window.showComebackStart(); },
+        { primary: ready, disabled: !ready, key: "part2-go", aria: label + ", " + M.kicker + ", " + M.name }));
   }
 
+  // The home page, a console title screen: the low-poly scene fills the first screen, the drawn title and one line over
+  // its sky, then the two modes as a menu. The entry to play next is solid: Part 1 until its three steps pass, then Part 2.
   function drawTitle() {
     setStatus("Space Mission Design Game");
     state.locked = false;
     state.walk = null;
-    return el("section", { class: "title" }, [
-      titleHero(),
-      el("h1", { class: "big-title", text: String(STORY.title || "GRAVITRON").toUpperCase() }),
-      el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-      el("div", { class: "modes" }, [part1Card(), part2Card()]),
-      el("div", null, [button("RESET PROGRESS", function () {
+    var hero = titleHero();
+    var part1Next = !!walkNext();
+    return el("section", { class: "title" + (hero ? " has-art" : "") }, [
+      hero || titleSky(),
+      el("div", { class: "title-main" }, [
+        logotype(String(STORY.title || "GRAVITRON").toUpperCase()),
+        el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
+        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)])
+      ]),
+      el("div", { class: "title-foot" }, [button("RESET PROGRESS", function () {
         if (!window.confirm("Forget every star you have earned?")) return;
         if (typeof resetProgress === "function") resetProgress();
         walkForget();
@@ -2289,18 +2426,21 @@
       // The rest of the briefing sits beside the card, not inside it (a button cannot hold a button).
       return el("div", { class: "card-wrap" }, [card, more(o.briefing, "About this job")]);
     });
+    // The "½" in a Counts row, said once under the cards (SPEC: the first type counts fully, the others half).
+    var half = objectives.some(function (o) { return !lockReason(avail.objectives, o.id) && list(o.wants).length > 1; });
     return el("section", { class: "screen" }, [
       head("1 · BRIEFING"),
       sayLine("briefing"),
       presetNote("briefing"),
       objectives.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No objectives in the data yet." }),
+      half ? el("p", { class: "preset-note", text: "½: counts half." }) : null,
       navRow("orbit", !!d.objective)
     ]);
   }
 
   // ---------------------------------------------------------------- 2 Orbit
   // "In view: 69% of the world's fire detections (NASA FIRMS 2025)": the share comes from getOrbitFacts.
-  // (The badge beside it is about how often the orbit looks, which is a different thing.)
+  // (The badge above it is how well the orbit suits the job, which is a different thing.)
   function inViewText(objectiveId, share) {
     var e = typeof EARTH !== "undefined" && EARTH ? EARTH[objectiveId] : null;
     var KINDS = { "wildfire": ["of the world's fire detections", "NASA FIRMS"],
@@ -2328,10 +2468,12 @@
       setOrbit(probe, o.id);
       var f = getOrbitFacts(probe);
       var fit = objective && objective.orbit_fit ? objective.orbit_fit[o.id] : undefined;
+      // How well this orbit suits the job (objective.orbit_fit), which is not the share in view printed below it:
+      // so the badge says FIT, never VIEW, and the two cannot contradict each other on one card.
       var badge = !isNum(fit) ? null
         : fit === 0 ? el("span", { class: "tag bad", text: "CANNOT SEE TARGET" })
-        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL VIEW" })
-        : el("span", { class: "tag good", text: "GOOD VIEW" });
+        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL FIT" })
+        : el("span", { class: "tag good", text: "GOOD FIT" });
       var card = el("button", {
         type: "button", class: "card" + (fit === 0 ? " dim" : ""), "aria-pressed": d.orbit === o.id ? "true" : "false",
         "data-key": "orbit-" + o.id, onclick: function () { setOrbit(d, o.id); redraw(); }
@@ -2391,7 +2533,7 @@
     var note = f.counts === false ? "Does not count for this objective"
       : f.sharp_enough === false ? "Too blurry from this orbit" : null;
     function preview() { state.hover = p.id; refreshPreview(); }
-    return el("button", {
+    var card = el("button", {
       type: "button", class: "part" + (note ? " dim" : ""), "aria-pressed": on ? "true" : "false", "data-key": "part-" + p.id,
       onpointerdown: function (e) {
         // Read before the tap focuses the card (focus also previews).
@@ -2400,15 +2542,15 @@
       },
       onclick: function () {
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
-        if (state.touch && !state.armed) { preview(); state.armed = true; return; }
+        if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
       },
       onfocus: preview,
       // Real mouse only: a phone tap also fires mouse enter/leave, which would undo the tap preview.
-      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); },
-      onpointerleave: function (e) { if (e.pointerType === "mouse") { state.hover = null; refreshPreview(); } }
+      // Leaving a card keeps its preview, so the pointer can move onto the preview and scroll it.
+      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
       el("span", { class: "part-stats" }, partStats(p)),
@@ -2416,20 +2558,48 @@
       note ? el("span", { class: "part-note", text: note }) : null,
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
     ]);
+    if (state.touch && state.hover === p.id) markArmed(card, on);
+    return card;
+  }
+  // A finger's first tap on a card: the card says that a second tap adds (or removes) it. One card at a time.
+  function markArmed(card, on) {
+    Array.prototype.slice.call(document.querySelectorAll(".part.armed")).forEach(function (n) {
+      n.classList.remove("armed");
+      var old = n.querySelector(".part-tap");
+      if (old) old.parentNode.removeChild(old);
+    });
+    card.classList.add("armed");
+    card.appendChild(el("span", { class: "part-tap", text: on ? "TAP AGAIN TO REMOVE" : "TAP AGAIN TO ADD" }));
   }
 
-  // What clicking the hovered part would change (previewToggle), drawn in place.
+  // What clicking the hovered part would change (previewToggle). There is one preview box: a redraw moves the box
+  // already on the page into the new screen and a hover refills it, so its aria-live text is announced, not replaced.
   function drawPreview() {
-    var box = el("div", { class: "panel preview", id: "preview", "aria-live": "polite" }, [el("h2", { text: "IF YOU CLICK" })]);
-    if (!state.hover) {
-      box.appendChild(el("p", { class: "preview-empty", text: "Point at a part to see what it would change." }));
-      return box;
+    var box = document.getElementById("preview") || el("div", { class: "panel preview", id: "preview", "aria-live": "polite" });
+    fillPreview(box);
+    return box;
+  }
+  function refreshPreview() {
+    var box = document.getElementById("preview");
+    if (box) fillPreview(box);
+  }
+  function touchScreen() { return !!(window.matchMedia && window.matchMedia("(hover: none)").matches); }
+
+  // The most useful lines first: the change to the bars, then what it fixes and causes; the part's story last.
+  function fillPreview(box) {
+    while (box.firstChild) box.removeChild(box.firstChild);
+    box.scrollTop = 0;
+    var touch = state.touch || touchScreen();
+    box.appendChild(el("h2", { text: !touch ? "IF YOU CLICK" : state.hover ? "IF YOU TAP AGAIN" : "IF YOU TAP" }));
+    var p = state.hover ? byId(data("PARTS"), state.hover) : null;
+    var t = p ? previewToggle(state.design, state.hover) : null;
+    if (!t) {
+      box.appendChild(el("p", { class: "preview-empty", text: (touch ? "Tap" : "Point at") + " a part to see what it would change." }));
+      return;
     }
-    var p = byId(data("PARTS"), state.hover);
-    var t = previewToggle(state.design, state.hover);
     var dl = t.delta || {};
     var bits = [];
-    if (dl.mass_kg) bits.push(signed(dl.mass_kg) + " kg");
+    if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
     if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
     if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
     if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
@@ -2437,17 +2607,43 @@
     if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
     if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
     if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
-    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + (p ? p.name.toUpperCase() : "") }));
-    if (p && p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
+    var ch = checkChanges(state.design, state.hover);
+    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
-    list(t.fixes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
-    list(t.causes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
-    return box;
+    ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
+    ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
-  function refreshPreview() {
-    var old = document.getElementById("preview");
-    if (old) old.parentNode.replaceChild(drawPreview(), old);
+  // What a click would fix and cause: runChecks on the design and on a full copy of it with the part toggled (every
+  // field kept, so the era's rules still apply). One check id can appear more than once (a BODY FULL line for each
+  // kind of part), so lines that share an id are matched by their text. Checks only: every number is the back end's.
+  function toggledCopy(d, partId) {
+    var a = {};
+    Object.keys(d).forEach(function (k) { a[k] = d[k]; });
+    a.parts = list(d.parts).slice();
+    if (a.parts.indexOf(partId) === -1) addPart(a, partId); else removePart(a, partId);
+    return a;
+  }
+  function checkChanges(d, partId) {
+    function all(r) { return list(r.blockers).concat(list(r.warnings)); }
+    var before = all(runChecks(d)), after = all(runChecks(toggledCopy(d, partId)));
+    // The lines of `from` that `to` no longer has: per id, as many as `to` has fewer, unmatched texts first.
+    function gone(from, to) {
+      var out = [], seen = {};
+      from.forEach(function (c) {
+        if (seen[c.id]) return;
+        seen[c.id] = true;
+        var mine = from.filter(function (x) { return x.id === c.id; });
+        var theirs = to.filter(function (x) { return x.id === c.id; }).map(function (x) { return x.text; });
+        var n = mine.length - theirs.length;
+        if (n <= 0) return;
+        var unmatched = mine.filter(function (x) { return theirs.indexOf(x.text) === -1; });
+        out = out.concat((unmatched.length >= n ? unmatched : mine).slice(0, n));
+      });
+      return out;
+    }
+    return { fixes: gone(before, after), causes: gone(after, before) };
   }
 
   function sciencePanel(design) {
@@ -2481,27 +2677,27 @@
 
     state.avail = availability(d);   // one call per screen refresh; partCard reads it
     var cats = categories();
-    // The open bin: the one the player chose, else the instrument bin ("the reason we fly"), else the first.
+    // The open bin: the one chosen on the way in (entryBin) or by the player, else the instrument bin, else the first.
     var cat = byId(cats, state.bin) || byId(cats, "instrument") || cats[0];
     var body = getTotals(d).body || null;   // { name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null
     var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(cats.map(function (c) {
       var n = count[c.id] || 0;
       var need = c.required && !n;
-      // With a body fitted, each bin shows how many of its slots are used ("2 / 3").
+      // With a body fitted, each bin shows how many of its slots are used ("2 / 3 slots", "1 / 1 slot"). A kind of
+      // part the body has no slot for says so ("No room on this body", or "2 on board, no room").
       var slot = body && body.slots ? body.slots[c.id] : null;
-      if (slot && !slot.max && !slot.used) slot = null;   // no slots at all on this body
-      var noRoom = !!body && !slot && c.id !== "structure";
-      var over = !!slot && slot.used > slot.max;
-      var sub = need ? "Needed" : slot ? slot.used + " / " + slot.max + " slots" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
-        : n ? n + " on board" : c.sub;
+      var noRoom = !!body && c.id !== "structure" && !(slot && slot.max);
+      var over = noRoom ? n > 0 : !!slot && slot.used > slot.max;
+      var sub = need ? "Needed" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
+        : slot ? slot.used + " / " + slot.max + (slot.max === 1 ? " slot" : " slots") : n ? n + " on board" : c.sub;
       return el("button", {
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
-        onclick: function () { state.bin = c.id; state.hover = null; redraw(); }
+        onclick: function () { state.bin = c.id; state.hover = null; redraw(); showShelf(); }
       }, [
         icon(c.id) || art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
         el("span", { class: "bin-text" }, [
           el("span", { class: "bin-name", text: c.name }),
-          el("span", { class: "bin-sub" + (need || over || (noRoom && n) ? " need" : ""), text: sub })
+          el("span", { class: "bin-sub" + (need || over ? " need" : ""), text: sub })
         ])
       ]);
     })));
@@ -2531,16 +2727,38 @@
       shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
         : el("p", { class: "empty", text: "No parts in this bin yet." })
     ]);
+    // The preview sits on top of the shelf and stays in view while you scroll through the parts (CSS sticky).
+    var picker = el("div", { class: "part-picker", id: "part-picker" }, [drawPreview(), shelf]);
 
     return el("section", { class: "screen" }, [
       head("3 · BUILD"),
       sayLine("build"),
-      // The shelf sits under the satellite, in the same grid as the side panels, and the side
-      // panels stay in view while you scroll: you always see what a click did to the bars.
-      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, drawPreview(), payoutLine(d), shelf]),
+      // On a wide screen the shelf sits under the satellite, and the side panels stay in view while you scroll: you
+      // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
+      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
         el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
-      navRow("launcher", true)
+      // With the rocket preset (Part 1), the next stop after the Workshop is the Launch Pad.
+      navRow(isPreset("launcher") ? "review" : "launcher", true)
     ]);
+  }
+
+  // The bin Build opens on: the one a FIX line asked for, else the first required bin still empty (the team's line
+  // talks about it), else the one the player had open. Chosen on the way in (go), never on a redraw, so the shelf
+  // never changes under the pointer after a click.
+  function entryBin(d, wanted) {
+    if (wanted) return wanted;
+    var have = {};
+    list(d.parts).forEach(function (id) { var p = byId(data("PARTS"), id); if (p) have[p.category] = true; });
+    var missing = categories().filter(function (c) { return c.required && !have[c.id]; })[0];
+    return missing ? missing.id : state.bin;
+  }
+
+  // A narrow screen stacks the Build screen: after a bin is picked, bring its parts (and the preview) into view.
+  function showShelf() {
+    var box = document.getElementById("part-picker");
+    if (!box || !(window.matchMedia && window.matchMedia("(max-width: 929px)").matches)) return;
+    var top = box.getBoundingClientRect().top;
+    if (top > window.innerHeight * 0.5 || top < 0) window.scrollTo(0, window.pageYOffset + top);
   }
 
   // ---------------------------------------------------------------- 4 Launch vehicle
@@ -2601,12 +2819,24 @@
     var objective = byId(data("OBJECTIVES"), d.objective);
     var orbit = byId(data("ORBITS"), d.orbit);
     var rocket = byId(data("LAUNCHERS"), d.launcher);
-    var control = el("div", { class: "panel" }, [
+    // The science this design should bring home if nothing goes wrong, against the job's target (previewScience),
+    // shown before the one click that cannot be undone. Short of the target: amber, and the button says ANYWAY.
+    var sci = d.objective && d.orbit && typeof previewScience === "function" ? previewScience(d) : null;
+    var short = !!sci && sci.target > 0 && sci.share < 1;
+    var forecast = sci && sci.target > 0 ? bar("SCIENCE FORECAST", num(sci.total, 0) + " / " + num(sci.target, 0) + " PTS", sci.share,
+      short ? " warn" : "", short ? "Short of the target" : null, "science") : null;
+    var launchBtn = button(blocked ? "LAUNCH" : warned || short ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked });
+    var control = el("div", { class: "panel launch-control" }, [
       el("span", { class: "countdown-label", text: "T-MINUS" }),
       el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
-      el("p", { class: "verdict " + (blocked ? "bad" : warned ? "warn" : "ok"),
-        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "") : "ALL SYSTEMS GO" }),
+      el("p", { class: "verdict " + (blocked ? "bad" : warned || short ? "warn" : "ok"),
+        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
+          : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),
       comebackDeadline(d, checks),
+      forecast,
+      // The one thing to do first: with nothing blocking, LAUNCH comes before the warnings (it was below the fold on a
+      // laptop); while something blocks, the NO GO lines and their FIX buttons come first.
+      blocked ? null : launchBtn,
       checkList(d, { fix: true }),
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
@@ -2614,8 +2844,7 @@
         ["Rocket", rocket ? rocket.name : "not chosen"],
         isComebackDesign(d) ? comebackTimeRow(d) : isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
       ]),
-      button(blocked ? "LAUNCH" : warned ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
-      null
+      blocked ? launchBtn : null
     ]);
     return el("section", { class: "screen" }, [
       head("5 · READINESS REVIEW"),
@@ -2892,10 +3121,13 @@
     if (lpMap) board.appendChild(lpMap);
     board.appendChild(refs.svg);
 
+    refs.edge = {};
     PLACES.forEach(function (p) {
       var at = pct(NODES[p.id]);
+      // A marker near the map's left or right edge hangs its name towards the middle, so a phone shows all of it.
+      refs.edge[p.id] = NODES[p.id].x < MAP_W * 0.3 ? " edge-l" : NODES[p.id].x > MAP_W * 0.7 ? " edge-r" : "";
       var b = el("button", {
-        type: "button", class: "blip", "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
+        type: "button", class: "blip" + refs.edge[p.id], "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
         onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }), el("span", { class: "blip-name", text: p.name })]);
       refs.markers[p.id] = b;
@@ -2914,23 +3146,23 @@
 
     refs.promptText = el("span", { class: "map-prompt-text" });
     refs.enter = el("button", { type: "button", class: "btn primary", onclick: act, "data-key": "map-enter" }, "ENTER [E]");
-    // Below the map, never on top of it, so it cannot cover a marker.
+    // Below the map, never on top of it, so it cannot cover a marker. The one instruction on the map is the header's
+    // OBJECTIVE line; this box is its button ("GO TO WORKSHOP"), or what the place you stand at is for.
     refs.prompt = el("div", { class: "map-prompt", "aria-live": "polite" }, [refs.promptText, refs.enter]);
 
+    // Names and NEXT / DONE / LOCKED only; why a place is locked is said when you pick it.
     var legend = el("ul", { class: "legend" }, PLACES.map(function (p) {
       var status = el("span", { class: "tag" });
-      var does = el("span", { class: "legend-does", text: p.does });
       // No aria-label: the button's name is its visible text, which updateMap keeps current.
       var item = el("li", null, [el("button", {
         type: "button", class: "legend-item", "data-key": "legend-" + p.id, onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }),
-          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name]), does]),
+          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name])]),
           status])]);
-      refs.legend[p.id] = { status: status, does: does };
+      refs.legend[p.id] = { status: status };
       return item;
     }));
 
-    refs.objective = el("p", { class: "map-objective" });
     state.map = refs;
     return el("section", { class: "screen" }, [
       head("BASE MAP"),
@@ -2938,11 +3170,11 @@
       el("div", { class: "map-layout" }, [
         el("div", { class: "stack" }, [board, refs.prompt]),
         el("aside", { class: "panel" }, [
-          el("h2", { text: "OBJECTIVE" }), refs.objective,
-          el("h2", { class: "divided", text: "PLACES" }), legend,
-          el("h2", { class: "divided", text: "KEYS" }),
-          el("p", { class: "keys", "aria-label": "Arrow keys or WASD walk. E or Enter goes in, or follows the gold route. Click a marker to walk there. M or Esc: back inside." }, [
-            el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " map"]),
+          el("h2", { text: "PLACES" }), legend,
+          // The keys, for a keyboard (hidden on a touch screen, where the hint says to tap a place). On the map,
+          // M and Esc go back into the place you stand at.
+          el("div", { class: "keys-box" }, [el("h2", { class: "divided", text: "KEYS" }),
+            el("p", { class: "keys" }, [el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " back inside"])]),
           el("div", null, [isComebackDesign(state.design)
             ? button("BACK TO THE WORKSHOP", function () { window.showComebackHub(); }, { key: "map-workshop" })
             : inCampaign()
@@ -2976,15 +3208,13 @@
     var next = waypoint();
     PLACES.forEach(function (p) {
       var st = placeStatus(p.id);
-      refs.markers[p.id].className = "blip " + st + (state.player === p.id ? " here" : "");
+      refs.markers[p.id].className = "blip " + st + refs.edge[p.id] + (state.player === p.id ? " here" : "");
       var line = st === "locked" ? lockedReason(p.id) : p.does + ".";
       refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
-      refs.legend[p.id].does.textContent = st === "locked" ? lockedReason(p.id) : st === "next" ? p.does : "";
       refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
       refs.legend[p.id].status.textContent = STATUS_TEXT[st];
     });
     refs.route.setAttribute("points", routePoints(route(state.player, next)));
-    refs.objective.textContent = GO_TEXT[next];
 
     var here = byId(PLACES, state.player);
     var openHere = !!here && placeOpen(here.id);
@@ -2994,9 +3224,13 @@
     else if (state.walking) text = "Walking...";
     else if (openHere) text = here.name + ": " + here.does + ".";
     else if (here) text = here.name + " is locked. " + lockedReason(here.id);
-    else text = "Follow the gold route. " + GO_TEXT[next];
+    else text = "";   // at the gate or a crossing: the button says where the gold route goes
     refs.promptText.textContent = text;
-    refs.enter.textContent = canEnter ? "ENTER [E]" : "FOLLOW ROUTE [E]";
+    refs.promptText.hidden = !text;
+    // Two parts, like the GO TO buttons inside a place: a long name wraps, and the key stays on the right.
+    while (refs.enter.firstChild) refs.enter.removeChild(refs.enter.firstChild);
+    refs.enter.appendChild(el("span", { text: canEnter ? "ENTER" : "GO TO " + byId(PLACES, next).name }));
+    refs.enter.appendChild(el("span", { text: "[E]" }));
     // Never disabled while walking: that would drop keyboard focus to the page.
     refs.enter.disabled = !!here && !openHere && here.id === next;
     setStep("map");
@@ -3193,6 +3427,7 @@
     leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; },
     mount: function (screen, node) {
       state.screen = screen;
+      markHome(screen);
       state.swappedAt = Date.now();
       var app = document.getElementById("app");
       while (app.firstChild) app.removeChild(app.firstChild);

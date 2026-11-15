@@ -32,9 +32,24 @@ Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026).
 **Hard requirements for global judging** (from the same guide):
 
 - Every team member registered for the same Local Event and listed on the team page; at most six members.
-- A demo: **at most 7 slides** including the title. Everything in English.
+- A demo: a video of **30 seconds or less**, or a slide deck of **at most 7 slides** including the title and intro slides. A demo over either limit is not eligible for Global Judging. Everything in English (a video in another language needs English subtitles; slide decks must be in English).
 - Every external resource (code, text, images, data, even open source) listed in the **References** field. `SOURCES.md` becomes that list, so it must be complete, including the AI tools used.
 - No copyrighted material we lack permission to use.
+- No image, video, audio or likeness of anyone under 18 in the demo or the final project.
+
+### Submission checklist (from the Project Submission Guide)
+
+Source: the NASA Space Apps 2026 Project Submission Guide (Nov 13, 2026), read from a screenshot of the page. The collapsed field instructions were not visible, so any limit on a field's length is **not known**; check each field in the form.
+
+- **Window.** Opens Saturday, Nov 14 at 9:00 a.m. and closes Sunday, Nov 15 at 11:59 p.m., in the time zone of the team's Local Event (Universal Event: the Team Owner's local time). Anything saved or submitted after that is not judged. Local judging times may differ; ask the Local Lead.
+- **Where.** Profile icon, My Team, the "Project" tab (it appears only once the hackathon begins). This page is what the judges review.
+- **Eight form fields, all required, all in English:** Project Name; High-Level Project Summary; Link to Project Demo; Link to Final Project; Detailed Project Description; **Use of Super Intelligence (SI)**; NASA Data; Space Agency Partner Data and Other References.
+- **To submit:** tick "Terms and Conditions" and "Confirm All Work is Original", then press **Submit for Judging**. Save Progress as often as needed. A team can resubmit any number of times until the hackathon ends, and only the last saved submission is judged. Switch the edit "Lock" on while editing so two teammates do not overwrite each other.
+- **Eligibility.** Every team member must be a confirmed participant at the same Local Event. Only teams that press Submit for Judging earn the participant certificate.
+- **Files.** The page accepts images (JPG, PNG, GIF up to 10 MB) but **not** videos or documents. Host the demo and any document on YouTube, Google Drive, GitHub, OneDrive or Dropbox, with a **public link that needs no login, permission or registration**. Test the link in a private window. A project judges cannot open cannot be judged.
+- **Final project link.** If we host the game on a new website, request a FortiGuard Web Filter classification (optional, but it helps judges get through; category "web-based application", company name "N/A").
+- **Slide deck must show:** team name, names of the team members, the challenge selected, an image of the project, the user experience, and how NASA and space-agency open data and technology make the solution possible. Use readable font sizes and few words.
+- **Open-data fields.** "NASA Data" lists the NASA data we use (FIRMS, NSIDC). "Space Agency Partner Data and Other References" lists everything else (SILSO, CSA Alouette, outside sources), which `SOURCES.md` already separates by publisher.
 
 **Global awards worth aiming at:** Best Use of Data (real NASA data driving the game), Best Mission Concept (plausible concept and design), Best Storytelling (the debrief), Most Inspirational.
 
@@ -1038,7 +1053,7 @@ Data feeds both logic files, each logic file feeds its own screens, and everythi
 
 The game carries a version number, and `CHANGELOG.md` at the top of the repo records what each version holds. Both live in version control, so anyone can see what a given build can and cannot do.
 
-- **Current version: 0.8 beta.** A single mission plays from tier select to Debrief in the browser, in four eras, and the campaign plays from the title screen: hub, lab (research and upgrades), archive, payouts and save codes. The Gravitron story, per-part satellite art, fewer words, flat icons and a low-poly home page are in. Launch failures and the rest of the low-poly art are not in the game yet. `CHANGELOG.md` lists what is in and what is still missing.
+- **Current version: 0.9 beta.** The home page offers two modes: Part 1, Austin's guided 1958 walkthrough (three steps), and Part 2, Ajay's comeback (pay back a debt by flying contracts, with Easy, Normal and Hard). The whole game is drawn in low-poly 3D (home page, Build bench, faces, launch pad and lift-off, mission Earth, base map), with the pixel art as a fallback. Launch failures are not built yet. `CHANGELOG.md` lists what is in and what is still missing.
 - **Numbering.** `0.x beta` until we submit; **1.0 is the build we submit** at the code freeze. Raise the second number when a missing piece lands (for example the campaign hub makes 0.6).
 - **Every merge to `main` that changes what a player sees, or what a back-end function returns, adds one line to the "Unreleased" section of `CHANGELOG.md`**, in the same commit or pull request. Write it for a teammate or a judge: what changed, not how. Use the headings Added, Changed, Fixed and "Not in this version yet".
 - **Cutting a version.** Rename "Unreleased" to the version and date, start a new empty "Unreleased", update the version line in the footer of `index.html` (the one place the game shows it), and tag that commit `vX.Y`. Whoever merges the last piece cuts the version, after telling the team. Then run `node tests/version.js`: it fails when the footer, the "Current version" line above and the newest heading in `CHANGELOG.md` disagree, and warns when the tag is missing. Cloud AI sessions cannot push tags, so push the tag from a computer (`git push origin vX.Y`).
@@ -1122,4 +1137,4 @@ Today I need: <one specific task>.
 <paste the spec here>
 ```
 
-**Open question:** does Space Apps 2026 require teams to disclose AI use, and in what form? The Judging & Awards Guide does not say; it does require every external resource to be listed in the References field. Until QA confirms otherwise, we list the AI tools used there too.
+**Settled:** the submission form has a required field, "Use of Super Intelligence (SI)", so AI use must be disclosed there. `SI_USE.md` is the record that QA copies into it, and `SOURCES.md` still lists the tools as external resources. The deck and demo carry no tool credits; the form field does.

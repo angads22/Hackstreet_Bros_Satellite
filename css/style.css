@@ -17,6 +17,7 @@
   --pal-glass: #e9b04b;   --pal-red: #d9482f;     --pal-cell: #2e6b72;    --pal-cell-dark: #1f4a50;
   --pal-dark: #1d1915;    --pal-skin: #e0ae86;    --pal-hair: #5a3a24;    --pal-mouth: #7e3b30;
   --pal-portrait: #352b23; --pal-night: #1a1612;
+  --space: #0b0f16;       /* the low-poly scenes' night sky (js/lowpoly.js 'space'): the home page's background */
   --pal-metal-dark: #8e7f67;   --pal-cell-light: #4d9aa0;   --pal-gold-dark: #a8742a;
 --pal-ion: #8fd6c9;          --pal-flame: #f08a4b;
   --map-ground: #231e19;  --map-lot: #2c251f;     --map-road: #3c332b;    --map-dash: #5e5042;
@@ -85,11 +86,12 @@ button:disabled { cursor: not-allowed; }
 .data-badge.partial { color: var(--accent-ink); }
 .data-badge.snapshot { color: var(--text-dim); }
 .data-badge.loading { color: var(--text-dim); border-style: dashed; }
-@media (min-width: 761px) {
-  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
-  html { scroll-padding-top: 240px; }   /* the header wraps to about 230px between 761 and 899px */
-}
+/* The header stays in view only on a wide screen, where it fits one row (about 130px): the brand's status line wraps
+   inside its own box instead of pushing the minimap and "?" onto rows of their own. Narrower (a phone, or 150 to 200%
+   zoom), it scrolls away with the page, so it never covers what has focus. */
 @media (min-width: 930px) {
+  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
+  .brand { flex: 0 1 300px; }
   html { scroll-padding-top: 144px; }
 }
 @media (max-height: 500px) {   /* landscape phones: a sticky header would eat the screen */
@@ -249,6 +251,7 @@ button:disabled { cursor: not-allowed; }
   font-size: 18px;
   white-space: nowrap;
 }
+.card-title .tag { white-space: normal; max-width: 100%; }   /* a long "NEEDS RESEARCH: ..." wraps inside its card */
 .tag.good { color: var(--info-ink); }
 .tag.warn { color: var(--accent-ink); }
 .tag.bad { color: var(--bad); }
@@ -311,9 +314,12 @@ button:disabled { cursor: not-allowed; }
   padding: 10px;
 }
 
-/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. */
-.preview { height: 190px; overflow-y: auto; }
-@media (min-width: 930px) { .bench-col > .preview { position: sticky; top: var(--sticky-top, 8px); z-index: 3; align-self: stretch; } }
+/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. It lists the
+   change to the bars and what it fixes and causes before the part's story, and keeps the last part when the pointer
+   leaves the card, so the pointer can move onto it to scroll. It stays on top of the shelf while the parts scroll by. */
+.preview { height: clamp(190px, 36vh, 320px); overflow-y: auto; gap: 4px; }
+.part-picker { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.part-picker > .preview { position: sticky; top: var(--sticky-top, 0px); z-index: 3; }
 .bench-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .workshop > .bins, .workshop > .stack { position: sticky; top: var(--sticky-top, 8px); align-self: start; max-height: calc(100vh - var(--sticky-top, 8px) - 8px); overflow-y: auto; }
 @media (min-width: 930px) { .workshop { --sticky-top: 140px; } }   /* just under the sticky header */
@@ -321,7 +327,7 @@ button:disabled { cursor: not-allowed; }
 .workshop .sat-bench { max-width: 320px; }
 .workshop .shelf { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .preview h3 { font-size: 20px; color: var(--accent-ink); }
-.preview-line { font-size: 20px; }
+.preview-line { font-size: 19px; }
 .preview-line.fix { color: var(--info-ink); }
 .preview-line.cause { color: var(--bad); }
 .preview-empty { color: var(--text-dim); font-size: 20px; }
@@ -339,6 +345,8 @@ button:disabled { cursor: not-allowed; }
 }
 .part:hover, .part:focus-visible { border-color: var(--text-dim); }
 .part[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); }
+.part.armed { border-color: var(--accent); }   /* a finger's first tap: the next tap adds or removes it */
+.part-tap { align-self: flex-start; padding: 0 8px; background: var(--accent); color: var(--on-accent); font-size: 18px; }
 .part-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; align-items: baseline; }
 .part-name { font-size: 24px; line-height: 1; }
 .part-cost { color: var(--accent-ink); white-space: nowrap; }
@@ -412,11 +420,9 @@ button:disabled { cursor: not-allowed; }
 .banner { padding: 10px 14px; background: var(--accent); color: var(--on-accent); font-family: var(--pixel); font-weight: 700; font-size: 26px; }
 .banner.info { background: var(--surface); color: var(--text-dim); font-family: var(--mono); font-weight: normal; font-size: 22px; border: 4px solid var(--border); }
 
-/* ---------------------------------------------------------------- title (the home page) */
-.title { display: flex; flex-direction: column; gap: 22px; padding: 24px 0; }
+/* ---------------------------------------------------------------- title (the home page: see "the home page" below) */
 .kicker { font-size: 24px; letter-spacing: 4px; color: var(--info-ink); }
 .big-title { font-family: var(--pixel); font-weight: 700; font-size: clamp(48px, 12vw, 128px); line-height: 1; color: var(--accent-ink); text-shadow: 8px 8px 0 var(--stamp); }
-.tagline { font-size: 30px; max-width: 640px; }
 
 .empty { color: var(--text-dim); font-style: italic; }
 
@@ -547,13 +553,22 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   font-weight: 700;
   font-size: 20px;
 }
+/* The name hangs under its marker (the marker's box is the number alone, centred on the door). Near the map's left or
+   right edge it starts or ends at the marker instead of being centred, so it is never cut off on a phone. */
 .blip-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
   padding: 0 6px;
   background: var(--bg);
   color: var(--text);
   font-size: 18px;
   white-space: nowrap;
 }
+.blip.edge-l .blip-name { left: 0; transform: none; }
+.blip.edge-r .blip-name { left: auto; right: 0; transform: none; }
 .blip.done .blip-num { background: var(--info); border-color: var(--info); color: var(--on-info); }
 .blip.next .blip-num { background: var(--accent); border-color: var(--text); color: var(--on-accent); animation: pulse 1s steps(2) infinite; }
 .blip.next .blip-name { color: var(--accent-ink); }
@@ -602,7 +617,6 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 }
 .map-prompt-text { font-size: 22px; }
 .map-prompt .btn { min-height: 44px; font-size: 22px; padding: 0 14px; }
-.map-objective { color: var(--accent-ink); font-size: 24px; }
 
 /* NASA data lines: the orbit cards, each mission month and the debrief comparison. */
 .nasa-line { margin: 0; color: var(--info-ink); font-size: 20px; }
@@ -626,7 +640,8 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 .legend-item:hover { border-color: var(--accent); }
 .legend-item .blip-num { width: 28px; height: 28px; font-size: 18px; flex: none; }
 .legend-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1; }
-.legend-does { font-size: 18px; color: var(--text-dim); }
+.keys-box { display: flex; flex-direction: column; gap: 10px; }
+@media (hover: none) { .keys-box { display: none; } }   /* a touch screen: the hint says to tap a place */
 
 @media (prefers-reduced-motion: reduce) {
   .blip.next .blip-num { animation: none; box-shadow: 0 0 0 4px var(--accent); }
@@ -645,6 +660,11 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 @media (max-width: 929px) {
   .workshop { grid-template-columns: 1fr; }
   .workshop > .bins, .workshop > .stack { position: static; max-height: none; }
+  /* One column: the bins, then the preview and the shelf, then the satellite and the bars. */
+  .workshop > .bench-col { display: contents; }
+  .workshop > .bins { order: -2; }
+  .workshop .part-picker { order: -1; }
+  .preview { height: clamp(120px, 30vh, 190px); }
 }
 
 @media (max-width: 760px) {
@@ -660,6 +680,7 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   .blip.next .blip-name { display: block; }
   .blip::before { content: ""; position: absolute; inset: -6px; }   /* 44px touch target */
   .workshop, .pad, .ledger { grid-template-columns: 1fr; }
+  .pad > .launch-control { order: -1; }   /* Readiness on a phone: the verdict and LAUNCH (or FIX) before the pictures */
   .bins { flex-direction: row; flex-wrap: wrap; }
   .bin { flex: 1 1 140px; }
   .dialogue { grid-template-columns: 1fr; }
@@ -743,33 +764,108 @@ svg.icon { display: inline-block; margin-right: .35em; vertical-align: -.12em; }
   .sat-small .sat-p { animation: none; }
 }
 
-/* ---------------------------------------------------------------- home page: low-poly hero, plainer cards */
 .lp { display: block; width: 100%; background: var(--bg); }
-.lp-hero { aspect-ratio: 4 / 1; max-height: 340px; border: 4px solid var(--border); }
-@media (max-width: 640px) { .lp-hero { aspect-ratio: 3 / 2; } }
-.title .big-title { font-size: clamp(40px, 8vw, 88px); text-shadow: 4px 4px 0 var(--stamp); }
 .btn.quiet { background: none; border-color: transparent; box-shadow: none; color: var(--text-dim); text-decoration: underline; }
 .btn.quiet:hover { color: var(--text); border-color: var(--border); }
 
-/* ---------------------------------------------------------------- home page: the two game modes
-   Rounded and flat: no shadows or gradients on anything added here. Side by side on a wide screen, stacked on a phone. */
-.modes { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: stretch; }
-.mode-card { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; min-width: 0; background: var(--surface); border: 4px solid var(--border); border-radius: 12px; }
-.mode-card:first-child { border-color: var(--accent); }
-.mode-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; }
-.mode-top .kicker { font-size: 20px; letter-spacing: 3px; }
-.mode-top .tag { border-radius: 6px; }
-.mode-card h2 { font-size: clamp(26px, 4vw, 34px); color: var(--accent-ink); }
-.mode-pitch { font-size: 24px; color: var(--text-dim); }
-.mode-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.mode-steps li { display: flex; align-items: center; gap: 10px; padding: 4px 10px; background: var(--bg); border: 3px solid var(--border); border-radius: 8px; }
-.mode-steps li.passed { border-color: var(--info); }
-.mode-step-num { flex: none; width: 1.4em; font-family: var(--pixel); font-weight: 700; color: var(--info-ink); }
-.mode-step-name { flex: 1; min-width: 0; font-size: 22px; }
-.mode-steps .stars { flex: none; color: var(--accent-ink); }
-.mode-steps li:not(.passed) .stars { color: var(--text-dim); }
-.mode-go { margin-top: auto; display: flex; }
-.mode-go .btn { flex: 1; border-radius: 8px; box-shadow: none; }
+/* ---------------------------------------------------------------- the home page: a console title screen
+   body.is-home is set while it is up (js/ui-design.js, markHome): no header bar, hint or pixel ground strip, and the
+   title fills the first screen edge to edge. The low-poly scene (or, without it, a pixel sky) is the background; the
+   drawn title, one line and the two modes sit over its dark sky on solid panels. Flat: no gradients, shadows or glow.
+   Wide screens: the menu on the left, the satellite framed right. Tall screens (the same 1.15 switch as HERO_AIM):
+   the title on top, the satellite in the middle, the menu at the foot of the first screen. */
+body.is-home { background: var(--space); }
+.is-home .wrap { max-width: none; padding: 0; }
+.is-home .hint, .is-home .backdrop, .is-home .brand-name, .is-home .brand-status { display: none; }
+/* The header keeps only the LIVE DATA / SNAPSHOT badge, as a small chip in the top right corner. */
+.is-home .topbar { position: absolute; top: 16px; right: var(--home-side); z-index: 3; padding: 0; background: none; }
+.is-home .brand { min-width: 0; }
+.is-home .data-badge { background: var(--space); }
+.is-home .foot { position: absolute; right: var(--home-side); bottom: 16px; z-index: 2; margin: 0; padding: 0 8px; background: var(--space); font-size: 18px; }
+
+:root { --home-side: clamp(16px, 5vw, 88px); }
+.title {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: clamp(28px, 6vh, 80px) var(--home-side) 76px;
+  overflow: hidden;
+  background: var(--space);
+}
+.title > .lp-hero, .title > .title-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: var(--space); }
+.title-main { position: relative; z-index: 1; display: flex; flex-direction: column; width: min(100%, 40vw + 60px, 720px); min-width: min(100%, 360px); }
+.title .big-title { margin: 0; line-height: 0; color: var(--accent-ink); text-shadow: none; }
+.title .big-title .logo { display: block; width: 100%; height: auto; fill: currentColor; }
+.title .tagline { margin-top: 0.7em; font-size: clamp(22px, 2.2vw, 32px); line-height: 1.1; color: var(--text); letter-spacing: 1px; }
+
+/* The menu: two panels, the whole panel is the button. Corners cut like the letters of the title. */
+.title .modes { display: flex; flex-direction: column; gap: 14px; margin-top: clamp(24px, 6vh, 64px); }
+.mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 22px 14px;
+  background: var(--surface);
+  color: var(--text);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+.mode-card.lead { background: var(--accent); color: var(--on-accent); }
+.mode-card:hover { background: var(--surface-2); }
+.mode-card.lead:hover { background: var(--accent-ink); }
+.mode-top { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
+.mode-card .kicker { font-size: 20px; letter-spacing: 3px; color: var(--info-ink); }
+.mode-card.lead .kicker { color: var(--on-accent); }
+.mode-card .tag { font-size: 18px; color: var(--accent-ink); }
+.mode-card.lead .tag { background: var(--on-accent); border-color: var(--on-accent); color: var(--text); }
+.mode-card h2 { font-size: clamp(24px, 2.6vw, 38px); line-height: 1.05; color: var(--accent-ink); overflow-wrap: anywhere; }
+.mode-card.lead h2 { color: var(--on-accent); }
+.mode-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; margin-top: 6px; min-height: 32px; }
+.mode-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; font-size: 22px; }
+.mode-steps li { display: flex; align-items: baseline; gap: 6px; }
+.mode-step-num { font-family: var(--pixel); font-weight: 700; }
+.mode-steps .stars { letter-spacing: 1px; }
+.mode-steps li:not(.passed) { color: var(--text-dim); }
+.mode-card.lead .mode-steps li:not(.passed) { color: var(--stamp); }
+.mode-go { margin-left: auto; }
+/* The button: big plain words, its hit area stretched over the whole panel; focus draws a ring inside the panel. */
+.mode-go .btn, .mode-go .btn.primary, .mode-go .btn:disabled {
+  min-height: 32px;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: inherit;
+  font-family: var(--pixel);
+  font-weight: 700;
+  font-size: clamp(24px, 2.2vw, 30px);
+  white-space: nowrap;
+}
+.mode-go .btn:disabled { color: var(--text-dim); opacity: 1; }
+.mode-go .btn::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.mode-go .btn:focus-visible { outline: none; }
+.mode-go .btn:focus-visible::after { outline: 4px solid currentColor; outline-offset: -8px; }
+.mode-card:not(.lead) .mode-go .btn:focus-visible::after { outline-color: var(--info); }
+
+.title-foot { position: absolute; left: var(--home-side); bottom: 12px; z-index: 2; }
+.title-foot .btn.quiet { min-height: 32px; padding: 0 8px; background: var(--space); font-size: 18px; }
+.title-foot .btn.quiet:hover { border-color: transparent; }
+
+@media (max-aspect-ratio: 23/20) {
+  .title { justify-content: flex-start; padding-bottom: 64px; }
+  .title-main { flex: 1; width: min(100%, 600px); margin: 0 auto; }
+  .title .tagline { text-align: center; }
+  .title .modes { margin-top: auto; padding-top: 24px; }
+}
+@media (max-width: 480px) {
+  .mode-card { padding: 10px 16px 12px; }
+  .mode-card .kicker { font-size: 18px; letter-spacing: 2px; }
+  .mode-card h2 { font-size: 22px; }
+  .mode-steps { gap: 4px 12px; font-size: 20px; }
+}
 .preset-note { color: var(--text-dim); font-size: 20px; }
 
 /* ---------------------------------------------------------------- low-poly art in the screens (js/lp-*.js) */
@@ -874,3 +970,19 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
   .cb-meter-debt, .cb-meter-cash { transition: none; }
   .cb-stamp { animation: none; }
 }
+
+/* ---------------------------------------------------------------- mission and debrief: sweep fixes (flat, rounded)
+   Fast forward shows when it is on (aria-pressed), not only by the month counting faster. */
+.controls .btn[aria-pressed="true"] { background: var(--info); color: var(--on-info); border-color: var(--info); }
+/* The debrief's score rows wrap on a narrow phone (320px): the value drops under its label instead of off the page. */
+.paper .row { flex-wrap: wrap; row-gap: 2px; }
+.paper .row-label { min-width: 0; overflow-wrap: anywhere; }
+.paper .row-value { margin-left: auto; }
+@media (max-width: 360px) {
+  .paper .row-label span:first-child { font-size: 24px; }
+  .paper .row-value { font-size: 30px; }
+  .ledger-head h1 { font-size: 30px; }
+}
+/* An event: focus lands on its heading (not a control, so no ring), and every choice reads the same, with its cost under it. */
+.dialogue h2[tabindex="-1"]:focus { outline: none; }
+.choices .btn .odds { opacity: 1; color: var(--text-dim); }

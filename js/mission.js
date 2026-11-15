@@ -57,12 +57,35 @@ function copyDesign(design) {
   return copy;
 }
 
+function missionId(seed) { return "m" + missionCounter + "-" + seed.toString(36); }
+
+// Campaign flights launched in this page and not yet recorded (by mission id). A launch in the saved log
+// that is not here was made by a page that has since closed: its flight is lost, so its cost comes back.
+var liveFlights = {};
+function refundLostFlights(c) {
+  var lost = (c.log || []).filter(function (e) { return e.kind === "launch" && !liveFlights[e.id]; });
+  if (!lost.length) return c;
+  lost.forEach(function (e) {
+    c.treasury_musd = round(c.treasury_musd + e.musd, 3);
+    c.flights = Math.max(c.missions.length, c.flights - 1);
+  });
+  c.log = c.log.filter(function (e) { return lost.indexOf(e) === -1; });
+  saveCampaign(c);
+  return c;
+}
+// Called when a flight is recorded: its launch is no longer pending.
+function landFlight(c, mission) {
+  delete liveFlights[mission.id];
+  if (c.log) c.log = c.log.filter(function (e) { return !(e.kind === "launch" && e.id === mission.id); });
+}
+
 // Returns null if the design still has blockers: nothing launches past the readiness review.
 function startMission(design) {
   if (!design || runChecks(design).blockers.length) return null;
   var launchTotals = getTotals(design);   // before any money moves
   design = copyDesign(design);
   missionCounter += 1;
+  var seed = designSeed(design);
 
   // Campaign: pay at launch, count the flight, and give each flight fresh luck.
   var flight = 0, scienceBefore = 0, contract = null;
@@ -77,6 +100,13 @@ function startMission(design) {
     c.flights = (c.flights || 0) + 1;
     flight = c.flights;
     scienceBefore = c.knowledge_science[design.objective] || 0;
+    seed = (seed ^ Math.imul(flight, 2654435761)) >>> 0;
+    // The flight lives only in this page until its debrief records it. The log keeps what it cost, so a
+    // page closed or reloaded in flight gives the money back (refundLostFlights) instead of losing it.
+    var launchId = missionId(seed);
+    liveFlights[launchId] = true;
+    (c.log = c.log || []).push({ year: c.year, month: isComeback(c) ? c.month : undefined, kind: "launch", id: launchId,
+                                 flight: flight, musd: launchTotals.cost_musd });
     saveCampaign(c);
   }
 
@@ -87,8 +117,6 @@ function startMission(design) {
   var batteryMonths = batteryLifeMonths(design);
   var batteryLimited = batteryMonths !== null && batteryMonths < lifetime;
   if (batteryLimited) lifetime = Math.max(1, Math.round(batteryMonths));
-  var seed = designSeed(design);
-  if (flight) seed = (seed ^ Math.imul(flight, 2654435761)) >>> 0;
   var rand = makeRandom(seed);
 
   // Pick distinct events and distinct months (never month 1 or the last month).
@@ -111,7 +139,7 @@ function startMission(design) {
              (totals.margins.power !== null && totals.margins.power < LOW_MARGIN);
 
   return {
-    id: "m" + missionCounter + "-" + seed.toString(36),
+    id: missionId(seed),
     design: design,           // the copy taken at launch
     launch_totals: launchTotals,
     campaign_flight: flight,  // 0 = standalone mission
@@ -149,8 +177,10 @@ function isProtected(design, eventId) {
 }
 
 // A required category with no working parts ends the mission.
+function isGenerator(p) { return p.category === "power" && solarPowerW(p) > 0; }
 function missingRequired(mission) {
-  var working = designParts(mission.design).filter(function (p) {
+  var parts = designParts(mission.design);
+  var working = parts.filter(function (p) {
     return mission.broken.indexOf(p.id) === -1;
   });
   var req = requiredCategories();
@@ -158,8 +188,10 @@ function missingRequired(mission) {
     var cat = req[i];
     if (!working.some(function (p) { return p.category === cat; })) return cat;
   }
-  // A battery alone cannot keep a spacecraft alive: it needs a working generator.
-  if (!working.some(function (p) { return p.category === "power" && solarPowerW(p) > 0; })) return "power";
+  // A satellite that launched with solar cells dies when the last of them fails: the battery alone
+  // cannot keep it alive for long. A battery-only satellite was never relying on cells: it flies on
+  // until its battery is spent (its lifetime, set at launch).
+  if (parts.some(isGenerator) && !working.some(isGenerator)) return "power";
   return null;
 }
 
@@ -427,7 +459,7 @@ function chooseEvent(mission, choice) {
     mission.lost.event += rate.per_month * mission.science_mult * (mission.lifetime_months - mission.month);
     mission.ended = true;
     mission.ended_early = true;
-    mission.end_reason = { event: event.id, title: event.title, category: missing };
+    mission.end_reason = { event: event.id, title: event.title, category: missing, part: record.failed_part };
   } else if (mission.month >= mission.lifetime_months) {
     mission.ended = true;
     if (mission.battery_limited) mission.end_cause = "batteries";
@@ -478,8 +510,11 @@ function getDebrief(mission) {
   if (mission.campaign_flight) {
     if (k.nothing_new && cpay) kp = "Nothing new: this topic's data has already been collected, so the client paid nothing. Take a contract on another topic.";
     else if (k.nothing_new) kp = "Nothing new: this topic's data has already been collected, so the flight earned no money and no science points. Try another mission type.";
+    // The 1957 campaign pays by the knowledge curve; a comeback client pays by the contract, so these two lines do not apply there.
+    else if (mission.comeback) kp = "";
     else if (k.novelty < 0.15) kp = DEBRIEF.saturated || "";
-    else if (k.novelty > 0.6 && k.knowledge_before < 0.2) kp = DEBRIEF.breakthrough || "";
+    // Only the first real look at a topic (as settleCampaign's first_look): later flights add less.
+    else if (k.knowledge_before < 0.05 && k.new_data > 0) kp = DEBRIEF.breakthrough || "";
   }
   return {
     score: score,
@@ -571,35 +606,64 @@ function bestNextTopic(currentId) {
 }
 
 // The single thing that most limited the mission, and one concrete change.
-// Every suggestion must be something the player can actually do: never a part
-// that is already fitted, and the orbit is named when the orbit is the problem.
+// Every suggestion must be something the player can actually do with what this design has: a part that exists
+// for it (its era, or the campaign's research), that fits the body and the rocket it flew, and an orbit that
+// rocket reaches. A standalone mission (Part 1) never changes the rocket: a walkthrough step may have set it.
+// A comeback never changes the orbit its contract names, nor the topic. Returns { key, discipline?, suggestion,
+// change }: change is what the suggestion asks for ({ add, remove, orbit, launcher }), or null.
 function limitingFactor(mission, totals, scienceShare) {
   var design = mission.design;
-  var fitted = function (id) { return design.parts.indexOf(id) !== -1; };
   var objective = getObjective(design.objective);
   var orbit = getOrbit(design.orbit);
+  var target = objective ? objective.science_target : 100;
+  var era1957 = !!(mission.campaign_flight && !mission.comeback);   // the 1957 campaign: locked parts wait for research
+  function say(key, text, change, discipline) {
+    var out = { key: key, suggestion: text, change: change || null };
+    if (discipline) out.discipline = discipline;
+    return out;
+  }
 
   if (mission.ended_early) {
-    var r = mission.end_reason;
-    var guard = PARTS.filter(function (p) { return p.protects.indexOf(r.event) !== -1 && !fitted(p.id); })[0];
-    return { key: "event", suggestion: "The " + r.title.toLowerCase() + " knocked out your only working " + r.category +
-      " part. " + (guard ? "Fly the " + guard.name.toLowerCase() + ", which guards against it, or carry a spare."
-                         : "Carry a spare " + r.category + " part, or pick the safer option next time.") };
+    var r = mission.end_reason, part = getPart(r.part);
+    var ev = findById(EVENTS, r.event);
+    var generator = r.category === "power" && part && isGenerator(part) &&
+      designParts(design).some(function (p) { return p.category === "power" && !isGenerator(p) && mission.broken.indexOf(p.id) === -1; });
+    var head = (mission.science >= target ? "Target reached first. " : "") + r.title + ": " +
+      (part ? "your " + inText(part.name) + " failed" : "a part failed") +
+      (generator ? ", and a battery alone cannot keep a satellite alive. " : ", and it was your only " + CATEGORY_WORDS[r.category] + ". ");
+    var guard = bestChange(mission, PARTS.filter(function (p) { return (p.protects || []).indexOf(r.event) !== -1; }).map(function (p) { return p.id; }), false);
+    // A spare does the same job: a second generator, or an instrument that also counts for this topic.
+    var spare = guard ? null : bestChange(mission, PARTS.filter(function (p) {
+      return p.category === r.category && (!generator || isGenerator(p)) && (!part || p.id !== part.id) &&
+        (p.category !== "instrument" || !objective || p.tags.some(function (t) { return objective.wants.indexOf(t) !== -1; }));
+    }).map(function (p) { return p.id; }), false, true);
+    var safe = ev ? ev.choices.filter(function (c) { return !(c.effect && c.effect.fail_chance); })[0] : null;
+    var choice = safe ? "“" + safe.label + "”" : "the safer option";
+    if (guard) return say("event", head + changeText(guard) + ", which guards against it, or pick " + choice + " next time.", guard);
+    if (spare) return say("event", head + "Carry a spare: " + lcFirst(changeText(spare)) + ", or pick " + choice + " next time.", spare);
+    return say("event", head + "Next time, pick " + choice + ".");
   }
 
   // A battery-only satellite that fell silent: the history lesson that leads to solar cells.
   if (mission.end_cause === "batteries" && scienceShare < 1) {
-    var cells = PARTS.filter(function (p) { return p.category === "power" && solarPowerW(p) > 0 && isPartAvailable(p.id); })[0];
-    return { key: "power", suggestion: "Your batteries ran down after " + mission.month + " month" + (mission.month > 1 ? "s" : "") +
-      " and the satellite fell silent, as Sputnik 1 did after 21 days. " +
-      (cells ? "Fit the " + cells.name.toLowerCase() + " so the Sun keeps it running." : "Solar cells would keep it running: research them.") };
+    var silent = "Your batteries ran down after " + mission.month + " month" + (mission.month > 1 ? "s" : "") +
+      " and the satellite fell silent, as Sputnik 1 did after 21 days. ";
+    var cells = bestChange(mission, PARTS.filter(isGenerator).map(function (p) { return p.id; }), true);
+    if (cells) return say("power", silent + changeText(cells) + " so the Sun keeps it running.", cells);
+    var bigger = bestChange(mission, PARTS.filter(function (p) { return p.battery_wh; }).map(function (p) { return p.id; }), true);
+    if (bigger) return say("power", silent + changeText(bigger) + ": it stores more, so the satellite lasts longer.", bigger);
+    if (era1957 && PARTS.some(function (p) { return isGenerator(p) && !isPartAvailable(p.id, design); })) {
+      return say("power", silent + "Solar cells would keep it running: research them.");
+    }
+    // Instruments that earn nothing are the bigger problem: no power source helps them (the design branches below).
+    if (scienceRate(design, []).per_month > 0) return say("power", silent + "Parts that draw less would make the battery last longer.");
   }
 
   // An orbit that cannot see the target at all comes before everything else.
   if (objective && orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
-    var better = bestOrbitFor(objective);
-    return { key: "design", discipline: "orbit", suggestion: "From " + orbit.name.toLowerCase() + " the spacecraft cannot see what " +
-      objective.name.toLowerCase() + " needs. Fly in " + better.name.toLowerCase() + " instead." };
+    var seeing = orbitChange(mission, function (o) { return objective.orbit_fit[o.id] > 0; });
+    return say("design", "From " + inText(orbit.name) + " the spacecraft cannot see what " + inText(objective.name) + " needs. " +
+      (seeing ? orbitText(seeing) + " instead." + thrusterNote(seeing) : "Pick an orbit that can, then clear what the readiness review asks."), seeing, "orbit");
   }
 
   var lost = mission.lost;
@@ -607,79 +671,182 @@ function limitingFactor(mission, totals, scienceShare) {
   var potential = mission.science + lost.data + lost.power + lost.event;
   if (biggest > 0.05 * potential && scienceShare < 1) {
     if (biggest === lost.data) {
-      var fastest = PARTS.filter(function (p) { return p.category === "comms"; })
-        .sort(function (a, b) { return b.downlink_gb_day - a.downlink_gb_day; })[0];
-      var head = "Only " + totals.data_returned_gb_day + " of " + totals.data_gb_day + " GB a day reached the ground. ";
-      return { key: "data", suggestion: head + (fitted(fastest.id)
-        ? "Your " + fastest.name + " is already the fastest radio, so fly an orbit with longer ground contact, or carry fewer data-hungry instruments."
-        : "Fit the " + fastest.name + ", or fly an orbit with longer ground contact.") };
+      var dataHead = "Only " + formatData(totals.data_returned_gb_day) + " of the " + formatData(totals.data_gb_day) +
+        " made each day reached the ground. ";
+      var radio = bestChange(mission, PARTS.filter(function (p) { return p.category === "comms"; }).map(function (p) { return p.id; }), true);
+      var contact = orbitChange(mission, function (o) { return o.downlink_mult > (orbit ? orbit.downlink_mult : 0); }, true);
+      if (radio || contact) {
+        return say("data", dataHead + (radio ? changeText(radio) : "") + (radio && contact ? ", or " + lcFirst(orbitText(contact)) : contact ? orbitText(contact) : "") +
+          (contact ? " for longer ground contact." : ".") + thrusterNote(contact), radio || contact);
+      }
+      var lighter = bestChange(mission, PARTS.filter(function (p) { return p.category === "instrument"; }).map(function (p) { return p.id; }), true, false, true);
+      if (lighter) return say("data", dataHead + changeText(lighter) + ": it makes less data, so more of it gets home.", lighter);
+      return say("data", dataHead + "No radio or orbit you can use sends more: carry an instrument that makes less data.");
     }
     if (biggest === lost.power) {
-      var battery = PARTS.filter(function (p) { return p.battery_wh; })
-        .sort(function (a, b) { return b.battery_wh - a.battery_wh; })[0];
-      var short = totals.power_gen_w < totals.power_draw_w;
-      if (short) {
-        return { key: "power", suggestion: "Your panels make " + totals.power_gen_w + " W but the parts draw " +
-          totals.power_draw_w + " W. Add or enlarge a solar panel, or cut the draw." };
+      if (totals.power_gen_w < totals.power_draw_w) {
+        return say("power", "Your panels make " + totals.power_gen_w + " W but the parts draw " +
+          totals.power_draw_w + " W. Add or enlarge a solar panel, or cut the draw.");
       }
-      return { key: "power", suggestion: battery && !fitted(battery.id)
-        ? "Your instruments switched off in Earth's shadow. Add the " + battery.name.toLowerCase() + " to carry them through the eclipse."
-        : "Your battery is the largest available but still too small for a " + totals.power_draw_w +
-          " W spacecraft in shadow. Cut the draw: drop an instrument, or choose lighter-drawing parts." };
+      var store = bestChange(mission, PARTS.filter(function (p) { return p.battery_wh; }).map(function (p) { return p.id; }), true);
+      if (store) return say("power", "Your instruments switched off in Earth's shadow. " + changeText(store) + " to carry them through the eclipse.", store);
+      return say("power", "Your instruments switched off in Earth's shadow, and no battery you can fit carries a " + totals.power_draw_w +
+        " W satellite through it. Choose parts that draw less.");
     }
-    return { key: "event", suggestion: "Events cost you months of observing. Protective parts, or the safer choice, keep the mission running." };
+    return say("event", "Events cost you months of observing. The safer choice, or a part that guards against an event, keeps the mission running.");
   }
 
   if (scienceShare < 1) {
     if (totals.margins.budget !== null && totals.margins.budget < LOW_MARGIN) {
-      return { key: "budget", suggestion: "You spent " + Math.round((1 - totals.margins.budget) * 100) +
-        "% of the budget. A cheaper rocket, such as a rideshare, frees money for better instruments." };
+      var cheaper = design.year && !design.campaign ? null : launcherChange(mission, function (l) { return l.cost_musd < (getLauncher(design.launcher) || {}).cost_musd; });
+      return say("budget", "You spent " + Math.round((1 - totals.margins.budget) * 100) + "% of the budget. " +
+        (cheaper ? "The " + cheaper.launcherName + " is cheaper and still carries it, which frees money for better instruments."
+                 : "Cheaper parts would free money for better instruments."), cheaper);
     }
     if (totals.margins.mass !== null && totals.margins.mass < LOW_MARGIN) {
-      return { key: "mass", suggestion: "The rocket was nearly full. A bigger launcher or lighter parts would give you room." };
+      var roomier = design.year && !design.campaign ? null : launcherChange(mission, function (l) {
+        return ((l.capacity_kg || {})[design.orbit] || 0) > totals.capacity_kg; });
+      return say("mass", "The rocket was nearly full. " + (roomier ? "The " + roomier.launcherName + " carries more, or lighter parts would give you room."
+                                                                    : "Lighter parts would give you room."), roomier);
     }
     var rate = scienceRate(design, []);
     if (rate.instruments.some(function (i) { return i.smeared && i.match > 0; })) {
-      var wheels = PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1 && isPartAvailable(p.id); })[0];
-      return { key: "design", discipline: "attitude", suggestion: "Your satellite spun, so its pictures were smeared, as TIROS-1's were. " +
-        (wheels ? "Fit " + wheels.name.toLowerCase() + " to hold it steady." : "Research three-axis control to hold it steady.") };
+      var steady = bestChange(mission, PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1; })
+        .map(function (p) { return p.id; }), true);
+      var later = PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1; })[0];
+      return say("design", "Your satellite spun, so its pictures were smeared, as TIROS-1's were. " +
+        (steady ? changeText(steady) + " to hold it steady." : era1957 ? "Research three-axis control to hold it steady."
+                : later && design.year && !design.campaign && itemYear("parts", later.id) > design.year
+                  ? "Three-axis control would hold it steady: it arrives in " + itemYear("parts", later.id) + "."
+                  : "Three-axis control would hold it steady, on a body and rocket with room for it."), steady, "attitude");
     }
+    var instrumentIds = PARTS.filter(function (p) { return p.category === "instrument"; }).map(function (p) { return p.id; });
     var weak = rate.instruments.filter(function (i) { return i.match === 0 || !i.sharp_enough; });
     if (weak.length) {
-      return { key: "design", discipline: "instruments", suggestion: "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. Swap them for ones that suit it." };
+      var suit = bestChange(mission, instrumentIds, true);
+      return say("design", "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. " +
+        (suit ? changeText(suit) + "." : "Swap them for ones that suit it."), suit, "instruments");
     }
     // A wanted instrument type nobody carries is the cheapest way to more science.
     var carried = designParts(design).filter(function (p) { return p.category === "instrument"; })
       .reduce(function (tags, p) { return tags.concat(p.tags); }, []);
-    var missingTag = objective ? objective.wants.filter(function (t) { return carried.indexOf(t) === -1; })[0] : null;
-    var extra = missingTag ? PARTS.filter(function (p) { return p.category === "instrument" && p.tags.indexOf(missingTag) !== -1; })[0] : null;
+    var wanted = objective ? objective.wants.filter(function (t) { return carried.indexOf(t) === -1; }) : [];
+    var extra = bestChange(mission, PARTS.filter(function (p) {
+      return p.category === "instrument" && p.tags.some(function (t) { return wanted.indexOf(t) !== -1; }); }).map(function (p) { return p.id; }), true, false, false, true);
     if (extra) {
-      return { key: "design", discipline: "instruments", suggestion: "Nothing ran short, but one instrument was not enough. Add the " +
-        extra.name.toLowerCase() + " as well; this objective counts it too." };
+      return say("design", "Nothing ran short, but one instrument was not enough. " + changeText(extra) + " as well; this objective counts it too.", extra, "instruments");
     }
-    var best = bestOrbitFor(objective);
-    return { key: "design", discipline: best.id !== design.orbit ? "orbit" : "instruments", suggestion: best.id !== design.orbit
-      ? "Nothing ran short, but the science fell below target. " + best.name + " suits this objective better."
-      : "Nothing ran short, and this is already the best orbit for this objective. A longer-lived or sharper design is the only way up." };
+    var better = orbitChange(mission, function () { return true; }, true);
+    if (better) return say("design", "Nothing ran short, but the science fell below target. " + inText(getOrbit(better.orbit).name).replace(/^./, function (x) { return x.toUpperCase(); }) +
+      " suits this objective better" + (better.launcher ? ", on the " + better.launcherName : "") + "." + thrusterNote(better), better, "orbit");
+    var sharper = bestChange(mission, instrumentIds, true);
+    if (sharper) return say("design", "Nothing ran short, but the science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
+    return say("design", "Nothing ran short, but the science fell below target. No single change you can make earns more: try a different design.", null, "instruments");
   }
   // In a campaign there is no "next tier": the next step is the lab, or another topic.
-  if (mission.comeback) return { key: "none", suggestion: "Target reached. Pay back the lenders, or take the next contract." };
-  if (mission.campaign_flight) return { key: "none", suggestion: "Target reached. Spend the science in the lab, or fly a different topic." };
-  return { key: "none", suggestion: "Target reached. Try the next tier, or reach it on a smaller budget." };
+  if (mission.comeback) return say("none", "Target reached. Pay back the lenders, or take the next contract.");
+  if (mission.campaign_flight) return say("none", "Target reached. Spend the science in the lab, or fly a different topic.");
+  // Tiers are chosen as a ladder only in the old tier select (no era); Part 1's steps and the last tier have no next one.
+  var ti = TIERS.map(function (t) { return t.id; }).indexOf(design.tier);
+  if (!design.year && TIERS[ti + 1]) return say("none", "Target reached. Try the next tier, or reach it on a smaller budget.");
+  return say("none", "Target reached. Now try it for less money.");
 }
 
-// The orbit where instruments earn the most for this objective: science
-// multiplier x how often it looks x share of real targets in view.
-function bestOrbitFor(objective) {
-  var e = objective ? earthFor(objective.id) : null;
-  return ORBITS.slice().sort(function (a, b) {
-    function value(o) {
-      var fit = objective && objective.orbit_fit ? (objective.orbit_fit[o.id] || 0) : 1;
-      var view = e && e.orbit_view && e.orbit_view[o.id] !== undefined ? e.orbit_view[o.id] : 1;
-      return o.science_mult * fit * view * o.lifetime_months;
+// ---- advice the player can act on
+var CATEGORY_WORDS = { structure: "body", instrument: "instrument", power: "power source", comms: "radio", computer: "computer",
+                       attitude: "attitude control", propulsion: "thruster" };
+// A name inside a sentence: the first letter lower-cased, unless the name starts with a proper noun or an acronym.
+var KEEP_CAPITAL = /^(Explorer|Nimbus|TIROS|Geiger|Arctic|Earth|Sun|Alouette|Li-ion|Thor|Juno|Vanguard)\b|^[A-Z0-9]{2}|^[A-Z]-/;
+function inText(name) { return !name ? "" : KEEP_CAPITAL.test(name) ? name : lcFirst(name); }
+
+// The flown design with one change, as the player would build it for the next flight.
+function variantOf(design, change) {
+  var v = copyDesign(design);
+  (change.remove || []).forEach(function (id) { removePart(v, id); });
+  (change.add || []).forEach(function (id) { addPart(v, id); });
+  if (change.orbit) v.orbit = change.orbit;
+  if (change.launcher) v.launcher = change.launcher;
+  return v;
+}
+// Could the changed design launch? Only what the change itself affects counts: the contract (already flown) and
+// the calendar do not, and money is judged against what this flight had to spend at launch.
+var ADVICE_IGNORES = ["budget", "no-contract", "contract-topic", "contract-orbit", "comeback-over", "no-comeback", "too-late"];
+function canFly(mission, v) {
+  if (runChecks(v).blockers.some(function (b) { return ADVICE_IGNORES.indexOf(b.id) === -1; })) return false;
+  var budget = mission.launch_totals ? mission.launch_totals.budget_musd : budgetFor(v);
+  return budget === null || budget === undefined || getTotals(v).cost_musd <= budget + 1e-9;
+}
+// The best way to fit one of `ids` (beside the parts of its category, or in place of one of them) that this design
+// can launch with. needGain: it must raise the expected science. spare: only beside (a second part of the category).
+// lessData: it must make less data than the part it replaces. newOnly: only beside, as an extra instrument.
+function bestChange(mission, ids, needGain, spare, lessData, newOnly) {
+  var d = mission.design, base = previewScience(d).total, best = null;
+  ids.forEach(function (id) {
+    var p = getPart(id);
+    if (!p || d.parts.indexOf(id) !== -1 || !isPartAvailable(id, d)) return;
+    var same = designParts(d).filter(function (q) { return q.category === p.category; });
+    var options = [{ add: [id] }];
+    if (!spare && !newOnly) same.forEach(function (q) { options.push({ add: [id], remove: [q.id], instead: q.id }); });
+    options.forEach(function (ch) {
+      if (lessData && !(ch.instead && (p.data_gb_day || 0) < (getPart(ch.instead).data_gb_day || 0))) return;
+      var v = variantOf(d, ch);
+      if (!canFly(mission, v)) return;
+      var gain = previewScience(v).total - base;
+      if (needGain && !(gain > 0.05)) return;
+      var cost = getTotals(v).cost_musd, mass = getTotals(v).mass_kg;
+      if (!best || gain > best.gain + 0.05 || (Math.abs(gain - best.gain) <= 0.05 && (mass < best.mass - 1e-9 || (mass === best.mass && cost < best.cost)))) {
+        best = { add: ch.add, remove: ch.remove || [], part: id, instead: ch.instead || null, gain: gain, cost: cost, mass: mass };
+      }
+    });
+  });
+  return best;
+}
+function changeText(ch) {
+  var p = getPart(ch.part);
+  return ch.instead ? "Swap your " + inText(getPart(ch.instead).name) + " for the " + inText(p.name) : "Fit the " + inText(p.name);
+}
+// Another orbit (passing `test`) that this design reaches and can launch to, best first by expected science. A
+// standalone mission keeps its rocket; a campaign or comeback flight may take the cheapest one that carries it.
+// A comeback contract that names an orbit fixes it. needGain: it must raise the expected science.
+function orbitChange(mission, test, needGain) {
+  var d = mission.design;
+  if (mission.contract && mission.contract.orbit) return null;
+  var base = previewScience(d).total, best = null;
+  ORBITS.forEach(function (o) {
+    if (o.id === d.orbit || !test(o)) return;
+    var rockets = d.year && !d.campaign ? [d.launcher] :
+      LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id, d); })
+        .sort(function (a, b) { return (a.id === d.launcher ? -1 : 0) - (b.id === d.launcher ? -1 : 0) || a.cost_musd - b.cost_musd; }).map(function (l) { return l.id; });
+    // An orbit that needs the satellite's own thrust (polar orbit since 1995, geostationary) may also need a thruster.
+    var thrusters = [null].concat(PARTS.filter(function (p) { return p.category === "propulsion" && isPartAvailable(p.id, d); })
+      .sort(function (a, b) { return a.mass_kg - b.mass_kg; }).map(function (p) { return p.id; }));
+    for (var i = 0; i < rockets.length; i++) {
+      for (var j = 0; j < thrusters.length; j++) {
+        var ch = { orbit: o.id, launcher: rockets[i] !== d.launcher ? rockets[i] : null, add: thrusters[j] ? [thrusters[j]] : [] };
+        if (thrusters[j] && designParts(d).some(function (p) { return p.category === "propulsion"; })) continue;
+        var v = variantOf(d, ch);
+        if (!canFly(mission, v)) continue;
+        var gain = previewScience(v).total - base;
+        if (needGain && !(gain > 0.05)) return;
+        if (!best || gain > best.gain) best = { orbit: o.id, launcher: ch.launcher, launcherName: ch.launcher ? inText(getLauncher(ch.launcher).name) : null,
+                                               add: ch.add, thruster: thrusters[j], gain: gain };
+        return;
+      }
     }
-    return value(b) - value(a);
-  })[0];
+  });
+  return best;
+}
+function orbitText(ch) {
+  return "Fly in " + inText(getOrbit(ch.orbit).name) + (ch.launcher ? " on the " + ch.launcherName : "");
+}
+function thrusterNote(ch) { return ch && ch.thruster ? " That orbit needs a thruster: fit the " + inText(getPart(ch.thruster).name) + "." : ""; }
+// Another rocket (passing `test`) that this design can launch on, cheapest first.
+function launcherChange(mission, test) {
+  var d = mission.design;
+  var l = LAUNCHERS.filter(function (x) { return x.id !== d.launcher && isLauncherAvailable(x.id, d) && test(x); })
+    .sort(function (a, b) { return a.cost_musd - b.cost_musd; })
+    .filter(function (x) { return canFly(mission, variantOf(d, { launcher: x.id })); })[0];
+  return l ? { launcher: l.id, launcherName: inText(l.name) } : null;
 }
 
 // ------------------------------------------------------------------ progress
@@ -695,10 +862,17 @@ function getProgress() {
   try {
     if (typeof localStorage !== "undefined") {
       var raw = localStorage.getItem(PROGRESS_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) return repairProgress(JSON.parse(raw));
     }
-  } catch (e) { /* storage blocked: fall through to memory */ }
-  return memoryProgress || emptyProgress();
+  } catch (e) { /* storage blocked or unreadable: fall through to memory */ }
+  return memoryProgress ? repairProgress(memoryProgress) : emptyProgress();
+}
+// A record read back from the browser keeps every part that is well formed; a broken part starts empty,
+// so a damaged record can never stop the title screen from drawing.
+function repairProgress(p) {
+  p = isRecord(p) ? p : {};
+  return { best_stars: isNumberMap(p.best_stars) ? p.best_stars : {}, best_score: isNumberMap(p.best_score) ? p.best_score : {},
+           best_stars_by_era: isNumberMap(p.best_stars_by_era) ? p.best_stars_by_era : {} };
 }
 
 function saveProgress(p) {
@@ -753,17 +927,22 @@ var cheapestCache = {};
 
 function campaignVersion() { return typeof CAMPAIGN !== "undefined" ? CAMPAIGN.save_version : 1; }
 
+var checkedRaw = null;   // the last saved text that passed validCampaign (it is read very often)
 function getCampaign() {
   var c = null;
   try {
     if (typeof localStorage !== "undefined") {
       var raw = localStorage.getItem(CAMPAIGN_KEY);
-      if (raw) c = JSON.parse(raw);
+      if (raw) {
+        c = JSON.parse(raw);
+        // A save of the wrong shape (an old bug, or a hand-edited browser store) is ignored like an old version.
+        if (raw !== checkedRaw) { if (!validCampaign(c)) return null; checkedRaw = raw; }
+      }
     }
   } catch (e) { c = null; }
   if (!c) c = memoryCampaign;
   if (!c || c.version !== campaignVersion()) return null;
-  return c;
+  return refundLostFlights(c);
 }
 
 function saveCampaign(c) {
@@ -900,6 +1079,7 @@ function settleCampaign(mission, debrief, result) {
   var c = getCampaign();
   if (!c) return;
   if (isComeback(c) !== !!mission.comeback) return;   // the save changed mode since launch: nothing to settle
+  landFlight(c, mission);
   if (isComeback(c)) return settleComeback(c, mission, debrief, result);
   var obj = mission.design.objective;
   var grant = grantFor(c);
@@ -919,7 +1099,7 @@ function settleCampaign(mission, debrief, result) {
                     spent_musd: debrief.spent_musd, science: round(mission.science, 1),
                     payout_musd: debrief.payout_musd, stars: debrief.stars,
                     // For the programme chronicle (SPEC.md, "The ending"):
-                    flight: c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
+                    flight: mission.campaign_flight || c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
                     months: mission.month, ended_early: !!mission.ended_early, limiting: debrief.limiting_name || null,
                     parts: designParts(mission.design).length,
                     real: debrief.closest_mission ? { name: debrief.closest_mission.name, year: debrief.closest_mission.year } : null });
@@ -1075,7 +1255,7 @@ function ratingFor(c, K) {
 
 function flightHeadline(m, o, orbitName) {
   var topic = o ? o.name : m.objective;
-  if (m.ended_early) return "Satellite lost after " + m.months + (m.months === 1 ? " month" : " months");
+  if (m.ended_early) return "Satellite lost" + (isCount(m.months) ? " after " + m.months + (m.months === 1 ? " month" : " months") : "");
   if (m.new_data <= 0) return "Old news: " + topic + " measured again";
   if (m.first_look && m.stars >= 2) return topic + ": the first data comes home";
   if (m.stars === 3) return "Flawless flight adds to the record on " + topic;
@@ -1196,12 +1376,24 @@ function buyResearch(id) {
   if (c.research.indexOf(id) !== -1) return { ok: false, reason: "Already owned." };
   var missing = researchMissing(r, c);
   if (missing.length) return { ok: false, reason: missing.map(function (m) { return m.text; }).join(" ") };
+  var undo = JSON.stringify(c);
   c.treasury_musd = round(c.treasury_musd - r.cost_musd, 3);
   c.science_pts = round((c.science_pts || 0) - (r.cost_sci || 0), 1);
   c.research.push(id);
   (c.log = c.log || []).push({ year: c.year, kind: "research", id: id });
   saveCampaign(c);
-  return { ok: true, reason: null };
+  return keepsLaunchable(c, undo);
+}
+
+// Never soft-locked (SPEC.md, "Scoring"): only a flight brings the grants, so a lab purchase that would leave
+// less money than the cheapest launchable design is refused and undone. Called just after the purchase is
+// saved, because what can launch depends on what is owned.
+function keepsLaunchable(c, undo) {
+  var cheapest = cheapestLaunchCost(c);
+  if (!isFinite(cheapest) || c.treasury_musd >= cheapest) return { ok: true, reason: null };
+  var left = c.treasury_musd;
+  saveCampaign(JSON.parse(undo));
+  return { ok: false, reason: "That would leave $" + round(left, 2) + "M, less than the cheapest launch ($" + round(cheapest, 2) + "M). Fly first." };
 }
 
 // What a design would earn if it flies as planned (for the Build screen).
@@ -1244,15 +1436,75 @@ function importSave(code) {
     var body = fromBase64(parts[1]);
     if (checksum(body) !== parts[2]) return { ok: false, reason: "The code is damaged or incomplete." };
     var data = JSON.parse(body);
+    if (!isRecord(data)) return { ok: false, reason: "The code could not be read." };
     if (data.v !== campaignVersion()) return { ok: false, reason: "The code is from another version of the game." };
     if (data.campaign && data.campaign.version !== campaignVersion()) return { ok: false, reason: "The campaign is from another version." };
-    if (!data.progress || typeof data.progress.best_stars !== "object") return { ok: false, reason: "The code has no progress in it." };
-    saveProgress(data.progress);
+    if (!isRecord(data.progress)) return { ok: false, reason: "The code has no progress in it." };
+    // Every field is checked before anything is saved: a code that is well formed but incomplete never replaces a good save.
+    var progress = cleanProgress(data.progress);
+    if (!progress || (data.campaign !== null && data.campaign !== undefined && !validCampaign(data.campaign))) {
+      return { ok: false, reason: "The code could not be read." };
+    }
+    saveProgress(progress);
     if (data.campaign) { saveCampaign(data.campaign); cheapestCache = {}; } else resetCampaign();
     return { ok: true, reason: null };
   } catch (e) {
     return { ok: false, reason: "The code could not be read." };
   }
+}
+
+// ---- the shape of a save: checked on import, and when a save is read back from the browser
+function isRecord(x) { return !!x && typeof x === "object" && !Array.isArray(x); }
+function isNumber(x) { return typeof x === "number" && isFinite(x); }
+function isText(x) { return typeof x === "string"; }
+function isFlag(x) { return typeof x === "boolean"; }
+function isTextOrNull(x) { return x === null || isText(x); }
+function isCount(x) { return isNumber(x) && x >= 0 && Math.floor(x) === x; }
+function isNumberMap(x) { return isRecord(x) && Object.keys(x).every(function (k) { return isNumber(x[k]); }); }
+function isListOf(x, test) { return Array.isArray(x) && x.every(function (v) { return test(v); }); }
+function isOptional(x, test) { return x === undefined || test(x); }
+
+// Tier progress: { best_stars, best_score, best_stars_by_era }, each { id: number }. An older record without
+// best_stars_by_era gets an empty one. Returns the clean record, or null when it cannot be used.
+function cleanProgress(p) {
+  if (!isRecord(p) || !isNumberMap(p.best_stars) || !isNumberMap(p.best_score) || !isOptional(p.best_stars_by_era, isNumberMap)) return null;
+  return { best_stars: p.best_stars, best_score: p.best_score, best_stars_by_era: p.best_stars_by_era || {} };
+}
+
+// One flight, as settleCampaign and settleComeback save it.
+function validFlight(m) {
+  return isRecord(m) && isText(m.id) && isText(m.objective) && isText(m.orbit) && isNumber(m.year) && isNumber(m.science) &&
+    isNumber(m.stars) && isNumber(m.payout_musd) && isNumber(m.spent_musd) &&
+    isOptional(m.flight, isCount) && isOptional(m.new_data, isNumber) && isOptional(m.first_look, isFlag) &&
+    isOptional(m.months, isCount) && isOptional(m.ended_early, isFlag) && isOptional(m.limiting, isTextOrNull) &&
+    isOptional(m.parts, isCount) && isOptional(m.month, isNumber) && isOptional(m.contract, isTextOrNull) &&
+    isOptional(m.real, function (r) { return r === null || (isRecord(r) && isText(r.name) && isNumber(r.year)); });
+}
+// A yearly offer (the 1957 campaign) or a contract (the comeback).
+function validOffer(o, comeback) {
+  if (!isRecord(o) || !isText(o.id) || !isText(o.topic) || !isTextOrNull(o.orbit) || !isText(o.client) || !isText(o.text) ||
+      !isFlag(o.done) || !isNumber(o.min_science) || !isNumber(o.bonus_musd)) return false;
+  return comeback ? isText(o.reason) && isNumber(o.price_musd) && isNumber(o.expires_month)
+                  : isNumber(o.year_to) && isNumber(o.bonus_sci) && isOptional(o.year_from, isNumber);
+}
+// The log: research and upgrades bought, payments to the lenders, and flights launched but not yet recorded.
+function validLogEntry(e) {
+  if (!isRecord(e) || !isText(e.kind) || !isNumber(e.year)) return false;
+  if (e.kind === "payment") return isNumber(e.musd) && isNumber(e.month);
+  if (e.kind === "launch") return isText(e.id) && isNumber(e.musd) && isCount(e.flight);
+  return isText(e.id);
+}
+function validCampaign(c) {
+  if (!isRecord(c) || c.version !== campaignVersion() || (c.mode !== "campaign" && c.mode !== "comeback") || !getTier(c.tier)) return false;
+  var comeback = c.mode === "comeback";
+  if (!isNumber(c.year) || !isNumber(c.treasury_musd) || !isNumber(c.science_pts) || !isCount(c.flights) ||
+      !isFlag(c.finished) || !isFlag(c.won) || !isNumberMap(c.knowledge_science) ||
+      !isListOf(c.research, isText) || !isListOf(c.upgrades, isText) || !isListOf(c.lessons, isText) ||
+      !isListOf(c.missions, validFlight) || !isOptional(c.log, function (l) { return isListOf(l, validLogEntry); }) ||
+      !isOptional(c.offers, function (l) { return isListOf(l, function (o) { return validOffer(o, comeback); }); })) return false;
+  if (!comeback) return true;
+  var cfg = comebackConfig();
+  return !!(cfg && cfg.tiers[c.tier]) && isNumber(c.month) && isNumber(c.deadline_month) && isNumber(c.debt_musd);
 }
 
 // ------------------------------------------------------------------ research tree and lessons
@@ -1395,13 +1647,14 @@ function buyUpgrade(id) {
   if ((c.upgrades || []).indexOf(id) !== -1) return { ok: false, reason: "Already owned." };
   var missing = upgradeMissing(p, c);
   if (missing.length) return { ok: false, reason: missing.map(function (m) { return m.text; }).join(" ") };
+  var undo = JSON.stringify(c);
   c.treasury_musd = round(c.treasury_musd - p.upgrade.cost_musd, 3);
   c.science_pts = round((c.science_pts || 0) - p.upgrade.cost_sci, 1);
   c.upgrades = (c.upgrades || []).concat([id]);
   (c.log = c.log || []).push({ year: c.year, kind: "upgrade", id: id });
   saveCampaign(c);
   cheapestCache = {};
-  return { ok: true, reason: null };
+  return keepsLaunchable(c, undo);
 }
 
 // Longest chain of prerequisites, so a tree screen can put each node in a column.
@@ -1853,7 +2106,7 @@ function settleComeback(c, mission, debrief, result) {
   c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
                     spent_musd: debrief.spent_musd, science: round(mission.science, 1),
                     payout_musd: round(pay.paid_musd + pay.bonus_musd, 3), stars: debrief.stars,
-                    flight: c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
+                    flight: mission.campaign_flight || c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
                     months: mission.month, ended_early: !!mission.ended_early, limiting: debrief.limiting_name || null,
                     parts: designParts(mission.design).length,
                     real: debrief.closest_mission ? { name: debrief.closest_mission.name, year: debrief.closest_mission.year } : null,
