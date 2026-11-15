@@ -1,0 +1,1356 @@
+[
+ {
+  "id": "build-01",
+  "title": "Hover preview is cut off at 190px, and the hidden lines cannot be reached with a mouse",
+  "severity": "major",
+  "category": "visual",
+  "screen": "3 Build (desktop, 930px and wider)",
+  "repro": "1280x800. New Space / Initial Feasibility, Wildfire, LEO. Add 12U CubeSat frame, Spin stabilisation, Optical camera, Small solar panel, UHF radio, Basic computer. Open [data-key=bin-instrument] and hover [data-key=part-sar-radar]. Then move the mouse onto the #preview box to scroll it.",
+  "expected": "All of the preview is readable, and the red 'Causes:' lines most of all, because the preview exists to show them.",
+  "actual": "#preview has clientHeight 182 and scrollHeight 418, so more than half of it is clipped. Only the first 'Causes:' line shows, and it is cut through the middle. Three more lines stay hidden: payload overload, the second instrument slot and power. Moving the mouse into the box to scroll fires pointerleave on the card, and the preview resets to 'Point at a part to see what it would change.' A mouse user can never read the clipped lines.",
+  "evidence": "Script t4.js logged {client:182, scroll:418} and four Causes lines in the DOM. After the mouse moved into the preview it read 'IF YOU CLICK | | Point at a part to see what it would change.' Screenshot: (scratch)/sweep/build/t4-preview-overflow.png. Web fonts were blocked in this run, but the gap is large enough that real fonts would not close it.",
+  "cause": "css/style.css:315 sets `.preview { height: 190px; overflow-y: auto; }`. js/ui-design.js:1988 clears state.hover on any mouse pointerleave from the card.",
+  "fix_hint": "Let the preview grow (use max-height with the sticky column, or put the fixes and causes first). Alternatively keep the last previewed part while the pointer is over #preview.",
+  "verdict": {
+   "id": "build-01",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v01.js at 1280x800 and 1920x1080: New Space / Initial Feasibility, Wildfire, LEO, with cubesat-12u, spin-stabilised, optical-camera, solar-small, radio-uhf and obc-basic, then hovered part-sar-radar. #preview measured clientHeight 182 against scrollHeight 418 at both sizes. The first Causes line sits at 171-217px inside the 182px box, so it is cut through the middle; the three Causes lines below it (body slots, power, smear) are hidden. Moving the mouse into the box in 20 steps reset it to 'IF YOU CLICK | Point at a part to see what it would change.', so a mouse user cannot scroll it. A wheel over the box left scrollTop at 0. Keyboard users cannot scroll it either: #preview has tabIndex -1, and Tab moves to the next card, which replaces the preview. Font check: fonts were blocked (Courier New fallback, wider than VT323), so v01c.js forced white-space:nowrap on every line as a lower bound that ignores wrapping. It still measured scroll 280 against client 182, with only 1 of 4 Causes lines fitting, so real fonts will not fix this. Screenshot: (scratch)/sweep/verify-build/v01-1280-hover.png. Root cause: css/style.css:315 (.preview { height: 190px; overflow-y: auto }) and js/ui-design.js:1988 (any mouse pointerleave from the card sets state.hover = null and redraws the preview). A player can work around it by clicking the part and reading PROBLEMS, which is why this is major, not blocker."
+  }
+ },
+ {
+  "id": "build-02",
+  "title": "On a phone the first tap shows its preview about 1000px off-screen, so the tap seems to do nothing (same at 200% zoom with a mouse)",
+  "severity": "major",
+  "category": "mobile",
+  "screen": "3 Build (under 930px wide: phone 390 and 200% zoom)",
+  "repro": "Playwright 'iPhone 13' profile (390x664). New Space / Initial Feasibility, Wildfire, LEO. Tap [data-key=bin-instrument], scroll to [data-key=part-thermal-imager] and tap it once. Second repro: viewport 640x400 at DPR 2 (200% zoom of 1280x800), hover the same card with the mouse.",
+  "expected": "The first tap (the preview tap) gives visible feedback near the card, saying what adding it would change, as SPEC 3 Build requires.",
+  "actual": "The preview renders at top=-835 to -1234px in a 664px viewport, far above the shelf. A pixel diff of the viewport before and after the first tap shows only the card border lightening, the same as its hover style. aria-pressed stays false. At 640x400 the hovered card's preview sits at top=-897 / -726. After the second tap the bench with the add animation is also off-screen (benchTop -1175), and the bars sit about 2000px further down.",
+  "evidence": "Scripts t14.js and t3.js logged {previewTop:-835, previewBottom:-645, vh:664, pressed:'false', preview:'ADD THERMAL INFRARED IMAGER'}. t19.js logged '640x400 hover optical-camera {top:-897,...}'. Before/after image: (scratch)/sweep/build/t14-phone-first-tap-side-by-side.png. 200% zoom shot: (scratch)/sweep/build/t19-zoom640-hover.png",
+  "cause": "css/style.css:316 makes .preview sticky only at min-width 930px. js/ui-design.js:2117 puts the preview above the shelf in a single column, so below 930px it scrolls away. The tapped card gets no 'armed' state either.",
+  "fix_hint": "Below 930px, make the preview sticky to the bottom of the viewport, or show it inline under the tapped card, and mark the armed card.",
+  "verdict": {
+   "id": "build-02",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v02.js with the Playwright 'iPhone 13' profile: New Space, Wildfire, LEO. Tapped bin-instrument, scrolled to part-thermal-imager and tapped once. Result: {previewTop:-835, previewBottom:-645, cardTop:243, vh:664, pressed:'false', preview h3:'ADD THERMAL INFRARED IMAGER', card class 'part'}. The preview text is rendered, but about 1,000px above the viewport. A pixel diff of before and after the first tap shows only the card border lightening, the same as the hover/focus style; there is no armed state. Side-by-side image: (scratch)/sweep/verify-build/v02-phone-side-by-side.png. The second tap adds the part (pressed true), but the bench sits at top -1175 and the bars at 2062, so the result of the click is off-screen too. At 640x400 with DPR 2 (200% zoom), hovering part-optical-camera put the preview at top -897 / bottom -707 in a 400px viewport (v02-zoom640-hover.png in the same folder). Root cause: css/style.css:316 makes the preview sticky only at min-width 930px. js/ui-design.js:2117 puts drawPreview() above payoutLine and the shelf in .bench-col, which is a single column below 930px (css:690), so it scrolls away. Nothing is blocked, because the second tap still works, but the preview step SPEC 3 Build asks for is never seen on phones."
+  }
+ },
+ {
+  "id": "build-03",
+  "title": "In the 1964 Nimbus era with a sun-synchronous orbit, every hover preview says 'Causes: ... needs 80 m/s of thrust', but no real check says so",
+  "severity": "major",
+  "category": "wrong-numbers",
+  "screen": "3 Build (standalone era missions before 1995)",
+  "repro": "Open the Nimbus / Initial Feasibility mission [data-key=start-nimbus-training]. Pick Weather, then Sun-synchronous. Add drum-body, spin-stabilised, vidicon-camera, silicon-cells, vhf-telemetry, tape-recorder. Hover any part, for example [data-key=part-command-timer] or [data-key=part-nicad-battery], or hover spin stabilisation to preview removing it.",
+  "expected": "No delta-v cause. runChecks waives the 80 m/s disposal burn before 1995 (DISPOSAL_RULE_YEAR), and the real PROBLEMS list shows no NOT ENOUGH THRUST.",
+  "actual": "Every preview ends with 'Causes: Sun-synchronous polar orbit needs 80 m/s of thrust from the spacecraft, but it has only 0 m/s. Add propulsion or cut mass.' In 1964 all three propulsion parts say 'Arrives in 1998', so the advice is impossible. The real PROBLEMS list at the same moment shows only PICTURES SMEAR and NO SHADOW POWER.",
+  "evidence": "t20.js in-page check returned {year:1964, dvNeededDesign:0, dvNeededNoYear:80, withYearBlockers:['no-launcher'], noYearBlockers:['no-launcher','delta-v'], previewCauses:['delta-v']}. t21.js preview text: 'ADD CLOCK AND COMMAND RECEIVER | +0.5 kg, +$0.02M | Causes: Sun-synchronous polar orbit needs 80 m/s...'. For the screenshot only, the preview height was set to auto so the whole text shows: (scratch)/sweep/build/t21-nimbus-preview-full.png. Campaign designs are not affected, because `campaign` is copied.",
+  "cause": "js/game.js:723-724. previewToggle builds `after` from tier, objective, orbit, launcher, parts and campaign, but drops `year` and `era`. designYear(after) returns null, and dvNeeded falls back to 80 m/s.",
+  "fix_hint": "Copy `year` and `era` into `after` (better: shallow-copy the whole design and replace parts).",
+  "verdict": {
+   "id": "build-03",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v03.js: start-nimbus-training (status '1964'), Weather, Sun-synchronous, with drum-body, spin-stabilised, vidicon-camera, silicon-cells, vhf-telemetry and tape-recorder. The PROBLEMS panel reads only 'PICTURES SMEAR, NO SHADOW POWER'. Hovering command-timer, nicad-battery or spin-stabilised (remove) gives 'Causes: Sun-synchronous polar orbit needs 80 m/s of thrust from the spacecraft, but it has only 0 m/s. Add propulsion or cut mass.' on each. All three propulsion cards are disabled with 'Arrives in 1998', so the advice cannot be followed. An in-page API check on the same design returned {year:1964, runChecks(after with year) blockers:['no-launcher'], previewToggle causes:['delta-v']}. Root cause: js/game.js:723-724. previewToggle builds `after` from tier, objective, orbit, launcher, parts and campaign but drops `year` and `era`, so designYear(after) is null and dvNeeded (game.js:183-186) skips the pre-1995 waiver. Missing year/era also means `after` skips the era part-locked checks. Graded major rather than minor because this is false, impossible advice on every hover in the era's flagship mission, and nothing on screen corrects it (contrast build-04)."
+  }
+ },
+ {
+  "id": "build-04",
+  "title": "A legal battery-only design shows a full red POWER bar '0 / 0 W, Nothing makes power yet'; in the 1957 campaign it can never go out of the red",
+  "severity": "major",
+  "category": "wrong-numbers",
+  "screen": "3 Build, 4 Launch vehicle, 5 Readiness (IGY standalone and the 1957 campaign)",
+  "repro": "Title: [data-key=campaign-training], then START A MISSION. Pick Radiation, then LEO. Add explorer-body, spin-stabilised, cosmic-ray-counter, mercury-battery, minitrack-beacon, command-timer. (Same in standalone [data-key=start-igy-training].)",
+  "expected": "runChecks only warns (BATTERY ONLY), and Readiness reads 'GO, WITH 1 WARNING'. SPEC says a bar is red only when over the limit, so the bar should not show this design as failing. The battery does make power, so 'Nothing makes power yet' is also wrong.",
+  "actual": "The POWER bar has class 'bar bad' at width 100%, text '0 / 0 W', note 'Nothing makes power yet'. The Build hint on the same screen says 'Add parts until every required column has one and the four bars stay out of the red.' In the 1957 campaign every solar part is disabled ('Needs research: Silicon solar cells'), so the player cannot follow the hint. (Draw is 0.1 W, rounded to 0.)",
+  "evidence": "t20.js: 'power bar class bar bad width: 100%', 'problems: BATTERY ONLY | Why | WARN', and the power bin lists part-silicon-cells, part-solar-small and others as [disabled: ... Needs research ...]. t13.js on the same design at Readiness: 'verdict GO, WITH 1 WARNING'. Screenshot: (scratch)/sweep/build/t20-campaign-1957-power-bar.png and t16-igy-bars.png in the same folder.",
+  "cause": "js/ui-design.js:1637-1638. When power_gen_w is 0, any draw gives fill 1 and class ' bad'. The note keys only on power_gen_w and ignores battery_wh or batteryLifeMonths.",
+  "fix_hint": "When the design is battery-only (batteryLifeMonths(d) !== null), show a battery state such as amber with 'Battery only: about N days'. Do not show red.",
+  "verdict": {
+   "id": "build-04",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v04.js. In a new campaign (campaign-training, 1957), START A MISSION, Radiation, LEO, with explorer-body, spin-stabilised, cosmic-ray-counter, mercury-battery, minitrack-beacon and command-timer: the POWER bar has class 'bar bad', width 100% and text 'POWER | 0 / 0 W | Nothing makes power yet' on Build, Launch vehicle and Readiness. PROBLEMS shows only 'BATTERY ONLY ... WARN', and Readiness says 'GO, WITH 1 WARNING' with LAUNCH enabled. The same bar appears in standalone IGY. getTotals: power_draw_w 0.1, power_gen_w 0, battery_wh 160, margins.power null. In the 1957 campaign every solar part is disabled ('Needs research: Silicon solar cells' and similar), so the Build hint (data/hints.js:46, 'keep the four bars out of the red') cannot be followed on the first campaign mission. Research unlocks solar later; standalone IGY does offer silicon-cells. Framing: SPEC:883 makes the bar draw against generation, so 0.1 against 0 is literally 'over'. The bug is the clash with SPEC:422 (battery-only may launch and is a warning, not a blocker). On top of that, '0 / 0 W' hides the 0.1 W draw, and 'Nothing makes power yet' is shown next to a 160 Wh battery. Root cause: js/ui-design.js:1636-1638. When margins.power is null and draw > 0, fill is 1 and the class is ' bad'; the note checks only power_gen_w and ignores battery_wh. Minor, because the team line ('No solar panel. The battery runs out...') and the GO verdict make the situation clear. Screenshots: (scratch)/sweep/verify-build/v04-campaign-build.png and v04-campaign-review.png in the same folder."
+  }
+ },
+ {
+  "id": "build-05",
+  "title": "OVER BUDGET 'FIX >' sends you to the Rocket Yard when no rocket is picked and the parts alone are over budget",
+  "severity": "minor",
+  "category": "broken",
+  "screen": "5 Readiness review, FIX buttons",
+  "repro": "Open New Space / Point Design ($18M; you need best_stars.standard >= 2 to unlock it). Pick Wildfire, then LEO. Add parts until the parts cost more than $18M (22.65 here). Do not pick a rocket. Visit the Rocket Yard, then go to the Launch Pad through the map. Click FIX on 'OVER BUDGET'.",
+  "expected": "FIX goes to the Workshop, where the money was spent. The game's own route logic (fixPlace) sends you there, and so do the objective line and the GO TO button.",
+  "actual": "FIX opens 4 \u00b7 LAUNCH VEHICLE. On that screen the objective line says 'OBJECTIVE: Go to the Workshop and build the satellite.' and the button reads 'GO TO WORKSHOP >'. Every rocket keeps the design over budget (rideshare 23/18, small 30.15/18, heavy 92.4/18, thor-able 28.65/18).",
+  "evidence": "t15.js output: 'OVER BUDGET FIX -> 4 \u00b7 LAUNCH VEHICLE | objective line: OBJECTIVE: Go to the Workshop and build the satellite. | GO TO: GO TO WORKSHOP >'. Screenshot: (scratch)/sweep/build/t15-budget-fix-launcher.png",
+  "cause": "js/ui-design.js:1680 checkList uses `FIX_SCREEN[row.c.id] || \"build\"`. The fixPlace(check, d) helper at js/ui-design.js:2235 sends mass and budget to Build when there is no launcher, but checkList does not use it.",
+  "fix_hint": "In checkList, use `var target = fixPlace(row.c, design);`.",
+  "verdict": {
+   "id": "build-05",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v05.js: New Space / Point Design ($18M; progress set with best_stars.standard 3), Wildfire, LEO. Added parts to $21.6M with no rocket, walked to the Rocket Yard with GO TO ROCKET YARD, then took the map to the Launch Pad. The checks include OVER BUDGET with aria-label 'Fix on the launcher screen: Cost is $21.55M but the budget is $18M.' Clicking FIX opened '4 \u00b7 LAUNCH VEHICLE'. On that screen the objective reads 'OBJECTIVE: Go to the Workshop and build the satellite.' and the nav button reads 'GO TO WORKSHOP >', so the game sends you somewhere and then tells you to leave. Root cause: js/ui-design.js:1680 uses `FIX_SCREEN[row.c.id] || \"build\"` and FIX_SCREEN (ui-design.js:50-55) maps budget to launcher. fixPlace() at ui-design.js:2235-2237 already sends mass and budget to build when there is no launcher, and the waypoint uses it, but checkList does not. Note: the SPEC readiness table (SPEC:925) maps `budget` to 4 Launch vehicle, adding '(mass and budget can also be fixed on Build)'. So FIX going to the Rocket Yard follows the SPEC table, and the real bug is the clash with the game's own route logic (SPEC:800). Changing FIX to use fixPlace needs a SPEC decision, not only a code change. Screenshot: (scratch)/sweep/verify-build/v05-fix-budget.png"
+  }
+ },
+ {
+  "id": "build-06",
+  "title": "MASS bar says 'Pick a rocket to see the limit' while a rocket is already picked (one that cannot reach the orbit)",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "4 Launch vehicle and 5 Readiness",
+  "repro": "Pick Weather, then LEO, and build a complete satellite. On the Rocket Yard pick [data-key=rocket-thor-able]. Through the map, go back to the Tracking Station and choose Sun-synchronous. Open the Rocket Yard or the Launch Pad.",
+  "expected": "The mass bar or its note says the chosen rocket (Thor-Able) cannot reach this orbit, matching the ROCKET CANNOT REACH line.",
+  "actual": "Mass bar: 'MASS 38.5 KG' with the note 'Pick a rocket to see the limit'. At the same time the Thor-Able card shows CANNOT REACH and aria-pressed=true, and Readiness lists 'Rocket: Thor-Able'.",
+  "evidence": "t11.js: 'bars on launcher: MASS | 38.5 KG | Pick a rocket to see the limit | ...', 'thor-able card: THOR-ABLE | CANNOT REACH ... pressed true', 'review facts: ... Rocket | Thor-Able'. Screenshot: (scratch)/sweep/build/t11-cannot-reach.png",
+  "cause": "js/ui-design.js:1635 picks the note from `t.capacity_kg` alone. getTotals returns capacity 0 both when no rocket is chosen and when the rocket cannot reach.",
+  "fix_hint": "When design.launcher is set and capacity is 0, show e.g. '<rocket> cannot reach this orbit'.",
+  "verdict": {
+   "id": "build-06",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v06.js: Weather, LEO, a complete smallsat build, Thor-Able picked (mass bar 'MASS | 39.6 / 130 KG'). Then took the map to the Tracking Station, chose Sun-synchronous and returned to the Rocket Yard. Mass bar: 'MASS | 39.6 KG | Pick a rocket to see the limit'. The Thor-Able card reads 'CANNOT REACH', with aria-pressed true and disabled. Readiness shows the same bar note while its checks list 'ROCKET CANNOT REACH'. Root cause: js/ui-design.js:1635 picks the note from t.capacity_kg alone, and getTotals (game.js:347) returns capacity 0 both with no rocket and with a rocket that cannot reach. This is a gap in the SPEC rather than a code slip: SPEC:883 says 'pick a rocket' while capacity_kg is 0, and the code does exactly that. The ROCKET CANNOT REACH line and the card tag on the same screens tell the player what is wrong, so this is polish, not minor. Screenshot: (scratch)/sweep/verify-build/v06-cannot-reach.png"
+  }
+ },
+ {
+  "id": "build-07",
+  "title": "Small non-zero values are shown as 0 (part cards, preview deltas, DATA HOME bar next to a DATA LOST warning)",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "3 Build (all eras, worst in 1958 to 1964), bars on 3 to 5",
+  "repro": "(a) IGY: open the instrument and comms bins and read the Geiger counter and Minitrack cards. (b) New Space: hover [data-key=part-obc-basic]. (c) IGY Radiation LEO with explorer-body, spin-stabilised, cosmic-ray-counter, scintillation-counter, mercury-battery, minitrack-beacon, command-timer: read the DATA HOME bar.",
+  "expected": "SPEC: 'Show only fields that are not 0'. A field that is shown has a non-zero value, so it should not read 0, and the bar should agree with the DATA LOST warning.",
+  "actual": "(a) 'Geiger counter package ... 2.3 kg \u00b7 0 W draw \u00b7 0 GB/d made', '108 MHz Minitrack beacon ... 0 W draw \u00b7 0 GB/d sent'. (b) '+0.1 kg, +0 W draw, +$0.01M' for a +0.4 W change. (c) DATA HOME reads '0 / 0 GB/DAY' with an amber bar at 41.7%, while the warning says 'Instruments make 0.00006 GB a day but only 0.000025 GB reaches the ground.'",
+  "evidence": "t8.js: instrument and comms card text. t1.js: obc-basic preview, where previewToggle delta.power_draw_w is 0.4. t16.js: 'IGY data bar: ... DATA HOME | 0 / 0 GB/DAY', class 'bar warn', 'width: 41.66%'. Screenshot: (scratch)/sweep/build/t16-igy-bars.png",
+  "cause": "js/ui-design.js:1946-1948 (partStats uses num(v,0) for watts and num(v) at 1 decimal for GB), :2010 (preview watts at 0 places), and resourceBars DATA HOME uses num() at 1 place. num() rounds with maximumFractionDigits and has no significant-figure fallback.",
+  "fix_hint": "Format small values with significant figures (e.g. '<0.1 W', '20 kB/d') or switch units for tiny data rates.",
+  "verdict": {
+   "id": "build-07",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v07.js. (a) IGY cards: Geiger counter reads '2.3 kg \u00b7 0 W draw \u00b7 0 GB/d made' (data power_draw_w 0.05, data_gb_day 0.00002), and the Minitrack beacon reads '0.3 kg \u00b7 0 W draw \u00b7 0 GB/d sent' (0.06 W, 0.001 GB/d). This breaks SPEC:879, 'Show only fields that are not 0'. (b) New Space: the obc-basic card reads '0 W draw', and its hover preview reads '+0.1 kg, +0 W draw, +$0.01M' while the same preview's Causes line says 'Parts draw 0.4 W' (delta.power_draw_w 0.4). (c) IGY with explorer-body, spin-stabilised, cosmic-ray-counter, scintillation-counter, mercury-battery, minitrack-beacon and command-timer: the DATA HOME bar reads '0 / 0 GB/DAY', class 'bar warn', width 41.67%, while the DATA LOST check says 'Instruments make 0.00006 GB a day but only 0.000025 GB reaches the ground.' Root cause: js/ui-design.js:1946-1947 (num(v,0) for W, num(v) for GB), :2010 (preview W at 0 places) and :1641 (DATA HOME with num()). num() at ui-design.js:767 rounds by decimal places and has no significant-figure fallback. Screenshot: (scratch)/sweep/verify-build/v07-igy-bars.png"
+  }
+ },
+ {
+  "id": "build-08",
+  "title": "Hover preview misses a new body-slot overflow (or its fix) when another slot is already over",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "3 Build, hover preview",
+  "repro": "New Space, Wildfire, LEO. Add the 12U CubeSat frame (1 instrument and 1 radio slot), Optical camera, Thermal imager and UHF radio. Open the RADIO bin and hover [data-key=part-radio-sband].",
+  "expected": "'Causes: The 12U CubeSat frame has room for 1 comms part (you fitted 2).' Adding the radio creates this blocker.",
+  "actual": "The preview lists only '+0.3 kg, +10 W draw, +$0.03M, data home +1.6 GB/day', with no cause. runChecks on the design after adding shows both body-slots blockers (instrument and comms).",
+  "evidence": "t16.js: previewToggle causes [] and afterSlots ['...room for 1 instrument part (you fitted 2).', '...room for 1 comms part (you fitted 2).'].",
+  "cause": "js/game.js:745-746 compares checks by id only, and every slot overflow uses the same id 'body-slots' (js/game.js:546). The same applies to repeated 'part-locked' ids.",
+  "fix_hint": "Compare id plus text, or give slot checks per-category ids such as body-slots-comms.",
+  "verdict": {
+   "id": "build-08",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v08.js: New Space, Wildfire, LEO, with cubesat-12u, optical-camera, thermal-imager and radio-uhf. PROBLEMS already shows 'BODY FULL: ...room for 1 instrument part (you fitted 2).' Hovering part-radio-sband shows only '+0.3 kg, +10 W draw, +$0.03M, data home +1.6 GB/day' with no Causes line. After clicking, PROBLEMS gains a second 'BODY FULL: ...room for 1 comms part (you fitted 2).' The reverse case fails the same way: hovering thermal-imager to remove it lists the payload and smear fixes but not the instrument BODY FULL fix, because the comms one still carries the same id. Root cause: js/game.js:745-746 compares checks by id only, and every slot overflow uses the id 'body-slots' (game.js:546). Repeated 'part-locked' ids would behave the same way."
+  }
+ },
+ {
+  "id": "build-09",
+  "title": "The preview's aria-live region is replaced on every hover or focus, so screen readers are not told",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "3 Build",
+  "repro": "Hold a handle to #preview (aria-live='polite') and focus or hover [data-key=part-optical-camera]. Then attach a MutationObserver to the new #preview and hover another card.",
+  "expected": "The live region stays in the DOM and its content changes, so assistive tech announces what the part would change. Keyboard users get the preview on focus, and this is how they would hear it.",
+  "actual": "After each hover the old #preview node is detached (isConnected false) and a new one is inserted. The observer on the region recorded 0 mutations and was then disconnected. A newly inserted live region is usually not announced.",
+  "evidence": "t20.js: 'old #preview still connected after hover? false | new node same? false', 'mutations inside the live region that existed before the hover: 0 | connected false'. Not checked with a real screen reader.",
+  "cause": "js/ui-design.js:2027 `old.parentNode.replaceChild(drawPreview(), old)`. The whole Build screen is also rebuilt on every toggle.",
+  "fix_hint": "Keep one #preview element and replace only its children.",
+  "verdict": {
+   "id": "build-09",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v09.js: kept a handle on #preview (aria-live='polite') with a MutationObserver on it, then focused part-optical-camera. Result: {oldConnected:false, same:false, muts:0}. The live region is replaced by a new node instead of having its content updated. Tab to the next card (part-topside-sounder) replaced it again. Newly inserted live regions are generally not announced, so keyboard and screen-reader users, who get the preview through onfocus, probably hear nothing. This is a DOM-level check only; I did not test with a real screen reader. Root cause: js/ui-design.js:2027, `old.parentNode.replaceChild(drawPreview(), old)`, which builds a fresh aria-live box at ui-design.js:2000 each time."
+  }
+ },
+ {
+  "id": "build-10",
+  "title": "FIX for a missing part opens Build on the last-used bin, not the bin that is missing",
+  "severity": "polish",
+  "category": "engagement",
+  "screen": "5 Readiness to 3 Build",
+  "repro": "Build with only a thermal imager, pick the small launcher, go to the Launch Pad through the map, then click FIX on NO STRUCTURE, NO POWER or NO ATTITUDE.",
+  "expected": "Build opens with the STRUCTURE, POWER or ATTITUDE bin selected.",
+  "actual": "All three open with [data-key=bin-instrument] pressed and the heading 'AVAILABLE INSTRUMENTS'.",
+  "evidence": "t22.js: 'NO STRUCTURE FIX -> open bin: bin-instrument', likewise for NO POWER and NO ATTITUDE.",
+  "cause": "js/ui-design.js:1686 calls go(target) without setting state.bin from the check id (empty-<category>).",
+  "fix_hint": "For empty-<cat> and body-slots, set state.bin before go('build').",
+  "verdict": {
+   "id": "build-10",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v10.js: New Space, Wildfire, LEO, with only thermal-imager added. Picked rocket-small and took the map to the Launch Pad. The checks include NO STRUCTURE, NO POWER, NO RADIO, NO COMPUTER and NO ATTITUDE. Clicking FIX on each opened Build with bin-instrument pressed and the heading 'AVAILABLE INSTRUMENTS', never the missing category. Root cause: the FIX onclick at js/ui-design.js:1686 calls go(target) without setting state.bin from the 'empty-<category>' id, and drawBuild falls back to the instrument bin. It costs the player one extra click, so this is real but polish."
+  }
+ },
+ {
+  "id": "build-11",
+  "title": "Bin slot text reads '1 / 1 slots', and an over-full no-slot category shows '3 / 0 slots'",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "3 Build, parts bins",
+  "repro": "IGY: add the Explorer body and one part of each kind. Then, in New Space with the Explorer body first, add three propulsion parts.",
+  "expected": "Singular for one ('1 / 1 slot'). For a category the body has no room for, the existing wording 'N on board, no room'.",
+  "actual": "'INSTRUMENTS 1 / 1 slots', 'RADIO 1 / 1 slots'; 'PROPULSION 3 / 0 slots'. The code branch for 'on board, no room' never runs.",
+  "evidence": "t8.js and t10.js bins text: 'INSTRUMENTS | 1 / 1 slots', 'PROPULSION | 3 / 0 slots'.",
+  "cause": "js/ui-design.js:2072. When used > 0, `slot` is non-null, so the noRoom && n branch is dead. Plural is hard-coded.",
+  "fix_hint": "Check max === 0 before the slot text and pluralise on max.",
+  "verdict": {
+   "id": "build-11",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v11.js. IGY, Explorer body plus one part of each kind: bins read 'INSTRUMENTS 1 / 1 slots', 'RADIO 1 / 1 slots', 'ATTITUDE 1 / 1 slots' (wrong plural). New Space, Explorer body (no propulsion slots) plus prop-green-small reads 'PROPULSION 1 / 0 slots'; with three propulsion parts it reads 'PROPULSION 3 / 0 slots'. The 'N on board, no room' wording never shows. Root cause: js/ui-design.js:2068-2072. bodySummary always returns a slot object, and once used > 0, `slot` stays non-null, so noRoom is false and the `noRoom ? (n ? n + ' on board, no room' ...)` branch is dead for n > 0. 'slots' is hard-coded plural. The over-full bin is still marked red (.need), so the meaning comes through; this is wording only."
+  }
+ },
+ {
+  "id": "build-12",
+  "title": "Readiness assembly animation plays off-screen and finishes before a phone or 200% zoom player can scroll to it",
+  "severity": "polish",
+  "category": "mobile",
+  "screen": "5 Readiness review (under 760px wide)",
+  "repro": "iPhone 13 profile (390x664) or 640x400. Reach the Launch Pad with a complete design.",
+  "expected": "The staggered assembly of the satellite is visible when the screen opens, as on desktop.",
+  "actual": "The satellite (.sat-small) is at y=884 (phone) or 900 (640x400), below the fold, and the verdict and LAUNCH button sit even lower (verdict 1484, LAUNCH 2283). On desktop the animation ends with every part at opacity 1 within 1.5 s and does not replay, so by the time a phone player scrolls down it is over.",
+  "evidence": "t19.js: 'phone390 review positions [.sat-small top=884, .verdict top=1484, .btn.big top=2283, vh=664]'. t18.js opacity samples at t0 / t150 / t400 / t1500: all 0, then partial, then all 1. Reduced motion correctly disables it.",
+  "cause": "js/ui-design.js drawReview puts padArt, then satelliteArt, then the bars above the control panel in the one-column .pad layout.",
+  "fix_hint": "On narrow screens put the verdict, the satellite and LAUNCH first, or start the animation on intersection.",
+  "verdict": {
+   "id": "build-12",
+   "reproduced": false,
+   "severity": "not-a-bug",
+   "note": "Ran v12.js at 1280x800, iPhone 13 and 640x400@2x with a complete sea-ice SSO design and the small rocket. The numbers match the report: on the phone, .sat-small top=861, verdict 1440 and LAUNCH 1675 with vh 664; at 640x400, sat 877. The animation is 8 parts with 70ms steps of 0.4s each, done in about 0.9s (opacity samples at 0/150/400ms go from partial to all 1.0), and it does not replay when scrolled into view. The finding's premise is wrong, though: on desktop 1280x800 the satellite is also below the fold (.sat-small top=889, vh=800), so desktop players miss it too. It is not a phone or zoom regression. The effect is a sub-second decorative drop-in that css/style.css:766 itself calls 'short, optional'. Missing it costs the player no information, because the finished satellite is there when they scroll. Not worth fixing as a bug. Screenshots: (scratch)/sweep/verify-build/v12-phone390-review.png and v12-desktop-review.png in the same folder."
+  }
+ },
+ {
+  "id": "start-01",
+  "title": "Orbit card badge contradicts the 'In view' share printed on the same card",
+  "severity": "major",
+  "category": "copy",
+  "screen": "2 Orbit",
+  "repro": "Viewport 390x844 (same at 1280x800). Set smdg-progress-v1 to the unlock JSON and reload. Click [data-key=\"start-new-space-training\"], click SKIP (.intro .btn:not(.primary)), click [data-key=\"blip-briefing\"], click [data-key=\"obj-wildfire\"], click .nav-row .btn.primary (GO TO TRACKING STATION). Read the cards [data-key=\"orbit-leo\"], [data-key=\"orbit-sso\"] and [data-key=\"orbit-geo\"]. Repeat with [data-key=\"obj-ionosphere\"].",
+  "expected": "The badge and the 'In view' line agree. The orbit that sees 100% of the fires should not be labelled the partial one, and the one that sees 69% should not be labelled the good one. Otherwise the badge should say what it really measures.",
+  "actual": "Wildfire: SSO shows 'PARTIAL VIEW' next to 'In view: 100% of the world's fire detections (NASA FIRMS 2025)'. GEO shows 'GOOD VIEW' next to 'In view: 69%'. LEO shows 'PARTIAL VIEW' next to 'In view: 92%'. Ionosphere: LEO shows 'GOOD VIEW' next to 'In view: 42% of Alouette's soundings', the same badge SSO gets at 100%. This is the screen whose job is to teach orbit choice.",
+  "evidence": "t6-brief-orbit.js output. Screenshots: (scratch)/sweep/start/shots/L-phone-orbit.png and (scratch)/sweep/start/shots/orbit-eos-obj-wildfire.png",
+  "cause": "js/ui-design.js:1907-1914 builds the badge from objective.orbit_fit (data/objectives.js:57, wildfire {leo:0.85, sso:0.5, geo:1.0}). js/ui-design.js:1929 builds the line from getOrbitFacts().target_in_view (data/earth.js:20, orbit_view {leo:0.921, sso:1.0, geo:0.687}). Both values follow SPEC line 847, and the comment at ui-design.js:1890-1891 admits they measure different things. The player still sees the word 'view' in both labels.",
+  "fix_hint": "Fix the wording, not the data. Rename the badge to what orbit_fit means (how well the orbit catches the target when it looks, for example a science factor), or relabel the line as targets within reach.",
+  "verdict": {
+   "id": "start-01",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v01.js and v01b.js (1280x800 and 390x844, unlock JSON, new-space-training, SKIP, Mission Control, pick an objective, GO TO TRACKING STATION). Wildfire: LEO 'PARTIAL VIEW' + 'In view: 92%', SSO 'PARTIAL VIEW' + 'In view: 100%', GEO 'GOOD VIEW' + 'In view: 69%'. Ionosphere: LEO 'GOOD VIEW' + 'In view: 42%', SSO 'GOOD VIEW' + 'In view: 100%', GEO 'CANNOT SEE TARGET' + 0%. The science factor the game actually uses is fit x view (game.js:442,462). For wildfire that is LEO 0.783, GEO 0.687 and SSO 0.500, so neither label ranks the orbits correctly. The badge points the player at GEO, which SPEC:984 says never wins. Neither the hint nor the say line explains the difference. The strongest case is ionosphere: LEO is fit 1.0 x view 0.424, yet it gets the same GOOD VIEW as SSO at 100%. Cause: the badge comes from objective.orbit_fit at js/ui-design.js:1910-1914, and the 'In view' line comes from getOrbitFacts().target_in_view at js/ui-design.js:1927 (data/earth.js:20 and :123). The code follows SPEC.md:846-847 to the letter, and the comment at ui-design.js:1890-1891 admits they measure different things. So the fix is a wording or SPEC decision, for example a badge built from fit x view, or a badge that does not say 'view'. Screenshots: (scratch)/sweep/verify-start/shots/v01-1280-wildfire-orbit.png and (scratch)/sweep/verify-start/shots/v01-390-wildfire-orbit.png"
+  }
+ },
+ {
+  "id": "start-02",
+  "title": "Story intro tells a new player to watch wildfires and sea ice, but the only open era cannot pick either",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "Story intro, then 1 Briefing",
+  "repro": "Viewport 1280x800 with localStorage cleared (a first visit). Click [data-key=\"start-igy-training\"], the only open single-mission tier. Click .intro .btn.primary four times to reach beat 5/5 and read it. Click START, then [data-key=\"blip-briefing\"].",
+  "expected": "The intro's mission matches what the player can pick in 1958 (Radiation around Earth).",
+  "actual": "Beat 5/5 reads 'Watch wildfires and Arctic sea ice. Bring back observations people can use.' Mission Control then shows WILDFIRE MONITORING 'ARRIVES IN 1999' and ARCTIC SEA-ICE MAPPING 'ARRIVES IN 1978', both disabled. Only RADIATION AROUND EARTH can be chosen. Every new player takes this path.",
+  "evidence": "One run in t25-gaps.js. Screenshots: (scratch)/sweep/start/shots/gap-intro-beat5-igy.png and (scratch)/sweep/start/shots/gap-igy-briefing.png",
+  "cause": "js/ui-design.js:146-152: STORY.austin.intro ignores the era, and storyChapter (422-428) chooses the chapter by tier only.",
+  "fix_hint": "Make the last beat era-aware, or name the job generically ('bring back observations people can use').",
+  "verdict": {
+   "id": "start-02",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v02.js at 1280x800 with localStorage cleared. The open tiers were the three campaign tiers plus start-igy-training, so this hits every first single-mission run, not every new player. IGY training intro beat 5/5 reads 'Watch wildfires and Arctic sea ice. Bring back observations people can use.' At Mission Control only obj-radiation is enabled. Wildfire shows 'ARRIVES IN 1999' and sea ice 'ARRIVES IN 1978', both disabled, as do solar (1960), weather (1959) and ionosphere (1962). No console errors. Cause: STORY.austin.intro at js/ui-design.js:146-152 is the same for every era, and storyChapter (js/ui-design.js:422-428) picks the chapter by tier only. Screenshots: (scratch)/sweep/verify-start/shots/v02-igy-beat5.png and (scratch)/sweep/verify-start/shots/v02-igy-briefing.png"
+  }
+ },
+ {
+  "id": "start-03",
+  "title": "Era-blind dates in the intro and briefing text contradict the chosen era's year",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "Story intro, 1 Briefing",
+  "repro": "Viewport 1280x800 with the unlock JSON. On a fresh page load click [data-key=\"start-new-space-training\"] and read intro beat 1. SKIP, open [data-key=\"blip-briefing\"] and open each 'About this job'. Repeat with [data-key=\"start-eos-training\"] and [data-key=\"start-igy-training\"].",
+  "expected": "The text agrees with the era named in the header, for example 'INITIAL FEASIBILITY \u00b7 2026'.",
+  "actual": "In the 1999 and 2026 eras, intro beat 1 says 'You lead the world's first satellite project.' Radiation's 'About this job' says 'It is 1957 and nobody knows what lies just above the atmosphere', both in the 1958 IGY era (header shows 1958) and in 2026. Ionosphere says 'It is 1962' in the 1964, 1999 and 2026 eras.",
+  "evidence": "t14-intro-era.js output (intro beats for New Space 2026 and EOS 1999). t25-gaps.js block B (About texts in the New Space era). Screenshot: (scratch)/sweep/start/shots/gap-about-jobs.png",
+  "cause": "js/ui-design.js:147 (intro text). data/objectives.js:11 and :79 (briefing strings with fixed years).",
+  "fix_hint": "Reword the strings so they carry no year ('In 1957 nobody knew...'). No data field changes are needed.",
+  "verdict": {
+   "id": "start-03",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v02.js with the unlock JSON. Intro beat 1 reads 'Austin Albert, NASA engineer. You lead the world's first satellite project.' in igy, nimbus, eos and new-space training alike. The header there shows the era year, for example 'TRADE SPACE \u00b7 2026'. Radiation's 'About this job' says 'It is 1957 and nobody knows what lies just above the atmosphere' in every era, and ionosphere's says 'It is 1962' in the nimbus, eos and new-space eras. The 1999 and 2026 cases carry this finding. '1957' in the 1958 IGY era is defensible, since the IGY began in July 1957. Readers will likely take it as history, so this is polish. The intro half has the same root cause as start-02 (js/ui-design.js:147). The part unique to this finding is data/objectives.js:11 and :79."
+  }
+ },
+ {
+  "id": "start-04",
+  "title": "The 'MISSION CONTROL' label on the next place is cut off at the map's left edge on phones",
+  "severity": "minor",
+  "category": "mobile",
+  "screen": "Base map",
+  "repro": "Viewport 390x844 (also 360x740, 320x640 and landscape 844x390). Click [data-key=\"start-new-space-training\"], then SKIP. Look at [data-key=\"blip-briefing\"] .blip-name.",
+  "expected": "The full place name shows inside the map frame.",
+  "actual": "The label reads 'ISSION CONTROL'. Its left edge is at 2.98px while the map's content starts at 20px (16px plus a 4px border), so 17px is clipped at 390, 23px at 360, 31px at 320 and 9px at 844x390. At 760px and narrower this is the only place name drawn on the map.",
+  "evidence": "t8-clip.js output. Screenshots: (scratch)/sweep/start/shots/clip-p360-map.png and (scratch)/sweep/start/shots/L-phone-map.png",
+  "cause": "css/style.css:540-547 sets overflow:hidden on .map. The nowrap .blip-name (578-584) is centred on a marker at x=20% (NODES.briefing x=40 of 200, js/ui-design.js:69), so it spills past the left edge.",
+  "fix_hint": "Keep labels inside the map (left-align them for markers near an edge) or let them wrap.",
+  "verdict": {
+   "id": "start-04",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v04.js after new-space-training and SKIP, comparing the .blip-name rect with the map's inner left edge (after the border). [data-key=blip-briefing] .blip-name 'MISSION CONTROL' is clipped on the left by 17px at 390x844, 23px at 360x740, 31px at 320x640 and 9px at 844x390. Nothing is clipped at 760x900 or 1280x800. The screenshot reads 'ISSION CONTROL'. The PLACES list below the map still has the full name, so this is minor. Cause: .map has overflow:hidden (css/style.css:540-547), and the nowrap .blip-name (css/style.css:578-584) is centred on the marker at NODES.briefing x=40 of MAP_W=200 (js/ui-design.js:70), so at 20% it spills past the left edge. Screenshot: (scratch)/sweep/verify-start/shots/v04-map-390.png"
+  }
+ },
+ {
+  "id": "start-05",
+  "title": "The '\u00bd' in the Counts row is never explained, and the hint that explains it is never shown",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "1 Briefing",
+  "repro": "Viewport 1280x800 with the unlock JSON. Start [data-key=\"start-new-space-training\"] (hints on) and then [data-key=\"start-new-space-standard\"] (hints on request). At Mission Control read the Counts rows, open every 'About this job' (details.more summary) and press #help-btn ('?').",
+  "expected": "The player can find out that the first type counts fully and the rest count half. SPEC.md's 1 Briefing table also asks for instrument names here, not raw tags.",
+  "actual": "Cards show raw tags with a bare \u00bd, such as 'radar \u00b7 imaging \u00bd' and 'solar \u00b7 radiation \u00bd'. No 'About this job' text mentions it. The '?' shows only 'Choose what your satellite will study... Decide what you want to learn before you choose any hardware.' The explaining tip in data/hints.js:13 never appears. In expert, hints are off, so nothing explains it.",
+  "evidence": "t9-hint.js output (full ? text for briefing). t25-gaps.js prints 'mentions half/\u00bd explanation on screen? false'. Screenshot: (scratch)/sweep/start/shots/gap-about-jobs.png",
+  "cause": "js/ui-design.js:1517: setHint keeps only list(h.tips).slice(0, 1), so the second briefing tip (and the second orbit tip) is dropped. wantsLine (1851-1853) prints the tags.",
+  "fix_hint": "Show all tips when '?' is open, or add a short legend next to Counts ('\u00bd = counts half').",
+  "verdict": {
+   "id": "start-05",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v05.js and v05b.js at 1280x800 with the unlock JSON. Cards read 'Counts / solar \u00b7 radiation \u00bd', 'thermal \u00b7 imaging \u00bd' and 'radar \u00b7 imaging \u00bd'. With every 'About this job' open, the screen never matches /half|counts fully|first type/. Standard tier '?': 'Decide what you want to learn before you choose any hardware.' Training '?' on a revisit: 'Choose what your satellite will study. Everything else follows from this. Decide what you want to learn before you choose any hardware.' The tip that explains it, data/hints.js:13 ('the first type counts fully, the others half'), never appears. A grep of js/ui-*.js finds no 'half' text anywhere, so Build does not explain it either. Build only says 'Does not count' or shows per-month numbers. Expert was not run because it is locked by the unlock JSON. It has hints:'off' (data/tiers.js:15), so from the code, nothing explains it there. Cause: setHint at js/ui-design.js:1516 keeps list(h.tips).slice(0,1), which drops the second briefing tip and the second orbit tip. wantsLine at js/ui-design.js:1851-1853 prints raw tags, while SPEC.md:837 asks for instrument names and says the first type counts fully and the others half."
+  }
+ },
+ {
+  "id": "start-06",
+  "title": "Story intro opens scrolled down at 200% zoom and on landscape phones, hiding its first lines",
+  "severity": "minor",
+  "category": "visual",
+  "screen": "Story intro",
+  "repro": "Viewport 640x400 (1280x800 at 200%), fresh save. Scroll to [data-key=\"start-igy-training\"] and click it. Read window.scrollY and the top of .intro .kicker. Also try 844x390 with [data-key=\"start-new-space-training\"].",
+  "expected": "The intro starts at the top, with the header, the 'PART 1' line and the speaker name visible.",
+  "actual": "At 640x400, scrollY is 170. The kicker sits at -93px and the speaker block at -20px, so 'PART 1 \u00b7 THE GRAVITRONICAL ODYSSEY', 'YOUR TEAM' and the header are above the viewport. At 844x390, scrollY is 131 and the kicker is at -48px. Portrait phone and desktop are not affected.",
+  "evidence": "t16-introscroll.js output. Screenshot: (scratch)/sweep/start/shots/introscroll-zoom200.png",
+  "cause": "js/ui-design.js:1767: showIntro draws with mount(), which never calls window.scrollTo(0, 0). go() does (line 1562). The scroll from the title survives, clamped, and NEXT.focus() only scrolls as far as the button.",
+  "fix_hint": "Call window.scrollTo(0, 0) before drawing the first beat, as go() does.",
+  "verdict": {
+   "id": "start-06",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v06.js. At 640x400 with a fresh save, scrolled to start-igy-training (scrollY 1098) and clicked: the intro opens with scrollY=170, the .kicker at top -93px, the .say at -20px and the header at -170px. Focus is on NEXT. After NEXT, scrollY is 143 and the kicker is at -66. At 844x390 with new-space-training: scrollY=131 and the kicker at -48. At 390x844 and 1280x800, scrollY=0 and the kicker is visible. In the screenshot the 'YOUR TEAM' speaker label and the 'PART 1 \u00b7' kicker are cut off at the top. The story text and NEXT are still visible. Cause: showIntro's draw1 calls mount() (js/ui-design.js:1767), which never scrolls. Only go() calls window.scrollTo(0,0) (js/ui-design.js:1562). Screenshot: (scratch)/sweep/verify-start/shots/v06-zoom200.png"
+  }
+ },
+ {
+  "id": "start-07",
+  "title": "At 200% zoom on a 1920x1080 screen the sticky header covers the top of the focused card",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "Header on 1 Briefing (any design screen)",
+  "repro": "Viewport 960x540 (1920x1080 at 200%), unlock JSON. Click [data-key=\"start-new-space-standard\"], then SKIP. Wait 700ms, click [data-key=\"blip-briefing\"], then [data-key=\"obj-sea-ice\"]. Focus .nav-row .btn.primary and press Shift+Tab repeatedly.",
+  "expected": "A focused control is never under the sticky header.",
+  "actual": "The sticky header is 197px tall (36% of the viewport) because the '?' button wraps onto its own row. scroll-padding-top is 144px, so focusing obj-weather, obj-solar or obj-radiation leaves its top 53px, the card title, under the header. At 853x533 (1280x800 at 150%) the sticky header is 228px (43%), and at 800x600 it is 253px.",
+  "evidence": "t26-gaps2.js prints '960x540 partially covered ... hiddenPx 53' for obj-weather, obj-solar and obj-radiation. t11-header.js output. Screenshots: (scratch)/sweep/start/shots/gap-sticky-960.png and (scratch)/sweep/start/shots/hdr-960x540.png",
+  "cause": "css/style.css:88-94: the header is sticky from 761px wide and scroll-padding-top is 144px from 930px wide, but the header wraps to about 197px there. Stickiness is only turned off when max-height is 500px or less.",
+  "fix_hint": "Turn stickiness off for short viewports (for example max-height 600px), keep '?' on the first row, or match scroll-padding to the real header height.",
+  "verdict": {
+   "id": "start-07",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v07.js with new-space-standard, SKIP, briefing, sea ice picked, then Shift+Tab back from the GO TO button. At 960x540 the sticky .topbar is 197px tall (36% of the viewport) because '?' wraps onto its own row, and scroll-padding-top is 144px. obj-weather, obj-solar and obj-radiation each end up with 53px of 153 under the header, which hides the card title (the screenshot shows only 'PICTURES'). At 800x600 the header is 253px (42%) against 240px of padding, so obj-wildfire and obj-weather lose 13px. At 853x533 it is 228px (43%) and nothing is covered. Part of each control stays visible, so this passes WCAG 2.4.11 AA. The real cost is a header that takes 36-43% of the screen at 150-200% zoom. Cause: css/style.css:88-98. The header is sticky from 761px wide and scroll-padding-top is 144px from 930px wide, but the header wraps well past that. Stickiness only turns off at max-height:500px. Screenshot: (scratch)/sweep/verify-start/shots/v07-960-weather-focus.png"
+  }
+ },
+ {
+  "id": "start-08",
+  "title": "Map key legend says 'M map' but on the map M goes back inside; touch players get only keyboard instructions",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "Base map",
+  "repro": "Desktop 1280x800: start a training tier and SKIP. Press ArrowRight, then ArrowUp (you are now at Mission Control), then press m. Phone 390x844 with touch: start a training tier, SKIP, and read #hint and the KEYS panel.",
+  "expected": "The key legend describes what M does on the map, and a touch player is told to tap a place.",
+  "actual": "The KEYS panel reads 'WASD walk E enter M map'. On the map, M goes into the place you stand at (the run went to '1 \u00b7 BRIEFING'), and at the gate it does nothing. The correct text, 'M or Esc: back inside', is an aria-label on a <p>, which screen readers ignore: ariaSnapshot shows 'paragraph: WASD walk E enter M map'. On a touch phone the first-visit hint is only 'Walk with the arrow keys or WASD, press E to go in.' The sentence about clicking a marker is cut off.",
+  "evidence": "t5-map.js ('key m' leads to 1 \u00b7 BRIEFING). t19-touch.js ('map hint on touch phone'). t25-gaps.js MAP ariaSnapshot. Screenshot: (scratch)/sweep/start/shots/L-phone-map.png",
+  "cause": "js/ui-design.js:2438-2439 puts the aria-label on a <p>. HINTS.map (line 35) is cut to its first sentence by setHint's firstSentence (around 1521-1523).",
+  "fix_hint": "Change the visible legend to 'M back inside' and put the tap instruction first in the map hint.",
+  "verdict": {
+   "id": "start-08",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v04.js. Measured parts: (1) the KEYS <p> has aria-label 'Arrow keys or WASD walk... M or Esc: back inside.', but ariaSnapshot shows 'paragraph: WASD walk E enter M map', so the label is ignored on a <p> (js/ui-design.js:2438-2439). (2) On an iPhone 13 touch context the first-visit #hint is only 'Walk with the arrow keys or WASD, press E to go in.' firstSentence in setHint (js/ui-design.js:1522) cuts HINTS.map (js/ui-design.js:35) before 'Or click a marker'. Touch players still see a tappable FOLLOW ROUTE button and the PLACES list, so they are not blocked. (3) On the map, M at the gate does nothing, and M at Mission Control goes to '1 \u00b7 BRIEFING' (js/ui-design.js:2588-2591). Inside a place, M opens the map. 'M map' reads as a common map toggle, so this is the weakest part. Screenshot: (scratch)/sweep/verify-start/shots/v08-touch-map.png"
+  }
+ },
+ {
+  "id": "start-09",
+  "title": "While live data is loading, the badge's label already says every source is on the snapshot",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "Header badge",
+  "repro": "This needs a mocked slow response and is separate from the expected SNAPSHOT state in this sandbox. Route services.swpc.noaa.gov to answer after 3s and mock the other three hosts as OK. Load index.html at 390x844 and read #data-badge's text, title and aria-label at 400ms.",
+  "expected": "The 'CHECKING DATA' state says the check is still running.",
+  "actual": "The text is 'CHECKING DATA', but the title and aria-label read 'NOAA SWPC solar cycle indices (SILSO sunspot number): snapshot. NASA EONET open wildfire events: snapshot. NASA EONET open sea and lake ice events: snapshot. Natural Resources Canada CWFIS ...: snapshot', with no closing full stop. About 3s later it becomes LIVE DATA. In every state the explanation is only a title tooltip on a span that cannot take focus (tabindex null), so sighted keyboard and touch users cannot read what the badge means.",
+  "evidence": "t20-badge.js output, the 'slow @400ms' line, compared with '@3.9s'.",
+  "cause": "js/ui-design.js:1454-1457: for status 'loading' it lists each source with ok:false as 'snapshot'.",
+  "fix_hint": "Handle 'loading' on its own ('Checking live NASA and NOAA data...'). Consider making the badge focusable or giving the explanation visible text.",
+  "verdict": {
+   "id": "start-09",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v09.js at 390x844 with page.route mocks: SWPC answers after 3s, and EONET and CWFIS answer OK at once, with CORS headers. At 400ms: text 'CHECKING DATA', class 'data-badge loading'. Title and aria-label are 'NOAA SWPC ...: snapshot. NASA EONET open wildfire events: snapshot. ... CWFIS ..., last 24 hours: snapshot', with no final full stop, even though two sources had already succeeded (ok is only set in allSettled). At 3.9s: 'LIVE DATA' and every source is live. tabindex is null and role is 'status', so the title tooltip cannot be reached by keyboard or touch. TIMEOUT_MS is 8000 (js/live-data.js:10), so on a hanging network the wrong label can last up to 8s. Cause: setDataBadge at js/ui-design.js:1454-1456 builds the source list for the 'loading' status as well."
+  }
+ },
+ {
+  "id": "start-10",
+  "title": "Era star rating is read out as 'white star white star white star'",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "Title (tier select)",
+  "repro": "Viewport 1280x800, fresh save. Run page.locator('body').ariaSnapshot() on the title screen. Repeat with the unlock JSON.",
+  "expected": "Screen readers hear '0 of 3 stars' (or '3 of 3 stars').",
+  "actual": "The snapshot shows '- text: \u2606\u2606\u2606' under the IGY heading. The aria-label '0 of 3 stars' is on a plain <span>, where aria-label is not allowed, so it is ignored and the glyphs are read instead. The same happens with \u2605\u2605\u2605 once stars are earned.",
+  "evidence": "t3-a11y-title.js ariaSnapshot output.",
+  "cause": "js/ui-design.js:1823: el('span', { class: 'stars', text: starsText(...), 'aria-label': ... }) with no role.",
+  "fix_hint": "Add role='img' to the span, or use aria-hidden on the glyphs plus visually hidden text.",
+  "verdict": {
+   "id": "start-10",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v10.js and v10b.js at 1280x800, with a fresh save and with the unlock JSON. Playwright ariaSnapshot shows '- text: \u2606\u2606\u2606' under the INTERNATIONAL GEOPHYSICAL YEAR heading, and '\u2605\u2605\u2605' for the unlocked eras. Chrome's CDP AX tree has a role 'generic' node named '0 of 3 stars', plus a StaticText child '\u2606\u2606\u2606'. I could not observe actual speech. ARIA 1.2 does not allow aria-label on generic, and screen readers commonly ignore it there and read the glyphs. Cause: js/ui-design.js:1823, el('span', {class:'stars', text: starsText(...), 'aria-label': ...}) with no role (role='img' would fix it). The same pattern is on the debrief stamp at js/ui-mission.js:238."
+  }
+ },
+ {
+  "id": "start-11",
+  "title": "RESET PROGRESS drops keyboard focus to the page body",
+  "severity": "polish",
+  "category": "a11y",
+  "screen": "Title (tier select)",
+  "repro": "Viewport 1280x800, unlock JSON. Focus 'RESET PROGRESS', press Enter and accept the confirm dialog.",
+  "expected": "Focus stays on a control on the redrawn title, for example the reset button or the first open tier.",
+  "actual": "Progress resets correctly (open tier buttons drop from 11 to 4; dismissing the dialog changes nothing). Afterwards document.activeElement is BODY, and the next Tab starts again from 'How it works' at the top.",
+  "evidence": "t10-reset.js prints 'focus after reset BODY.'",
+  "cause": "js/ui-design.js:1843-1845: draw('title') replaces the whole screen and moves focus nowhere.",
+  "fix_hint": "After draw('title'), focus the new RESET PROGRESS button or #app.",
+  "verdict": {
+   "id": "start-11",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v11.js at 1280x800 with the unlock JSON. Focused RESET PROGRESS, pressed Enter and accepted 'Forget every star you have earned?'. Open tiers went from 11 to 4, and document.activeElement became BODY. The next Tab landed on SUMMARY 'How it works' at the top. Dismissing the dialog changed nothing and focus stayed on the button. Cause: js/ui-design.js:1843-1844 calls draw('title'), which replaces the screen and moves focus nowhere."
+  }
+ },
+ {
+  "id": "start-12",
+  "title": "The '?' hint button gives screen readers no feedback",
+  "severity": "polish",
+  "category": "a11y",
+  "screen": "Hint box and ? button (all design screens)",
+  "repro": "Start [data-key=\"start-new-space-standard\"] (hints on request) and go to Mission Control. Press #help-btn. Read the attributes of #hint and #help-btn.",
+  "expected": "The hint that appears is announced, or the button points at it.",
+  "actual": "aria-expanded flips to true, but #hint is a plain <p> with no aria-live or role, and #help-btn has no aria-controls. The text that appears above the screen is not announced.",
+  "evidence": "t25-gaps.js prints 'hint attrs { hintLive: null, hintRole: null, btnControls: null }'. t9-hint.js shows the box text toggling.",
+  "cause": "index.html:26 and :29.",
+  "fix_hint": "Add aria-controls='hint' to the button and aria-live='polite' (or role='status') to #hint.",
+  "verdict": {
+   "id": "start-12",
+   "reproduced": false,
+   "severity": "not-a-bug",
+   "note": "Ran v12.js with new-space-standard, briefing, focus #help-btn, Enter. The attributes match the report: aria-expanded goes from false to true, #hint has no aria-live or role and no live ancestor, and #help-btn has no aria-controls. But #hint is the element right after the header that ends with #help-btn (index.html:26-29), and focus stays on the button. That is the WAI-ARIA disclosure pattern: an expanded state on the button, with the content next in reading order. That pattern does not require a live announcement, and aria-controls is optional and poorly supported. A screen reader user hears 'expanded' and reaches the hint with the next arrow key. Expected behaviour, not a defect."
+  }
+ },
+ {
+  "id": "flight-01",
+  "title": "A battery-only satellite is ended by the first event, even when the choice has no effect",
+  "severity": "major",
+  "category": "broken",
+  "screen": "6 Mission / 7 Debrief",
+  "repro": "Save smdg-progress-v1 = {\"best_stars\":{\"training\":3},\"best_score\":{\"training\":97},\"best_stars_by_era\":{\"igy\":3,\"nimbus\":3,\"eos\":3}}, reload, 1280x800. Click [data-key=\"start-nimbus-training\"], SKIP. Briefing [data-key=\"obj-radiation\"], orbit [data-key=\"orbit-leo\"]. Build: structure drum-body, attitude spin-stabilised, instrument cosmic-ray-counter, power silver-zinc-battery, comms minitrack-beacon, computer command-timer. Rocket thor-able. The Readiness review shows 'GO, WITH 1 WARNING'; BATTERY ONLY > Why says 'the battery runs everything for about 316 days'. Click LAUNCH ANYWAY. The mission header reads 'of 11'. At MONTH 4 'A RIVAL REPORTS THE SAME BELTS' appears: choose 'Wait for the full analysis', whose effect is {}. Repeat on Point Design (save adds best_stars.standard=3): at MONTH 3 'Instrument calibration problem', choose 'Pause and recalibrate'. Script: s2-battery.js and s2b-battery-log.js.",
+  "expected": "A choice with no effect changes nothing. The satellite flies until its battery runs down (month 11 of 11), as the review promised.",
+  "actual": "The mission ends at month 4 of 11, or month 3 on Point Design. The log reads 'A rival reports the same belts: Wait for the full analysis / Mission over. / Signal ends. Mission complete.' and has no FAILED line. The debrief shows 0 stars and 'RISK LIMITED THIS MISSION'. TRY THIS says 'The a rival reports the same belts knocked out your only working power part.' The Space segment says 'it worked for 4 of 11 months planned, then a failure ended it.' Both choices end it the same way. A related wording error (s7 #1: IGY Point Design, vanguard-rocket, explorer-body, scintillation-counter, mercury-battery, silicon-cells, choice 0): the stuck hinge fails the solar cells, the mission ends, and TRY THIS says 'your only working power part' while the mercury battery still works. Ending a flight with no working generator is deliberate (the comment at mission.js:156); the defect there is only the wording.",
+  "evidence": "Console output of s2b-battery-log.js: 'month now: MONTH 4 of of 11'; 'LOG: Signal ends. Mission complete. / Mission over. / A rival reports the same belts: Wait for the full analysis / Launch...'. Screenshots: (scratch)/sweep/flight/shots/s2b-log-after-wait.png, .../shots/s2-training-1-debrief.png, .../shots/s2-expert-0-debrief.png, .../shots/s13-battery-only-review.png. No console errors.",
+  "cause": "js/mission.js:156-157: missingRequired() returns 'power' whenever no working part has solarPowerW > 0. chooseEvent() calls it after every choice (js/mission.js:415), so a battery-only design that startMission accepted (js/mission.js:84-86 shortens its lifetime to the battery life) dies at its first event, whatever happened in that event.",
+  "fix_hint": "Apply the 'needs a generator' rule only when the design launched with one (or skip it when mission.battery_limited), and end early only if this event actually broke a part. Word the suggestion from the part that failed, not from 'only working power part'.",
+  "verdict": {
+   "id": "flight-01",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v01-battery.js (all scripts, logs and shots are in (scratch)/sweep/verify-flight/, log v01.log). Setup: Nimbus training, radiation, LEO, drum-body, spin-stabilised, cosmic-ray-counter, silver-zinc-battery, minitrack-beacon, command-timer, Thor-Able. The review shows 'GO, WITH 1 WARNING / BATTERY ONLY' and LAUNCH ANYWAY, and the mission header reads 'of 11'. The 'Why' text (316 days) did not print in my run, so the 'promise' rests on the header and on SPEC.md:422 ('runs until the battery is spent'). At MONTH 4, 'A RIVAL REPORTS THE SAME BELTS' appeared. Both choices, including 'Wait for the full analysis' (effect {}), ended the mission. Log: 'A rival reports the same belts: Wait for the full analysis / Mission over. / Signal ends. Mission complete.' No FAILED line. Debrief: 0 stars, 'RISK LIMITED THIS MISSION', 'TRY THIS: The a rival reports the same belts knocked out your only working power part.' Space segment: 'it worked for 4 of 11 months planned, then a failure ended it.' On Point Design both choices of 'Instrument calibration problem' ended it at month 3. In-page back end confirms: missingRequired({broken: []}) === 'power', so the failure happens before any part breaks. Scope from v01b-sim.js (run in the page on all three tiers): battery-only designs whose battery lasts 1-2 months get no events and end correctly with end_cause 'batteries'. Every design whose battery lasts 3 months or more (silver-zinc on a bigger body) ends at its first event, whatever the choice. Also confirmed the IGY wording problem: in v04.log case 08igy, the hinge event broke the silicon cells, and TRY THIS said 'knocked out your only working power part' while the mercury battery was still working. Screenshots: shots/v01-training-1-debrief.png, shots/v01-expert-0-debrief.png, shots/v01-training-review.png. No console errors. Root cause: js/mission.js:157 returns 'power' when no working part has solarPowerW > 0. chooseEvent calls it after every choice (js/mission.js:415), even though startMission accepted the battery-only design and shortened its lifetime (js/mission.js:84-86). The wording comes from js/mission.js:572."
+  }
+ },
+ {
+  "id": "flight-02",
+  "title": "TRY THIS tells 1958/1964 players to fit parts that do not exist yet and to fly orbits their rockets cannot reach",
+  "severity": "major",
+  "category": "wrong-numbers",
+  "screen": "7 Debrief",
+  "repro": "Use the ALL_OPEN save (see flight-01). (a) [data-key=\"start-igy-training\"], radiation, leo. Parts: explorer-body, spin-stabilised, scintillation-counter, silicon-cells, minitrack-beacon, command-timer. Rocket vanguard-rocket. Launch and always pick choice 1 (s3-igy-try.js, s13-verify.js). (b) Same era: explorer-body, spin-stabilised, scintillation-counter, mercury-battery, silicon-cells, minitrack-beacon, command-timer, rocket juno-1, always pick the last choice. (c) [data-key=\"start-nimbus-training\"], weather, leo. Parts: nimbus-bus, reaction-wheels, avcs-camera, nicad-battery, n-on-p-cells, minitrack-beacon, tape-recorder. Rocket thor-agena, choice 1 (s12-nimbus-debris.js). After each debrief click REDESIGN and open the named part's bin.",
+  "expected": "One concrete change the player can actually make in this era (SPEC 'Debrief'; the comment at mission.js:557 says 'Every suggestion must be something the player can actually do').",
+  "actual": "(a) 'Fit the X-band transmitter, or fly an orbit with longer ground contact.' On REDESIGN the X-band card is disabled with 'Arrives in 1990'. With SSO or GEO picked, both 1958 rockets show 'CANNOT REACH ... Lifts no'. (b) 'Fly the radiation-tolerant computer, which guards against it'. The card is disabled with 'Arrives in 1965'. (c) 'Fly the small green thruster pack, which guards against it'. Every propulsion card reads 'Arrives in 1998'. In a Node sandbox run of the same back end, 239 of the random IGY flights and 114 of the Nimbus flights got the X-band advice.",
+  "evidence": "s3-igy-try.js output: 'card radio-xband: disabled=true text=\"X-band transmitter / Arrives in 1990\"' and 'card obc-radtol: disabled=true text=\"Radiation-tolerant computer / Arrives in 1965\"'. s13-verify.js: 'orbit sso: rockets JUNO I CANNOT REACH Price $3M Lifts no || VANGUARD CANNOT REACH'. s12: 'propulsion cards: Small green thruster pack / Arrives in 1998 ...'. Screenshots: .../shots/s3-igy-data-debrief.png, .../shots/s3-igy-data-redesign-comms.png, .../shots/s3-igy-storm-redesign-computer.png, .../shots/s13-igy-rockets-sso.png, .../shots/s12-nimbus-debris-debrief.png (all under (scratch)/sweep/flight).",
+  "cause": "In limitingFactor(), js/mission.js:571 (guard), 597-598 (fastest comms) and 605 (largest battery) choose from all of PARTS with no availability check. Lines 579 and 630 call isPartAvailable(p.id) without the design, and isUnlocked() then ignores design.year. The orbit clause at 601-602 never checks whether an available launcher can reach another orbit.",
+  "fix_hint": "Filter every candidate with isPartAvailable(p.id, design). Offer the orbit alternative only when some isLauncherAvailable(l, design) has capacity_kg[orbit] > 0. Otherwise fall back to the generic text.",
+  "verdict": {
+   "id": "flight-02",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v02-advice.js (log v02.log). (a) IGY training, radiation, LEO, explorer-body, spin-stabilised, scintillation-counter, silicon-cells, minitrack-beacon, command-timer, Vanguard. Choice 1 gave score 89; choice 0 gave score 90 and 2 stars. Both show 'TRY THIS: Only 0.000025 of 0.00004 GB a day reached the ground. Fit the X-band transmitter, or fly an orbit with longer ground contact.' After REDESIGN, the comms bin shows part-radio-xband disabled with 'X-band transmitter / Arrives in 1990'. With SSO or GEO picked, both 1958 rockets read 'CANNOT REACH ... Lifts no', and every other rocket arrives in 1959 or later, so neither half of the advice can be done. (b) Same design plus mercury-battery on Juno I, last choice. Result: 'TRY THIS: The solar storm knocked out your only working computer part. Fly the radiation-tolerant computer...' The obc-radtol card is disabled with 'Arrives in 1965'. (c) Nimbus training, weather, nimbus-bus, reaction-wheels, avcs-camera, nicad-battery, n-on-p-cells, minitrack-beacon, tape-recorder, Thor-Agena, choice 1. Result: 'Fly the small green thruster pack, which guards against it'. All three propulsion cards read 'Arrives in 1998'. This shows on the first era's first tier, with a natural first design. The tester's sandbox counts (239/114) and the sub-claim about isPartAvailable without the design at lines 579/630 come from reading the code; I did not run them. Screenshots: shots/v02a-debrief.png, shots/v02a-redesign-comms.png, shots/v02a-rockets-sso.png, shots/v02b-redesign-computer.png, shots/v02c-redesign-propulsion.png. Root cause: limitingFactor() picks from all of PARTS with no era or availability check, at js/mission.js:571 (guard), 597-598 (fastest comms) and 605 (largest battery). The orbit clause at js/mission.js:601-602 never checks whether any available launcher reaches another orbit."
+  }
+ },
+ {
+  "id": "flight-03",
+  "title": "IGY TRY THIS says to add the 51 kg silver-zinc battery; following it makes the design NO GO",
+  "severity": "major",
+  "category": "wrong-numbers",
+  "screen": "7 Debrief",
+  "repro": "ALL_OPEN save, 1280x800. [data-key=\"start-igy-training\"], radiation, leo. Parts: explorer-body, spin-stabilised, cosmic-ray-counter, silicon-cells, minitrack-beacon, command-timer. Rocket vanguard-rocket. Launch and always pick choice 0. The debrief shows 'POWER LIMITED'. Click REDESIGN, open the power bin, click [data-key=\"part-silver-zinc-battery\"], then go to the Readiness review (s9-igy-battery-advice.js).",
+  "expected": "An eclipse-battery suggestion that fits the 10 kg Explorer body and an 11-15 kg 1958 rocket, such as the 2.6 kg mercury battery (160 Wh).",
+  "actual": "'TRY THIS: Your instruments switched off in Earth's shadow. Add the silver-zinc batteries to carry them through the eclipse.' After adding them the Build bars show 'MASS 58.3 / 11 KG'. The review shows 'NO GO. 2 TO FIX.' (BODY OVERLOADED, TOO HEAVY), and both 1958 rockets read 'TOO SMALL'. The same advice came up on IGY Point Design flights (s7 #11).",
+  "evidence": "s9-igy-battery-advice.js output: 'build bars: MASS | 58.3 / 11 KG ...'; 'review verdict: NO GO. 2 TO FIX. | launch disabled: true'; 'rockets: JUNO I TOO SMALL ... || VANGUARD TOO SMALL'. Screenshots: (scratch)/sweep/flight/shots/s9-igy-debrief.png, .../shots/s9-igy-review-after-advice.png",
+  "cause": "js/mission.js:605-610 picks the battery with the largest battery_wh in all of PARTS, ignoring its mass, the body's payload_kg and slots, the launcher's capacity and the era.",
+  "fix_hint": "Choose the smallest available battery whose battery_wh covers the eclipse need and that still fits the body payload and the launcher margin. If none fits, say to cut the draw.",
+  "verdict": {
+   "id": "flight-03",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Ran v02-advice.js case 03 and v03-review.js. Setup: IGY training, radiation, LEO, explorer-body, spin-stabilised, cosmic-ray-counter, silicon-cells, minitrack-beacon, command-timer, Vanguard, choice 0. Debrief: SCORE 94, 2 stars, 'POWER LIMITED THIS MISSION', 'TRY THIS: Your instruments switched off in Earth's shadow. Add the silver-zinc batteries to carry them through the eclipse.' REDESIGN then the power bin shows the silver-zinc card at '51 kg \u00b7 1,000 Wh', next to mercury batteries at '2.6 kg \u00b7 160 Wh'. After adding silver-zinc, the Build bars read 'MASS | 58.3 / 11 KG' and the team says 'That body cannot carry this much', so GO TO stays on Build. Juno I and Vanguard both read 'TOO SMALL'. The Readiness review (reached through the map) shows 'NO GO. 2 TO FIX. | BODY OVERLOADED | TOO HEAVY'. A workable eclipse battery existed: my 02b and 08igy runs flew the mercury battery at 10.6 kg total. silver-zinc-battery has the largest battery_wh in all of PARTS (1000, against 560/160/120), so the same suggestion is made in every era. I inferred that from the data and did not fly it. Screenshots: shots/v03-debrief.png, shots/v03-redesign-power.png, shots/v03-review-after-advice.png. Root cause: js/mission.js:605-610 sorts every battery in PARTS by battery_wh and ignores mass, the body's payload_kg and slots, the launcher's capacity and the era. It has the same cause family as flight-02 and is graded the same."
+  }
+ },
+ {
+  "id": "flight-04",
+  "title": "Solar topic in New Space (2026): the debrief says the Sun 'averaged 0 sunspots a month' and the mission shows no real-Earth line",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "6 Mission / 7 Debrief",
+  "repro": "ALL_OPEN save. [data-key=\"start-new-space-training\"], [data-key=\"obj-solar\"], leo. Parts: smallsat-bus, reaction-wheels, oso-xray-spectrometer, solar-xray-photometer, solar-small, battery-28v, radio-sband, obc-radtol. Rocket thor-agena. Launch, watch the line under the science bar, then read AGAINST THE REAL EARTH on the debrief (s8-solar.js). Compare the same design in EOS.",
+  "expected": "Either the latest real sunspot figure, or no claim at all. The mission should show the monthly line, as it does in 1999 ('March 1999: sunspot number 104 (SILSO)').",
+  "actual": "The real-Earth line is empty for the whole mission. The debrief says 'In 2026 the Sun averaged 0 sunspots a month (SILSO, Royal Observatory of Belgium). Between 1957 and 2025 the yearly average ran from 4 to 269...', which presents a made-up zero as SILSO data in a year after the data ends.",
+  "evidence": "s8-solar.js output: '== new-space: month MONTH 3 real-Earth line: \"\"' and 'NASA box: In 2026 the Sun averaged 0 sunspots a month ...'. EOS prints 'March 1999: sunspot number 104 (SILSO)'. Screenshot: (scratch)/sweep/flight/shots/s8-new-space-debrief.png",
+  "cause": "js/mission.js:328-333: sunspots(2026, null) returns null because the data runs from 1957 to 2025, and Math.round(null) prints 0. realThisMonth() (js/mission.js:231) returns null, so ui-mission.js:101 draws an empty line.",
+  "fix_hint": "When sunspots(y0) is null, use the latest year in the data (or EARTH.live) and name that year, or drop the first sentence. Show the latest month on the Mission screen.",
+  "verdict": {
+   "id": "flight-04",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v04-cases.js cases 04ns and 04eos (log v04.log). Setup: smallsat-bus, reaction-wheels, oso-xray-spectrometer, solar-xray-photometer, solar-small, battery-28v, radio-sband, obc-radtol, Thor-Agena, LEO, choice 0. New Space (2026): the line under the science bar stayed empty for the whole flight (the only value ever seen was ''). AGAINST THE REAL EARTH: 'In 2026 the Sun averaged 0 sunspots a month (SILSO, Royal Observatory of Belgium). Between 1957 and 2025 the yearly average ran from 4 to 269...'. EOS (1999), same design: 'January 1999: sunspot number 86 (SILSO)' and so on, 37 distinct lines, and 'In 1999 the Sun averaged 136 sunspots'. The offline snapshot ends at 2025 and the game must work offline (CLAUDE.md), so the 2026 era presents a made-up 0 as SILSO data. Live NOAA data would cover only part of 2026 at most, and the mission's later years would still be empty. Screenshot: shots/v04ns-debrief.png. Root cause: js/mission.js:328 calls sunspots(2026, null), which returns null (js/game.js:426), and js/mission.js:333 prints Math.round(null) = 0. realThisMonth returns null (js/mission.js:231-232), so js/ui-mission.js:101 draws ''."
+  }
+ },
+ {
+  "id": "flight-05",
+  "title": "On Point Design (the last tier) a 3-star debrief says 'Try the next tier'",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "7 Debrief",
+  "repro": "Save {\"best_stars\":{\"training\":3,\"standard\":3},\"best_score\":{\"training\":97,\"standard\":95},\"best_stars_by_era\":{\"igy\":3,\"nimbus\":3,\"eos\":3}}. [data-key=\"start-new-space-expert\"], weather, leo. Parts: nimbus-bus, reaction-wheels, avcs-camera, solar-small, radio-sband, obc-radtol, prop-green-small. Rocket thor-able. Launch and pick choice 0 (s4-expert-banners.js).",
+  "expected": "On the last tier, point to another era, another topic or a smaller budget.",
+  "actual": "Debrief: 3 of 3 stars, SCORE 95, 'TRY THIS: Target reached. Try the next tier, or reach it on a smaller budget.' No tier comes after Point Design.",
+  "evidence": "s4-expert-banners.js output: '== new-space EXPERT ... 3 of 3 stars SCORE 95 / NOTHING LIMITED THIS MISSION / TRY THIS: Target reached. Try the next tier...'. Screenshot: (scratch)/sweep/flight/shots/s4-expert-debrief.png",
+  "cause": "js/mission.js:654 returns the same text on every tier.",
+  "fix_hint": "If TIERS has no entry after design.tier, suggest the next era or a smaller budget instead.",
+  "verdict": {
+   "id": "flight-05",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v04-cases.js case 05. Setup: New Space Point Design (save with best_stars.standard=3), weather, LEO, nimbus-bus, reaction-wheels, avcs-camera, solar-small, radio-sband, obc-radtol, prop-green-small, Thor-Able, choice 0. Result: '\u2605\u2605\u2605 3 of 3 stars', SCORE 95, 'NOTHING LIMITED THIS MISSION', 'TRY THIS: Target reached. Try the next tier, or reach it on a smaller budget.' TIERS has only three entries, so nothing comes after Point Design. Graded polish: it is one wrong clause on a success screen and the second half still holds. Screenshot: shots/v05-debrief.png. Root cause: js/mission.js:654 returns the same text on every standalone tier."
+  }
+ },
+ {
+  "id": "flight-06",
+  "title": "TRY THIS reads 'The a hurricane...' / 'The the long antennas...' and prints raw numbers like '0.000025 of 0.00004 GB'",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "7 Debrief",
+  "repro": "Run s7-events.js (Point Design, both choices). For example: Nimbus weather, thor-able, nimbus-bus, reaction-wheels, vidicon-camera, n-on-p-cells, nicad-battery, vhf-telemetry, tape-recorder, choice 0. Or Nimbus ionosphere, thor-agena, drum-body, spin-stabilised, topside-sounder, n-on-p-cells, mercury-battery, pcm-telemetry, tape-recorder, choice 0. For the numbers, use the IGY design in flight-02 (a), or the careless New Space wildfire design in s11 (cubesat-12u, spin-stabilised, optical-camera, solar-small, radio-uhf, obc-basic, rideshare).",
+  "expected": "Readable sentences ('The hurricane...' or 'A hurricane under the camera knocked out...') and data in readable units, as the Ground segment line already shows ('20 kB of the 20 kB').",
+  "actual": "Seen in the browser: 'The a hurricane under the camera knocked out your only working computer part.', 'The the long antennas knocked out...', 'The the belt is bigger than predicted knocked out...', 'The a rival reports the same belts knocked out...'. Also 'Only 0.000025 of 0.00004 GB a day reached the ground.' and 'Only 0.01025 of 15 GB a day reached the ground.' In the Node sandbox only, lowercasing also gives 'The blizzard at resolute bay...' and 'arctic sea-ice mapping'.",
+  "evidence": "s7-events.js output, lines starting 'TRY: TRY THIS: The a hurricane under the camera...', 'The the long antennas...', 'The the belt is bigger...'. s3-igy-try.js: 'Only 0.000025 of 0.00004 GB a day'. s11: 'Only 0.01025 of 15 GB a day'. Results JSON: (scratch)/sweep/flight/s7-results-0_1_2_3_4_5_6.json",
+  "cause": "js/mission.js:572 builds 'The ' + r.title.toLowerCase(), and many event titles already start with an article or contain proper nouns. js/mission.js:599 prints totals.data_returned_gb_day and data_gb_day raw instead of using formatData() (js/mission.js:1425).",
+  "fix_hint": "Use the title as written ('A hurricane under the camera knocked out ...') or strip a leading article. Pass both numbers through formatData().",
+  "verdict": {
+   "id": "flight-06",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Seen in the browser (v04.log, v01.log, v02.log): 'The a hurricane under the camera knocked out your only working computer part.' (case 06hur), 'The the long antennas knocked out your only working instrument part.' (case 06ion) and 'The a rival reports the same belts knocked out...' (v01). Raw numbers: 'Only 0.000025 of 0.00004 GB a day reached the ground.' (02a), 'Only 0.01025 of 15 GB a day' (case 16) and 'Only 0.000025 of 15 GB a day' (07fire). On the same debriefs the Ground segment already formats them as '10.3 MB of the 15 GB' and '25 kB of the 15 GB'. I did not see 'The the belt is bigger' or 'resolute bay' myself; they follow from the same code and the titles in data/events.js:141 and 161. Screenshots: shots/v06hur-debrief.png, shots/v06ion-debrief.png, shots/v16-debrief.png. Root cause: js/mission.js:572 builds 'The ' + r.title.toLowerCase(), and 11 of the 23 event titles already start with 'The' or 'A'. js/mission.js:599 prints totals.data_returned_gb_day and data_gb_day raw instead of using formatData() (js/mission.js:1425)."
+  }
+ },
+ {
+  "id": "flight-07",
+  "title": "Event text describes hardware the satellite does not carry",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "6 Mission",
+  "repro": "(a) Phone or zoom run in s6-phone.js: New Space Point Design, weather, leo. Parts: nimbus-bus, reaction-wheels, avcs-camera, solar-small, radio-sband, command-timer (no tape recorder), prop-green-small. Rocket thor-able. (b) s7 #1, #10 and #11: IGY radiation flights whose only instrument is a Geiger or scintillation counter. (c) s7 #12: EOS wildfire, thor-able, nimbus-bus, optical-camera (no thermal imager), solar-small, minitrack-beacon, tape-recorder, reaction-wheels, prop-green-large.",
+  "expected": "Events that refer to a specific part fire only when that part is on board, or their text is generic.",
+  "actual": "(a) 'THE TAPE RECORDER JAMS: The recorder that holds the pictures between ground passes keeps jamming', offering 'Cycle the recorder and hope (30% chance of losing the computer)', on a satellite with no recorder. (b) 'FOGGED OPTICS ... Images are getting blurry' on a satellite whose only instrument is a radiation counter. (c) 'Use the infrared channel that sees through' on a satellite with only an optical camera; picking it applies science_mult 0.85.",
+  "evidence": "Screenshots: (scratch)/sweep/flight/shots/s6-phone-event-THE_TAPE_REC.png and .../shots/s6-zoom200-event-THE_TAPE_REC.png. s7-events.js log: '#10 igy/radiation ... MONTH 19 FOGGED OPTICS -> Bake it off with heaters'; '#12 eos/wildfire ... SMOKE OVER THE TARGET -> Use the infrared channel that sees through'.",
+  "cause": "data/events.js:179 (wx-tape), :90 (contamination) and :199 (fire-smoke) have no part condition. startMission (js/mission.js:94) filters the pool only by objective.",
+  "fix_hint": "Add an optional requirement (needed tag or part) to such events and filter the pool in startMission, or make the text generic. This adds a data field, so ask the team first.",
+  "verdict": {
+   "id": "flight-07",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v04-cases.js. (a) Case 07tape: New Space Point Design weather, with command-timer and no tape recorder. At MONTH 35, 'THE TAPE RECORDER JAMS | The recorder that holds the pictures between ground passes keeps jamming...' offered 'Cycle the recorder and hope / 30% chance of losing the computer'. (b) Case 08igy: IGY radiation flight whose only instrument is the scintillation counter. At MONTH 17, 'FOGGED OPTICS | ... Images are getting blurry.' The same event fired on 07tape and on the zoom200-igy run. (c) Case 07fire: EOS wildfire with only optical-camera. At MONTH 22, 'SMOKE OVER THE TARGET' offered 'Use the infrared channel that sees through'. I picked it, and data/events.js:204 applies science_mult 0.85. Screenshots: shots/v14-zoom200-event2.png (tape event on the no-recorder satellite), shots/v08igy-event0.png (fogged optics on a counter), shots/v07fire-debrief.png. Root cause: data/events.js:179 (wx-tape), :90 (contamination) and :199 (fire-smoke) have no part condition. startMission filters the pool only by objective (js/mission.js:94)."
+  }
+ },
+ {
+  "id": "flight-08",
+  "title": "Mission log says 'Mission over.' and then, in green, 'Signal ends. Mission complete.' after a failure",
+  "severity": "minor",
+  "category": "state",
+  "screen": "6 Mission",
+  "repro": "Any flight that ends early. Example: flight-01, or IGY Point Design with vanguard-rocket, explorer-body, spin-stabilised, scintillation-counter, mercury-battery, silicon-cells, minitrack-beacon, command-timer: choose 'Rock the spacecraft to free it'. Read ol.log during the 900 ms before the debrief.",
+  "expected": "A failed mission ends on a failure line, not a green 'Mission complete'.",
+  "actual": "The log reads 'Early silicon solar cells FAILED.' / 'Mission over.' / 'Signal ends. Mission complete.', and the last line uses the 'good' (green) style.",
+  "evidence": "s7-events.js: '#1 igy/radiation pick 0 ... log [\"Stuck panel hinge: Rock the spacecraft to free it\",\"Early silicon solar cells FAILED.\",\"Mission over.\",\"Signal ends. Mission complete.\"]'. Screenshot: (scratch)/sweep/flight/shots/s2b-log-after-wait.png",
+  "cause": "js/ui-mission.js:202: finish() always logs 'Signal ends. Mission complete.' with class 'good', even after line 175 has logged 'Mission over.'.",
+  "fix_hint": "In finish(), check run.mission.ended_early and skip the line or use a 'bad' variant.",
+  "verdict": {
+   "id": "flight-08",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v10-controls.js (log v10.log). Setup: IGY Point Design, explorer-body, scintillation-counter, mercury-battery, silicon-cells, Vanguard, choice 0. The stuck-hinge event broke the cells. The log items with their classes were 'good: Signal ends. Mission complete.', 'bad: Mission over.', 'bad: Early silicon solar cells FAILED.' The same order shows in v01.log on the battery-only flights. The green line is on screen only for END_PAUSE_MS = 900 ms before the debrief replaces it, which is why I graded it polish. Screenshot: shots/v08-log-end.png. Root cause: js/ui-mission.js:202 always logs 'Signal ends. Mission complete.' with class 'good', even after js/ui-mission.js:175 has logged 'Mission over.'"
+  }
+ },
+ {
+  "id": "flight-09",
+  "title": "A score of 90 or 94 shows two stars, and nothing on the debrief says why",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "7 Debrief",
+  "repro": "ALL_OPEN save. [data-key=\"start-igy-training\"], radiation, leo. Parts: explorer-body, spin-stabilised, cosmic-ray-counter, silicon-cells, minitrack-beacon, command-timer. Rocket vanguard-rocket. Choice 0 (s10-stars.js). Also flight-02 (a) at choice 0: SCORE 90 with 2 stars.",
+  "expected": "When the score reaches 90 but stars are capped because the science target was missed, say so ('3 stars need the science target').",
+  "actual": "The stamp shows \u2605\u2605\u2606 under 'SCORE 94'. The page never mentions the target rule; the word 'target' does not appear anywhere on the debrief. The rule is applied correctly, but the player gets no explanation.",
+  "evidence": "s10-stars.js dump of #app: '\u2605\u2605\u2606 ... SCIENCE RETURNED 90 of 100 points 44.8 / 50 ... SCORE 94'; '---- mentions of \"target\": ' (none). Screenshot: (scratch)/sweep/flight/shots/s9-igy-debrief.png",
+  "cause": "js/mission.js:464 caps stars at 2, and js/ui-mission.js:236-243 renders the stamp with no explanation.",
+  "fix_hint": "When score >= 90 and science < science_target, add a line under the stamp: 'Reach the science target for the third star.'",
+  "verdict": {
+   "id": "flight-09",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v02-advice.js case 03 (IGY training, cosmic-ray-counter, choice 0). Result: '\u2605\u2605\u2606', 'SCIENCE RETURNED 90 of 100 points 44.8 / 50', SCORE 94. Case 02a0 gave SCORE 90 with 2 stars. The cap is correct under SPEC.md:499, but no visible text explains it. The tester said the word 'target' never appears, which is slightly wrong: it appears only inside the collapsed 'The four segments' block ('against a target of 100'), and nothing says that 3 stars need the target. The star thresholds (50/70/90) are not shown anywhere in the UI either (grep of js/ui-*.js and data/hints.js). Screenshot: shots/v03-debrief.png. Cause: js/mission.js:464 caps stars at 2, and js/ui-mission.js:238 renders the stamp with no reason."
+  }
+ },
+ {
+  "id": "flight-10",
+  "title": "Pause button keeps the accessible name 'Pause the mission' while it shows RESUME",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "6 Mission",
+  "repro": "Launch any design. Click the PAUSE button (.controls .btn:nth(0)). Read its aria-label and accessible name (s5-controls.js).",
+  "expected": "The accessible name follows the state ('Resume the mission'), and the visible label is part of the name (WCAG 2.5.3).",
+  "actual": "Visible text 'RESUME', aria-label 'Pause the mission'. ariaSnapshot gives '- button \"Pause the mission\": RESUME'; getByRole('button', {name: /resume/i}) finds 0. Voice-control users saying 'click Resume' miss it, and screen readers announce the wrong action.",
+  "evidence": "s5-controls.js output: 'pause button after click: text= RESUME | aria-label= Pause the mission' and 'aria snapshot while paused: - button \"Pause the mission\": RESUME | getByRole name RESUME count = 0'.",
+  "cause": "js/ui-mission.js:40 sets a fixed aria-label. togglePause (js/ui-mission.js:185) changes only textContent.",
+  "fix_hint": "Update the aria-label in togglePause, or drop the aria-label and use aria-pressed.",
+  "verdict": {
+   "id": "flight-10",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Ran v10-controls.js. Before the click: text PAUSE, aria-label 'Pause the mission'. After the click: text RESUME, aria-label still 'Pause the mission'. ariaSnapshot gives '- button \"Pause the mission\": RESUME'. getByRole('button', {name: /resume/i}) finds 0, and /pause/i finds 1. The month did hold while paused, so the pause works; only the name is wrong. This fails WCAG 2.5.3 (Label in Name), and screen readers announce the wrong action. Root cause: js/ui-mission.js:40 sets a fixed aria-label, and togglePause (js/ui-mission.js:185) changes only textContent."
+  }
+ },
+ {
+  "id": "flight-11",
+  "title": "Fast-forward has no visible 'on' state",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "6 Mission",
+  "repro": "Launch any design. Click the '>>' button (aria-label 'Fast forward'), move the mouse away and blur it. Compare the computed styles before and after (s5-controls.js).",
+  "expected": "A visible pressed or active style while fast-forward is on, as the cards and bins have for aria-pressed=true.",
+  "actual": "aria-pressed changes from false to true, but background, colour, border and outline stay the same (rgb(39,33,28) | rgb(242,231,211) | rgb(84,70,58) | none). The '>>' text never changes, and the only cue is the month counter speeding up.",
+  "evidence": "s5-controls.js output: 'ff before: false rgb(39, 33, 28) | rgb(242, 231, 211) | rgb(84, 70, 58) | none' and 'ff after (blurred, not hovered): true rgb(39, 33, 28) | rgb(242, 231, 211) | rgb(84, 70, 58) | none'. Screenshot: (scratch)/sweep/flight/shots/s5-ff-on.png",
+  "cause": "css/style.css has aria-pressed rules for .card, .bin and .part (lines 228, 292, 341) but none for .controls .btn. See js/ui-mission.js:41-42.",
+  "fix_hint": "Add .controls .btn[aria-pressed=\"true\"] { background: var(--accent); color: var(--on-accent); }, or switch the label to '>> ON'.",
+  "verdict": {
+   "id": "flight-11",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v10-controls.js. The '>>' button was compared blurred and not hovered. Before: aria-pressed false, background rgb(39, 33, 28), colour rgb(242, 231, 211), border rgb(84, 70, 58), outline none, shadow 4px 4px. After: aria-pressed true with every one of those values the same, and the text still '>>'. shots/v11-ff-on.png shows PAUSE and >> looking identical while fast-forward is on. css/style.css has aria-pressed rules only for .card (228), .bin (292) and .part (341), none for .controls .btn (389). Graded polish because the month counter visibly speeds up, which is some feedback. Cause: js/ui-mission.js:41-42 sets aria-pressed, and no CSS styles it."
+  }
+ },
+ {
+  "id": "flight-12",
+  "title": "Star rating's accessible label is on a role-less span",
+  "severity": "minor",
+  "category": "a11y",
+  "screen": "7 Debrief",
+  "repro": "Finish any mission and inspect .ledger-head .stamp (s10-stars.js).",
+  "expected": "Assistive technology reads '2 of 3 stars'.",
+  "actual": "The stamp is <span class=\"stamp\" aria-label=\"2 of 3 stars\">\u2605\u2605\u2606</span>. aria-label is not supported on a generic span with no role, so assistive technology will likely ignore it and read the raw glyphs ('black star black star white star'). The ariaSnapshot shows only 'text: \u2605\u2605\u2606'. This was not checked with a real screen reader, and ariaSnapshot drops generic nodes whatever their label, so this rests on the markup.",
+  "evidence": "s10-stars.js: '- heading \"MISSION REPORT\" [level=1] / - text: \u2605\u2605\u2606'. Markup comes from js/ui-mission.js:238.",
+  "cause": "js/ui-mission.js:238 puts aria-label on a span with no role.",
+  "fix_hint": "Add role=\"img\" to the span, or render visually hidden text '2 of 3 stars' and mark the glyphs aria-hidden.",
+  "verdict": {
+   "id": "flight-12",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "I confirmed the markup but not the failure. v10-controls.js gives the stamp's outerHTML as '<span class=\"stamp pass\" aria-label=\"2 of 3 stars\">\u2605\u2605\u2606</span>' with no role. ariaSnapshot gives '- heading \"MISSION REPORT\" [level=1] / - text: \u2605\u2605\u2606'. Chromium's own accessibility tree (CDP Accessibility.getFullAXTree) does expose the name: role generic, name '2 of 3 stars', ignored false. That partly contradicts the claim that assistive technology will ignore it. ARIA 1.2 forbids naming the generic role, so screen-reader support is inconsistent. I did not run a screen reader. Fix: add role=\"img\" at js/ui-mission.js:238. The same pattern is on the title-screen tier stars (js/ui-design.js:1823)."
+  }
+ },
+ {
+  "id": "flight-13",
+  "title": "Limiting-factor icon is a pencil for orbit-, instrument- and attitude-limited missions",
+  "severity": "polish",
+  "category": "visual",
+  "screen": "7 Debrief",
+  "repro": "ALL_OPEN save plus best_stars.standard=3. [data-key=\"start-nimbus-expert\"], ionosphere, leo. Parts: drum-body, spin-stabilised, topside-sounder, n-on-p-cells, mercury-battery, vhf-telemetry, tape-recorder. Rocket thor-able. Choice 0 (s13-verify.js). Inspect '.limit h2 svg'.",
+  "expected": "For 'ORBIT AND TRAJECTORY LIMITED THIS MISSION', the orbit icon, which exists in ICONS.orbit.",
+  "actual": "The icon is the generic 'design' pencil (path 'M2 13L12 3l2 2...'). The other keys reached look right: data cylinder, power bolt, event triangle, none tick. Instrument and attitude cases (discipline 'instruments' or 'attitude') get the same pencil.",
+  "evidence": "s13-verify.js output: '\"ORBIT AND TRAJECTORY LIMITED THIS MISSION\": { svg: true, shapes: \"path:M2 13L12 3l2 2\" }'.",
+  "cause": "js/ui-mission.js:253 calls UI.icon(d.limiting). The key is 'design' for every discipline, and getDebrief does not return lim.discipline.",
+  "fix_hint": "Return the discipline from getDebrief and pick the icon from it (orbit, instrument, attitude), falling back to d.limiting.",
+  "verdict": {
+   "id": "flight-13",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Ran v04-cases.js case 13. Setup: Nimbus Point Design, ionosphere, drum-body, spin-stabilised, topside-sounder, n-on-p-cells, mercury-battery, vhf-telemetry, tape-recorder, Thor-Able, choice 0. Heading: 'ORBIT AND TRAJECTORY LIMITED THIS MISSION'. The .limit h2 svg holds '<path d=\"M2 13L12 3l2 2L4 15H2z\">', which is ICONS.design, the pencil (js/ui-design.js:860). ICONS.orbit exists at js/ui-design.js:856. The other cases looked right: data cylinder (16, 07fire), warning triangle (06hur, 08igy) and tick (04, 05). The pencil is a generic 'design' icon, not a wrong one, hence polish. Root cause: js/ui-mission.js:253 calls UI.icon(d.limiting) with the key 'design', and getDebrief does not return lim.discipline."
+  }
+ },
+ {
+  "id": "flight-14",
+  "title": "At 200% zoom the event heading is scrolled above the viewport when the event opens",
+  "severity": "polish",
+  "category": "mobile",
+  "screen": "6 Mission",
+  "repro": "Viewport 640x360 (1280x720 at 200% zoom). New Space Point Design weather design (as in flight-07). Let the first event open (s6-phone.js).",
+  "expected": "The event's title is in view when the dialog appears.",
+  "actual": "Focusing the first choice scrolls the page so that the dialog's top is at -115 to -155 px. The heading ('FOGGED OPTICS', 'THE TAPE RECORDER JAMS') is cut off at the top edge, and the month counter and controls are off screen. At 390x844 the heading stays visible.",
+  "evidence": "s6-phone.js: 'zoom200 ... event \"FOGGED OPTICS\" @MONTH 12: dialog {\"top\":-115,\"bottom\":290,\"vh\":360,...}'. Screenshot: (scratch)/sweep/flight/shots/s6-zoom200-event-THE_TAPE_REC.png",
+  "cause": "js/ui-mission.js:158 calls choices[0].focus(), which scrolls the button into view but not the heading.",
+  "fix_hint": "Call the dialog's scrollIntoView({block:'start'}) first, then focus({preventScroll:true}).",
+  "verdict": {
+   "id": "flight-14",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Partly reproduced. Ran v14-layout.js (log v14.log) at 640x360, which is 1280x720 at 200%, with the New Space Point Design weather design. FOGGED OPTICS (first event): dialog top -115, but the title sits at top 21 and is fully visible (shots/v14-zoom200-event0.png), so the tester's FOGGED OPTICS claim did not reproduce. The taller dialogs are cut: 'A RARE ALIGNMENT' and 'THE TAPE RECORDER JAMS' put the title at top -19 / bottom 8, half above the viewport (shots/v14-zoom200-event2.png shows only the bottom of the heading). At 390x844 every title stayed in view. The choices and text stay readable, and the dialog is labelled by its heading for assistive technology, hence polish. Cause: js/ui-mission.js:158 calls choices[0].focus(), which scrolls the first button into view, not the dialog's top."
+  }
+ },
+ {
+  "id": "flight-15",
+  "title": "At 320 px wide, the debrief's score column is cut off and the page scrolls sideways",
+  "severity": "polish",
+  "category": "mobile",
+  "screen": "7 Debrief",
+  "repro": "Viewport 320x640 (outside the 390px / 200% brief; this is the WCAG reflow width). IGY Point Design flight with the juno-1 / scintillation-counter design, choice 0 (s6-phone.js 'narrow320').",
+  "expected": "No horizontal scroll, with every row value fully visible.",
+  "actual": "scrollWidth exceeds the viewport. SPAN.row-value reaches right=336, and the SCIENCE RETURNED row shows '50 / 5'. At 390 px and at 640x360 the debrief fits.",
+  "evidence": "s6-phone.js: 'debrief noScroll false', 'elements past the edge: [\"SPAN.row-value right=336\"]', 'clipped text boxes: [\"row SCIENCE RETURNED ... 302>252\"]'. Screenshot: (scratch)/sweep/flight/shots/s6-narrow320-debrief-crop.png",
+  "cause": ".paper .row lays out the label and the 48px value on one line with no wrap (css/style.css, ledger rows).",
+  "fix_hint": "Allow .row to wrap (flex-wrap) or shrink .row-value font under 360px.",
+  "verdict": {
+   "id": "flight-15",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "This happens only at 320 px; the widths in the brief pass. v14-layout.js 'narrow320' (320x640, IGY Point Design, Juno I, scintillation-counter, choice 0): scrollWidth 336 against a viewport of 320, and 'SPAN.row-value right=336 \"50 / 50\"' sits past the paper's right edge (304). shots/v15-narrow320-paper.png shows 'SCIENCE RETURNED ... 50 / 5' cut off. At 390x844 and 640x360 the same debrief has scrollWidth equal to the viewport, with no element past the edge. Cause: css/style.css:402 lays .row out as a flex row with no wrap, and css/style.css:406 sets .row-value to 36px with white-space: nowrap, next to the 28px label."
+  }
+ },
+ {
+  "id": "flight-16",
+  "title": "A flight that returned 0 science still shows NEW SCIENCE 10 / 10",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "7 Debrief",
+  "repro": "ALL_OPEN save, 390x844. [data-key=\"start-new-space-training\"], wildfire, leo. Parts: cubesat-12u, spin-stabilised, optical-camera, solar-small, radio-uhf, obc-basic. Rocket rideshare. Launch anyway and pick choice 1 (s11-careless-buttons.js).",
+  "expected": "A label and value that agree. SPEC says standalone novelty is scored as a first mission, so the rule may stand, but the row's tooltip ('How much of it nobody knew before') contradicts it.",
+  "actual": "'SCIENCE RETURNED 0 of 160 points 0 / 50' next to 'NEW SCIENCE 10 / 10'. A 0-science flight scores 37 (margins 15, events 10, new science 10).",
+  "evidence": "s11-careless-buttons.js output rows. Screenshot: (scratch)/sweep/flight/shots/s11-careless-phone-debrief.png",
+  "cause": "js/mission.js:507-509: payoutFor() gives novelty = gain/first = 1 for any science > 0 when before = 0. The 0.04 points returned round to '0'.",
+  "fix_hint": "Scale standalone novelty by the science share, or relabel the row so it does not claim new knowledge.",
+  "verdict": {
+   "id": "flight-16",
+   "reproduced": false,
+   "severity": "not-a-bug",
+   "note": "The display reproduces but the behaviour is in the spec. v04-cases.js case 16 at 390x844 (New Space training wildfire, cubesat-12u, optical-camera, radio-uhf, Rideshare, choice 1) shows 'SCIENCE RETURNED 0 of 160 points 0 / 50' next to 'NEW SCIENCE 10 / 10', SCORE 37. Case 07fire was the same (SCORE 35). SPEC.md:499 says that without a campaign, novelty is scored as if this were the first mission on the topic. So any science above 0 (here a fraction that rounds to 0) gets novelty 1 (js/mission.js:527-533; the tester cited 507-509, which is wrong). The contradicting text is only a title-attribute tooltip (js/ui-mission.js:216, 228), which is not visible on the 390 px phone where this ran. Whether the NEW SCIENCE row should show in standalone play is a design question for the SPEC owner, not a defect. Screenshot: shots/v16-debrief.png."
+  }
+ },
+ {
+  "id": "campaign-01",
+  "title": "Soft-lock: a lab purchase can leave the treasury below the cheapest launch, and the campaign can never move again",
+  "severity": "blocker",
+  "category": "softlock",
+  "screen": "Lab (research and upgrades), then Campaign hub and 5 Readiness review",
+  "repro": "The saves were built in Node with real back-end calls through tests/load.js (fly, buyResearch, exportSave), then pasted into the hub's IMPORT box. Scripts: node-bailout.js, node-bailout2.js and s10-upgrade-after-grant.js in (scratch)/sweep/campaign.\n\nPath A, right after the game's own rescue grant (1280x800):\n1. Title, [data-key=\"campaign-expert\"], then IMPORT code-prebailout2.txt (1965, $3.27M).\n2. Fly the basic radiation satellite twice with [data-key=\"rocket-vanguard-rocket\"]. The parts are explorer-body, spin-stabilised, cosmic-ray-counter, mercury-battery, minitrack-beacon and command-timer.\n3. The second Debrief says \"An emergency grant of $0.29M topped up the treasury... Treasury now $3M, year 1967.\" The hub then says \"0 research and 2 upgrades can be bought now.\"\n4. OPEN THE LAB, [data-key=\"tab-upgrades\"], [data-key=\"node-scintillation-counter\"]. The \"UPGRADE FOR $1M + 40 SCIENCE\" button is enabled. Click it.\n5. START A MISSION with the cheapest possible design (the same 6 parts on Vanguard).\n\nPath B, ordinary greedy play on Expert: IMPORT code-prebuy.txt (1963, $4.7M, 35.8 science), then buy [data-key=\"node-topside-sounding\"] for $4M.",
+  "expected": "The programme can always fly again. SPEC: \"The annual grant and the rescue grant still arrive, so the programme can always fly again\"; the code comment says \"Never soft-locked\". The lab should refuse or warn about a purchase that leaves less than one launch, or the floor top-up should also run whenever money leaves.",
+  "actual": "Path A: after the upgrade the treasury is $1.96M, while cheapestLaunchCost(getCampaign()) has risen to $3.06M. Readiness shows \"BUDGET $3.1M / $2M\" and \"NO GO. 1 TO FIX.\" (OVER BUDGET), and LAUNCH is disabled. FIX opens 4 \u00b7 Launch vehicle, which has no cheaper rocket.\n\nPath B: the treasury drops to $0.72M against a floor of $2.96M, with the same NO GO.\n\nThere is no warning before buying and no message on the hub. Nothing can move the campaign on:\n- With no flight, settleCampaign never runs, so there is no grant and no rescue grant.\n- The year never advances, so the campaign never reaches 1969 or the ending.\n- The archive pays science only per year passed, so science stops too, and the lab then shows nothing buyable (\"0 research and 0 upgrades\").\n\nThe only way out is to start a new campaign, which replaces the save.",
+  "evidence": "s10 log: \"HUB after grant: T $3M S 95 Y 1967 | 0 research and 2 upgrades can be bought now\", \"after buy: T $2M S 55 dialogs []\", \"READINESS ... BUDGET | $3.1M / $2M ... NO GO. 1 TO FIX. | OVER BUDGET\", \"LAUNCH disabled? true\", \"floor (cheapestLaunchCost) vs treasury: {floor:3.06, t:1.96, year:1967, finished:false}\".\n\nPath B log (s2-softlock.js): \"A after buy: treasury $0.72M\" and \"BUDGET | $3M / $0.72M\".\n\nScreenshots:\n- (scratch)/sweep/campaign/shots/s10-desktop-readiness-stuck.png\n- (scratch)/sweep/campaign/shots/s10-desktop-hub-after-upgrade.png\n- (scratch)/sweep/campaign/shots/s2-desktop-A-readiness.png\n- (scratch)/sweep/campaign/shots/s13-drained-lab.png",
+  "cause": "js/mission.js:898-907: the floor top-up (bailout) runs only inside settleCampaign (line 865), that is, after a flight is recorded. buyResearch (js/mission.js:1151) and buyUpgrade (js/mission.js:1348) only check treasury >= cost. buyUpgrade also clears cheapestCache, so the floor itself rises (2.96 to 3.06). js/ui-campaign.js:79-86 buyButton gives no warning.",
+  "fix_hint": "Run the floor check whenever money leaves (a lab purchase, or a launch), not only in settleCampaign. Either have buyResearch and buyUpgrade refuse a purchase that leaves treasury below cheapestLaunchCost after the purchase (and say why in the reason), or top up on the hub when treasury < cheapestLaunchCost(c) and the campaign is not finished.",
+  "verdict": {
+   "id": "campaign-01",
+   "reproduced": true,
+   "severity": "blocker",
+   "note": "Saves were built with real back-end calls, no raw edits (gen3.js). Browser check: v01.js; log (scratch)/sweep/verify-campaign/v01.log.\n\nPath A (Expert, 1966, $3M, 49 science, 9 Vanguard flights):\n1. One more Vanguard flight gave \"An emergency grant of $0.29M... Treasury now $3M, year 1967\".\n2. The hub then said \"0 research and 3 upgrades can be bought now\".\n3. In the lab, UPGRADE FOR $1M + 40 SCIENCE on node-scintillation-counter was enabled. Clicking it showed no dialog or warning.\n4. Afterwards the treasury was $1.96M against a floor (cheapestLaunchCost) of $3.06M. The upgrade raised the floor from 2.96 to 3.06. Year 1967, finished=false.\n5. The hub said nothing about money and the lab summary changed to \"0 research and 0 upgrades\".\n6. The cheapest design on Vanguard reached Readiness with \"BUDGET $3.1M / $2M\", \"NO GO. 1 TO FIX\", OVER BUDGET, and LAUNCH disabled.\n7. FIX opened 4 \u00b7 Launch vehicle. Vanguard ($2.5M) is already the cheapest rocket.\n8. After a reload the hub buttons are only START A MISSION, OPEN THE LAB, EXPORT, IMPORT and TITLE. Nothing advances the year.\n\nPath B (Expert, 1963, $4.7M, 35.8 science, after 6 Juno flights): buying Topside sounding ($4M, which opens a new topic) left $0.72M against a floor of $2.96M. Readiness showed \"BUDGET $3M / $0.72M\", NO GO, LAUNCH disabled.\n\nWhen it happens: on Expert, once the treasury sits at or near the floor. gen3.js found a stranding purchase after Vanguard flights 9-11 and Juno flights 6-8, and the hub advertises those purchases as buyable.\n\nScreenshots:\n- (scratch)/sweep/verify-campaign/shots/v01-A-readiness.png\n- (scratch)/sweep/verify-campaign/shots/v01-B-readiness.png\n\nRoot cause:\n- js/mission.js:898-907: the floor top-up runs only in settleCampaign, so only after a recorded flight.\n- buyResearch (js/mission.js:1151) and buyUpgrade (js/mission.js:1348) check only treasury >= cost. buyUpgrade also clears cheapestCache, which raises the floor.\n- js/ui-campaign.js:79 buyButton gives no warning.\n\nThis breaks SPEC lines 134 and 508 (\"never soft-locks\"). The only way out is a new campaign, so blocker stands."
+  }
+ },
+ {
+  "id": "campaign-02",
+  "title": "Reloading or closing the tab during a flight silently loses the launch money and the flight, and can soft-lock the campaign",
+  "severity": "major",
+  "category": "state",
+  "screen": "6 Mission, then title Continue and the Campaign hub",
+  "repro": "Script: s2-softlock.js part B and s8-bailout-gnum.js. Viewport 1280x800.\n1. Title, [data-key=\"campaign-expert\"], IMPORT code-prebuy.txt (1963, $4.72M, 6 missions).\n2. START A MISSION and build the basic radiation design on juno-1 (cost $3.46M).\n3. On Readiness, press LAUNCH. While on 6 \u00b7 MISSION, reload the page.\n4. Press CONTINUE.\n\nVariant on Training: a new campaign, launch, reload mid-flight, Continue, then fly one full mission.",
+  "expected": "Either the flight is resumed or recorded (or the cost is refunded), or the player is warned. A lost flight should never strand the programme.",
+  "actual": "Expert run:\n- The title shows \"CONTINUE: 1963, $1.3M\".\n- The hub shows year 1963, treasury $1.3M (was $4.7M) and missions 6 (unchanged), with no word about the lost flight.\n- The next design is NO GO: \"BUDGET $3M / $1.3M\".\n- No flight can be recorded, so the rescue grant never arrives (the same dead end as campaign-01).\n\nTraining run:\n- The $3.46M is gone (hub $86.5M, missions 0).\n- The next completed flight is numbered \"G-2\" in the chronicle timeline.\n- getChronicle().totals.spent_musd is 3.5 although $6.92M was spent.",
+  "evidence": "Logs:\n- \"B in flight (saved): T 1.258 flights 7 missions 6\"\n- \"B title continue after reload: CONTINUE: 1963, $1.3M >\"\n- \"B hub: year 1963 treasury $1.3M missions 6\"\n- \"B hub mentions the lost flight? false\"\n- \"B readiness: ... BUDGET | $3M / $1.3M ... NO GO\"\n- \"GNUM chronicle data: {flights:1, spent:3.5, first:[\\\"G-2 flew in low Earth orbit...\\\"]}\"\n\nScreenshot: (scratch)/sweep/campaign/shots/s2-desktop-B-hub-after-reload.png",
+  "cause": "js/mission.js:73-77: startMission takes the launch cost off the treasury, increments c.flights and saves the campaign at launch. The mission object lives only in memory. recordResult and settleCampaign run only when the Debrief is drawn (js/ui-mission.js:209).",
+  "fix_hint": "Save the in-flight mission with the campaign and resume or settle it on Continue. Or at least record an abandoned flight (and apply the floor top-up) when the hub opens with c.flights > c.missions.length.",
+  "verdict": {
+   "id": "campaign-02",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Script v02.js; log (scratch)/sweep/verify-campaign/v02.log.\n\nTraining run:\n1. A new campaign shows $90M.\n2. I launched the basic Juno design and reloaded during 6 \u00b7 MISSION. The save at that moment had treasury 86.54, flights 1, missions 0.\n3. The title read \"CONTINUE: 1957, $86.5M\". The hub showed 1957, $86.5M, 0 missions, and no word about a lost flight.\n4. The next full flight appears in getChronicle as \"G-2 flew in low Earth orbit...\" with totals.spent_musd 3.5, although $6.92M was spent.\n\nExpert run, from a real 1963 save at $4.7M:\n1. The in-flight save showed treasury 1.258, flights 7, missions 6, floor 2.96.\n2. After a reload the title read \"CONTINUE: 1963, $1.3M\".\n3. The next Vanguard design was NO GO, \"BUDGET $3M / $1.3M\", with LAUNCH disabled. This is the same dead end as campaign-01.\n\nThe game has no beforeunload handler (grep of js/ and index.html).\n\nScreenshots:\n- (scratch)/sweep/verify-campaign/shots/v02-T-hub-after-reload.png\n- (scratch)/sweep/verify-campaign/shots/v02-E-readiness-after-reload.png\n\nRoot cause: js/mission.js:73-77. startMission pays, counts the flight and saves at launch, but the mission lives only in memory. recordResult and settleCampaign run only from showDebrief (js/ui-mission.js:209).\n\nKept at major, not blocker: it soft-locks only when the treasury is already low. Otherwise it silently loses money."
+  }
+ },
+ {
+  "id": "campaign-03",
+  "title": "A well-formed save code with a missing or null field is accepted and breaks the game: blank title on every load, or a crash at mission end",
+  "severity": "major",
+  "category": "security",
+  "screen": "Campaign hub SAVE CODE / IMPORT, then the title screen",
+  "repro": "Codes made with the game's own encoding, 'SMDG1.' + toBase64(body) + '.' + checksum(body) (node-craft.js, codes-crafted.json). Script s3-codes.js, desktop and phone.\n(a) Body {\"v\":3,\"campaign\":{\"version\":3},\"progress\":{best_stars:{training:3},...}}. Paste it in #import-box, click IMPORT, then reload.\n(b) Body {\"v\":3,\"campaign\":null,\"progress\":{\"best_stars\":null}}. Import it, then reload.\n(c) Body {\"v\":3,\"campaign\":null,\"progress\":{\"best_stars\":{}}} (no best_score). Import it, start a campaign and fly a mission.",
+  "expected": "importSave rejects a code whose campaign or progress lacks required fields (\"The code could not be read\"). A bad import must never make the game unplayable.",
+  "actual": "(a) The import reports success (no #import-error), then a pageerror. The old hub stays on screen with stale numbers. After a reload, #app has 0 children: no tier buttons, no campaign panel, nothing to click.\n(b) The same blank title on every load.\n(c) The import succeeds, but the next mission never reaches the Debrief: the player is stuck on 6 \u00b7 MISSION.\n\nThe only recovery is clearing the site data by hand. Anyone who shares a crafted code can brick a friend's game.",
+  "evidence": "Errors:\n- (a) \"pageerror: Uncaught TypeError: Cannot read properties of undefined (reading 'radiation')\", and after reload \"title renders? 0 ... app children 0\".\n- (b) \"Cannot read properties of null (reading 'training')\", \"tier buttons 0 campaign buttons 0 app children 0\".\n- (c) \"noBestScore flight debrief? false\" with \"Cannot read properties of undefined (reading 'training')\".\n\nScreenshots:\n- (scratch)/sweep/campaign/shots/s3-desktop-bare-campaign-title.png\n- (scratch)/sweep/campaign/shots/s3-desktop-nullstars-title.png\n- (scratch)/sweep/campaign/shots/s3-phone-bare-campaign-title.png",
+  "cause": "js/mission.js:1200-1212: importSave checks only v, campaign.version and typeof progress.best_stars === \"object\" (null passes). The checksum is unkeyed, so it is no protection. The crash sites are getHubInfo c.lessons.map and c.knowledge_science[o.id] (js/mission.js:1112-1135, called by the title's campaignPanel at js/ui-design.js:1725), isTierUnlocked (js/mission.js:696), and recordResult p.best_score[tierId] (js/mission.js:719).",
+  "fix_hint": "Validate the shape before saving: campaign arrays and objects (research, upgrades, lessons, missions, knowledge_science, offers) and progress best_stars, best_score and best_stars_by_era must be non-null objects. Or merge the import onto emptyProgress() and a newCampaign skeleton. Also wrap the title's hubInfo() so a broken save cannot blank the page.",
+  "verdict": {
+   "id": "campaign-03",
+   "reproduced": true,
+   "severity": "major",
+   "note": "Script v03.js; log (scratch)/sweep/verify-campaign/v03.log. Codes were made in the page with the game's own toBase64 and checksum.\n\n(a) {v:3, campaign:{version:3}, progress:{...}}\n- The import showed no #import-error.\n- pageerror: \"Cannot read properties of undefined (reading 'radiation')\".\n- After a reload, #app had 0 children: 0 tier buttons and 0 campaign buttons, on every load.\n\n(b) {campaign:null, progress:{best_stars:null}}\n- \"Cannot read properties of null (reading 'training')\".\n- The same blank title after a reload.\n\n(c) {campaign:null, progress:{best_stars:{}}}\n- The import succeeded and the title still drew.\n- A new Training campaign flight never reached the Debrief: stuck on \"6 \u00b7 MISSION\" with \"Cannot read properties of undefined (reading 'training')\".\n- That standalone missions also break is from reading recordResult (p.best_score[tierId], js/mission.js:719). I did not run one.\n\nScreenshots:\n- (scratch)/sweep/verify-campaign/shots/v03-a_bare_campaign-after-reload.png\n- (scratch)/sweep/verify-campaign/shots/v03-c-stuck.png\n\nRoot cause: js/mission.js:1200-1212. importSave checks only v, campaign.version and typeof best_stars === \"object\", and null passes that check. The checksum is unkeyed.\n\nPrecondition: exportSave never produces these shapes, so only a hand-made code triggers this. Major stands because the game stays broken until the player clears site data by hand."
+  }
+ },
+ {
+  "id": "campaign-04",
+  "title": "A failed import shows its error off-screen and wipes the pasted code",
+  "severity": "minor",
+  "category": "state",
+  "screen": "Campaign hub, SAVE CODE panel",
+  "repro": "s3-codes.js, at 1280x800 and at 390x844.\n1. On the hub, scroll down to SAVE CODE.\n2. Paste \"nope\" (or a code with its end cut off) into #import-box.\n3. Click IMPORT.",
+  "expected": "The error appears next to the box, in view, and the pasted text stays so the player can fix it.",
+  "actual": "The hub is re-mounted and scrolled to the top. #import-error (\"That is not a save code.\") is drawn at y=1487px in an 800px viewport (phone: y=2755 in 844). The import box is empty again, and focus moves to #app. To the player, nothing seems to happen.",
+  "evidence": "Log: \"IMPORT \\\"nope\\\" -> That is not a save code. | inView {top:1487,bottom:1509,vh:800,visible:false} | box kept text? false | focus app\"; phone: {top:2755, vh:844, visible:false}.\n\nScreenshots:\n- (scratch)/sweep/campaign/shots/s3-desktop-import-error.png\n- (scratch)/sweep/campaign/shots/s3-phone-import-error.png",
+  "cause": "js/ui-campaign.js:218-222: the IMPORT handler calls showCampaignHub(), which goes through UI.mount (js/ui-design.js:2646 window.scrollTo(0, 0); app.focus()). A new empty #import-box is built.",
+  "fix_hint": "On failure, update the error line in place (no re-mount), or after the re-mount restore the box value and scroll and focus #import-error.",
+  "verdict": {
+   "id": "campaign-04",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v03.js (second half); log (scratch)/sweep/verify-campaign/v03.log. I scrolled to #import-box, typed a bad code and clicked IMPORT.\n\n- Desktop: #import-error at top=1487 in an 800px viewport, scrollY 0, box emptied (length 0), focus on #app.\n- Phone 390x844: top=2755, scrollY 0, box emptied.\n- This held for all four bad codes.\n\nScreenshots:\n- (scratch)/sweep/verify-campaign/shots/v03-desktop-import-error-viewport.png\n- (scratch)/sweep/verify-campaign/shots/v03-phone-import-error-viewport.png\n\nRoot cause: js/ui-campaign.js:216-222. The IMPORT handler calls showCampaignHub(), and UI.mount (js/ui-design.js:2640-2646) runs app.focus() and scrollTo(0,0) and builds an empty #import-box."
+  }
+ },
+ {
+  "id": "campaign-05",
+  "title": "Hub and Briefing promise about 9x the payout any 1957 design can earn",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "Campaign hub topic card; 1 Briefing topic card",
+  "repro": "s1-flights.js and node-checks.js.\n1. Start a new Standard or Training campaign.\n2. Read [data-key=\"topic-radiation\"] on the hub and the \"Pays\" fact on [data-key=\"obj-radiation\"] in Briefing.\n3. Fly the basic design.",
+  "expected": "\"Next mission pays about\" should be near what a mission the player can actually build would pay, or be labelled as the payout for reaching the science target.",
+  "actual": "The hub says \"Next mission pays about $9.7M\" and the Briefing says \"Pays $9.7M\". The flight paid $1M, and Build's preview said $0.87M. A brute-force search over every part and rocket combination available in 1957 finds a best preview of 6.7 science and $0.87M.\n\nThe gap persists: the hub shows $9.2M and $8.7M while flights 2 and 3 paid $0.99M and $0.93M. Later, at 1968, the hub says $5.4M against about $0.8M per flight.",
+  "evidence": "Logs:\n- \"HUB0 ... Next mission pays about $9.7M\"\n- \"FLIGHT 1 build= Expected payout $0.87M\"\n- \"FLIGHT 1 debrief= PAYOUT $1M\"\n- node-checks: \"best 1957 design: {launcher:juno-1, sci:6.7, payout:0.874} hub estimate 9.732 target 100\"\n\nScreenshot: (scratch)/sweep/campaign/shots/s1-desktop-hub0.png",
+  "cause": "js/mission.js:1131: next_payout_estimate_musd = payoutFor(o, S, o.science_target), which assumes the topic's whole science target (100 points). The labels are at js/ui-campaign.js:37 and js/ui-design.js (Briefing \"Pays\").",
+  "fix_hint": "Label it \"pays up to\" or \"if you reach the target\", or base it on the cheapest launchable design's previewScience.",
+  "verdict": {
+   "id": "campaign-05",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Scripts v05.js (browser) and v05b.js (Node brute force); log (scratch)/sweep/verify-campaign/v05.log.\n\nNew Standard campaign:\n- The hub card says \"Next mission pays about $9.7M\" and the Briefing says \"Pays $9.7M\".\n- Build previewed $0.87M and the flight paid $1.039M.\n- Flights 2 and 3: hub $9.2M and $8.7M against $0.985M and $0.934M paid.\n\nThe brute force found only 2 launchable 1957 radiation designs (one instrument exists). The best previews 6.7 science and $0.874M; the hub estimate is 9.732.\n\nScreenshot: (scratch)/sweep/verify-campaign/shots/v05-hub1.png\n\nRoot cause: js/mission.js:1131, next_payout_estimate_musd = payoutFor(o, S, o.science_target), which assumes the full 100-point target.\n\nMinor: Build shows the realistic preview before launch."
+  }
+ },
+ {
+  "id": "campaign-06",
+  "title": "Debrief money does not add up: the $2M agency grant (and event costs) are never shown",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "7 Debrief payout box (and Campaign hub)",
+  "repro": "s1-flights.js, s11-offer.js and s13-checks.js.\n1. Start a new Standard campaign ($20M) and fly the basic radiation design on Juno ($3.46M).\n2. Read the payout box.\n\nAlso: IMPORT code-offer.txt and fly the silicon-cells design, which meets the open offer.",
+  "expected": "Every amount that changes the treasury is listed, so the old treasury minus cost plus payout plus offer plus grant equals \"Treasury now\".",
+  "actual": "Flight 1 shows \"PAYOUT $1M ... Treasury now $19.6M\". 20 - 3.46 + 1.04 = 17.58, so $2M is unexplained.\n\nThe offer flight shows a hub at $87.6M, cost $3.91M, PAYOUT $8.4M and \"OFFER MET ... paid $4M\", which adds up to $96.0M, but the screen says \"Treasury now $98M\".\n\nThe whole Debrief text and the hub contain no \"grant\" at all; only the emergency grant line ever appears.",
+  "evidence": "Logs:\n- \"FLIGHT 1 debrief= ... PAYOUT $1M ... Treasury now $19.6M\"\n- s11: \"hub before {T:$87.6M} ... Treasury now $98M\"\n- s13: \"DEBRIEF full text mentions grant? false | agency? false | $2M? false\", \"HUB mentions grant? false\"\n\nScreenshot: (scratch)/sweep/campaign/shots/s11-offer-debrief.png",
+  "cause": "recordResult returns grant_musd and event_costs_musd (js/mission.js, settleCampaign around lines 910-913). js/ui-mission.js:324-357 campaignBlock draws payout, offers, the emergency grant and \"Treasury now\", but not the grant or event costs.",
+  "fix_hint": "Add one line: \"Agency grant +$2M\" (and \"Event costs -$X M\" when non-zero) above \"Treasury now\".",
+  "verdict": {
+   "id": "campaign-06",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v05.js; log (scratch)/sweep/verify-campaign/v05.log. New Standard campaign, three basic Juno flights.\n\n- Flight 1: before 20, spent 3.46, payout 1.039. 20 - 3.46 + 1.039 = 17.579, but the box says \"Treasury now $19.6M\".\n- Flights 2 and 3 are also off by exactly +$2M.\n- The Debrief screen text and the hub never contain \"grant\" or \"agency\". grep of js/ui-*.js finds only the emergency grant line.\n\nOnly the hidden-grant half is confirmed. No event cost happened in my runs, so the event-cost half was not exercised.\n\nScreenshot: (scratch)/sweep/verify-campaign/shots/v05-debrief2.png\n\nRoot cause: settleCampaign returns grant_musd and event_costs_musd (js/mission.js:910-911), but campaignBlock (js/ui-mission.js:324-357) does not draw them."
+  }
+ },
+ {
+  "id": "campaign-07",
+  "title": "Upgrades tab marks parts the programme does not have as \"owned, in use\"",
+  "severity": "minor",
+  "category": "state",
+  "screen": "Lab, UPGRADES: REPLACE tab",
+  "repro": "s7-upgrades-plural.js, 1280x800.\n1. IMPORT code-prebuy.txt (research owned: solar-cells, rechargeable-batteries, thor-rockets, tape-recorder).\n2. OPEN THE LAB, [data-key=\"tab-upgrades\"].\n3. Inspect [data-key=\"node-vidicon-camera\"], node-solar-xray-photometer and node-topside-sounder, then click [data-key=\"node-avcs-camera\"].",
+  "expected": "A predecessor the player has not unlocked is drawn locked, not filled as owned. The legend reads \"Left: the part you have\".",
+  "actual": "All three predecessors have class \"tree-node owned\" (filled teal) and the accessible name \"Vidicon TV cameras, owned, in use\". The back end says these parts are unavailable (the Television, Solar X-ray and Topside sounding research has not been bought). The AVCS detail in the same tab says \"Needs Vidicon TV cameras first. NEEDED\", which contradicts the box.",
+  "evidence": "Logs:\n- \"UPG box vidicon-camera class= tree-node owned aria= Vidicon TV cameras, owned, in use\"\n- the same for solar-xray-photometer and topside-sounder\n- \"UPG avcs detail: ... Needs Vidicon TV cameras first. | NEEDED\"\n- node-makesaves3.js: \"vidicon-camera available= false\"\n\nScreenshot: (scratch)/sweep/campaign/shots/s7-upgrades-predecessor.png",
+  "cause": "js/ui-campaign.js:118-119: the predecessor node state is u.owned ? \"locked\" : \"owned\" and the sub-label is \"in use\", whatever the part's availability. getLab() exposes it only as the missing line \"Needs X first.\"",
+  "fix_hint": "Expose the predecessor's availability from getLab (for example of_available), and draw unavailable predecessors as locked with \"not unlocked yet\".",
+  "verdict": {
+   "id": "campaign-07",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v05.js; log (scratch)/sweep/verify-campaign/v05.log. Real Training save with 5 flights and no research bought, lab, UPGRADES tab.\n\n- These boxes have class \"tree-node owned\" and aria-label \"..., owned, in use\": Solar X-ray photometer, Early silicon solar cells, Vidicon TV cameras, 235 MHz telemetry link, Topside sounder.\n- isPartAvailable is false for vidicon-camera, solar-xray-photometer, topside-sounder and silicon-cells.\n- The AVCS detail in the same tab says \"Needs Vidicon TV cameras first. NEEDED\".\n- Clicking the Vidicon box opens the AVCS (successor) detail instead.\n\nScreenshot: (scratch)/sweep/verify-campaign/shots/v14-upgrades-tree.png\n\nRoot cause: js/ui-campaign.js:118-119. The predecessor state is u.owned ? \"locked\" : \"owned\" with sub \"in use\", whatever the part's availability."
+  }
+ },
+ {
+  "id": "campaign-08",
+  "title": "Phone and 200% zoom: tapping a lab box shows its details and BUY button below the fold, with no scroll",
+  "severity": "minor",
+  "category": "mobile",
+  "screen": "Lab (research and upgrades), 390x844 touch and 640x400",
+  "repro": "s5-lab-layout.js.\n1. At 390x844 with hasTouch, IMPORT code-prebuy.txt, then OPEN THE LAB.\n2. Scroll the tree sideways and tap [data-key=\"node-topside-sounding\"].\n\nRepeat at 640x400 (1280 at 200% zoom) with a click.",
+  "expected": "After a tap, the details (cost, what is needed, BUY) come into view, or appear next to the tree.",
+  "actual": "Phone: #research-detail is at top 969 / bottom 1353 and the BUY button at 1267, in an 844px viewport, with scrollY 0. The only visible change is the box outline, so it looks like nothing happened.\n\n640x400: the details start at y=534 in a 400px viewport.",
+  "evidence": "Logs: \"phone tap deep node: ... detail {detTop:969, detBottom:1353, vh:844, btnTop:1267, scrollY:0}\" and \"zoom200 ... detail {detTop:534, detBottom:810, vh:400}\".\n\nScreenshots:\n- (scratch)/sweep/campaign/shots/s5-phone-lab-viewport-after-tap.png\n- (scratch)/sweep/campaign/shots/s5-zoom200-lab-viewport-after-tap.png",
+  "cause": "js/ui-campaign.js:174-176 and 189: onPick calls showLab(), which re-mounts and scrolls to the top (js/ui-design.js:2646), then focuses the node. The details panel stacks under the 402px-tall tree on narrow screens.",
+  "fix_hint": "On narrow viewports, scroll #research-detail / #upgrade-detail into view after a pick (keep focus on the node for keyboard users), or show the details above the tree.",
+  "verdict": {
+   "id": "campaign-08",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v08.js; log (scratch)/sweep/verify-campaign/v08.log. Tap or click on node-topside-sounding.\n\n- Phone 390x844 with touch: #research-detail top 969 / bottom 1470, BUY at 1384, viewport 844, scrollY 0, focus on the node.\n- 640x400 (200% zoom): details top 534 / bottom 877, BUY at 807, viewport 400.\n\nAt 640x400 scrollY was 338, not 0: the page scrolls back to the node on focus. So \"scrolls to the top\" is true only on the phone, but the details are off-screen in both cases.\n\nScreenshots:\n- (scratch)/sweep/verify-campaign/shots/v08-phone-after-tap-viewport.png\n- (scratch)/sweep/verify-campaign/shots/v08-zoom200-after-tap-viewport.png\n\nRoot cause: js/ui-campaign.js:169/181. onPick calls showLab(), which re-mounts with scrollTo(0,0) (js/ui-design.js:2646) and then focuses the node. The detail panel stacks below the tree on narrow screens."
+  }
+ },
+ {
+  "id": "campaign-09",
+  "title": "Hub does not show a topic's data cap or mark it complete; a full topic just reads \"pays about $0M\"",
+  "severity": "minor",
+  "category": "state",
+  "screen": "Campaign hub TOPICS; 1 Briefing",
+  "repro": "Raw edit: knowledge_science.radiation set to the cap (450) on a real 2-flight Training save (node-makesaves2.js, code-capped.txt). Script s4-capped-ending.js.\n1. IMPORT the code.\n2. Read [data-key=\"topic-radiation\"].\n3. START A MISSION and read [data-key=\"obj-radiation\"].",
+  "expected": "SPEC: \"The hub shows each topic as data_collected of data_cap, and marks it complete at the cap.\" The player should see that the topic is full before paying for a launch.",
+  "actual": "The card reads only \"KNOWN 95% / Next mission pays about $0M\", with no \"450 of 450\" and no COMPLETE mark, and the same holds before the cap (no x of y). Briefing shows \"Pays $0M\" with no reason. The player learns why only after paying for a launch (Build says \"Nothing new is left to collect here\"; Debrief says \"NO REWARD: ALREADY COLLECTED\").",
+  "evidence": "Logs: \"CAP hub card: RADIATION AROUND EARTH | KNOWN | 95% | | Next mission pays about $0M\" and \"CAP briefing card: ... Pays\\n$0M\".\n\nScreenshot: (scratch)/sweep/campaign/shots/s4-desktop-capped-hub-top.png",
+  "cause": "getHubInfo returns data_collected, data_cap and complete (js/mission.js:1127-1130), but topicCard (js/ui-campaign.js:30-39) draws only knowledge and next_payout_estimate_musd.",
+  "fix_hint": "Add \"DATA 450 / 450\" to the bar's right side or note, and a COMPLETE tag when t.complete is true.",
+  "verdict": {
+   "id": "campaign-09",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Reproduced with a real-play save, no raw edit. gen5.js (Training, radiation only, best design each year) reaches 450/450 in 1961 after 4 flights; that is code-real-capped.txt. Browser script v10.js; log (scratch)/sweep/verify-campaign/v10.log.\n\n- The hub card reads only \"KNOWN | 95% | Next mission pays about $0M\", with no \"450 of 450\" and no COMPLETE.\n- getHubInfo returns data 450, cap 450, complete true.\n- The Briefing says \"Pays $0M\" with no reason.\n- From the start, the hub never shows x of y (0 of 450 at 1957), which breaks SPEC line 135.\n\nCorrection to the report: Build does warn before launch (\"Nothing new is left to collect here: no reward.\", v09.log), so the player does not learn this only after paying.\n\nScreenshot: (scratch)/sweep/verify-campaign/shots/v10-code-real-capped-hub.png\n\nRoot cause: topicCard (js/ui-campaign.js:30-39) ignores data_collected, data_cap and complete."
+  }
+ },
+ {
+  "id": "campaign-10",
+  "title": "An open offer stays listed for a topic that has reached its data cap, and can never be claimed",
+  "severity": "minor",
+  "category": "state",
+  "screen": "Campaign hub OPEN OFFERS",
+  "repro": "Raw edit: in 1957, knowledge_science.radiation set to cap - 5 on a new Training campaign, with the 1957 offer \"by 1959\" open (node-checks.js, code-nearcap.txt). Script s13-checks.js.\n1. IMPORT the code.\n2. Fly the basic design (8 science: 5 new points fill the cap; below the offer's 60-point minimum).\n3. BACK TO THE HUB in 1958.",
+  "expected": "SPEC: \"A topic already at its data cap gets no offers.\" An offer that can no longer be met should be removed.",
+  "actual": "The 1958 hub still lists \"the National Academy of Sciences wants radiation around Earth data: at least 60 points by 1959. Bonus $4M and 18 science. (1 year left)\". No flight can meet it, because claimOffers needs new data and the topic is complete.",
+  "evidence": "Logs: \"NEARCAP 1958 hub card RADIATION AROUND EARTH | KNOWN | 95% | | Next mission pays about $0M | offers [\\\"the National Academy of Sciences wants radiation around Earth data: at least 60 points by 1959... (1 year left)\\\"]\" and node: \"1958 hub: radiation complete true offers [...]\".\n\nScreenshot: (scratch)/sweep/campaign/shots/s13-nearcap-hub-1958.png",
+  "cause": "js/mission.js:962: makeOffers keeps every open offer (!o.done && o.year_to >= c.year) without checking that its topic is still below dataCap. offersList (around line 1005) has no such check either.",
+  "fix_hint": "Filter open offers by (c.knowledge_science[o.topic] || 0) < dataCap(getObjective(o.topic)) in makeOffers and offersList.",
+  "verdict": {
+   "id": "campaign-10",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Reproduced in real play, no raw edit. gen6.js, Training, radiation-only, LEO:\n- In 1961, with 418.3/450 collected, an offer \"from sun-synchronous polar orbit... at least 60 points by 1963\" is open.\n- The LEO flight fills the cap.\n- The offer is still listed in 1962 and 1963 (STALE) and can never be met.\n\nBrowser check, v10.js on code-real-stale.txt: the 1962 hub lists \"the Air Force research office wants radiation around Earth data from sun-synchronous polar orbit: at least 60 points by 1963... (1 year left)\" while getHubInfo says radiation complete:true.\n\nWith the earlier raw near-cap edit (v09.log), Build also shows \"This design falls short of it (60 points of new data)\" next to \"Nothing new is left to collect here: no reward\". That mixed message invites wasted spending.\n\nLog: (scratch)/sweep/verify-campaign/v10.log\nScreenshot: (scratch)/sweep/verify-campaign/shots/v10-code-real-stale-hub.png\n\nRoot cause: js/mission.js:962 (makeOffers keeps open offers) and :1006 (offersList) never re-check dataCap. This breaks SPEC line 139."
+  }
+ },
+ {
+  "id": "campaign-11",
+  "title": "Debrief says \"This was a first real look at the topic... the payout was large\" on the 2nd and 3rd flights of the same topic",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "7 Debrief payout box",
+  "repro": "s1-flights.js: a new campaign, then fly the basic radiation design three times in a row and read .payout-box each time.",
+  "expected": "The breakthrough paragraph appears only on the first real look at a topic.",
+  "actual": "Flights 2 (5% to 10%, PAYOUT $0.99M) and 3 (10% to 15%, PAYOUT $0.93M) both say \"This was a first real look at the topic, so almost everything you sent home was new. That is why the payout was large. The next mission on the same topic will add less.\" The saved missions have first_look: false.",
+  "evidence": "Logs: \"FLIGHT 2 debrief= true PAYOUT $0.99M | KNOWLEDGE OF THIS TOPIC | 5% to 10% | | This was a first real look at the topic...\" and the same for FLIGHT 3.\n\nScreenshot: (scratch)/sweep/campaign/shots/s1-desktop-debrief1.png",
+  "cause": "js/mission.js:471: the breakthrough paragraph fires whenever novelty > 0.6 && knowledge_before < 0.2. With small flights, novelty stays high for many flights.",
+  "fix_hint": "Use it only when knowledge_before is about 0 (for example < 0.05, as first_look does in settleCampaign), or reword it for later flights.",
+  "verdict": {
+   "id": "campaign-11",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v05.js; log (scratch)/sweep/verify-campaign/v05.log.\n\n- Flight 2 (5% to 10%, PAYOUT $0.99M) and flight 3 (10% to 15%, PAYOUT $0.93M) both show \"This was a first real look at the topic... That is why the payout was large.\"\n- The saved missions have first_look:false.\n- The payout was also below the $3.46M launch cost, so \"large\" is wrong too.\n\nScreenshot: (scratch)/sweep/verify-campaign/shots/v05-debrief2.png\n\nRoot cause: js/mission.js:471 fires the paragraph on novelty > 0.6 && knowledge_before < 0.2, not on first_look."
+  }
+ },
+ {
+  "id": "campaign-12",
+  "title": "Build's payout line shows a profit because the cost leaves out the rocket",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "3 Build (campaign)",
+  "repro": "s1-flights.js and s7-upgrades-plural.js: a new campaign, START A MISSION, radiation, low Earth orbit, add the 6 basic parts, then read .payout-line on Build and on Launch vehicle after picking Juno.",
+  "expected": "The cost and net match what the launch will actually cost, or the line says the rocket is not counted yet.",
+  "actual": "Build says \"Expected payout $0.87M, cost $0.46M, net $0.41M\". After Juno is picked on Launch vehicle, the same line reads \"cost $3.5M, net -$2.8M\". With an offer design: Build says \"net $7.6M\", but the actual net is about $4.6M.",
+  "evidence": "Logs: \"FLIGHT 1 build= Expected payout $0.87M, cost $0.46M, net $0.41M\" and \"LV line with Juno: Expected payout $0.63M, cost $3.5M, net -$2.8M\".",
+  "cause": "js/ui-design.js:1710-1716 payoutLine uses previewPayout(d).cost_musd = getTotals(design).cost_musd, which has no launcher yet on Build.",
+  "fix_hint": "On Build, add \"+ rocket\" or use the cheapest rocket that can lift the design for the estimate.",
+  "verdict": {
+   "id": "campaign-12",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Script v05.js; log (scratch)/sweep/verify-campaign/v05.log.\n\n- Build: \"Expected payout $0.87M, cost $0.46M, net $0.41M\".\n- After Juno is picked on Launch vehicle, the same design reads \"cost $3.5M, net -$2.6M\".\n- Flights 2 and 3 show the same pattern.\n\nRoot cause: previewPayout uses getTotals(design).cost_musd (js/mission.js:1173), which has no launcher on Build. The label is at js/ui-design.js:1710-1716."
+  }
+ },
+ {
+  "id": "campaign-13",
+  "title": "A finished campaign cannot export its save code, and the ending's buttons all lead to the same place",
+  "severity": "minor",
+  "category": "state",
+  "screen": "Ending chronicle; title Campaign panel",
+  "repro": "s4-capped-ending.js: IMPORT code-1968.txt (11 real flights, 1968), fly one more mission, press THE STORY OF YOUR PROGRAMME, then press both chronicle buttons, then CONTINUE on the title.",
+  "expected": "The player can still export the finished programme's code (the hub's SAVE CODE panel is the only place to do it). A button labelled CONTINUE or PLAY ANOTHER PROGRAMME does what it says.",
+  "actual": "The chronicle has no SAVE CODE panel, and showCampaignHub always redirects a finished campaign to the chronicle, so export is unreachable (\"export reachable? 0\"). \"< BACK TO THE TITLE\" and \"PLAY ANOTHER PROGRAMME >\" both just open the title. The title then still offers \"CONTINUE: 1969, $77.1M >\", which reopens the ending.",
+  "evidence": "Logs:\n- \"END nav buttons [\\\"< BACK TO THE TITLE\\\",\\\"PLAY ANOTHER PROGRAMME >\\\"]\"\n- \"END title continue: CONTINUE: 1969, $77.1M >\"\n- \"END continue -> THE PROGRAMME: ENDED export reachable? 0\"\n\nScreenshot: (scratch)/sweep/campaign/shots/s4-desktop-end-chronicle.png",
+  "cause": "js/ui-campaign.js:249 redirects to showChronicle. js/ui-ending.js:70-73: both buttons call showDesignScreen(\"title\"). js/ui-design.js:1729: the CONTINUE label ignores info.finished.",
+  "fix_hint": "Add an EXPORT box to the chronicle, label the title button \"SEE YOUR PROGRAMME\" when finished, and make PLAY ANOTHER PROGRAMME scroll to or focus the NEW campaign buttons.",
+  "verdict": {
+   "id": "campaign-13",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Script v09.js; log (scratch)/sweep/verify-campaign/v09.log. Real Training save at 1968, then one more flight to 1969, then THE STORY OF YOUR PROGRAMME.\n\n- The chronicle nav is [\"< BACK TO THE TITLE\", \"PLAY ANOTHER PROGRAMME >\"]; both open the title.\n- #export-box count is 0.\n- The title then shows \"CONTINUE: 1969, $78.4M >\", which reopens \"THE PROGRAMME: ENDED\", still with no export.\n\nScreenshot: (scratch)/sweep/verify-campaign/shots/v09-chronicle.png\n\nRoot cause: js/ui-campaign.js:249 redirects finished campaigns, js/ui-ending.js:71-72, and the label at js/ui-design.js:1729.\n\nDowngraded from minor to polish. PLAY ANOTHER going to the title is reasonable, because new campaigns start there. The real gaps are the unreachable export and the CONTINUE label."
+  }
+ },
+ {
+  "id": "campaign-14",
+  "title": "Lab tree boxes cut off names and prices with the offline fallback font",
+  "severity": "minor",
+  "category": "visual",
+  "screen": "Lab, research and upgrades trees",
+  "repro": "s6-treeclip.js (Google Fonts aborted, which is what an offline player gets) at 1280x800, 390x844 and 640x400: IMPORT code-prebuy.txt, OPEN THE LAB, and measure .tree-node scrollHeight against clientHeight on both tabs. s12-treeclip-fonts.js repeats the measure with the web fonts loaded.",
+  "expected": "Every box shows its whole name, year, money and science cost.",
+  "actual": "With the fallback font (Courier New), 5 of 17 research boxes and 5 of 6 upgrade boxes overflow the fixed 86px height, for example \"Advanced vidicon camera system (Nimbus 1)\" loses its first line and \"90 sci\". With VT323 loaded, only node-modern-power is clipped.",
+  "evidence": "Logs:\n- \"desktop upgrades font 22px hidden clipped 5 [node-scintillation-counter 84>78, ..., node-avcs-camera 101>78, node-alouette-2-sounder 92>78]\"\n- \"desktop research clipped 5 [node-modern-power, node-thermal-infrared, node-commercial-launch, node-heavy-lift, node-topside-sounding]\"\n- web fonts: \"desktop research clipped 1 [node-modern-power 84>78]\"\n\nScreenshots:\n- (scratch)/sweep/campaign/shots/s6-desktop-upgrades-tree.png\n- (scratch)/sweep/campaign/shots/s5-phone-lab-viewport-after-tap.png",
+  "cause": "js/ui-tree.js:21: NODE_H = 86 is fixed. css/style.css:502-515: .tree-node has overflow: hidden and uses the VT323 web font with a wider Courier New fallback.",
+  "fix_hint": "Grow the box to its content (measure once, use the tallest row height), or shrink the sub-line font.",
+  "verdict": {
+   "id": "campaign-14",
+   "reproduced": true,
+   "severity": "minor",
+   "note": "Scripts v08.js and crop.js; log (scratch)/sweep/verify-campaign/v08.log.\n\nWith Google Fonts aborted (offline fallback to Courier New), at 1280x800, 390x844 and 640x400:\n- 5 research boxes clip (modern-power, thermal-infrared, commercial-launch, heavy-lift, topside-sounding: 84>78).\n- 5 of 6 upgrade boxes clip (avcs-camera 101>78, alouette-2-sounder 92>78, ...).\n- In the screenshot, AVCS loses \"Advanced\" and \"90 sci\", and Alouette 2 loses \"Improved\" and \"60 sci\".\n\nWith web fonts loaded, only node-modern-power clips.\n\nScreenshot: (scratch)/sweep/verify-campaign/shots/v14-upgrades-tree.png\n\nRoot cause: fixed NODE_H = 86 (js/ui-tree.js:19) and .tree-node overflow:hidden (css/style.css:502-515)."
+  }
+ },
+ {
+  "id": "campaign-15",
+  "title": "Hub lab summary says \"1 upgrades\"",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "Campaign hub, THE LAB panel",
+  "repro": "s7-upgrades-plural.js: IMPORT code-5flights.txt (Training, 5 real flights) and read #lab-summary.",
+  "expected": "\"2 research and 1 upgrade can be bought now.\"",
+  "actual": "\"2 research and 1 upgrades can be bought now.\"",
+  "evidence": "Log: \"PLURAL lab summary: 2 research and 1 upgrades can be bought now.\"\n\nScreenshot: (scratch)/sweep/campaign/shots/s7-lab-summary.png",
+  "cause": "js/ui-campaign.js:292 always writes \"upgrades\".",
+  "fix_hint": "Pick singular or plural from buy.upgrades.",
+  "verdict": {
+   "id": "campaign-15",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Script v05.js on a real Training save with 5 flights. #lab-summary reads \"2 research and 1 upgrades can be bought now.\"\n\nLog: (scratch)/sweep/verify-campaign/v05.log\nScreenshot: (scratch)/sweep/verify-campaign/shots/v05-lab-summary.png\n\nRoot cause: js/ui-campaign.js:292 always writes \"upgrades\"."
+  }
+ },
+ {
+  "id": "campaign-16",
+  "title": "Offer copy: \"(0 years left)\" in an offer's final year, and offer sentences start in lower case",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "Campaign hub OPEN OFFERS; Debrief OFFER MET",
+  "repro": "s1-flights.js: a new campaign, then fly twice. The 1959 hub lists the \"by 1959\" offer. s11-offer.js: meet an offer and read the banner.",
+  "expected": "\"(last year)\" or \"(this year)\" while the offer can still be met, and sentences that start with a capital letter.",
+  "actual": "The hub shows \"the National Academy of Sciences wants radiation around Earth data: at least 60 points by 1959. Bonus $4M and 18 science. (0 years left)\" in 1959, although a 1959 flight still claims it. The Debrief banner reads \"OFFER MET: the National Academy of Sciences paid $4M...\".",
+  "evidence": "Log: \"HUB2 ... offers:[\\\"the National Academy of Sciences wants radiation ... by 1959. ... (0 years left)\\\"]\".\n\nScreenshot: (scratch)/sweep/campaign/shots/s1-desktop-hub3.png",
+  "cause": "js/ui-campaign.js:287 computes year_to - year. js/mission.js offerText (just before makeOffers at line 960) starts with the client name, which begins with \"the\".",
+  "fix_hint": "Say \"last year to deliver\" when year_to == year, and capitalise the first letter of the offer text in the list.",
+  "verdict": {
+   "id": "campaign-16",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Script v05.js; log (scratch)/sweep/verify-campaign/v05.log.\n\n- The 1959 hub lists \"the National Academy of Sciences wants radiation ... by 1959. ... (0 years left)\".\n- Every offer text starts in lower case (\"the National Academy...\", \"the Air Force research office...\").\n\nThat a 1959 flight can still claim the offer comes from reading claimOffers (yearFlown > o.year_to). It was not observed, because my 1959 flight returned only 8 points.\n\nRoot cause: js/ui-campaign.js:287 (year_to - year) and offerText at js/mission.js:955, which starts with the client name."
+  }
+ },
+ {
+  "id": "campaign-17",
+  "title": "Ending chronicle repeats lab instructions like \"Watch a battery die first.\" as history",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "Ending chronicle, THE STORY, YEAR BY YEAR",
+  "repro": "s4-capped-ending.js: IMPORT code-1968.txt, buy Silicon solar cells and Tape recorders in the lab, fly once more and open the chronicle. Read the RESEARCH entries.",
+  "expected": "Story text about what the research did, not the lab's unlock hint.",
+  "actual": "\"Research: Silicon solar cells \u2014 Sputnik fell silent in 21 days; Vanguard 1's solar cells kept talking for six years. Watch a battery die first.\" Other blurbs end the same way (\"Fly with healthy margins first.\", \"Prove you can get all your data home first.\").",
+  "evidence": "(scratch)/sweep/campaign/chronicle-timeout-desktop.txt, lines 108-111.\n\nScreenshot: (scratch)/sweep/campaign/shots/s4-desktop-end-chronicle.png",
+  "cause": "getChronicle (js/mission.js:1048, research log entries) uses r.blurb as the timeline text.",
+  "fix_hint": "Drop the blurb's last sentence in the chronicle, or add a separate history line.",
+  "verdict": {
+   "id": "campaign-17",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Script v09.js: bought Silicon solar cells and Tape recorders on the real 1968 save, flew to 1969, opened the chronicle.\n\nTHE STORY, YEAR BY YEAR shows \"Research: Silicon solar cells\" with \"Sputnik fell silent in 21 days; Vanguard 1's solar cells kept talking for six years. Watch a battery die first.\"\n\nFull text: (scratch)/sweep/verify-campaign/v09-chronicle.txt\nLog: (scratch)/sweep/verify-campaign/v09.log\n\nRoot cause: getChronicle uses r.blurb as the timeline text (js/mission.js:1082)."
+  }
+ },
+ {
+  "id": "campaign-18",
+  "title": "A save code with its end cut off says \"That is not a save code\" instead of \"damaged or incomplete\"",
+  "severity": "polish",
+  "category": "copy",
+  "screen": "Campaign hub, IMPORT",
+  "repro": "s3-codes.js: EXPORT, remove the last 20 characters of the code, paste it into #import-box and click IMPORT.",
+  "expected": "\"The code is damaged or incomplete.\", which tells the player to copy the whole code again.",
+  "actual": "\"That is not a save code.\"",
+  "evidence": "Log: \"IMPORT \\\"SMDG1.eyJ2IjozLCJjYW1wYWlnbiI6eyJ2ZXJzaW\\\" -> That is not a save code.\"",
+  "cause": "js/mission.js:1202-1203: a truncated code loses its final \".checksum\" part, so split(\".\") gives 2 parts and fails the parts.length !== 3 check first.",
+  "fix_hint": "If the text starts with \"SMDG1.\", report it as damaged or incomplete.",
+  "verdict": {
+   "id": "campaign-18",
+   "reproduced": true,
+   "severity": "polish",
+   "note": "Script v03.js; log (scratch)/sweep/verify-campaign/v03.log.\n\n- An exported code with its last 20 characters cut, or cut to 40 characters, gives \"That is not a save code.\"\n- A code that keeps its final dot but has a wrong checksum (.zzz) correctly gives \"The code is damaged or incomplete.\"\n- So only a cut that removes the last dot gets the wrong message.\n\nRoot cause: js/mission.js:1202-1203. parts.length !== 3 is checked first."
+  }
+ },
+ {
+  "id": "engage-01",
+  "title": "FIRST 2 MINUTES: the title screen has no visible Play button, and the two start buttons look the same and are named in jargon",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "Title / tier select",
+  "repro": "Clear localStorage. Open file:///home/user/Hackstreet_Bros_Satellite/index.html at 1280x800 and at 390x844. List the buttons inside the first viewport, then measure where the start buttons sit (scripts probe5.js and judge1.js in the scratch folder).",
+  "expected": "One obvious PLAY or START control above the fold, labelled in plain words, so a new player knows what to press within 5 seconds.",
+  "actual": "At 1280x800 the first viewport contains zero buttons (probe5 printed 'aboveFold buttons: []'). The first sentence a player reads is the unlock rule 'Earn 2 stars on a tier to unlock the next one.', and GRAVITRON appears twice. The first button is the campaign's 'NEW: INITIAL FEASIBILITY $90M' (y=820 on desktop, y=747 on phone). The single-mission start is a near-identical 'INITIAL FEASIBILITY $90M' at y=1176 on desktop and y=1272 on phone, about 1.5 screens down. Nothing explains what 'Initial Feasibility' (a JPL Concept Maturity Level) or '$90M' means. On a phone, the judge's first button is therefore the campaign.",
+  "evidence": "(scratch)/sweep/engage/kid/00-title-fold.png, (scratch)/sweep/engage/kid/00-title-full.png, (scratch)/sweep/engage/judge/00-title.png; probe5.js: campaign-training y=820, start-igy-training y=1176; judge1.js: start-igy-training y=1272, campaign-training y=747",
+  "cause": "js/ui-design.js drawTitle (from line 1800) and campaignPanel (line 1723) draw the banner, the hero canvas, the big title and the campaign panel before the era grid; tierButton (line 1783) labels each button only with the tier name and its budget.",
+  "fix_hint": "Put one primary button under the tagline, above the fold: 'PLAY: 1958, launch America's first science satellite'. Give the tiers plain names (Easy, Normal, Hard), with the CML name as a subtitle. Move the unlock rule and the campaign panel below the first play button.",
+  "verdict": null
+ },
+ {
+  "id": "engage-02",
+  "title": "FIRST 2 MINUTES: the intro promises wildfires and Arctic sea ice, but the only open era (1958) offers just radiation",
+  "severity": "major",
+  "category": "copy",
+  "screen": "Story intro (5 beats) -> 1 Briefing",
+  "repro": "Fresh save, desktop. Click [data-key=\"start-igy-training\"] (the only open start) and read the five intro beats with NEXT, then press START, click [data-key=\"blip-briefing\"] and read the topic cards (kid1.js, kid2.js).",
+  "expected": "The intro sets up the mission the player is about to fly, here radiation around Earth in 1958.",
+  "actual": "Beat 5 says 'Watch wildfires and Arctic sea ice. Bring back observations people can use.' The briefing then offers only RADIATION AROUND EARTH; WILDFIRE MONITORING shows 'ARRIVES IN 1999' and ARCTIC SEA-ICE MAPPING 'ARRIVES IN 1978'. Beat 1 says 'Austin Albert, NASA engineer' and beat 4 'NASA has invested heavily', while the debrief names the real mission 'Explorer 1 (1958, US Army / JPL)'. Beat 3, 'Iron Eclipse is racing to own the view of Earth.', sets up a rival that never acts in the game: no race, no deadline, no score to beat. The five beats are plain text on an empty screen with no image.",
+  "evidence": "kid1.js log: 'INTRO BEAT 4 : ... Watch wildfires and Arctic sea ice...'; kid2.js: obj-wildfire disabled=true, obj-sea-ice disabled=true; screenshots (scratch)/sweep/engage/kid/01-intro-4.png and (scratch)/sweep/engage/kid/03-briefing-full.png",
+  "cause": "js/ui-design.js:147-151: STORY.austin.intro is one fixed list. storyChapter (lines 422-428) picks the chapter by tier only, never by era, so the 1958 era gets the modern-topics intro.",
+  "fix_hint": "Write an intro per era. For 1958: 'Sputnik is up. Nobody knows what is just above the air. Fly a counter and find out.' Either give Iron Eclipse a visible stake (their launch date or their science score on the debrief) or cut it.",
+  "verdict": null
+ },
+ {
+  "id": "engage-03",
+  "title": "FIRST 2 MINUTES: the first decisions each have one obvious answer (one open topic, an orbit tag that gives the answer away, bins with one part)",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "1 Briefing, 2 Orbit, 3 Build (1958, Initial Feasibility)",
+  "repro": "Fresh save, start IGY Initial Feasibility, skip the intro, open Mission Control, then the Tracking Station, then the Workshop (kid2.js to kid5.js). Compare the orbit tags with the Build science preview for LEO and SSO using the same parts (probe1.js).",
+  "expected": "The first choices offer a real trade-off with a reason to care, as SPEC's 'Teaches: decide the goal before the hardware' and 'where you fly changes everything' intend.",
+  "actual": "Briefing: 5 of 6 topic cards are disabled with red 'ARRIVES IN 19xx' tags, so the 'decision' is a single card showing only 'Target 100 pts / Counts radiation'; the reason to care ('It is 1957 and nobody knows what lies just above the atmosphere...') sits behind a small 'About this job' link. Orbit: LEO is tagged GOOD VIEW in teal and SSO and GEO PARTIAL VIEW in orange, so the tag makes the choice. It is also misleading: with the same parts, SSO previews 207/100 points against LEO's 135/100 (no 1958 rocket can reach SSO; see engage-06). Build: 3 of the 6 required bins (structure, radio, attitude) hold exactly one usable part, and propulsion has none.",
+  "evidence": "kid2.js: only obj-radiation enabled; kid3.js orbit dump ('GOOD VIEW' / 'PARTIAL VIEW' / 'PARTIAL VIEW'); kid5.js bin lists; probe1.js: ssoSci.total 207.4, LEO 135; kid11.js build panel 'SCIENCE PREVIEW 207 / 100 pts'; (scratch)/sweep/engage/kid/04-orbit.png",
+  "cause": "data/objectives.js:13 orbit_fit { leo: 1.0, sso: 0.8, geo: 0.5 } drives the badge in js/ui-design.js:1910-1913, separately from previewScience. In the IGY era only radiation has no research gate.",
+  "fix_hint": "Show the briefing sentence on the card itself. Replace GOOD/PARTIAL VIEW with the outcome the player cares about, for example '~135 pts, reachable by Juno and Vanguard' against '~207 pts, but no 1958 rocket can reach it'. Consider opening a second 1958 topic so the first choice is a real one.",
+  "verdict": null
+ },
+ {
+  "id": "engage-04",
+  "title": "The readiness review says GO to a design forecast to return 5 of 100 points, and does not show that forecast",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "5 Readiness review",
+  "repro": "IGY Initial Feasibility, radiation, LEO. Add the cylinder, scintillation counter, mercury batteries, Minitrack beacon, clock and spin stabilisation (the path the team's lines walk you through), then pick Juno I and open the Launch Pad (kid6.js, kid7.js, kid8.js).",
+  "expected": "Before the one irreversible click, the review states the expected science against the target and ranks the warnings by the damage each does.",
+  "actual": "Build showed 'SCIENCE PREVIEW 5 / 100 pts', but the review shows only 'GO, WITH 2 WARNINGS'. BATTERY ONLY and DATA LOST are equal-weight WARN rows above 'LAUNCH ANYWAY', and the review shows no science forecast at all. The flight returns 4 of 100 points and 0 stars. BATTERY ONLY kills the mission in month 1; DATA LOST costs about 6% (135 against 144 points), yet both look the same. Following the team's own line-by-line coaching ('Start with an instrument... Add power... Add a radio...') produces this doomed design.",
+  "evidence": "kid6.js: 'SCIENCE PREVIEW 5 / 100 pts'; kid7.js REVIEW dump (no science line); kid8.js debrief '4 of 100 points', SCORE 31; (scratch)/sweep/engage/kid/08-review.png",
+  "cause": "js/ui-design.js drawReview (lines 2167-2204) renders runChecks warnings and facts, but not previewScience; checkList (lines 1669-1693) lists warnings in data order with no measure of their impact.",
+  "fix_hint": "Add a large 'Expected science: 5 of 100, this will miss the goal' line next to T-MINUS. Sort the warnings by points lost ('BATTERY ONLY: about -95 pts'). Turn the verdict amber or red when the forecast misses the target.",
+  "verdict": null
+ },
+ {
+  "id": "engage-05",
+  "title": "The 'IF YOU CLICK' preview hides its Fixes and Causes lines, and mouse users cannot reach them",
+  "severity": "major",
+  "category": "broken",
+  "screen": "3 Build, part preview panel",
+  "repro": "Build screen with the structure added. Open the INSTRUMENTS bin and hover [data-key=\"part-scintillation-counter\"]. Measure #preview, then scroll the wheel over the card and move the mouse into the preview (probe2.js, probe3.js).",
+  "expected": "The consequences (what the part fixes and what it breaks) are the core lesson and should be readable while the part is previewed.",
+  "actual": "#preview is 182px tall, but its content is 464px on desktop and 692px at 390px. Visible: the title, the history blurb and, on desktop only, '+3 kg, +0 W draw, +$0.4M'. Hidden: 'Fixes: No instrument part...', 'Causes: Parts draw 0.1 W but the solar panels make only 0 W', 'Causes: Instruments make 0.00004 GB a day...' and 'Causes: Riding through Earth's shadow needs a 0.2 Wh battery...'. Scrolling the wheel over the card scrolls the page instead (preview scrollTop stays 0). The card then leaves the pointer and the preview resets to 'Point at a part to see what it would change.' Moving the mouse into the preview resets it the same way. The rounded card ('0 W draw') also contradicts the hidden line ('Parts draw 0.1 W').",
+  "evidence": "probe2.js: desk client 182 / scroll 464, phone client 182 / scroll 692, with per-line visibility (Fixes/Causes visible:false); probe3.js: 'wheel over card: page scrollY 518 -> 818 preview scrollTop 0 ... Point at a part'; (scratch)/sweep/engage/kid/preview-desk.png and (scratch)/sweep/engage/kid/preview-phone.png",
+  "cause": "css/style.css:315 '.preview { height: 190px; overflow-y: auto; }'; js/ui-design.js:1987-1988 onpointerleave clears state.hover; drawPreview (lines 2013-2021) puts the blurb before the numbers and the Fixes/Causes lines.",
+  "fix_hint": "Order the panel as: delta line, then Fixes/Causes, then blurb last. Let the box grow (min-height instead of a fixed height), or keep the last previewed part shown until another part is hovered.",
+  "verdict": null
+ },
+ {
+  "id": "engage-06",
+  "title": "Orbits no 1958 rocket can reach are offered, and the advice then points at impossible fixes (add propulsion, pick a rocket)",
+  "severity": "major",
+  "category": "broken",
+  "screen": "2 Orbit -> 3 Build -> 4 Launch vehicle -> 5 Readiness review (1958)",
+  "repro": "IGY Initial Feasibility, radiation. (a) Pick SSO and build the cylinder, scintillation counter, mercury batteries, silicon cells, beacon, clock and spin stabilisation; go to the Rocket Yard, then the Launch Pad, and press FIX (kid11.js, kid12.js). (b) Pick GEO with the same parts and open the PROPULSION bin (kid14.js, kid15.js).",
+  "expected": "Orbits the era's rockets cannot reach are flagged on the Orbit screen, and when that is the problem the guidance says to change orbit.",
+  "actual": "(a) SSO: Build shows 'SCIENCE PREVIEW 207 / 100 pts' and the team says 'Instrument, power, radio, computer in balance. A complete mission.' At the Rocket Yard both Juno I and Vanguard show 'CANNOT REACH' (disabled), while the team says 'A bigger rocket carries more. It also costs more.' The review says 'NO GO. 1 TO FIX. NO ROCKET', and its FIX > sends the player back to the Rocket Yard, where nothing can be picked. (b) GEO: Build shows 'NOT ENOUGH THRUST, NO GO', and the team says 'This orbit needs fuel to move itself. Add propulsion or cut mass.' But the PROPULSION bin reads 'No room on this body', all three thrusters say 'Arrives in 1998', and the objective says 'Clear the problems marked with a cross under the bars.' No screen ever suggests changing the orbit; the only way out is the map to the Tracking Station.",
+  "evidence": "kid11.js / kid12.js logs (rockets 'CANNOT REACH', review 'NO ROCKET'); kid15.js: 'PROP bin label: PROPULSION No room on this body', 'Small green thruster pack | Arrives in 1998'; (scratch)/sweep/engage/kid/14-sso-launcher.png, (scratch)/sweep/engage/kid/15-sso-review.png, (scratch)/sweep/engage/kid/19-geo-build-propulsion.png",
+  "cause": "data/launchers.js: juno-1 and vanguard-rocket have capacity_kg sso: 0 and geo: 0. drawOrbit (js/ui-design.js:1902-1930) never checks launcher availability. FIX_SCREEN maps no-launcher to the launcher screen. The storyBuild and storyLauncher lines do not know that no part or rocket can solve the problem.",
+  "fix_hint": "On the Orbit screen, tag an orbit 'NO ROCKET IN 1958 CAN REACH THIS' (warn, or disable it) when every available launcher has capacity 0. When all rockets say CANNOT REACH, or the needed propulsion does not exist yet, point the team line and the FIX button at the Tracking Station.",
+  "verdict": null
+ },
+ {
+  "id": "engage-07",
+  "title": "The launch is an anticlimax: a T-MINUS that never counts, then a text-only screen; a first flight ends in 1.4 s with 'Mission complete.'",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "5 Readiness review -> 6 Mission",
+  "repro": "Build the first, battery-only design (engage-04), pick Juno I, and press LAUNCH ANYWAY at default speed. Log the time and the screen contents (kid8.js). Repeat with silicon cells added (kid9.js).",
+  "expected": "Launching is the payoff of the whole build, with a countdown, a liftoff and a satellite to watch, and a failure that reads as a failure.",
+  "actual": "'T-MINUS 00:00:10' is static text and never counts down; the click shows the Mission screen at once (log '0.1s MONTH 0/1'). The Mission screen is a large 'MONTH 1 of 1', one science bar and a two-line log. No satellite, Earth or orbit is drawn, although the title screen has a low-poly Earth and satellite. The battery-only flight is over 1.4 s after launch with no event, and the log reads 'Signal ends. Mission complete.' for a satellite whose batteries just died. A full 36-month flight runs about 12 s with one event and nothing to watch in between.",
+  "evidence": "kid8.js log ('0.1s MONTH 0/1 ... 1.4s DEBRIEF reached', 'Signal ends. Mission complete.'); kid9.js month log (36 months in about 12 s, one event); (scratch)/sweep/engage/kid/09-mission-early.png",
+  "cause": "js/ui-design.js:2181 hard-codes the text '00:00:10'; launch() (lines 2602-2608) calls showMissionScreen straight away; js/ui-mission.js draws only the month, the bar and the log.",
+  "fix_hint": "Run a real 3-to-10-second countdown with padArt and a liftoff. Reuse js/lowpoly.js / lp-earth.js on the Mission screen, with the satellite going dark when power dies. Log 'Batteries flat: signal lost in month 1' instead of 'Mission complete'.",
+  "verdict": null
+ },
+ {
+  "id": "engage-08",
+  "title": "Judge persona: the NASA FIRMS and NSIDC data (the project's Relevance pillar) cannot be reached in a 5-minute session from a fresh save",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "Title, 1 Briefing, Campaign hub / lab, Debrief",
+  "repro": "Fresh save on a phone. Play the only open start (IGY Initial Feasibility) and the campaign. Win IGY on desktop, press CHANGE TIER and look at the era grid. Search the radiation debrief text for NASA (kid2.js, kid13.js, judge3.js, judge10.js).",
+  "expected": "A judge can see real NASA data driving a mission within a few minutes, since SPEC lists 'NASA FIRMS and NSIDC data drive the simulation' as the answer to Relevance and aims at Best Use of Data.",
+  "actual": "The briefing shows WILDFIRE MONITORING 'ARRIVES IN 1999' and ARCTIC SEA-ICE MAPPING 'ARRIVES IN 1978'. After a 3-star IGY win the title shows NIMBUS open and EARTH OBSERVING SYSTEM still LOCKED. In the campaign, wildfire needs 'Thermal infrared imaging' (1999, $10M, 300 science) and sea ice needs 'Imaging radar' (350 science); after two good flights I had 182 science. The full radiation debrief, with every details element opened, never mentions NASA ('mentions NASA: false'). A judge who fails once with the obvious first design (engage-04) plays only 1958 radiation in 5 minutes. Nimbus and EOS were not played, so the exact number of flights needed was not measured.",
+  "evidence": "kid2.js objective list; kid13.js: 'mentions NASA: false', title after the win '1999 | EARTH OBSERVING SYSTEM | LOCKED'; judge10.js lab dump ('Thermal infrared imaging 1999 \u00b7 $10M \u00b7 300 sci', 'Imaging radar 1978 \u00b7 $12M \u00b7 350 sci', science 182 after flight 2); (scratch)/sweep/engage/kid/17-title-after-win.png",
+  "cause": "Progression design: eras open with 2 stars in the previous era (SPEC 'Eras'), and no demo or quick-tour entry exists (grep of js/ for demo, location.search and hash found nothing).",
+  "fix_hint": "Add a 'Judge's tour: play the NASA wildfire mission (2026)' button on the title that opens New Space with wildfire pre-selected, or a 'see real data' card on the IGY debrief. Keep the era lock for normal play.",
+  "verdict": null
+ },
+ {
+  "id": "engage-09",
+  "title": "Phone build is a scrolling chore: a bin tap shows nothing, parts sit 750px below, the bars 2.5 screens further, and the double tap is never explained",
+  "severity": "major",
+  "category": "mobile",
+  "screen": "3 Build (and the Lab, and the Debrief) at 390x844 with touch",
+  "repro": "Use iPhone-like emulation at 390x844 with hasTouch. Reach Build in IGY, measure element positions, tap [data-key=\"bin-power\"], then tap a part card once and once more (judge2.js, judge9.js). Campaign: open the lab and tap [data-key=\"node-solar-cells\"] (probe5.js).",
+  "expected": "Tapping a bin shows its parts. One tap adds a part, or the screen says 'tap again to add'. The four bars stay visible while choosing.",
+  "actual": "The Build page is 4358px tall: bins at y=588, satellite y=1002, preview y=1342, first part card y=1595, bars y=3139, problems y=3434, nav y=4053. Tapping POWER leaves scrollY at 0, and the first card stays 751px below the bottom of the viewport. The first tap on a card only previews ('MASS 0 KG' after the first tap, '1 KG' after the second). The panel says 'IF YOU CLICK' and its empty state says 'Point at a part'; nothing says 'tap again'. Six parts took 25 taps plus scrolling. Lab: tapping a research box leaves its BUY button at top=969, off screen. Debrief: TRY THIS is at y=1551 and BACK TO THE HUB at y=2555.",
+  "evidence": "judge9.js: 'BUILD positions {bins:588, ..., firstPart:1595, bars:3139, nav:4053, docH:4358}', 'after tapping POWER bin: scrollY 0 -> 0 ... inView false'; judge2.js 'mass after 1st tap: MASS 0 KG | after 2nd: MASS 1 KG'; probe5.js 'lab after node tap: { scrollY: 0, detailTop: 969, inView: false }'; (scratch)/sweep/engage/judge/09-after-power-bin-tap.png, (scratch)/sweep/engage/judge/05c-after-first-tap.png",
+  "cause": "js/ui-design.js:1979-1980 (the first touch tap only previews); drawPreview header text 'IF YOU CLICK' and empty text 'Point at a part' (lines 2000-2003); no scrollIntoView after a bin or a research node is selected.",
+  "fix_hint": "On narrow screens, scroll the parts list into view when a bin is tapped, and pin a compact 4-bar strip. After the first tap show 'TAP AGAIN TO ADD' on the card, or add on the first tap with an undo. Scroll #research-detail into view on a node tap.",
+  "verdict": null
+ },
+ {
+  "id": "engage-10",
+  "title": "Event choices hide the cost of the safe option, and the orange highlight lands on the risky option in some events",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "6 Mission, event dialog",
+  "repro": "Fly the working 1958 design (LEO, Juno) at default speed until an event appears (kid9.js: Solar storm). Fly it again with the first (orange) choice for every event (kid13.js: Software bug).",
+  "expected": "Each choice shows its trade (what you lose, what you risk), so the decision has stakes and the outcome feels earned.",
+  "actual": "Solar storm: 'Shut instruments down' (orange, focused, no cost shown) against 'Keep observing / 40% chance of losing the computer'. The safe option secretly costs a month (data/events.js:48 lose_months: 1), so it looks free and the choice is obvious. After the choice the log only repeats the label ('Solar storm: Shut instruments down'), with no consequence. Software bug: the orange first button is the risky 'Upload the fix now' (20% chance of losing the computer); in kid13 it failed the clock and ended the mission at month 34 of 36. Because the orange style is applied by position, it reads as a recommendation that sometimes points at danger. A solar storm during a radiation-belt mission is also a science opportunity, but no upside is ever offered.",
+  "evidence": "(scratch)/sweep/engage/kid/12-event-1.png; kid9.js log 'after choice log top: Solar storm: Shut instruments down'; kid13.js 'Software bug: Upload the fix now (Clock and command receiver failed)'",
+  "cause": "js/ui-mission.js:135-140 builds a sub-line only for fail_chance and sets primary: i === 0; answer() (from line 160) logs only the label. data/events.js lists the risky option first for software-bug (line 85) and the safe one first for solar-storm (line 48).",
+  "fix_hint": "Give every choice a cost line built from its effect ('lose 1 month, about -4 pts', '-$0.3M', 'science x0.6'). Drop the primary style on event choices. After the choice, log what it cost ('Instruments off for a month: -4 pts').",
+  "verdict": null
+ },
+ {
+  "id": "engage-11",
+  "title": "A 3-star win feels flat: the Van Allen discovery is collapsed, the unlock banners are not buttons, and the main button is still REDESIGN",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "7 Debrief (win) -> Title",
+  "repro": "IGY Initial Feasibility: fly the battery-only design, follow TRY THIS (add Early silicon solar cells), fly again (kid9.js). Then press CHANGE TIER (kid13.js).",
+  "expected": "A win celebrates what the player discovered, and its main action takes them to the content they just unlocked.",
+  "actual": "The debrief shows a score table (99, three stars), two orange boxes 'TRADE SPACE UNLOCKED' and 'NEW ERA: NIMBUS (1964)' that are plain <p> elements, and the generic 'Nothing broke, no resource ran short...'. The best line in the game ('Its cosmic-ray counter went silent high up, and James Van Allen realised it was swamped: the radiation belts. Like yours...') is hidden inside the collapsed 'Closest real mission' link. The orange primary button is 'REDESIGN >'. TRY THIS says 'reach it on a smaller budget' (meaningless: engage-13), and the objective still says 'Read what limited you, then fly again.' CHANGE TIER returns to the top of the title; the newly opened Nimbus start is at y=1126, with nothing marking it as new.",
+  "evidence": "kid9.js debrief dump; kid13.js debrief with details opened, and 'nimbus btn y 1126'; (scratch)/sweep/engage/kid/12-debrief.png, (scratch)/sweep/engage/kid/16-debrief-open.png",
+  "cause": "js/ui-mission.js:251-252 renders the unlocks as <p class=\"banner\">; the real-mission comparison is a <details> element; the REDESIGN button is always primary.",
+  "fix_hint": "On a win, lead with the discovery ('YOU FOUND THE VAN ALLEN BELTS') and show the real-mission line expanded. Turn the unlock banners into the primary button ('PLAY NIMBUS 1964 >') and demote REDESIGN.",
+  "verdict": null
+ },
+ {
+  "id": "engage-12",
+  "title": "The scintillation counter card promises 6 sci/mo but delivers 3.8 (less than the Geiger's 4); its DATA LOST warning can only be cured by downgrading, and FIX opens the wrong bin",
+  "severity": "major",
+  "category": "wrong-numbers",
+  "screen": "3 Build part cards, Mission overview bars, 5 Readiness review FIX",
+  "repro": "IGY Initial Feasibility, radiation, LEO. Build the cylinder, scintillation counter, mercury batteries, silicon cells, beacon, clock and spin stabilisation, pick Vanguard, and press FIX > on DATA LOST (kid10.js). Compare the science of alternative designs (probe4.js).",
+  "expected": "A card's science figure is what the part delivers with this satellite; zero-looking bars are not shown for working systems; FIX leads to the part that fixes the problem.",
+  "actual": "The card reads 'Scintillation counter (Explorer 4) $0.4M ... 6 sci/mo' against the Geiger's '4 sci/mo'. With the only 1958 radio, the Build science panel shows it at 3.8/mo (data_share 0.625), below the Geiger: 135 against 144 points. Adding the tape recorder does not help (data_share stays 0.625, and it overloads the body at 10.1/10 kg). Only swapping to the cheaper Geiger clears the warning. Meanwhile the bars read 'DATA HOME 0 / 0 GB/DAY' and 'POWER 0 / 0 W, Nothing makes power yet' with a battery fitted, while the Why text says '0.00004 GB a day but only 0.000025 GB reaches the ground'. FIX > on DATA LOST opened the Workshop on the ATTITUDE bin (the last bin used). The team line 'The instrument makes more data than the radio can send home' stays on even after the design wins three stars and the debrief says 'NOTHING LIMITED THIS MISSION'.",
+  "evidence": "probe4.js: scint+clock per_month 3.75, total 135, data_share 0.625, warnings [data]; geiger+clock per_month 4, total 144, no warnings; scint+tape blockers [body-payload]; kid10.js 'After FIX head: 3 \u00b7 BUILD' with cards part-spin-stabilised / part-reaction-wheels; (scratch)/sweep/engage/kid/13-fix-dataloss.png, (scratch)/sweep/engage/kid/06-build-done.png",
+  "cause": "partCard (js/ui-design.js:1963-1966) shows getPartFacts().science_per_month, the instrument's raw rate before data loss; checkList's FIX handler (line 1686) calls go(target) without choosing a bin; resourceBars uses num(), which rounds 1958-scale GB and W values to 0.",
+  "fix_hint": "Show delivered science on the card for the current design ('6 sci/mo, 3.8 with your radio'). Have FIX open the bin that holds the cure and name it. Show kB/day and fractional watts when the values are small.",
+  "verdict": null
+ },
+ {
+  "id": "engage-13",
+  "title": "The budget never matters in 1958: the most a flyable design can cost is about 5% of the $90M bar",
+  "severity": "major",
+  "category": "engagement",
+  "screen": "3 Build / 4 Launch vehicle budget bar, Debrief 'Value for money', Campaign treasury",
+  "repro": "IGY Initial Feasibility. Compute the cost of every flyable 1958 design (probe1.js, probe4.js). Pick Juno or Vanguard on the Rocket Yard. Fly two campaign flights (judge10.js).",
+  "expected": "Budget is one of the 'four bars' the SPEC says every part pulls on, so it should constrain some choice.",
+  "actual": "The 3-star designs cost $3.6M to $4.14M of $90M (Geiger, tape recorder, Juno: $4.14M). Even an overweight, unflyable 'everything' design costs only $4.29M. The budget bar stays near 5%, so a part's price never affects a choice. On the Rocket Yard, Vanguard saves $0.5M (worthless against $90M) but leaves a 4% mass margin (Margins 7.5/15, against 15/15 with Juno), so the trade is one-sided. After a win, TRY THIS says 'reach it on a smaller budget'. Campaign: the treasury went $90M -> $90.1M after a net -$2.1M flight, then to $101.8M after the second. The Trade Space ($20M) and Point Design ($18M) IGY tiers were locked on a fresh save and not played; from the data, the $4.3M ceiling is under their budgets too.",
+  "evidence": "probe4.js costs (geiger+clock 3.96, scint+clock 4.06, geiger+tape 4.14); probe1.js tot3 cost_musd 4.29; kid13.js (Vanguard: MARGINS 7.5/15) against kid9.js (Juno: 15/15); judge10.js 'Treasury now $90.1M', '$101.8M'; data/tiers.js comment says the $90M is sized for 'the $69.75M rocket to geostationary orbit'",
+  "cause": "data/tiers.js: one budget per tier for every era (training 90, standard 20, expert 18), sized for 2026 launch prices; 1958 parts and rockets cost $0.02M to $3M.",
+  "fix_hint": "Scale budgets by era (for example a 1958 Initial Feasibility of about $5M, so Juno against Vanguard and the tape recorder become real trades), or scale prices by era. Drop the 'smaller budget' TRY THIS when spending is under 20%.",
+  "verdict": null
+ },
+ {
+  "id": "engage-14",
+  "title": "REDESIGN lands on Build with stale guidance and does not point at the fix the debrief just named",
+  "severity": "minor",
+  "category": "engagement",
+  "screen": "7 Debrief -> REDESIGN -> 3 Build",
+  "repro": "Fly the battery-only 1958 design. The debrief says 'TRY THIS: ... Fit the early silicon solar cells so the Sun keeps it running.' Press REDESIGN (kid9.js).",
+  "expected": "Build opens with the named part's bin selected or highlighted, and the guidance repeats the suggested change.",
+  "actual": "Build opens with the objective 'OBJECTIVE: Go to the Launch Pad for the readiness review.' and the team line 'The instrument makes more data than the radio can send home.' The POWER bin is neither selected nor highlighted, and the TRY THIS text is not shown on Build, so a player who skimmed the debrief is told the design is ready and pointed at the radio.",
+  "evidence": "kid9.js: 'BUILD on redesign TEAM: ... The instrument makes more data than the radio can send home.' and 'OBJECTIVE: OBJECTIVE: Go to the Launch Pad for the readiness review.'; (scratch)/sweep/engage/kid/11-redesign.png",
+  "cause": "The waypoint (js/ui-design.js:2247-2257) only checks runChecks blockers, and battery-only is a warning; storyBuild picks its line from the current checks, not from the debrief's limiting factor.",
+  "fix_hint": "Carry the debrief's limiting factor and suggested part into Build: preselect that bin, outline the suggested card, and set the objective to 'Try this: fit Early silicon solar cells'.",
+  "verdict": null
+ },
+ {
+  "id": "engage-15",
+  "title": "Mixed messages: a target-beating flight that unlocked a new era is called a failure, and a 4%-of-target flight gets full Events and New Science points",
+  "severity": "minor",
+  "category": "copy",
+  "screen": "7 Debrief (score card, team line, notebook), 6 Mission log",
+  "repro": "(a) Fly the working 1958 design with the first choice for every event until the software bug fails the computer (kid13.js). (b) Fly the battery-only design (kid8.js).",
+  "expected": "The verdict reads the same everywhere: stars, team line, notebook and log agree.",
+  "actual": "(a) '128 of 100 points', two stars, 'TRADE SPACE UNLOCKED', 'NEW ERA: NIMBUS (1964)', and at the same time the team says 'We lost it in flight. Find out why before we fly again.' and the notebook says 'The satellite failed.' A 13-year-old cannot tell whether they won. (b) '4 of 100 points', 0 stars, yet 'EVENTS 10 / 10' (no event happened) and 'NEW SCIENCE 10 / 10' bring the score to 31, and the mission log said 'Signal ends. Mission complete.' Also, the empty-star stamp is red outline stars on cream, which at a glance reads as three red stars.",
+  "evidence": "kid13.js debrief dump; kid8.js debrief dump and mission log; (scratch)/sweep/engage/kid/10-debrief.png, (scratch)/sweep/engage/kid/16-debrief-open.png",
+  "cause": "The debrief and notebook story lines (storyDebrief, storyNotebook, js/ui-design.js:604-660) key on ended_early or failure, not on the target being met; the scoring gives full Events credit when no event happens.",
+  "fix_hint": "When the target is met, use 'Goal met before we lost it in month 34' and a success notebook line. Score Events as 'n/a' (or scale it by science share) when no event happened. Log 'Signal lost' instead of 'Mission complete' on an early end.",
+  "verdict": null
+ },
+ {
+  "id": "engage-16",
+  "title": "Campaign money text contradicts itself: 'pays about $9.7M', then $0.87M, then '$1M... the payout was large', and a silent grant",
+  "severity": "minor",
+  "category": "wrong-numbers",
+  "screen": "Campaign hub, 1 Briefing, 4 Launch vehicle, 7 Debrief",
+  "repro": "Fresh save at 390px. Press [data-key=\"campaign-training\"], read the hub, then START A MISSION and fly the battery-only radiation design on Vanguard. Fly a second time after buying Silicon solar cells (judge3.js, judge8.js, judge10.js).",
+  "expected": "The expected payout matches across the hub, the Build screen and the debrief, and every treasury change is explained.",
+  "actual": "The hub says 'Next mission pays about $9.7M' and the briefing card 'Pays $9.7M'. The Rocket Yard says 'Expected payout $0.87M, cost $3M, net -$2.1M'. The debrief says 'PAYOUT $1M ... This was a first real look at the topic... That is why the payout was large.', then 'Treasury now $90.1M' (up, after a -$2.1M flight, because an unmentioned $2M grant arrived). The second flight says 'This was a first real look at the topic' again, although knowledge went 5% -> 64%. The offer sentence starts in lower case ('the National Academy of Sciences wants...'), and the campaign debrief header reads 'INITIAL FEASIBILITY \u00b7 SCORE 35', not CAMPAIGN.",
+  "evidence": "judge3.js hub dump; judge5.js launcher text ('Expected payout $0.87M, cost $3M, net -$2.1M'); judge8.js and judge10.js debrief dumps; (scratch)/sweep/engage/judge/26-camp-debrief-full.png",
+  "cause": "data/campaign.js grant_musd 2 is applied in js/mission.js:869-872 but not shown in the debrief text; the hub figure is the payout at full target; the 'first real look' sentence is not tied to the knowledge share; the offer text is built from the client name in lower case.",
+  "fix_hint": "Show the grant as its own line ('Agency grant +$2M'). Have the hub say 'up to $9.7M for a full-target flight'. Pick the payout sentence from the actual knowledge gain. Capitalise the start of the offer sentence.",
+  "verdict": null
+ },
+ {
+  "id": "engage-17",
+  "title": "Campaign Launch Vehicle screen is 531px wide on a 390px phone (locked-rocket tags do not wrap)",
+  "severity": "minor",
+  "category": "mobile",
+  "screen": "4 Launch vehicle (campaign)",
+  "repro": "390x844. New campaign (Initial Feasibility), START A MISSION, radiation, LEO, build any design, open the Rocket Yard. Measure document.documentElement.scrollWidth and the elements past 390px (judge6.js, judge7.js, judge8.js).",
+  "expected": "No sideways scrolling at 390px; every other campaign screen measured 390.",
+  "actual": "scrollWidth is 531. The overflowing elements are the tags 'NEEDS RESEARCH: THOR-ABLE ROCKET' (right edge 402), 'NEEDS RESEARCH: COMMERCIAL SMALL LAUNCHERS' (510) and 'NEEDS RESEARCH: REUSABLE MEDIUM-LIFT ROCKETS' (531). With mobile emulation the layout viewport grows to innerWidth 531, and Playwright's tap on GO TO LAUNCH PAD was repeatedly reported as intercepted; a plain click at 390px non-mobile worked. Hub, briefing, orbit, build, review, debrief and lab all measured 390.",
+  "evidence": "judge6.js: { iw: 531, vv: 390, docW: 531, wide: [ 'SPAN.tag bad right=402 ...', 'right=510 ...', 'right=531 ...' ] }; judge8.js WIDTH lines (390 for the other screens); (scratch)/sweep/engage/judge/25-camp-launcher-wide.png",
+  "cause": "js/ui-design.js:2131-2133 puts the lockReason text in a .tag span inside .card-title; the tag does not wrap.",
+  "fix_hint": "Let .tag wrap inside cards (white-space: normal; max-width: 100%), or shorten the label to 'RESEARCH NEEDED' and put the research name on its own line.",
+  "verdict": null
+ },
+ {
+  "id": "engage-18",
+  "title": "FIRST 2 MINUTES: the map repeats the same instruction four times (150 words), and Build opens on the wrong bin for its first line",
+  "severity": "minor",
+  "category": "engagement",
+  "screen": "Base map, 3 Build",
+  "repro": "Fresh save, start IGY Initial Feasibility, skip the intro and read the map. Continue to Build and read the team line and the selected bin (kid1.js, kid4.js).",
+  "expected": "One clear instruction per screen, and coaching that matches what is on screen.",
+  "actual": "The map has 150 words. 'Go to Mission Control and pick a job' appears in the header objective, the prompt box ('Follow the gold route. Go to Mission Control and pick a job.'), the sidebar OBJECTIVE and the place list ('Pick a job for the satellite'), on top of the team line ('Begin at Mission Control. The gold route leads the way.'), the hint ('Walk with the arrow keys or WASD...') and a KEYS box. The map is a stop between every step and asks no decision on the first run. On Build, the team says 'Every satellite needs a body to hold its parts.' while the INSTRUMENTS bin is preselected.",
+  "evidence": "kid1.js MAP dump (150 words); kid4.js BUILD dump; (scratch)/sweep/engage/kid/02-map.png, (scratch)/sweep/engage/kid/05-build.png",
+  "cause": "drawMap (js/ui-design.js:2382+) renders the objective, the prompt, the side objective and the place list from the same doText(); drawBuild starts on the instrument bin while storyBuild's first line asks for a body.",
+  "fix_hint": "Keep one instruction (the prompt box with its button) and drop the duplicate sidebar OBJECTIVE. On the first run, consider going straight from the intro to Mission Control. Preselect the STRUCTURE bin while the body line is showing.",
+  "verdict": null
+ }
+]
