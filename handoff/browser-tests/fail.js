@@ -53,6 +53,14 @@ async function visit(p, place, title) {
   await p.locator('.btn.big').click(); await waitHead(p, 'MISSION'); await T.fly(p, 'last');
   const s2 = await T.stars(p);
   ok(s2 >= 1 && /STEP 1 PASSED/.test(await p.locator('.walk-result').innerText()), `with solar cells step 1 passes (${s2} stars)`);
+  // A replay that falls short: the step stays passed and NEXT STEP stays open
+  await p.click('[data-key="walk-redesign"]'); await waitHead(p, 'BUILD');
+  await p.click('[data-key="bin-power"]'); await p.click('[data-key="part-silicon-cells"]');   // off again: batteries only
+  await p.click('.nav-row .btn.primary'); await waitHead(p, 'READINESS');
+  await p.locator('.btn.big').click(); await waitHead(p, 'MISSION'); await T.fly(p, 'last');
+  ok(await T.stars(p) === 0 && /NOT THIS TIME: STEP 1 STAYS PASSED/.test(await p.locator('.walk-result').innerText()), 'a 0-star replay: NOT THIS TIME, STEP 1 STAYS PASSED');
+  ok(await p.locator('[data-key="walk-retry"].primary').count() === 1 && await p.locator('[data-key="walk-next"]').count() === 1, '...TRY AGAIN first, NEXT STEP still offered');
+  ok(await p.evaluate(() => JSON.parse(localStorage.getItem('gravitron-walkthrough-v1')).done['1']) === s2, 'the record keeps the best stars');
   await p.click('[data-key="walk-home"]');
   ok(/CONTINUE: STEP 2/.test(await p.locator('[data-key="part1-go"]').innerText()), 'HOME: CONTINUE: STEP 2');
 

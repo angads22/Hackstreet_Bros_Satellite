@@ -63,7 +63,10 @@ const WALK = {
 const BATTERY_ONLY = BASIC.concat(['mercury-battery']);
 const BIN = { 'explorer-body': 'structure', 'spin-stabilised': 'attitude', 'cosmic-ray-counter': 'instrument', 'scintillation-counter': 'instrument',
   'minitrack-beacon': 'comms', 'command-timer': 'computer', 'tape-recorder': 'computer', 'silicon-cells': 'power', 'mercury-battery': 'power',
-  'silver-zinc-battery': 'power' };
+  'silver-zinc-battery': 'power',
+  // present-day parts (modern.js)
+  'smallsat-bus': 'structure', 'reaction-wheels': 'attitude', 'sar-radar': 'instrument', 'solar-large': 'power', 'radio-xband': 'comms',
+  'obc-basic': 'computer', 'battery-28v': 'power', 'prop-green-large': 'propulsion' };
 
 async function addParts(page, parts) {
   for (const part of parts) {

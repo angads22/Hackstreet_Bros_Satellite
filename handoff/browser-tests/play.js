@@ -95,6 +95,15 @@ async function run(viewport, label) {
     'preset rocket shown as chosen, the other greyed out');
   ok(await page.locator('.preset-note').isVisible(), '"Set for this step." shown');
   await shot('4-launcher');
+  // The preset Mission Control and Tracking Station are read-only too
+  await page.keyboard.press('m'); await waitHead(page, 'BASE MAP');
+  await page.click('[data-key="blip-briefing"]'); await waitHead(page, 'BRIEFING');
+  ok(await page.locator('[data-key="obj-radiation"].chosen').count() === 1 && await page.locator('button.card:not([disabled])').count() === 0 && await page.locator('.preset-note').isVisible(),
+    'preset topic: radiation shown as chosen, nothing to click');
+  await page.keyboard.press('m'); await waitHead(page, 'BASE MAP');
+  await page.click('[data-key="blip-orbit"]'); await waitHead(page, 'ORBIT');
+  ok(await page.locator('[data-key="orbit-leo"].chosen').count() === 1 && await page.locator('[data-key="orbit-sso"]').isDisabled() && await page.locator('[data-key="orbit-geo"]').isDisabled(),
+    'preset orbit: low orbit shown as chosen, the others greyed out');
   ok(/LAUNCH PAD/.test(await page.locator('.nav-row .btn.primary').innerText()), 'GO TO points to the Launch Pad');
   await page.click('.nav-row .btn.primary');
 
@@ -145,6 +154,7 @@ async function run(viewport, label) {
   const beats2 = await T.throughBeats(page);
   console.log('     beats: ' + beats2.join(' | '));
   ok(beats2.length >= 1 && beats2.length <= 2, `${beats2.length} beat(s) before step 2`);
+  ok(!/SCORE/.test(await page.locator('#status').innerText()), 'the header no longer shows the last score');
   ok(await waitHead(page, 'BASE MAP'), 'step 2 map');
   ok(await page.locator('[data-key="blip-briefing"].done').count() === 1 && await page.locator('[data-key="blip-orbit"].next').count() === 1,
     'step 2: topic preset, the Tracking Station is next');
@@ -211,6 +221,7 @@ async function run(viewport, label) {
   ok(/lost on the launch pad, as many of the first rockets were/.test(epi.join(' ')) && /grandson Ajay opens it/.test(epi[epi.length - 1]),
     'the epilogue: lost on the launch pad ... his grandson Ajay opens it');
   ok(await page.locator('.intro .btn', { hasText: 'HOME' }).count() === 1, 'the last beat also offers HOME');
+  ok(!/SCORE/.test(await page.locator('#status').innerText()), 'epilogue header: no stale score');
   await shot('8-epilogue');
   await page.click('.intro .btn.primary');
   ok(await page.locator('.mode-card').count() === 2, 'CONTINUE TO PART 2 without Part 2 screens returns home');

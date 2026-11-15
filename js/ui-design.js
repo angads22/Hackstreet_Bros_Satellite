@@ -1848,7 +1848,9 @@
       rec.done[String(step)] = Math.max(rec.done[String(step)] || 0, stars);
       walkSave(rec);
     }
-    return { step: step, passed: passed, best_stars: walkStars(step), last: step === WALK_STEPS.length };
+    var best = walkStars(step);
+    // kept: this flight fell short, but the step passed before (a passed step stays passed).
+    return { step: step, passed: passed, kept: !passed && best !== null, best_stars: best, last: step === WALK_STEPS.length };
   }
 
   // A preset choice: set by the step, so its place counts as visited and its cards are read-only.
@@ -1907,6 +1909,7 @@
     opts = opts || {};
     beats = list(beats).filter(function (b) { return b && b.text; });
     if (!beats.length) return onDone();
+    setStatus(modeName() || "Space Mission Design Game");   // not the last mission's score
     var at = 0;
     function draw1() {
       var last = at >= beats.length - 1;
@@ -2839,8 +2842,8 @@
     },
     tierName: modeName,
     // Part 1. walkStep(design): the walkthrough step this design is (1 to 3), or 0. walkResult(design, stars): once per
-    // debrief, keeps the best stars of a step that passed and returns { step, passed, best_stars, last } (null for
-    // any other design). startWalkStep(n) starts step n; showEpilogue() follows step 3.
+    // debrief, keeps the best stars of a step that passed and returns { step, passed, kept, best_stars, last } (null
+    // for any other design; kept: this flight fell short but the step had passed before). startWalkStep(n) starts step n; showEpilogue() follows step 3.
     walkStep: walkStepOf,
     walkResult: walkResult,
     startWalkStep: startWalkStep,

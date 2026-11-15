@@ -251,7 +251,7 @@
 
     var side = el("div", { class: "panel limit" }, [
       walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
-        text: "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
+        text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
       // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them.
       result && result.unlocked && !done.design.campaign && !walk ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
       result && result.era_unlocked && !walk ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
@@ -295,16 +295,21 @@
   function walkButtons(walk, design) {
     var redesign = function () { window.showDesignScreen("build", design); };
     var home = function () { window.showDesignScreen("title"); };
+    var next = function (primary) {
+      return walk.last
+        ? UI.button(primary ? ["EPILOGUE", " >"] : "EPILOGUE", function () { UI.showEpilogue(); }, { primary: primary, key: "walk-next" })
+        : UI.button(primary ? ["NEXT STEP", " >"] : "NEXT STEP", function () { UI.startWalkStep(walk.step + 1); }, { primary: primary, key: "walk-next" });
+    };
     if (!walk.passed) {
+      // Never passed: TRY AGAIN only. Passed before (a replay that fell short): the next step stays open.
       return el("div", { class: "choices" }, [
         UI.button(["TRY AGAIN", " >"], redesign, { primary: true, key: "walk-retry" }),
+        walk.kept ? next(false) : null,
         UI.button("HOME", home, { key: "walk-home" })
       ]);
     }
     return el("div", { class: "choices" }, [
-      walk.last
-        ? UI.button(["EPILOGUE", " >"], function () { UI.showEpilogue(); }, { primary: true, key: "walk-next" })
-        : UI.button(["NEXT STEP", " >"], function () { UI.startWalkStep(walk.step + 1); }, { primary: true, key: "walk-next" }),
+      next(true),
       UI.button("REDESIGN", redesign, { key: "walk-redesign" }),
       UI.button("HOME", home, { key: "walk-home" })
     ]);
