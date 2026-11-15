@@ -1,0 +1,111 @@
+{
+ "source": "0.9 game code",
+ "saves": {
+  "fresh-normal": {
+   "raw": "{\"version\":4,\"mode\":\"comeback\",\"tier\":\"standard\",\"year\":2026,\"month\":0,\"deadline_month\":54,\"treasury_musd\":4,\"debt_musd\":40,\"knowledge_science\":{\"radiation\":0,\"solar\":0,\"weather\":0,\"wildfire\":0,\"sea-ice\":0,\"ionosphere\":0},\"research\":[\"solar-cells\",\"tape-recorder\",\"rechargeable-batteries\",\"cloud-photometry\",\"solar-physics\",\"thor-rockets\",\"television\",\"three-axis-control\",\"integrated-circuits\",\"modern-power\",\"modern-radio\",\"spacecraft-propulsion\",\"thermal-infrared\",\"synthetic-aperture-radar\",\"commercial-launch\",\"heavy-lift\",\"topside-sounding\"],\"upgrades\":[\"alouette-2-sounder\",\"scintillation-counter\",\"avcs-camera\",\"oso-xray-spectrometer\",\"pcm-telemetry\",\"n-on-p-cells\"],\"science_pts\":0,\"lessons\":[],\"missions\":[],\"flights\":0,\"log\":[],\"finished\":false,\"won\":false,\"offers\":[{\"id\":\"contract-0-wildfire\",\"topic\":\"wildfire\",\"orbit\":\"leo\",\"client\":\"A home insurer\",\"reason\":\"It prices fire risk for homes at the edge of the forest.\",\"min_science\":95,\"price_musd\":15.7,\"bonus_musd\":3.9,\"expires_month\":12,\"done\":false,\"text\":\"A home insurer: Wildfire monitoring, from low Earth orbit. $15.7M for at least 95 points of data, less for less; 3 stars adds $3.9M. Open until month 12.\"},{\"id\":\"contract-0-sea-ice\",\"topic\":\"sea-ice\",\"orbit\":null,\"client\":\"A coast guard\",\"reason\":\"It plans Arctic rescues and needs ice maps through the polar night.\",\"min_science\":120,\"price_musd\":22.9,\"bonus_musd\":5.7,\"expires_month\":12,\"done\":false,\"text\":\"A coast guard: Arctic sea-ice mapping. $22.9M for at least 120 points of data, less for less; 3 stars adds $5.7M. Open until month 12.\"},{\"id\":\"contract-0-solar\",\"topic\":\"solar\",\"orbit\":\"leo\",\"client\":\"A space weather forecaster\",\"reason\":\"It sells storm alerts and wants its own eye on the Sun's X-rays.\",\"min_science\":150,\"price_musd\":11.4,\"bonus_musd\":2.9,\"expires_month\":12,\"done\":false,\"text\":\"A space weather forecaster: Solar activity, from low Earth orbit. $11.4M for at least 150 points of data, less for less; 3 stars adds $2.9M. Open until month 12.\"}]}",
+   "expect": {
+    "tier": "standard",
+    "cash_musd": 4,
+    "debt_musd": 40,
+    "month": 0,
+    "deadline_month": 54,
+    "flights": 0,
+    "finished": false,
+    "won": false,
+    "lost_reason": null,
+    "contracts": [
+     "contract-0-wildfire",
+     "contract-0-sea-ice",
+     "contract-0-solar"
+    ]
+   }
+  },
+  "one-flight-normal": {
+   "raw": "{\"version\":4,\"mode\":\"comeback\",\"tier\":\"standard\",\"year\":2026,\"month\":9,\"deadline_month\":54,\"treasury_musd\":2.35,\"debt_musd\":41.836,\"knowledge_science\":{\"radiation\":0,\"solar\":0,\"weather\":0,\"wildfire\":0,\"sea-ice\":0,\"ionosphere\":0},\"research\":[\"solar-cells\",\"tape-recorder\",\"rechargeable-batteries\",\"cloud-photometry\",\"solar-physics\",\"thor-rockets\",\"television\",\"three-axis-control\",\"integrated-circuits\",\"modern-power\",\"modern-radio\",\"spacecraft-propulsion\",\"thermal-infrared\",\"synthetic-aperture-radar\",\"commercial-launch\",\"heavy-lift\",\"topside-sounding\"],\"upgrades\":[\"alouette-2-sounder\",\"scintillation-counter\",\"avcs-camera\",\"oso-xray-spectrometer\",\"pcm-telemetry\",\"n-on-p-cells\"],\"science_pts\":0,\"lessons\":[\"margins\",\"all_data\",\"spare\"],\"missions\":[{\"id\":\"m1-168rya5\",\"year\":2026,\"objective\":\"wildfire\",\"orbit\":\"leo\",\"spent_musd\":1.65,\"science\":0,\"payout_musd\":0,\"stars\":0,\"flight\":1,\"new_data\":0,\"first_look\":false,\"months\":36,\"ended_early\":false,\"limiting\":\"Science instruments\",\"parts\":7,\"real\":{\"name\":\"OroraTech FOREST\",\"year\":2022},\"month\":9,\"contract\":\"contract-0-wildfire\"}],\"flights\":1,\"log\":[],\"finished\":false,\"won\":false,\"offers\":[{\"id\":\"contract-0-sea-ice\",\"topic\":\"sea-ice\",\"orbit\":null,\"client\":\"A coast guard\",\"reason\":\"It plans Arctic rescues and needs ice maps through the polar night.\",\"min_science\":120,\"price_musd\":22.9,\"bonus_musd\":5.7,\"expires_month\":12,\"done\":false,\"text\":\"A coast guard: Arctic sea-ice mapping. $22.9M for at least 120 points of data, less for less; 3 stars adds $5.7M. Open until month 12.\"},{\"id\":\"contract-0-solar\",\"topic\":\"solar\",\"orbit\":\"leo\",\"client\":\"A space weather forecaster\",\"reason\":\"It sells storm alerts and wants its own eye on the Sun's X-rays.\",\"min_science\":150,\"price_musd\":11.4,\"bonus_musd\":2.9,\"expires_month\":12,\"done\":false,\"text\":\"A space weather forecaster: Solar activity, from low Earth orbit. $11.4M for at least 150 points of data, less for less; 3 stars adds $2.9M. Open until month 12.\"},{\"id\":\"contract-1-ionosphere\",\"topic\":\"ionosphere\",\"orbit\":null,\"client\":\"A GPS navigation firm\",\"reason\":\"Its positions drift when a solar storm stirs up the ionosphere.\",\"min_science\":70,\"price_musd\":14.1,\"bonus_musd\":3.5,\"expires_month\":21,\"done\":false,\"text\":\"A GPS navigation firm: The ionosphere from above. $14.1M for at least 70 points of data, less for less; 3 stars adds $3.5M. Open until month 21.\"},{\"id\":\"contract-0-wildfire\",\"topic\":\"wildfire\",\"orbit\":\"leo\",\"client\":\"A home insurer\",\"reason\":\"It prices fire risk for homes at the edge of the forest.\",\"min_science\":95,\"price_musd\":15.7,\"bonus_musd\":3.9,\"expires_month\":12,\"done\":true,\"text\":\"A home insurer: Wildfire monitoring, from low Earth orbit. $15.7M for at least 95 points of data, less for less; 3 stars adds $3.9M. Open until month 12.\"}]}",
+   "expect": {
+    "tier": "standard",
+    "cash_musd": 2.35,
+    "debt_musd": 41.836,
+    "month": 9,
+    "deadline_month": 54,
+    "flights": 1,
+    "finished": false,
+    "won": false,
+    "lost_reason": null,
+    "contracts": [
+     "contract-0-sea-ice",
+     "contract-0-solar",
+     "contract-1-ionosphere"
+    ]
+   }
+  },
+  "one-flight-paid-easy": {
+   "raw": "{\"version\":4,\"mode\":\"comeback\",\"tier\":\"training\",\"year\":2026,\"month\":9,\"deadline_month\":60,\"treasury_musd\":2.65,\"debt_musd\":29.378,\"knowledge_science\":{\"radiation\":0,\"solar\":0,\"weather\":0,\"wildfire\":0,\"sea-ice\":0,\"ionosphere\":0},\"research\":[\"solar-cells\",\"tape-recorder\",\"rechargeable-batteries\",\"cloud-photometry\",\"solar-physics\",\"thor-rockets\",\"television\",\"three-axis-control\",\"integrated-circuits\",\"modern-power\",\"modern-radio\",\"spacecraft-propulsion\",\"thermal-infrared\",\"synthetic-aperture-radar\",\"commercial-launch\",\"heavy-lift\",\"topside-sounding\"],\"upgrades\":[\"alouette-2-sounder\",\"scintillation-counter\",\"avcs-camera\",\"oso-xray-spectrometer\",\"pcm-telemetry\",\"n-on-p-cells\"],\"science_pts\":0,\"lessons\":[\"margins\",\"all_data\",\"storm_survived\",\"spare\"],\"missions\":[{\"id\":\"m1-zfw38j\",\"year\":2026,\"objective\":\"sea-ice\",\"orbit\":\"leo\",\"spent_musd\":1.35,\"science\":0,\"payout_musd\":0,\"stars\":0,\"flight\":1,\"new_data\":0,\"first_look\":false,\"months\":36,\"ended_early\":false,\"limiting\":\"Orbit and trajectory\",\"parts\":7,\"real\":{\"name\":\"ICEYE\",\"year\":2018},\"month\":9,\"contract\":\"contract-0-sea-ice\"}],\"flights\":1,\"log\":[{\"year\":2026,\"month\":9,\"kind\":\"payment\",\"musd\":2}],\"finished\":false,\"won\":false,\"offers\":[{\"id\":\"contract-0-ionosphere\",\"topic\":\"ionosphere\",\"orbit\":\"sso\",\"client\":\"A ham radio league\",\"reason\":\"Its members want to know when the ionosphere will carry their signals.\",\"min_science\":70,\"price_musd\":14.1,\"bonus_musd\":3.5,\"expires_month\":12,\"done\":false,\"text\":\"A ham radio league: The ionosphere from above, from sun-synchronous polar orbit. $14.1M for at least 70 points of data, less for less; 3 stars adds $3.5M. Open until month 12.\"},{\"id\":\"contract-0-solar\",\"topic\":\"solar\",\"orbit\":\"sso\",\"client\":\"A power grid operator\",\"reason\":\"A solar storm burned out one of its transformers; it wants warning next time.\",\"min_science\":150,\"price_musd\":11.4,\"bonus_musd\":2.9,\"expires_month\":12,\"done\":false,\"text\":\"A power grid operator: Solar activity, from sun-synchronous polar orbit. $11.4M for at least 150 points of data, less for less; 3 stars adds $2.9M. Open until month 12.\"},{\"id\":\"contract-1-wildfire\",\"topic\":\"wildfire\",\"orbit\":\"sso\",\"client\":\"A regional fire service\",\"reason\":\"It needs hot spots overnight, before the morning patrol flies.\",\"min_science\":95,\"price_musd\":15.7,\"bonus_musd\":3.9,\"expires_month\":21,\"done\":false,\"text\":\"A regional fire service: Wildfire monitoring, from sun-synchronous polar orbit. $15.7M for at least 95 points of data, less for less; 3 stars adds $3.9M. Open until month 21.\"},{\"id\":\"contract-0-sea-ice\",\"topic\":\"sea-ice\",\"orbit\":null,\"client\":\"A shipping line\",\"reason\":\"It routes cargo ships through the Arctic and must know where the ice is.\",\"min_science\":120,\"price_musd\":22.9,\"bonus_musd\":5.7,\"expires_month\":12,\"done\":true,\"text\":\"A shipping line: Arctic sea-ice mapping. $22.9M for at least 120 points of data, less for less; 3 stars adds $5.7M. Open until month 12.\"}]}",
+   "expect": {
+    "tier": "training",
+    "cash_musd": 2.65,
+    "debt_musd": 29.378,
+    "month": 9,
+    "deadline_month": 60,
+    "flights": 1,
+    "finished": false,
+    "won": false,
+    "lost_reason": null,
+    "contracts": [
+     "contract-0-ionosphere",
+     "contract-0-solar",
+     "contract-1-wildfire"
+    ]
+   }
+  },
+  "two-flights-normal": {
+   "raw": "{\"version\":4,\"mode\":\"comeback\",\"tier\":\"standard\",\"year\":2027,\"month\":18,\"deadline_month\":54,\"treasury_musd\":0.7,\"debt_musd\":43.756,\"knowledge_science\":{\"radiation\":0,\"solar\":0,\"weather\":0,\"wildfire\":0,\"sea-ice\":0,\"ionosphere\":0},\"research\":[\"solar-cells\",\"tape-recorder\",\"rechargeable-batteries\",\"cloud-photometry\",\"solar-physics\",\"thor-rockets\",\"television\",\"three-axis-control\",\"integrated-circuits\",\"modern-power\",\"modern-radio\",\"spacecraft-propulsion\",\"thermal-infrared\",\"synthetic-aperture-radar\",\"commercial-launch\",\"heavy-lift\",\"topside-sounding\"],\"upgrades\":[\"alouette-2-sounder\",\"scintillation-counter\",\"avcs-camera\",\"oso-xray-spectrometer\",\"pcm-telemetry\",\"n-on-p-cells\"],\"science_pts\":0,\"lessons\":[\"margins\",\"all_data\",\"spare\",\"new_topic\"],\"missions\":[{\"id\":\"m1-168rya5\",\"year\":2026,\"objective\":\"wildfire\",\"orbit\":\"leo\",\"spent_musd\":1.65,\"science\":0,\"payout_musd\":0,\"stars\":0,\"flight\":1,\"new_data\":0,\"first_look\":false,\"months\":36,\"ended_early\":false,\"limiting\":\"Science instruments\",\"parts\":7,\"real\":{\"name\":\"OroraTech FOREST\",\"year\":2022},\"month\":9,\"contract\":\"contract-0-wildfire\"},{\"id\":\"m2-jszvnr\",\"year\":2026,\"objective\":\"sea-ice\",\"orbit\":\"leo\",\"spent_musd\":1.65,\"science\":0,\"payout_musd\":0,\"stars\":0,\"flight\":2,\"new_data\":0,\"first_look\":false,\"months\":36,\"ended_early\":false,\"limiting\":\"Orbit and trajectory\",\"parts\":7,\"real\":{\"name\":\"ICEYE\",\"year\":2018},\"month\":18,\"contract\":\"contract-0-sea-ice\"}],\"flights\":2,\"log\":[],\"finished\":true,\"won\":false,\"offers\":[{\"id\":\"contract-1-ionosphere\",\"topic\":\"ionosphere\",\"orbit\":null,\"client\":\"A GPS navigation firm\",\"reason\":\"Its positions drift when a solar storm stirs up the ionosphere.\",\"min_science\":70,\"price_musd\":14.1,\"bonus_musd\":3.5,\"expires_month\":21,\"done\":false,\"text\":\"A GPS navigation firm: The ionosphere from above. $14.1M for at least 70 points of data, less for less; 3 stars adds $3.5M. Open until month 21.\"},{\"id\":\"contract-2-radiation\",\"topic\":\"radiation\",\"orbit\":\"sso\",\"client\":\"A long-haul airline\",\"reason\":\"It checks the radiation dose its crews take on polar routes.\",\"min_science\":60,\"price_musd\":8.1,\"bonus_musd\":2,\"expires_month\":30,\"done\":false,\"text\":\"A long-haul airline: Radiation around Earth, from sun-synchronous polar orbit. $8.1M for at least 60 points of data, less for less; 3 stars adds $2M. Open until month 30.\"},{\"id\":\"contract-2-sea-ice\",\"topic\":\"sea-ice\",\"orbit\":null,\"client\":\"A shipping line\",\"reason\":\"It routes cargo ships through the Arctic and must know where the ice is.\",\"min_science\":120,\"price_musd\":22.9,\"bonus_musd\":5.7,\"expires_month\":30,\"done\":false,\"text\":\"A shipping line: Arctic sea-ice mapping. $22.9M for at least 120 points of data, less for less; 3 stars adds $5.7M. Open until month 30.\"},{\"id\":\"contract-0-sea-ice\",\"topic\":\"sea-ice\",\"orbit\":null,\"client\":\"A coast guard\",\"reason\":\"It plans Arctic rescues and needs ice maps through the polar night.\",\"min_science\":120,\"price_musd\":22.9,\"bonus_musd\":5.7,\"expires_month\":12,\"done\":true,\"text\":\"A coast guard: Arctic sea-ice mapping. $22.9M for at least 120 points of data, less for less; 3 stars adds $5.7M. Open until month 12.\"},{\"id\":\"contract-0-wildfire\",\"topic\":\"wildfire\",\"orbit\":\"leo\",\"client\":\"A home insurer\",\"reason\":\"It prices fire risk for homes at the edge of the forest.\",\"min_science\":95,\"price_musd\":15.7,\"bonus_musd\":3.9,\"expires_month\":12,\"done\":true,\"text\":\"A home insurer: Wildfire monitoring, from low Earth orbit. $15.7M for at least 95 points of data, less for less; 3 stars adds $3.9M. Open until month 12.\"}]}",
+   "expect": {
+    "tier": "standard",
+    "cash_musd": 0.7,
+    "debt_musd": 43.756,
+    "month": 18,
+    "deadline_month": 54,
+    "flights": 2,
+    "finished": true,
+    "won": false,
+    "lost_reason": "cash",
+    "contracts": []
+   }
+  },
+  "won-easy": {
+   "raw": "{\"version\":4,\"mode\":\"comeback\",\"tier\":\"training\",\"year\":2026,\"month\":0,\"deadline_month\":60,\"treasury_musd\":70,\"debt_musd\":0,\"knowledge_science\":{\"radiation\":0,\"solar\":0,\"weather\":0,\"wildfire\":0,\"sea-ice\":0,\"ionosphere\":0},\"research\":[\"solar-cells\",\"tape-recorder\",\"rechargeable-batteries\",\"cloud-photometry\",\"solar-physics\",\"thor-rockets\",\"television\",\"three-axis-control\",\"integrated-circuits\",\"modern-power\",\"modern-radio\",\"spacecraft-propulsion\",\"thermal-infrared\",\"synthetic-aperture-radar\",\"commercial-launch\",\"heavy-lift\",\"topside-sounding\"],\"upgrades\":[\"alouette-2-sounder\",\"scintillation-counter\",\"avcs-camera\",\"oso-xray-spectrometer\",\"pcm-telemetry\",\"n-on-p-cells\"],\"science_pts\":0,\"lessons\":[],\"missions\":[],\"flights\":0,\"log\":[{\"year\":2026,\"month\":0,\"kind\":\"payment\",\"musd\":30}],\"finished\":true,\"won\":true,\"offers\":[{\"id\":\"contract-0-sea-ice\",\"topic\":\"sea-ice\",\"orbit\":null,\"client\":\"A shipping line\",\"reason\":\"It routes cargo ships through the Arctic and must know where the ice is.\",\"min_science\":120,\"price_musd\":22.9,\"bonus_musd\":5.7,\"expires_month\":12,\"done\":false,\"text\":\"A shipping line: Arctic sea-ice mapping. $22.9M for at least 120 points of data, less for less; 3 stars adds $5.7M. Open until month 12.\"},{\"id\":\"contract-0-ionosphere\",\"topic\":\"ionosphere\",\"orbit\":\"sso\",\"client\":\"A ham radio league\",\"reason\":\"Its members want to know when the ionosphere will carry their signals.\",\"min_science\":70,\"price_musd\":14.1,\"bonus_musd\":3.5,\"expires_month\":12,\"done\":false,\"text\":\"A ham radio league: The ionosphere from above, from sun-synchronous polar orbit. $14.1M for at least 70 points of data, less for less; 3 stars adds $3.5M. Open until month 12.\"},{\"id\":\"contract-0-solar\",\"topic\":\"solar\",\"orbit\":\"sso\",\"client\":\"A power grid operator\",\"reason\":\"A solar storm burned out one of its transformers; it wants warning next time.\",\"min_science\":150,\"price_musd\":11.4,\"bonus_musd\":2.9,\"expires_month\":12,\"done\":false,\"text\":\"A power grid operator: Solar activity, from sun-synchronous polar orbit. $11.4M for at least 150 points of data, less for less; 3 stars adds $2.9M. Open until month 12.\"}],\"cash_musd\":100}",
+   "expect": {
+    "tier": "training",
+    "cash_musd": 70,
+    "debt_musd": 0,
+    "month": 0,
+    "deadline_month": 60,
+    "flights": 0,
+    "finished": true,
+    "won": true,
+    "lost_reason": null,
+    "contracts": []
+   }
+  },
+  "deadline-hard": {
+   "raw": "{\"version\":4,\"mode\":\"comeback\",\"tier\":\"expert\",\"year\":2026,\"month\":54,\"deadline_month\":54,\"treasury_musd\":3,\"debt_musd\":45,\"knowledge_science\":{\"radiation\":0,\"solar\":0,\"weather\":0,\"wildfire\":0,\"sea-ice\":0,\"ionosphere\":0},\"research\":[\"solar-cells\",\"tape-recorder\",\"rechargeable-batteries\",\"cloud-photometry\",\"solar-physics\",\"thor-rockets\",\"television\",\"three-axis-control\",\"integrated-circuits\",\"modern-power\",\"modern-radio\",\"spacecraft-propulsion\",\"thermal-infrared\",\"synthetic-aperture-radar\",\"commercial-launch\",\"heavy-lift\",\"topside-sounding\"],\"upgrades\":[\"alouette-2-sounder\",\"scintillation-counter\",\"avcs-camera\",\"oso-xray-spectrometer\",\"pcm-telemetry\",\"n-on-p-cells\"],\"science_pts\":0,\"lessons\":[],\"missions\":[],\"flights\":0,\"log\":[],\"finished\":false,\"won\":false,\"offers\":[{\"id\":\"contract-0-radiation\",\"topic\":\"radiation\",\"orbit\":null,\"client\":\"A satellite operator\",\"reason\":\"Its fleet keeps rebooting in the radiation belts; it needs a map to fly around.\",\"min_science\":60,\"price_musd\":8.1,\"bonus_musd\":2,\"expires_month\":12,\"done\":false,\"text\":\"A satellite operator: Radiation around Earth. $8.1M for at least 60 points of data, less for less; 3 stars adds $2M. Open until month 12.\"},{\"id\":\"contract-0-sea-ice\",\"topic\":\"sea-ice\",\"orbit\":null,\"client\":\"A northern community council\",\"reason\":\"Its hunters travel on the sea ice and need to know where it is thin.\",\"min_science\":120,\"price_musd\":22.9,\"bonus_musd\":5.7,\"expires_month\":12,\"done\":false,\"text\":\"A northern community council: Arctic sea-ice mapping. $22.9M for at least 120 points of data, less for less; 3 stars adds $5.7M. Open until month 12.\"},{\"id\":\"contract-0-weather\",\"topic\":\"weather\",\"orbit\":\"leo\",\"client\":\"An airline\",\"reason\":\"It reroutes flights around storms and wants to see them forming.\",\"min_science\":60,\"price_musd\":9.7,\"bonus_musd\":2.4,\"expires_month\":12,\"done\":false,\"text\":\"An airline: First weather pictures, from low Earth orbit. $9.7M for at least 60 points of data, less for less; 3 stars adds $2.4M. Open until month 12.\"}]}",
+   "expect": {
+    "tier": "expert",
+    "cash_musd": 3,
+    "debt_musd": 45,
+    "month": 54,
+    "deadline_month": 54,
+    "flights": 0,
+    "finished": false,
+    "won": false,
+    "lost_reason": null,
+    "contracts": []
+   }
+  }
+ },
+ "progress": {
+  "smdg-progress-v1": "{\"best_stars\":{\"training\":3,\"standard\":1},\"best_score\":{\"training\":97,\"standard\":60},\"best_stars_by_era\":{\"igy\":3,\"nimbus\":2}}",
+  "gravitron-walkthrough-v1": "{\"done\":{\"1\":2,\"2\":3}}"
+ }
+}

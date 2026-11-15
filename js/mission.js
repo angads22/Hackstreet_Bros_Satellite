@@ -935,14 +935,44 @@ function getCampaign() {
       var raw = localStorage.getItem(CAMPAIGN_KEY);
       if (raw) {
         c = JSON.parse(raw);
-        // A save of the wrong shape (an old bug, or a hand-edited browser store) is ignored like an old version.
-        if (raw !== checkedRaw) { if (!validCampaign(c)) return null; checkedRaw = raw; }
+        // A save of the wrong shape (an old bug, or a hand-edited browser store) is ignored, and so is one from a newer
+        // game: neither is deleted. A save from the game before this one is upgraded in place (upgradeCampaign).
+        if (raw !== checkedRaw) {
+          var upgraded = upgradeCampaign(c);
+          if (!validCampaign(c)) return null;
+          if (upgraded) { raw = JSON.stringify(c); localStorage.setItem(CAMPAIGN_KEY, raw); }
+          checkedRaw = raw;
+        }
       }
     }
   } catch (e) { c = null; }
   if (!c) c = memoryCampaign;
   if (!c || c.version !== campaignVersion()) return null;
   return refundLostFlights(c);
+}
+
+// ---- upgrading a save from the game before this one, in place
+// A campaign saved at SAVE_UPGRADES_FROM (the 0.9 game) is brought to the current version and nothing is thrown away:
+// every field and value it has stays exactly as it is, and only what the new version adds is filled in with a safe
+// default. A comeback gets a random seed (its contracts are already dealt, so it changes nothing now), buyout "none"
+// (the offer comes after its next settled flight, as it does for any run) and its own starting debt, so a run keeps
+// the debt the player was given even though the tuning of new runs changed. A save with a field missing that the new
+// version added is never refused for it. Returns true if c was changed (the caller saves it back).
+var SAVE_UPGRADES_FROM = 4;
+var LEGACY_START_DEBT = { training: 30, standard: 40, expert: 45 };   // what the debt of each difficulty was at version 4
+function upgradeCampaign(c) {
+  if (!isRecord(c) || typeof CAMPAIGN === "undefined") return false;
+  var changed = false, wasOld = false;
+  if (c.version === SAVE_UPGRADES_FROM && c.version < campaignVersion()) { c.version = campaignVersion(); changed = true; wasOld = true; }
+  if (c.version !== campaignVersion() || c.mode !== "comeback") return changed;
+  if (c.seed === undefined) { c.seed = Math.floor(Math.random() * 4294967296); changed = true; }
+  if (c.buyout === undefined) { c.buyout = "none"; changed = true; }
+  if (c.start_debt_musd === undefined) {
+    var legacy = LEGACY_START_DEBT[c.tier], t = comebackTier(c);
+    var start = legacy !== undefined && wasOld ? legacy : t ? t.debt_musd : undefined;
+    if (isNumber(start)) { c.start_debt_musd = start; changed = true; }
+  }
+  return changed;
 }
 
 function saveCampaign(c) {
@@ -1437,8 +1467,10 @@ function importSave(code) {
     if (checksum(body) !== parts[2]) return { ok: false, reason: "The code is damaged or incomplete." };
     var data = JSON.parse(body);
     if (!isRecord(data)) return { ok: false, reason: "The code could not be read." };
-    if (data.v !== campaignVersion()) return { ok: false, reason: "The code is from another version of the game." };
-    if (data.campaign && data.campaign.version !== campaignVersion()) return { ok: false, reason: "The campaign is from another version." };
+    var upgradable = function (v) { return v === campaignVersion() || v === SAVE_UPGRADES_FROM; };   // a code from the game before is upgraded
+    if (!upgradable(data.v)) return { ok: false, reason: "The code is from another version of the game." };
+    if (data.campaign && !upgradable(data.campaign.version)) return { ok: false, reason: "The campaign is from another version." };
+    if (data.campaign) upgradeCampaign(data.campaign);
     if (!isRecord(data.progress)) return { ok: false, reason: "The code has no progress in it." };
     // Every field is checked before anything is saved: a code that is well formed but incomplete never replaces a good save.
     var progress = cleanProgress(data.progress);
@@ -1505,7 +1537,7 @@ function validCampaign(c) {
   if (!comeback) return true;
   var cfg = comebackConfig();
   return !!(cfg && cfg.tiers[c.tier]) && isNumber(c.month) && isNumber(c.deadline_month) && isNumber(c.debt_musd) &&
-    isCount(c.seed) && c.seed <= 4294967295 && BUYOUT_STATES.indexOf(c.buyout) !== -1;
+    isCount(c.seed) && c.seed <= 4294967295 && BUYOUT_STATES.indexOf(c.buyout) !== -1 && isOptional(c.start_debt_musd, isNumber);
 }
 
 // ------------------------------------------------------------------ research tree and lessons
@@ -1919,7 +1951,10 @@ function previewContractPay(design, c) {
 }
 
 // ---- the money and the clock
-function startDebt(c) { var t = comebackTier(c); return t ? t.debt_musd : 0; }
+function startDebt(c) {
+  if (c && isNumber(c.start_debt_musd)) return c.start_debt_musd;   // the debt this run began with (kept if the tuning changes)
+  var t = comebackTier(c); return t ? t.debt_musd : 0;
+}
 function paidSoFar(c) {
   return round((c.log || []).reduce(function (t, e) { return e.kind === "payment" ? t + (e.musd || 0) : t; }, 0), 3);
 }
@@ -2007,6 +2042,7 @@ function newComeback(tierId, seed) {
     deadline_month: t.deadline_months,
     treasury_musd: t.cash_musd,     // the cash
     debt_musd: t.debt_musd,
+    start_debt_musd: t.debt_musd,   // the debt this run began with (the hub's and the chronicle's reference)
     knowledge_science: knowledge,
     research: (typeof RESEARCH === "undefined" ? [] : RESEARCH).map(function (r) { return r.id; }),   // today's parts: nothing to research
     upgrades: PARTS.filter(function (p) { return p.upgrade; }).map(function (p) { return p.id; }),
