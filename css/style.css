@@ -986,3 +986,9 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 /* An event: focus lands on its heading (not a control, so no ring), and every choice reads the same, with its cost under it. */
 .dialogue h2[tabindex="-1"]:focus { outline: none; }
 .choices .btn .odds { opacity: 1; color: var(--text-dim); }
+/* The lift-off: a short T-MINUS over the pad counts to zero, then LIFT-OFF (js/ui-design.js, launchShow). */
+.launch-clock { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 16px; font-family: var(--pixel); font-weight: 700; line-height: 1; }
+.launch-clock .launch-word { color: var(--text-dim); font-size: 28px; }
+.launch-show .launch-clock .countdown { font-size: clamp(40px, 8vw, 64px); }
+.launch-show[data-phase="liftoff"] .launch-word { color: var(--info-ink); }
+.launch-show .lp-launch { width: min(100%, 960px, calc((100vh - 190px) * 4 / 3)); }

@@ -137,6 +137,25 @@ async function lowPolyOn(viewport, label) {
   await page.waitForTimeout(200);
   await page.keyboard.press('m');
   ok(await head(page, 'MISSION') && Date.now() - t2 < 1500 && await page.locator('.screen-head h1', { hasText: 'BASE MAP' }).count() === 0, 'a key skips it too, and M does not open the map');
+  // The lift-off counts a short T-MINUS down to zero, and lifts off on zero (not before), then the mission screen opens.
+  await show(page, 'review', PARTS, 'small');
+  await head(page, 'READINESS');
+  await page.click('.btn.big');
+  const counts = [], phases = [];
+  for (let i = 0; i < 120; i++) {
+    const s = await page.evaluate(() => {
+      const box = document.querySelector('.launch-show'), c = box && box.querySelector('[data-key="launch-count"]');
+      return box ? { n: c ? parseInt(c.textContent.replace(/\D/g, ''), 10) : NaN, phase: box.getAttribute('data-phase'), text: box.innerText } : null;
+    });
+    if (!s) break;
+    if (counts[counts.length - 1] !== s.n) { counts.push(s.n); phases.push(s.phase + (/LIFT-OFF/.test(s.text) ? '+word' : '')); }
+    await page.waitForTimeout(40);
+  }
+  console.log(`     the count read ${counts.join(', ')} (${phases.join(', ')})`);
+  ok(counts.length >= 3 && counts[0] > 0 && counts.every((n, i) => i === 0 || n === counts[i - 1] - 1), 'the lift-off counts down one at a time');
+  ok(counts[counts.length - 1] === 0, '...to zero before the mission screen opens');
+  ok(phases.every((ph, i) => (counts[i] === 0) === (ph === 'liftoff+word')), '...and it says LIFT-OFF on zero, never before');
+  ok(await head(page, 'MISSION'), '...then the mission screen');
 
   // The base map, when it is low-poly: the canvas sits under the markers, which keep their places.
   await show(page, 'map', PARTS);
