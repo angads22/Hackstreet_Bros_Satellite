@@ -4,6 +4,8 @@ You are taking over from another Claude session that is out of limit. The user i
 
 This folder (`handoff/`) is not loaded by the game. Delete it when the work in it has landed.
 
+> **Update:** `lowpoly.js` and `lp-earth.js` now live in `js/` and are loaded by `index.html` (they draw the home page hero, behind a `typeof LowPoly` guard). The other `lp-*.js` files are still in `handoff/lowpoly/js/` until each is wired in: move each one with `git mv` into `js/` and add its script tag after `lp-earth.js`.
+
 ## 0. Read first, in this order
 
 1. `SPEC.md` (the source of truth) and `CLAUDE.md`. Plain HTML, CSS and JS, no frameworks, no build step, no `import`. `fetch` only in `js/live-data.js`. `js/game.js` never touches the page. Do not rename or add data fields without asking. One small task at a time. **Any change to `SPEC.md` goes to `main` straight away, in its own commit.**

@@ -4,8 +4,13 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 0.8 beta (November 15, 2026)
+
+The home page opens on low-poly art: a faceted Earth with a satellite above it, drawn by the game's own small renderer. The home page and the design screens use fewer words and more flat icons, and the Readiness review assembles the satellite part by part.
+
 ### Added
 
+- **A low-poly home page.** The title screen opens on a faceted low-poly Earth with a satellite above it, drawn by the game's own small renderer (`js/lowpoly.js`, `js/lp-earth.js`). If the art cannot load or draw, the page works without it.
 - **More screen icons and an assembly preview.** Place headers, the map legend, minimap, part statistics and debrief use the shared flat icons. The Readiness satellite assembles part by part; reduced-motion settings show it immediately.
 - **Flat icons beside the words.** The parts bins, the four resource bars (mass, power, budget, data) and the problem lists now carry a simple one-colour icon; a blocker shows a cross, a warning a triangle. The words stay next to every icon.
 - **The ending: the programme chronicle.** When a campaign ends (won or out of time), the game tells the player's own story: a front page with a rating (Architects of the space age, Pioneers, An established programme, A promising start, Lessons learned), what each topic taught and what history says, and a year-by-year timeline of every flight (named G-1, G-2…, with a headline and its real twin), research and upgrade. `getChronicle()`; `js/ui-ending.js`.
@@ -20,6 +25,17 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **A better opening.** Explorer-sized mercury batteries now last about 50 days (Explorer 1's transmitters lasted 31 and 105), so the first flight earns real data, and Silicon solar cells cost 4 science: one flight pays for them, so the opening no longer needs the same dud flight twice. Winning a campaign now needs three topics at 80% known (was 60%), so a campaign lasts longer.
 - **The title leads with the campaign,** the core loop; a single mission is the quick alternative below it. The Build screen opens on the instrument bin. In a campaign, the debrief points to the lab instead of "the next tier".
 - **The campaign test and the balance sweep now include a body and an attitude part** in every design.
+
+### Changed
+
+- **A simpler home page.** Locked eras are one short card that says LOCKED, locked levels say LOCKED instead of repeating "Earn 2 stars on..." (the rule is the one hint at the top and each card's spoken name), the stars line, the subtitle and the "Choose an era and a level" heading are gone, the campaign buttons show only the treasury, and Reset progress is a quiet link. The visible words on the title fell from 167 to 97.
+
+### Not in this version yet
+
+- **The rest of the low-poly art** (part models, rockets, people, base map, and the satellite on the Build bench) is built but not in the game yet.
+- **Launch failures** are planned and not built.
+- **Suppliers, countries and travel costs** are a proposal in `SPEC.md`, not agreed.
+- The calibration event's 80% science is a game value still to agree with the Simulation owner.
 
 ## 0.7 beta (November 15, 2026)
 
