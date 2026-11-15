@@ -107,6 +107,8 @@
     hover: null,         // part id being previewed on Build
     hintOpen: false,
     avail: null,         // getAvailability(design) for the screen being drawn
+    seenHint: {},        // screens whose one-line hint has been shown in this page load
+    introSeen: {},       // chapters whose story intro has been shown in this page load
     touch: false,        // last press on a part card was a finger
     armed: false,        // that part was already previewed when the finger went down
     locked: false        // true from launch until the debrief buttons
@@ -192,6 +194,21 @@
       svg.appendChild(rect);
     });
     return svg;
+  }
+
+  // The first sentence of a text, for cards that show one line and keep the rest behind "More".
+  function firstSentence(text) {
+    var t = String(text || ""), m = /^(.+?[.!?])(\s|$)/.exec(t);
+    return m ? m[1] : t;
+  }
+  function restOf(text) {
+    var t = String(text || ""), first = firstSentence(t);
+    return t.slice(first.length).replace(/^\s+/, "");
+  }
+  // Extra words, folded away until asked for (a <details>): reachable by keyboard and screen readers.
+  function more(text, label) {
+    if (!text) return null;
+    return el("details", { class: "more" }, [el("summary", { text: label || "More" }), el("p", { class: "card-blurb", text: text })]);
   }
 
   function facts(rows) {
@@ -361,18 +378,24 @@
     if (!box || !btn) return;
     var mode = tier() ? tier().hints : "on";
     var text = HINTS[screen] || "";
+    var tutorial = "";
     // Story's hints come from getHints (data/hints.js): the tutorial line, then the first tip.
     var key = HINT_KEYS[screen];
     if (key && typeof getHints === "function" && (state.design || key === "hub")) {
       var h = getHints(key, state.design);
       mode = h.mode || mode;
+      tutorial = h.tutorial || "";
       var lines = [h.tutorial].concat(list(h.tips).slice(0, 1)).filter(Boolean);
       if (lines.length) text = lines.join(" ");
     }
-    btn.hidden = !(mode === "request" && text);
+    // Hints "on": just the one tutorial line, only the first time this screen is visited in a page load.
+    // The "?" button brings the full hint back. "request": the "?" button only. "off": nothing.
+    var first = !state.seenHint[screen];
+    btn.hidden = !(text && mode !== "off" && (mode === "request" || !first));
     btn.setAttribute("aria-expanded", state.hintOpen ? "true" : "false");
-    box.hidden = !text || mode === "off" || (mode === "request" && !state.hintOpen);
-    box.textContent = text;
+    var show = !!text && mode !== "off" && (state.hintOpen || (mode === "on" && first));
+    box.hidden = !show;
+    box.textContent = state.hintOpen ? text : (tutorial || firstSentence(text));
   }
 
   function mount(screen, node) {
@@ -403,6 +426,7 @@
     state.swappedAt = Date.now();
     state.hover = null;
     state.hintOpen = false;
+    state.seenHint[state.screen] = true;   // the screen being left: its one-line hint has been shown
     draw(screen);
     var app = document.getElementById("app");
     if (app) app.focus();
@@ -425,8 +449,24 @@
     return mount("title", drawTitle());
   }
 
-  function head(title, text) {
-    return el("div", { class: "screen-head" }, [el("h1", { text: title }), text ? el("p", { text: text }) : null]);
+  // A screen title only. What used to be a sentence under it is the story line (sayLine) and the hint.
+  function head(title) {
+    return el("div", { class: "screen-head" }, [el("h1", { text: title })]);
+  }
+
+  // ---- the story: one short spoken line per screen (STORY block above; "" shows nothing)
+  function sayLine(key, extra) {
+    var line = typeof storyLine === "function" ? storyLine(key, state.design, extra) : "";
+    if (!line) return null;
+    var who = typeof line === "object" ? line.who : "team", text = typeof line === "object" ? line.text : String(line);
+    if (!text) return null;
+    var name = typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : "";
+    var face = typeof speakerArt === "function" ? speakerArt(who) : null;
+    return el("div", { class: "say", role: "note" }, [
+      face || directorArt(),
+      el("div", { class: "say-text" }, [name ? el("span", { class: "say-name", text: String(name).toUpperCase() }) : null,
+        el("p", { text: text })])
+    ]);
   }
 
   // Every place has a way out to the map. CONTINUE walks you to the next place.
@@ -474,6 +514,27 @@
     ]);
   }
 
+  // A short label for each readiness check; the back end's full sentence stays one tap away ("Why").
+  var CHECK_LABELS = {
+    "no-objective": "NO JOB CHOSEN", "no-orbit": "NO ORBIT", "no-launcher": "NO ROCKET",
+    "launcher-reach": "ROCKET CANNOT REACH", "launcher-locked": "ROCKET LOCKED", "objective-locked": "TOPIC LOCKED", "part-locked": "PART LOCKED",
+    "mass": "TOO HEAVY", "budget": "OVER BUDGET", "power": "NOT ENOUGH POWER", "delta-v": "NOT ENOUGH THRUST",
+    "body-count": "ONE BODY ONLY", "body-payload": "BODY OVERLOADED", "body-slots": "BODY FULL", "too-late": "TOO LATE",
+    "data": "DATA LOST", "battery": "NO SHADOW POWER", "battery-only": "BATTERY ONLY", "no-match": "WRONG INSTRUMENT",
+    "orbit-fit": "ORBIT CANNOT SEE IT", "mass-margin": "THIN MASS MARGIN", "power-margin": "THIN POWER MARGIN"
+  };
+  function checkLabel(c) {
+    var id = String(c.id || "");
+    if (CHECK_LABELS[id]) return CHECK_LABELS[id];
+    if (id.indexOf("empty-") === 0) {
+      var cat = byId(categories(), id.slice(6));
+      return "NO " + (cat ? cat.name : id.slice(6).toUpperCase());
+    }
+    if (id.indexOf("resolution-") === 0) return "TOO BLURRY";
+    if (id.indexOf("smear-") === 0) return "PICTURES SMEAR";
+    return c.text;   // an id this list does not know: the back end's own words
+  }
+
   function checkList(design, opts) {
     opts = opts || {};
     var checks = runChecks(design);
@@ -486,8 +547,10 @@
     if (!rows.length) return opts.short ? el("p", { class: "preview-line fix", text: "No problems right now." }) : null;
     return el("ul", { class: "checks" }, rows.map(function (row) {
       var target = FIX_SCREEN[row.c.id] || "build";
+      var label = checkLabel(row.c);
       return el("li", { class: "check " + row.kind }, [
-        el("span", { text: row.c.text }),
+        el("span", { class: "check-text" }, [el("strong", { text: label }),
+          label !== row.c.text ? el("details", { class: "more why" }, [el("summary", { text: "Why" }), el("span", { text: row.c.text })]) : null]),
         opts.fix && target !== state.screen
           ? el("button", { type: "button", class: "fix", onclick: function () { go(target); },
               "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
@@ -526,7 +589,7 @@
     var info = hubInfo();
     return el("div", { class: "panel campaign-panel" }, [
       el("h2", { text: "CAMPAIGN" }),
-      el("p", { class: "card-blurb", text: "Start in 1957. Money and knowledge carry from one satellite to the next, and research opens new parts." }),
+      more("Start in 1957. Money and knowledge carry from one satellite to the next, and research opens new parts.", "How it works"),
       info ? button(["CONTINUE: " + info.year + ", " + money(info.treasury_musd), " >"], function () { window.showCampaignHub(); },
         { primary: true, aria: "Continue the campaign" }) : null,
       el("div", { class: "tier-list row" }, tiers.map(function (t) {
@@ -559,11 +622,12 @@
     return el("button", {
       type: "button", class: "tier-btn" + (open ? "" : " locked"), disabled: !open,
       "data-key": era ? "start-" + era.id + "-" + t.id : "tier-" + t.id,
-      "aria-label": (era ? era.name + " " + era.year + ", " : "") + t.name + (why ? ". Locked: " + (eraOpen ? why : eraLockText) : ""),
+      title: num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission",
+      "aria-label": (era ? era.name + " " + era.year + ", " : "") + t.name + ", " + money(t.budget_musd) + ", " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + (why ? ". Locked: " + (eraOpen ? why : eraLockText) : ""),
       onclick: function () { startMissionDesign(t.id, era ? era.id : null); }
     }, [
       el("span", { class: "tier-name", text: t.name.toUpperCase() }),
-      el("span", { class: "tier-facts", text: why ? why : money(t.budget_musd) + " · " + num(t.events, 0) + (t.events === 1 ? " event" : " events") })
+      el("span", { class: "tier-facts", text: why ? why : money(t.budget_musd) })
     ]);
   }
 
@@ -585,8 +649,8 @@
           el("div", { class: "era-year", text: String(e.year) }),
           el("div", { class: "card-title" }, [el("h3", { text: String(e.name).toUpperCase() }),
             el("span", { class: "stars", text: starsText(e.best_stars), "aria-label": (e.best_stars || 0) + " of 3 stars" })]),
-          el("p", { class: "card-blurb", text: e.unlocked ? e.blurb : lockText }),
-          real.length ? el("p", { class: "bar-note", text: "Real missions: " + real.join(", ") }) : null,
+          e.unlocked ? more(e.blurb + (real.length ? " Real missions: " + real.join(", ") + "." : ""), "About this era")
+            : el("p", { class: "card-blurb", text: lockText }),
           el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, e, e.unlocked, lockText); }))
         ]);
       }));
@@ -603,7 +667,7 @@
     return el("section", { class: "title" }, [
       el("div", { class: "kicker", text: "A SPACE MISSION DESIGN GAME" }),
       el("h1", { class: "big-title", text: "STARLINE" }),
-      el("p", { class: "tagline", text: "Pick a job for a satellite. Build it under hard limits. Launch it, and learn why it worked or failed." }),
+      el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
       el("h2", { class: "subhead", text: eras.length ? "CHOOSE AN ERA AND A LEVEL" : "CHOOSE A LEVEL" }),
       tiers.length ? grid : el("p", { class: "empty", text: "No tiers in the data yet." }),
       tiers.length ? best : null,
@@ -615,13 +679,9 @@
   }
 
   // ---------------------------------------------------------------- 1 Briefing
+  // What counts for a job: the instrument types, the first in full and the rest at half ("radar · imaging ½").
   function wantsLine(objective) {
-    // Instrument names whose tags match; the first wanted type counts fully, the others half.
-    var parts = data("PARTS").filter(function (p) { return p.category === "instrument"; });
-    return list(objective.wants).map(function (tag, i) {
-      var names = parts.filter(function (p) { return list(p.tags).indexOf(tag) !== -1; }).map(function (p) { return p.name; });
-      return (names.length ? names.join(" or ") : tag) + (i === 0 ? " (counts fully)" : " (counts half)");
-    }).join("; ");
+    return list(objective.wants).map(function (tag, i) { return tag + (i === 0 ? "" : " ½"); }).join(" · ");
   }
 
   function drawBriefing() {
@@ -639,28 +699,21 @@
           el("div", { class: "card-title" }, [el("h3", { text: o.name.toUpperCase() }), el("span", { class: "tag bad", text: locked.toUpperCase() })])
         ]);
       }
-      return el("button", {
+      var card = el("button", {
         type: "button", class: "card", "aria-pressed": d.objective === o.id ? "true" : "false", "data-key": "obj-" + o.id,
         onclick: function () { setObjective(d, o.id); redraw(); }
       }, [
         el("div", { class: "card-title" }, [el("h3", { text: o.name.toUpperCase() }),
           d.objective === o.id ? el("span", { class: "tag on", text: "CHOSEN" }) : null]),
-        el("p", { text: o.briefing }),
-        facts([["Science target", num(o.science_target, 0) + " points"], ["What counts", wantsLine(o)],
-          topic ? ["Pays about", money(topic.next_payout_estimate_musd)] : null])
+        facts([["Target", num(o.science_target, 0) + " pts"], ["Counts", wantsLine(o)],
+          topic ? ["Pays", money(topic.next_payout_estimate_musd)] : null])
       ]);
+      // The rest of the briefing sits beside the card, not inside it (a button cannot hold a button).
+      return el("div", { class: "card-wrap" }, [card, more(o.briefing, "About this job")]);
     });
     return el("section", { class: "screen" }, [
-      head("1 · BRIEFING", "Decide the goal before the hardware."),
-      el("div", { class: "dialogue" }, [
-        directorArt(),
-        el("div", null, [
-          el("div", { class: "speaker" }, [el("h2", { text: "MISSION DIRECTOR" }), el("span", { text: "Ground control" })]),
-          el("p", { class: "speech", text: chosen
-            ? chosen.name + ". Good. Now find an orbit that can actually see it."
-            : "Two jobs on the board today. Pick one, and I will find you a budget." })
-        ])
-      ]),
+      head("1 · BRIEFING"),
+      sayLine("briefing"),
       objectives.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No objectives in the data yet." }),
       navRow("orbit", !!d.objective)
     ]);
@@ -696,19 +749,19 @@
         "data-key": "orbit-" + o.id, onclick: function () { setOrbit(d, o.id); redraw(); }
       }, [
         el("div", { class: "card-title" }, [el("h3", { text: o.name.toUpperCase() }), badge]),
-        el("p", { class: "card-blurb", text: o.blurb }),
+        el("p", { class: "card-blurb", text: firstSentence(o.blurb) }),
         facts([
           ["Altitude", num(o.altitude_km, 0) + " km"],
           ["One lap", num(f.period_min) + " min"],
-          ["Laps a day", num(f.laps_per_day)],
-          ["In Earth's shadow", num(f.eclipse_min) + " min a lap"],
-          ["Mission lifetime", num(o.lifetime_months, 0) + " months"]
+          ["In shadow", num(f.eclipse_min) + " min a lap"],
+          ["Lifetime", num(o.lifetime_months, 0) + " months"]
         ]),
         isNum(f.target_in_view) ? el("p", { class: "nasa-line", text: inViewText(d.objective, f.target_in_view) }) : null
       ]);
     });
     return el("section", { class: "screen" }, [
-      head("2 · ORBIT", objective ? "Where should a satellite for " + objective.name.toLowerCase() + " fly?" : "Where you fly changes everything else."),
+      head("2 · ORBIT"),
+      sayLine("orbit"),
       cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No orbits in the data yet." }),
       navRow("build", !!d.orbit)
     ]);
@@ -719,8 +772,8 @@
     var bits = [];
     if (p.mass_kg) bits.push(num(p.mass_kg) + " kg");
     if (p.power_draw_w) bits.push(num(p.power_draw_w, 0) + " W draw");
-    if (p.data_gb_day) bits.push(num(p.data_gb_day) + " GB/day made");
-    if (p.downlink_gb_day) bits.push(num(p.downlink_gb_day) + " GB/day radio");
+    if (p.data_gb_day) bits.push(num(p.data_gb_day) + " GB/d made");
+    if (p.downlink_gb_day) bits.push(num(p.downlink_gb_day) + " GB/d sent");
     if (p.battery_wh) bits.push(num(p.battery_wh, 0) + " Wh");
     return bits.join(" · ");
   }
@@ -737,9 +790,9 @@
     }
     var f = getPartFacts(d, p.id) || {};
     var extra = [];
-    if (f.power_gen_w) extra.push("Makes " + num(f.power_gen_w, 0) + " W in sunlight");
-    if (isNum(f.science_per_month)) extra.push(num(f.science_per_month) + " science a month");
-    if (isNum(f.resolution_m)) extra.push("Sees " + num(f.resolution_m) + " m detail");
+    if (f.power_gen_w) extra.push("+" + num(f.power_gen_w, 0) + " W");
+    if (isNum(f.science_per_month)) extra.push(num(f.science_per_month) + " sci/mo");
+    if (isNum(f.resolution_m)) extra.push(num(f.resolution_m) + " m detail");
     var note = f.counts === false ? "Does not count for this objective"
       : f.sharp_enough === false ? "Too blurry from this orbit" : null;
     function preview() { state.hover = p.id; refreshPreview(); }
@@ -764,7 +817,6 @@
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost", text: money(p.cost_musd) })]),
       el("span", { class: "part-stats", text: partStats(p) }),
       extra.length ? el("span", { class: "part-stats", text: extra.join(" · ") }) : null,
-      el("span", { class: "part-stats", text: p.blurb }),
       note ? el("span", { class: "part-note", text: note }) : null,
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
     ]);
@@ -790,6 +842,7 @@
     if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
     if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
     box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + (p ? p.name.toUpperCase() : "") }));
+    if (p && p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
     list(t.fixes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
     list(t.causes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
@@ -804,11 +857,11 @@
   function sciencePanel(design) {
     var s = previewScience(design);
     var rows = list(s.instruments).map(function (i) {
-      return el("div", null, [el("dt", { text: i.name }), el("dd", { text: i.counts === false ? "does not count" : num(i.per_month) + " a month" })]);
+      return el("div", null, [el("dt", { text: i.name }), el("dd", { text: i.counts === false ? "no" : num(i.per_month) + "/mo" })]);
     });
-    return el("div", { class: "panel" }, [
+    return el("div", { class: "panel", title: "An estimate over " + num(s.months, 0) + " months, if nothing goes wrong." }, [
       el("h2", { text: "SCIENCE PREVIEW" }),
-      el("p", { text: "About " + num(s.total, 0) + " of " + num(s.target, 0) + " over " + num(s.months, 0) + " months, if nothing goes wrong." }),
+      el("p", { class: "science-total", text: num(s.total, 0) + " / " + num(s.target, 0) + " pts" }),
       rows.length ? el("dl", { class: "facts" }, rows) : null
     ]);
   }
@@ -883,7 +936,8 @@
     ]);
 
     return el("section", { class: "screen" }, [
-      head("3 · BUILD", "Click a part to add it, click again to remove it. Several parts per bin are allowed."),
+      head("3 · BUILD"),
+      sayLine("build"),
       el("div", { class: "workshop" }, [bins, bench, el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
       payoutLine(d),
       shelf,
@@ -917,16 +971,15 @@
         onclick: function () { setLauncher(d, l.id); redraw(); }
       }, [
         el("div", { class: "card-title" }, [el("h3", { text: l.name.toUpperCase() }), tag]),
-        el("p", { class: "card-blurb", text: l.blurb }),
         facts([
           ["Price", money(l.cost_musd)],
-          orbit ? ["Lifts to " + orbit.name.toLowerCase(), reach ? num(cap, 0) + " kg" : "cannot reach"] : null,
-          ["Your spacecraft", num(totals.mass_kg) + " kg"]
+          orbit ? ["Lifts", reach ? num(cap, 0) + " kg" : "no"] : null
         ])
       ]);
     });
     return el("section", { class: "screen" }, [
-      head("4 · LAUNCH VEHICLE", "A bigger rocket solves mass and eats the budget."),
+      head("4 · LAUNCH VEHICLE"),
+      sayLine("launcher"),
       el("div", { class: "pad" }, [
         cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No rockets in the data yet." }),
         el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d), payoutLine(d)])
@@ -957,15 +1010,15 @@
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
         ["Orbit", orbit ? orbit.name : "not chosen"],
-        ["Parts", list(d.parts).length ? names(d.parts, data("PARTS")) : "none"],
         ["Rocket", rocket ? rocket.name : "not chosen"],
         isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
       ]),
       button(blocked ? "LAUNCH" : warned ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
-      blocked ? el("p", { class: "bar-note", text: "Fix the NO GO lines to unlock launch." }) : null
+      null
     ]);
     return el("section", { class: "screen" }, [
-      head("5 · READINESS REVIEW", "Go or no-go. Blockers stop the launch; warnings cost points."),
+      head("5 · READINESS REVIEW"),
+      sayLine("review"),
       el("div", { class: "pad" }, [
         el("div", { class: "stack" }, [padArt(!blocked), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])]),
         control
@@ -1199,14 +1252,16 @@
     refs.objective = el("p", { class: "map-objective" });
     state.map = refs;
     return el("section", { class: "screen" }, [
-      head("BASE MAP", null),
+      head("BASE MAP"),
+      sayLine("map"),
       el("div", { class: "map-layout" }, [
         el("div", { class: "stack" }, [board, refs.prompt]),
         el("aside", { class: "panel" }, [
           el("h2", { text: "OBJECTIVE" }), refs.objective,
           el("h2", { class: "divided", text: "PLACES" }), legend,
-          el("h2", { class: "divided", text: "CONTROLS" }),
-          el("p", { class: "bar-note", text: "Arrow keys or WASD: walk. E or Enter: go in, or follow the gold route. Click a marker: walk there. M or Esc: back inside." }),
+          el("h2", { class: "divided", text: "KEYS" }),
+          el("p", { class: "keys", "aria-label": "Arrow keys or WASD walk. E or Enter goes in, or follows the gold route. Click a marker to walk there. M or Esc: back inside." }, [
+            el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " map"]),
           el("div", null, [inCampaign()
             ? button("BACK TO THE HUB", function () { window.showCampaignHub(); })
             : button("CHANGE TIER", function () { showDesignScreen("title"); })])
@@ -1241,7 +1296,7 @@
       refs.markers[p.id].className = "blip " + st + (state.player === p.id ? " here" : "");
       var line = st === "locked" ? lockedReason(p.id) : p.does + ".";
       refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
-      refs.legend[p.id].does.textContent = st === "locked" ? lockedReason(p.id) : p.does;
+      refs.legend[p.id].does.textContent = st === "locked" ? lockedReason(p.id) : st === "next" ? p.does : "";
       refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
       refs.legend[p.id].status.textContent = STATUS_TEXT[st];
     });
@@ -1394,6 +1449,7 @@
   window.StarlineUI = {
     el: el, art: art, facts: facts, button: button, num: num, money: money, starsText: starsText,
     byId: byId, data: data, list: list, directorArt: directorArt,
+    say: sayLine, more: more, firstSentence: firstSentence,
     setStep: setStep, setHint: setHint, setStatus: setStatus,
     lock: function () { state.locked = true; },
     bar: bar,

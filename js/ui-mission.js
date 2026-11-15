@@ -42,10 +42,8 @@
     n.fastBtn.setAttribute("aria-pressed", "false");
 
     UI.mount("mission", el("section", { class: "screen" }, [
-      el("div", { class: "screen-head" }, [
-        el("h1", { text: "6 · MISSION" }),
-        el("p", { text: "Your satellite is flying. Each tick is one month." })
-      ]),
+      el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
+      UI.say ? UI.say("mission-start", null) : null,
       el("div", { class: "mission-head" }, [
         el("div", { class: "stack" }, [n.month, n.of]),
         el("div", { class: "controls" }, [n.pause, n.fastBtn])
@@ -196,7 +194,7 @@
 
     function row(label, sub, value, of) {
       return el("div", { class: "row" }, [
-        el("div", { class: "row-label" }, [el("span", { text: label }), el("span", { text: sub })]),
+        el("div", { class: "row-label", title: sub }, [el("span", { text: label }), /^\d/.test(sub) ? el("span", { text: sub }) : null]),
         el("span", { class: "row-value", text: num(value) + (of ? " / " + of : "") })
       ]);
     }
@@ -241,7 +239,6 @@
         el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
       segmentRows(d),
       closestLine(d),
-      d.real_mission ? el("p", { class: "bar-note", text: "Real-world cousin: " + d.real_mission }) : null,
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
       done.design.campaign
@@ -261,9 +258,10 @@
     ]);
 
     UI.mount("debrief", el("section", { class: "screen" }, [
-      el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" }),
-        el("p", { text: "The same design always flies the same mission, so you can see exactly what your change did." })]),
-      el("div", { class: "ledger" }, [paper, side])
+      el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
+      UI.say ? UI.say("debrief", d) : null,
+      el("div", { class: "ledger" }, [paper, side]),
+      UI.say ? UI.say("closing", d) : null
     ]));
     run = null;
   }
@@ -278,7 +276,7 @@
   function segmentRows(d) {
     var rows = UI.list(d.segments).filter(function (s) { return s && s.text; });
     if (!rows.length) return null;
-    return el("div", { class: "segments" }, [el("h2", { class: "divided", text: "THE FOUR SEGMENTS" }),
+    return el("details", { class: "more segments" }, [el("summary", { text: "The four segments" }),
       el("dl", { class: "facts wide" }, rows.map(function (s) {
         return el("div", null, [el("dt", { text: s.name || s.id }), el("dd", { text: s.text })]);
       }))]);
@@ -292,14 +290,16 @@
   }
 
   // "Closest real mission: Explorer 1 (1958, NASA / JPL). ... Like yours: same orbit; battery power."
+  // The closest real mission and the real-world cousin, folded into one "More" (one line until opened).
   function closestLine(d) {
     var c = d.closest_mission;
-    if (!c || !c.name) return null;
+    if (!c || !c.name) return d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null;
     var shared = UI.list(c.shared).join("; ");
-    return el("p", { class: "nasa-line", text: "Closest real mission: " + c.name +
-      " (" + [c.year, c.agency].filter(Boolean).join(", ") + "). " + (c.blurb || "") +
-      (shared ? " Like yours: " + shared + "." : "") });
+    var body = [el("p", { class: "card-blurb", text: (c.blurb || "") + (shared ? " Like yours: " + shared + "." : "") })];
+    if (d.real_mission) body.push(el("p", { class: "card-blurb", text: d.real_mission }));
+    return el("details", { class: "more" }, [el("summary", { text: "Closest real mission: " + c.name + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" })].concat(body));
   }
+
 
   // ---- campaign: what the flight paid and taught. Every number is from recordResult() or getDebrief().
   function campaignBlock(design, d, result) {
