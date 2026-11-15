@@ -4,6 +4,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+### Added
+
+- **The rest of the low-poly art is in the game.** The satellite on the Build bench is a 3D model of the parts on board (it turns slowly, a part you add flies in and a part you remove slides out, and a design with no body sits on an assembly cradle); the speakers are faceted busts; the Readiness review shows your rocket on the pad, and LAUNCH shows its lift-off for a moment (a click or a key skips it); the mission screen shows Earth with your orbit; the base map and the minimap are a low-poly space centre. With reduced motion nothing moves and there is no lift-off; if the 3D art cannot load, the pixel art is used.
+
 ## 0.8 beta (November 15, 2026)
 
 The home page opens on low-poly art: a faceted Earth with a satellite above it, drawn by the game's own small renderer. The home page and the design screens use fewer words and more flat icons, and the Readiness review assembles the satellite part by part.

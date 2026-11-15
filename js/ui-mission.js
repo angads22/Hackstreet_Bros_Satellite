@@ -41,11 +41,17 @@
     n.fastBtn = UI.button(">>", toggleFast, { aria: "Fast forward" });
     n.fastBtn.setAttribute("aria-pressed", "false");
 
+    // A small low-poly Earth with this orbit beside the month (LowPoly.scenes.earth); nothing without the 3D art.
+    var earth = UI.lpCanvas ? UI.lpCanvas(function (L) {
+      return typeof L.scenes.earth === "function" ? L.scenes.earth({ orbitId: design.orbit, objectiveId: design.objective, spin: 5 }) : null;
+    }, "mission-earth") : null;
+
     UI.mount("mission", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
       UI.say ? UI.say("mission-start", null) : null,
       el("div", { class: "mission-head" }, [
-        el("div", { class: "stack" }, [n.month, n.of]),
+        // The month and the Earth stay on one line: on a narrow phone the Earth gets smaller instead of wrapping.
+        el("div", { class: "month-row" }, [el("div", { class: "stack" }, [n.month, n.of]), earth ? earth.canvas : null]),
         el("div", { class: "controls" }, [n.pause, n.fastBtn])
       ]),
       el("div", { class: "panel" }, [

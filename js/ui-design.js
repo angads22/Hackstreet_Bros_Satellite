@@ -1393,7 +1393,39 @@
     return "Pixel drawing of your satellite. On board, " + bits.filter(Boolean).join("; ") + ".";
   }
 
+  // The low-poly satellite (LowPoly.scenes.satellite, js/lp-satellite.js) in one canvas, drawn once it is on
+  // the page. On the bench it turns slowly (not under reduced motion) and can be dragged round; the next
+  // click keeps the angle. "small" is a still pose. null when the 3D art is missing or fails, and
+  // satelliteArt then draws the pixel satellite below.
+  var satView = null, satLast = null;   // the bench view (for its angle) and the parts it showed last
+  function lpSatellite(design, change, size) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.satellite !== "function" ||
+          typeof LowPoly.view !== "function") return null;
+      var small = size === "small", ids = list(design && design.parts).slice(), parts = data("PARTS");
+      var wrap = LowPoly.scenes.satellite({ parts: ids, data: parts, change: small ? null : change, size: small ? "small" : "bench",
+        spin: small ? 0 : 8, yaw: !small && satView ? satView.yaw : undefined, before: satLast });
+      if (!wrap || !wrap.scene) return null;
+      var canvas = document.createElement("canvas");
+      canvas.width = 0; canvas.height = 0;   // nothing is drawn until the canvas is on the page
+      canvas.className = "sat lp-sat";
+      var view = LowPoly.view(canvas, wrap, { drag: !small, keys: false, fps: 30 });
+      if (!small) { satView = view; satLast = ids; }
+      // The "+ NAME" tag rises from where the new part settles. It is decoration: the canvas label names every part.
+      var tag = null, added = !small && change && change.kind === "add" ? byId(parts, change.id) : null;
+      var at = added && wrap.anchor ? wrap.anchor(added.id) : null;
+      if (at && isNum(at[0]) && isNum(at[1])) {
+        tag = el("div", { class: "sat-tag", "aria-hidden": "true",
+          style: "top:" + Math.min(95, Math.max(4, at[1] * 100)).toFixed(1) + "%;--x:" + Math.min(100, Math.max(0, at[0] * 100)).toFixed(1) + "%" },
+          [el("span", { text: "+ " + String(added.name).replace(/\s*\(.*?\)/g, "").toUpperCase() })]);
+      }
+      return el("div", { class: "sat-bench lp-bench" + (small ? " sat-small" : "") }, [canvas, tag]);
+    } catch (e) { return null; }
+  }
+
   function satelliteArt(design, change, size) {
+    var lp = lpSatellite(design, change, size);
+    if (lp) return lp;
     var ids = list(design && design.parts), parts = data("PARTS");
     var chosen = ids.map(function (id) { return byId(parts, id); }).filter(Boolean);
     var added = change && change.kind === "add" ? change.id : null;
@@ -1468,8 +1500,34 @@
   }
   // SAT-END
 
+  // A speaker's low-poly bust (LowPoly.scenes.portrait, js/lp-people.js) as an <img class="portrait">, or null.
+  // Each face is drawn once, into a canvas off the page at 280 px (sharp at the largest 140 px size), and kept
+  // as a picture: the screens are rebuilt on every click and must not draw the faces again each time.
+  var FACES = {};
+  function lpFace(who) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.has !== "function" || !LowPoly.has("person", who) ||
+          !LowPoly.scenes || typeof LowPoly.scenes.portrait !== "function" || typeof LowPoly.render !== "function") return null;
+      if (!FACES[who]) {
+        var ps = LowPoly.scenes.portrait({ who: who, aspect: 1 });
+        var c = document.createElement("canvas");
+        c.width = 280; c.height = 280;
+        if (!LowPoly.render(c, ps.scene)) return null;
+        FACES[who] = { src: c.toDataURL("image/png"), alt: ps.label || "Portrait" };
+      }
+      return el("img", { class: "portrait lp-face", src: FACES[who].src, alt: FACES[who].alt, width: 140, height: 140 });
+    } catch (e) { return null; }
+  }
+  // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
+  // else null (the caller then shows the director).
+  function speakerFace(who) {
+    return lpFace(who) || (typeof speakerArt === "function" ? speakerArt(who) : null);
+  }
+
   // Mission control, who briefs the player.
   function directorArt() {
+    var face = lpFace("director");
+    if (face) return face;
     return art("0 0 16 16", [
       [0, 0, 16, 16, PAL.portrait],
       [5, 2, 6, 3, PAL.hair], [4, 3, 1, 4, PAL.hair], [11, 3, 1, 4, PAL.hair],
@@ -1480,8 +1538,37 @@
     ], "Portrait of the mission director wearing a headset", "portrait");
   }
 
+  // One low-poly scene in a canvas that is drawn once it is on the page (never before, so no wasted frame) and
+  // stops by itself when its screen is replaced. Not draggable, no tab stop. {canvas, view, wrap} or null.
+  function lpCanvas(make, className) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.view !== "function" || !LowPoly.scenes) return null;
+      var wrap = make(LowPoly);
+      if (!wrap || !wrap.scene) return null;
+      var canvas = document.createElement("canvas");
+      canvas.width = 0; canvas.height = 0;
+      canvas.className = "lp " + (className || "");
+      return { canvas: canvas, view: LowPoly.view(canvas, wrap, { drag: false, keys: false, fps: 30 }), wrap: wrap };
+    } catch (e) { return null; }
+  }
+  function chosenLauncher() {
+    var d = state.design;
+    return d && d.launcher ? byId(data("LAUNCHERS"), d.launcher) : null;
+  }
+  // The design's rocket on the low-poly pad at dusk (LowPoly.scenes.pad, js/lp-pad.js). With no rocket chosen yet,
+  // or without the 3D art, the pixel pad below shows a generic one.
+  function lpPad(ready) {
+    var row = chosenLauncher();
+    var lp = row ? lpCanvas(function (L) {
+      return typeof L.scenes.pad === "function" ? L.scenes.pad({ launcherId: row.id, launcher: row, ready: !!ready }) : null;
+    }, "scene lp-pad") : null;
+    return lp ? lp.canvas : null;
+  }
+
   // Rocket on the pad at night.
   function padArt(ready) {
+    var lp = lpPad(ready);
+    if (lp) return lp;
     var r = [
       [0, 0, 187, 152, PAL.night],
       [14, 12, 1, 1, PAL.ink], [52, 30, 1, 1, PAL.muted], [70, 10, 2, 2, PAL.ink], [110, 22, 1, 1, PAL.ink],
@@ -1676,7 +1763,7 @@
     var who = typeof line === "object" ? line.who : "team", text = typeof line === "object" ? line.text : String(line);
     if (!text) return null;
     var name = typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : "";
-    var face = typeof speakerArt === "function" ? speakerArt(who) : null;
+    var face = speakerFace(who);
     return el("div", { class: "say", role: "note" }, [
       face || directorArt(),
       el("div", { class: "say-text" }, [name ? el("span", { class: "say-name", text: String(name).toUpperCase() }) : null,
@@ -2548,12 +2635,71 @@
     return path.map(function (id) { return NODES[id].x + "," + NODES[id].y; }).join(" ");
   }
 
+  // The base map in low poly (LowPoly.scenes.base, js/lp-base.js): a canvas under the markers, the gold route and
+  // the player, which all keep their places. The scene is built for the canvas's own size, so its project(x, y)
+  // is exactly where a marker stands (x / 200 and y / 120 of the map box), and built again when the box changes
+  // shape. Once it has drawn, the pixel drawing is hidden (its SVG keeps only the route). Decoration only: the
+  // markers carry the meaning. null without the 3D art (the pixel map stays).
+  var baseScene = null;   // {key, wrap}: building it takes about 20 ms, so it is kept while the size holds
+  function lpBaseMap(board) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.base !== "function" ||
+          typeof LowPoly.view !== "function" || typeof ResizeObserver !== "function") return null;
+      var canvas = document.createElement("canvas"), view = null;
+      canvas.width = 0; canvas.height = 0;
+      canvas.className = "map-lp";
+      var ro = new ResizeObserver(function () {
+        if (!canvas.isConnected && view) { ro.disconnect(); return; }
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!(w > 0 && h > 0)) return;
+        try {
+          var key = w + "x" + h;
+          if (!baseScene || baseScene.key !== key) {
+            baseScene = { key: key, wrap: LowPoly.scenes.base({ width: w, height: h, places: PLACES, nodes: NODES, edges: EDGES }) };
+          }
+          if (view) view.set(baseScene.wrap);
+          else view = LowPoly.view(canvas, baseScene.wrap, { drag: false, keys: false, fps: 30 });
+          canvas.setAttribute("role", "presentation");   // decoration (the engine labels every canvas it draws)
+          if (canvas.width > 0) board.classList.add("lp-on");
+        } catch (e) { ro.disconnect(); board.classList.remove("lp-on"); }
+      });
+      ro.observe(canvas);
+      canvas.setAttribute("aria-hidden", "true");
+      canvas.setAttribute("role", "presentation");
+      return canvas;
+    } catch (e) { return null; }
+  }
+  // The header minimap's picture: the low-poly minimap drawn once and kept (setStep rebuilds the minimap on every
+  // redraw). "" when it cannot be drawn: the pixel map is used.
+  var miniPicture = null;
+  function lpMinimap() {
+    if (miniPicture !== null) return miniPicture;
+    miniPicture = "";
+    try {
+      if (typeof LowPoly === "object" && LowPoly && LowPoly.scenes && typeof LowPoly.scenes.minimap === "function") {
+        var wrap = LowPoly.scenes.minimap({ width: 340, height: 204, places: PLACES, nodes: NODES, edges: EDGES });
+        var c = document.createElement("canvas");
+        c.width = 340; c.height = 204;
+        if (LowPoly.render(c, wrap.scene)) miniPicture = c.toDataURL("image/png");
+      }
+    } catch (e) { miniPicture = ""; }
+    return miniPicture;
+  }
+
   // The map art. `mini` = the header minimap, with the player and the route drawn in.
   function mapSvg(mini, here) {
-    var svg = art("0 0 " + MAP_W + " " + MAP_H, mapRects(),
-      mini ? null : "Pixel map of the space centre: Mission Control, the Tracking Station, the Workshop, the Rocket Yard and the Launch Pad, joined by roads",
+    var picture = mini ? lpMinimap() : "";
+    var svg = art("0 0 " + MAP_W + " " + MAP_H, picture ? [] : mapRects(),
+      mini ? null : "Map of the space centre: Mission Control, the Tracking Station, the Workshop, the Rocket Yard and the Launch Pad, joined by roads",
       mini ? "minimap-art" : "map-art");
     var NS = "http://www.w3.org/2000/svg";
+    if (picture) {
+      var image = document.createElementNS(NS, "image");
+      image.setAttribute("href", picture);
+      image.setAttribute("width", MAP_W); image.setAttribute("height", MAP_H);
+      image.setAttribute("preserveAspectRatio", "none");
+      svg.appendChild(image);
+    }
     var line = document.createElementNS(NS, "polyline");
     line.setAttribute("class", "map-route");
     line.setAttribute("fill", "none");
@@ -2565,7 +2711,8 @@
       [[next.x - 4, next.y - 4, 8, 8, PAL.gold], [at.x - 3, at.y - 3, 6, 6, PAL.ink], [at.x - 2, at.y - 2, 4, 4, PAL.sky]].forEach(function (q) {
         var rect = document.createElementNS(NS, "rect");
         rect.setAttribute("x", q[0]); rect.setAttribute("y", q[1]);
-        rect.setAttribute("width", q[2]); rect.setAttribute("height", q[3]); rect.setAttribute("fill", q[4]);
+        rect.setAttribute("width", q[2]); rect.setAttribute("height", q[3]);
+        rect.style.fill = "var(" + q[4] + ")";   // the PAL names are CSS custom properties (a fill attribute cannot read one)
         svg.appendChild(rect);
       });
     }
@@ -2579,6 +2726,8 @@
     var board = el("div", { class: "map", id: "map", role: "group", tabindex: "0", "aria-label": "Base map. Arrow keys or WASD to walk, E to go in." });
     refs.svg = mapSvg(false);
     refs.route = refs.svg.querySelector(".map-route");
+    var lpMap = lpBaseMap(board);
+    if (lpMap) board.appendChild(lpMap);
     board.appendChild(refs.svg);
 
     PLACES.forEach(function (p) {
@@ -2795,11 +2944,59 @@
   }
 
   function launch() {
+    if (launchShowing) return;
     if (runChecks(state.design).blockers.length) return;
     if (typeof window.showMissionScreen === "function") {
       state.locked = true;
-      window.showMissionScreen(state.design);
+      var design = state.design;
+      launchShow(function () { window.showMissionScreen(design); });
     }
+  }
+
+  // The lift-off: the design's rocket leaves the low-poly pad for a moment, then done() opens the mission
+  // screen. At most LAUNCH_SHOW_MS; a click or a key skips it. It only delays the screen change: the
+  // design is locked at the click and nothing can change it before done(). With reduced motion, with no
+  // rocket chosen or without the 3D art, done() runs at once and nothing is shown.
+  var LAUNCH_SHOW_MS = 2300, launchShowing = false;
+  function launchShow(done) {
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var row = chosenLauncher();
+    if (reduce || !row || typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.pad !== "function") return done();
+    var finished = false, box = null, timer = null;
+    function onKeyShow(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key !== "Tab" && e.key !== "Shift" && !e.repeat) finish();
+    }
+    function finish() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      document.removeEventListener("keydown", onKeyShow, true);
+      if (box && box.parentNode) box.parentNode.removeChild(box);
+      launchShowing = false;
+      done();
+    }
+    launchShowing = true;
+    timer = setTimeout(finish, LAUNCH_SHOW_MS);   // armed first: a hidden tab or a drawing error cannot hold the player here
+    try {
+      var lp = lpCanvas(function (L) { return L.scenes.pad({ launcherId: row.id, launcher: row, ready: true }); }, "lp-launch");
+      if (!lp) return finish();
+      var t0 = null;
+      // About six seconds of the launch in 2.3: the arms swing clear, ignition, smoke, lift-off and the climb.
+      lp.view.onFrame(function (t) {
+        if (t0 === null) t0 = t;
+        lp.wrap.setTime(0.4 + (t - t0) * 2.6);
+      });
+      var skip = el("button", { type: "button", class: "btn launch-skip" }, "SKIP");
+      box = el("div", { class: "launch-show", role: "dialog", "aria-modal": "true", "aria-label": "Lift-off. Click or press any key to skip." }, [lp.canvas, skip]);
+      box.addEventListener("click", finish);
+      document.addEventListener("keydown", onKeyShow, true);
+      document.body.appendChild(box);
+      state.swappedAt = Date.now();   // the second click of a double click on LAUNCH must not skip it at once
+      skip.focus();
+    } catch (e) { finish(); }
   }
 
   // ---------------------------------------------------------------- start-up and shared names
@@ -2821,9 +3018,10 @@
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
-    speakerArt: function (who) { return typeof speakerArt === "function" ? speakerArt(who) : null; },
+    speakerArt: speakerFace,
     speakerName: function (who) { return typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : ""; },
     satelliteArt: satelliteArt,
+    lpCanvas: lpCanvas,
     setStep: setStep, setHint: setHint, setStatus: setStatus,
     lock: function () { state.locked = true; },
     bar: bar,
