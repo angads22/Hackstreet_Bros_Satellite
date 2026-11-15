@@ -33,14 +33,14 @@
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
     title:    "",
-    map:      "Tap or click a place to walk there. Or walk with the arrow keys or WASD and press E to go in. The gold route leads to your next job.",
-    briefing: "Decide the goal before the hardware. The objective says which instruments count.",
-    orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
-    build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
-    launcher: "A bigger rocket solves mass and eats the budget.",
-    review:   "Blockers stop the launch. Warnings do not, but thin margins make events hit harder.",
-    mission:  "Designs get tested by things you did not plan. Pick one answer per event.",
-    debrief:  "Change the one thing that limited you, then fly the same design again."
+    map:      "Tap a place to walk there. Arrow keys or WASD walk; E goes in. The gold route is your next job.",
+    briefing: "Pick the goal first. It decides which instruments count.",
+    orbit:    "Orbit sets detail, ground contact, lifetime and launch cost.",
+    build:    "Every part costs in all four bars. Hover one to preview.",
+    launcher: "A bigger rocket fixes mass but eats budget.",
+    review:   "Red stops the launch. Amber is a risk.",
+    mission:  "Pick one answer per event.",
+    debrief:  "Fix the one thing that limited you, then fly again."
   };
 
   // This file's screen names -> the screen names getHints uses.
@@ -74,18 +74,18 @@
   var EDGES = [["gate", "j1"], ["j1", "j2"], ["j2", "j3"], ["j1", "briefing"], ["j1", "build"],
                ["j2", "orbit"], ["j2", "launcher"], ["j3", "review"], ["j3", "ground"]];
   var GO_TEXT = {
-    briefing: "Go to Mission Control and pick a job.",
-    orbit:    "Go to the Tracking Station and choose an orbit.",
-    build:    "Go to the Workshop and build the satellite.",
-    launcher: "Go to the Rocket Yard and pick a rocket.",
-    review:   "Go to the Launch Pad for the readiness review."
+    briefing: "Go to Mission Control.",
+    orbit:    "Go to the Tracking Station.",
+    build:    "Go to the Workshop.",
+    launcher: "Go to the Rocket Yard.",
+    review:   "Go to the Launch Pad."
   };
   var DO_TEXT = {
-    briefing: "Pick a job for the satellite.",
-    orbit:    "Choose an orbit that can see the target.",
-    build:    "Fit a body, an instrument, power, a radio, a computer and attitude control.",
-    launcher: "Pick a rocket that can lift your satellite.",
-    review:   "Clear every NO GO line, then launch."
+    briefing: "Pick a job.",
+    orbit:    "Pick an orbit that sees the target.",
+    build:    "Fill every required column.",
+    launcher: "Pick a rocket that can lift it.",
+    review:   "Clear every NO GO, then launch."
   };
   // Part 1, Austin's walkthrough: three standalone missions in the 1958 era, Training tier (hints on).
   // A field set here is preset: that place counts as visited and its cards are read-only for the step.
@@ -1958,7 +1958,7 @@
     var mini = document.getElementById("minimap");
     var text = "";
     if (screen === "mission") text = "Keep the satellite alive.";
-    else if (screen === "debrief") text = "Read what limited you, then fly again.";
+    else if (screen === "debrief") text = "Fix what limited you, then fly again.";
     else if (state.design && screen !== "title" && screen !== "hub" && screen !== "intro") {
       var next = waypoint();
       text = next === screen ? doText(screen) : GO_TEXT[next];

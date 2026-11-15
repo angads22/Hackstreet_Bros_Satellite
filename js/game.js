@@ -520,13 +520,13 @@ function runChecks(design) {
   function block(id, text) { blockers.push({ id: id, text: text }); }
   function warn(id, text) { warnings.push({ id: id, text: text }); }
 
-  if (!objective) block("no-objective", "Pick a science objective on the Briefing screen.");
+  if (!objective) block("no-objective", "Pick a goal at Mission Control.");
 
   // Locks: research in a campaign; the era's year in a standalone mission set in an era.
   if (design.campaign || design.year) {
     var why = function (kind, id) {
       return design.campaign ? " needs research first: " + researchNameFor(kind, id) + "."
-                             : " does not exist yet in " + design.year + " (it arrives in " + itemYear(kind, id) + ").";
+                             : " arrives in " + itemYear(kind, id) + ".";
     };
     if (objective && !isObjectiveAvailable(objective.id, design)) block("objective-locked", objective.name + why("objectives", objective.id));
     parts.forEach(function (p) { if (!isPartAvailable(p.id, design)) block("part-locked", p.name + why("parts", p.id)); });
@@ -535,37 +535,37 @@ function runChecks(design) {
 
   // The body: one per satellite, and everything must fit in it.
   var bodies = parts.filter(function (p) { return p.category === "structure"; });
-  if (bodies.length > 1) block("body-count", "A satellite has one body; remove all but one.");
+  if (bodies.length > 1) block("body-count", "One body only; remove the rest.");
   var bs = bodySummary(parts);
   if (bs) {
     if (bs.payload_used_kg > bs.payload_kg) {
-      block("body-payload", "The parts weigh " + bs.payload_used_kg + " kg but the " + bs.name + " carries at most " + bs.payload_kg + " kg.");
+      block("body-payload", "Parts weigh " + bs.payload_used_kg + " kg; the " + bs.name + " carries " + bs.payload_kg + " kg.");
     }
     Object.keys(bs.slots).forEach(function (cat) {
       var sl = bs.slots[cat];
-      if (sl.used > sl.max) block("body-slots", "The " + bs.name + " has room for " + sl.max + " " + cat + " part" + (sl.max === 1 ? "" : "s") + " (you fitted " + sl.used + ").");
+      if (sl.used > sl.max) block("body-slots", "Room for " + sl.max + " " + cat + " part" + (sl.max === 1 ? "" : "s") + " only (you fitted " + sl.used + ").");
     });
   }
   // An orbit no rocket on offer reaches (1958 rockets reach only low orbit) is fixed at the orbit, not the rocket.
   var noRocket = orbit ? !LAUNCHERS.some(function (l) { return isLauncherAvailable(l.id, design) && (l.capacity_kg || {})[orbit.id] > 0; }) : false;
   var pickOrbit = orbit ? "No rocket you can use reaches " + orbit.name + ": pick another orbit." : "";
   if (!orbit) block("no-orbit", "Pick an orbit.");
-  if (!launcher) block("no-launcher", noRocket ? pickOrbit : "Pick a launch vehicle.");
+  if (!launcher) block("no-launcher", noRocket ? pickOrbit : "Pick a rocket.");
 
   requiredCategories().forEach(function (cat) {
     var has = parts.some(function (p) { return p.category === cat; });
-    if (!has) block("empty-" + cat, "No " + cat + " part. The spacecraft needs at least one.");
+    if (!has) block("empty-" + cat, "No " + cat + " part.");
   });
 
   if (launcher && orbit) {
     if (!t.capacity_kg) {
       block("launcher-reach", noRocket ? pickOrbit : launcher.name + " cannot reach " + orbit.name + ": pick another rocket, or another orbit.");
     } else if (t.mass_kg > t.capacity_kg) {
-      block("mass", "Spacecraft is " + t.mass_kg + " kg but the " + launcher.name +
-        " can carry only " + t.capacity_kg + " kg to " + orbit.name + ".");
+      block("mass", "Spacecraft is " + t.mass_kg + " kg; the " + launcher.name +
+        " carries " + t.capacity_kg + " kg to " + orbit.name + ".");
     } else if (t.margins.mass < LOW_MARGIN) {
-      warn("mass-margin", "Mass margin is only " + Math.round(t.margins.mass * 100) +
-        "%. Events will hit harder.");
+      warn("mass-margin", "Mass margin only " + Math.round(t.margins.mass * 100) +
+        "%.");
     }
   }
 
@@ -578,8 +578,8 @@ function runChecks(design) {
   if (pointingOf(parts) === "spin") {
     parts.filter(function (p) { return p.category === "instrument" && p.tags.some(function (t) { return POINTING_TAGS.indexOf(t) !== -1; }); })
       .forEach(function (p) {
-        warn("smear-" + p.id, p.name + " on a spinning satellite smears its pictures: it returns " + Math.round(SPIN_SMEAR * 100) +
-          "% of its science. Three-axis control would hold it steady.");
+        warn("smear-" + p.id, p.name + " smears on a spinning satellite: " + Math.round(SPIN_SMEAR * 100) +
+          "% of its science. Three-axis control fixes it.");
       });
   }
 
@@ -594,19 +594,19 @@ function runChecks(design) {
         cb.warnings.forEach(function (x) { warn(x.id, x.text); });
       }
     } else if (camp && camp.year + missionYears(design) > CAMPAIGN.end_year) {
-      block("too-late", "Building this takes " + t.dev_months + " months: it could not launch before the programme ends in " + CAMPAIGN.end_year + ".");
+      block("too-late", "Takes " + t.dev_months + " months to build: too late for the programme's end in " + CAMPAIGN.end_year + ".");
     }
   }
 
   var batteryMonths = batteryLifeMonths(design);
   if (batteryMonths !== null) {
-    warn("battery-only", "No solar panel: the battery runs everything for about " + Math.max(1, Math.round(batteryMonths * 30)) +
-      " days, then the satellite falls silent.");
+    warn("battery-only", "No solar panel: the battery lasts about " + Math.max(1, Math.round(batteryMonths * 30)) +
+      " days, then it falls silent.");
   } else if (t.power_draw_w > t.power_gen_w) {
     block("power", "Parts draw " + t.power_draw_w + " W but the solar panels make only " + t.power_gen_w + " W.");
   } else if (t.power_gen_w > 0 && t.margins.power < LOW_MARGIN) {
-    warn("power-margin", "Power margin is only " + Math.round(t.margins.power * 100) +
-      "%. Events will hit harder.");
+    warn("power-margin", "Power margin only " + Math.round(t.margins.power * 100) +
+      "%.");
   }
 
   if (orbit && t.delta_v_ms < dvNeeded(orbit, design)) {
@@ -614,22 +614,22 @@ function runChecks(design) {
     var thrusters = PARTS.filter(function (p) { return p.category === "propulsion" && isPartAvailable(p.id, design); });
     var hasThruster = parts.some(function (p) { return p.category === "propulsion"; });
     var room = !bs || bs.slots.propulsion.max > bs.slots.propulsion.used;
-    block("delta-v", orbit.name + " needs " + dvNeeded(orbit, design) + " m/s of thrust from the spacecraft, but it has only " + t.delta_v_ms + " m/s. " +
-      (!thrusters.length ? "You have no thruster yet: pick another orbit."
-       : !room && !hasThruster ? "This body has no room for a thruster: pick a bigger body, or another orbit."
+    block("delta-v", orbit.name + " needs " + dvNeeded(orbit, design) + " m/s from the spacecraft; it has " + t.delta_v_ms + " m/s. " +
+      (!thrusters.length ? "No thruster yet: pick another orbit."
+       : !room && !hasThruster ? "No room for a thruster: pick a bigger body, or another orbit."
        : "Add propulsion or cut mass."));
   }
 
   if (orbit && t.data_gb_day > t.data_returned_gb_day) {
-    warn("data", "Instruments make " + t.data_gb_day + " GB a day but only " + t.data_returned_gb_day +
-      " GB reaches the ground. The rest is lost.");
+    warn("data", "Instruments make " + t.data_gb_day + " GB a day; only " + t.data_returned_gb_day +
+      " GB reaches the ground.");
   }
 
   if (orbit && t.power_draw_w > 0) {
     var need = batteryNeededWh(t.power_draw_w, orbit.altitude_km);
     if (t.battery_wh < need) {
-      warn("battery", "Riding through Earth's shadow needs a " + round(need, need < 10 ? 1 : 0) + " Wh battery; you have " +
-        t.battery_wh + " Wh. Instruments will switch off in shadow.");
+      warn("battery", "Shadow needs a " + round(need, need < 10 ? 1 : 0) + " Wh battery; you have " +
+        t.battery_wh + " Wh. Instruments switch off.");
     }
   }
 
@@ -649,7 +649,7 @@ function runChecks(design) {
         var x = resolutionM(p, orbit.altitude_km);
         if (x !== null && x > objective.needs_resolution_m) {
           warn("resolution-" + p.id, p.name + " sees " + Math.round(x) + " m detail from " + orbit.name +
-            "; this objective needs " + objective.needs_resolution_m + " m. It will earn no science.");
+            "; this goal needs " + objective.needs_resolution_m + " m. No science.");
         }
       });
     }
