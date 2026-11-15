@@ -32,7 +32,7 @@ Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026).
 **Hard requirements for global judging** (from the same guide):
 
 - Every team member registered for the same Local Event and listed on the team page; at most six members.
-- A demo: **a video of 30 seconds or less**, or **at most 7 slides** including the title. Everything in English; a video in another language needs English subtitles.
+- A demo: **at most 7 slides** including the title. Everything in English.
 - Every external resource (code, text, images, data, even open source) listed in the **References** field. `SOURCES.md` becomes that list, so it must be complete, including the AI tools used.
 - No copyrighted material we lack permission to use.
 
@@ -448,7 +448,7 @@ payout       = max(value_musd * (knowledge(S_after) - knowledge(S_before)), repe
 
 ### Debrief
 
-The game works out the single limiting factor: the resource that capped the science, or the event that ended the mission. It shows the matching paragraph from `data/debrief.js` and one concrete suggestion. This screen is the educational point of the whole game, so it gets real writing time.
+The game works out the single limiting factor: the resource that capped the science, or the event that ended the mission. It shows the matching paragraph from `data/debrief.js` and one concrete suggestion. This screen is the educational point of the whole game, so it gets real writing time, aim to have minimal wording and utilize icons to illustrate points.
 
 ## Math model
 
