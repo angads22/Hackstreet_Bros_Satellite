@@ -2103,7 +2103,7 @@
       sayLine("orbit"),
       presetNote("orbit"),
       cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No orbits in the data yet." }),
-      navRow("build", !!d.orbit)
+      navRow("build", !!d.orbit && !blockedAt(d).orbit)
     ]);
   }
 
@@ -2410,6 +2410,7 @@
   function fixPlace(check, d) {
     var id = String(check && check.id || "");
     if (id === "launcher-reach") return isPreset("launcher") || !anyRocketReaches(d, d.orbit) ? "orbit" : "launcher";
+    if (id === "no-launcher" && d.orbit && !anyRocketReaches(d, d.orbit)) return "orbit";
     if (id === "delta-v" && !anyPartOffered(d, "propulsion")) return "orbit";
     if ((id === "mass" || id === "budget" || id === "mass-margin") && (!d.launcher || isPreset("launcher"))) return "build";
     return FIX_SCREEN[id] || "build";
@@ -2438,7 +2439,8 @@
     if (!d || !d.objective) return "briefing";
     if (!d.orbit) return "orbit";
     var at = blockedAt(d);
-    if (!hasRequiredParts(d) || at.build) return at.orbit ? "orbit" : "build";
+    if (at.orbit) return "orbit";   // an orbit no rocket on offer can reach: nothing later can fix it
+    if (!hasRequiredParts(d) || at.build) return "build";
     if (!d.launcher) return "launcher";
     for (var i = 0; i < DESIGN_STEPS.length - 1; i++) if (at[DESIGN_STEPS[i]]) return DESIGN_STEPS[i];
     return "review";
