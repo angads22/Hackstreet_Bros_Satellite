@@ -290,5 +290,89 @@ var d13b = G.newCampaignDesign();
 G.newComeback("standard");
 check("13 a 1957 design never flies in a comeback", G.startMission(d13b) === null);
 
+// ---- 14. No soft lock: careless players (random parts, random choices) always reach an ending, and while a
+// comeback runs with less cash than debt there is always a contract it can afford to fly. The check builds
+// that design itself (one part per category, cheapest first), so it does not trust cheapestLaunchCost.
+var seed14 = 4242;
+function rnd14() { seed14 = (seed14 * 1103515245 + 12345) & 0x7fffffff; return seed14 / 0x7fffffff; }
+var cheapMemo = {};
+function cheapestFor(k) {
+  var key = k.topic + "/" + k.orbit;
+  if (key in cheapMemo) return cheapMemo[key];
+  function av(cat) { return G.PARTS.filter(function (p) { return p.category === cat && G.isPartAvailable(p.id); }).sort(function (a, b) { return a.cost_musd - b.cost_musd; }); }
+  var o = G.getObjective(k.topic), best = null, bestCost = Infinity, L = G.LAUNCHERS.slice().sort(function (a, b) { return a.cost_musd - b.cost_musd; });
+  var orbits = k.orbit ? [k.orbit] : G.ORBITS.filter(function (x) { return !o.orbit_fit || o.orbit_fit[x.id]; }).map(function (x) { return x.id; });
+  orbits.forEach(function (orb) { av("instrument").filter(function (p) { return p.tags.some(function (t) { return o.wants.indexOf(t) !== -1; }); }).forEach(function (i) {
+    av("power").forEach(function (pw) { av("comms").forEach(function (cm) { av("computer").forEach(function (cp) { [null].concat(av("propulsion")).forEach(function (pr) {
+      av("structure").forEach(function (b) {
+        var parts = [i, pw, cm, cp, b, G.getPart("spin-stabilised")].concat(pr ? [pr] : []);
+        var pc = parts.reduce(function (t, p) { return t + p.cost_musd; }, 0);
+        for (var li = 0; li < L.length && pc + L[li].cost_musd < bestCost; li++) {
+          var d = { tier: "standard", objective: k.topic, orbit: orb, launcher: L[li].id, parts: parts.map(function (p) { return p.id; }) };
+          if (G.runChecks(d).blockers.length || !(G.scienceRate(d, []).per_month > 0)) continue;
+          best = d; bestCost = pc + L[li].cost_musd; break;
+        }
+      });
+    }); }); }); });
+  }); });
+  return (cheapMemo[key] = best ? { orbit: best.orbit, launcher: best.launcher, parts: best.parts, cost: G.round(bestCost, 3) } : null);
+}
+var ALL = G.PARTS.map(function (p) { return p.id; }), locks = [], unended = 0, flights14 = 0, endings = { won: 0, deadline: 0, cash: 0 };
+for (var run = 0; run < 24; run++) {
+  G.resetCampaign(); G.newComeback(G.TIERS[run % 3].id);
+  for (var guard = 0; guard < 40 && !G.getComeback().finished; guard++) {
+    var h = G.getComeback();
+    if (h.cash_musd >= h.debt_musd) { G.payDebt(h.debt_musd); break; }
+    var flyable = h.contracts.filter(function (k) { var x = cheapestFor(k); return x && x.cost <= h.cash_musd; });
+    if (!flyable.length) { locks.push("month " + h.month + ", cash " + h.cash_musd + ", contracts " + h.contracts.map(function (k) { return k.topic; })); break; }
+    if (rnd14() < 0.3 && h.safe_pay_max_musd > 0.1) G.payDebt(G.round(rnd14() * h.safe_pay_max_musd, 1));
+    h = G.getComeback();
+    var k14 = h.contracts[Math.floor(rnd14() * h.contracts.length)], d14 = null;
+    for (var tries = 0; tries < 200 && !d14; tries++) {
+      var x = G.newComebackDesign(k14.id);
+      if (!x.orbit) G.setOrbit(x, G.ORBITS[Math.floor(rnd14() * 3)].id);
+      G.setLauncher(x, G.LAUNCHERS[Math.floor(rnd14() * G.LAUNCHERS.length)].id);
+      ALL.filter(function () { return rnd14() < 0.3; }).forEach(function (p) { G.addPart(x, p); });
+      if (!x.parts.some(function (id) { return G.getPart(id).category === "attitude"; })) G.addPart(x, "spin-stabilised");
+      if (!x.parts.some(function (id) { return G.getPart(id).category === "structure"; })) G.addPart(x, "smallsat-bus");
+      if (!G.runChecks(x).blockers.length) d14 = x;
+    }
+    if (!d14) {   // a stuck player copies the cheapest design that flies for some open contract
+      var f14 = G.getComeback().contracts.filter(function (k) { var c = cheapestFor(k); return c && c.cost <= G.getComeback().cash_musd; })[0];
+      var cd = f14 && cheapestFor(f14);
+      d14 = cd ? design(f14.id, cd.orbit, cd.launcher, cd.parts) : null;
+    }
+    var m14 = d14 && G.startMission(d14);
+    if (!m14) { locks.push("could not launch at month " + h.month + ": " + JSON.stringify(d14 && G.runChecks(d14).blockers)); break; }
+    var s14; do { s14 = G.stepMonth(m14); if (s14.event) G.chooseEvent(m14, Math.floor(rnd14() * s14.event.choices.length)); } while (!m14.ended);
+    G.recordResult(m14); flights14++;
+  }
+  var end14 = G.getComeback();
+  if (!end14.finished) unended++; else endings[end14.won ? "won" : end14.lost_reason]++;
+}
+check("14 no soft lock: careless comebacks always end, and a running one can always fly a contract", locks.length === 0 && unended === 0,
+  flights14 + " flights; " + JSON.stringify(endings) + (locks.length ? "; " + locks[0] : ""));
+check("14 the cash-loss line agrees with a design search", (function () {
+  var ok = true;
+  for (var i = 0; i < 9; i++) {
+    G.resetCampaign(); G.newComeback(G.TIERS[i % 3].id);
+    var hh = G.getComeback(), mine = Math.min.apply(null, hh.contracts.map(function (k) { var x = cheapestFor(k); return x ? x.cost : Infinity; }));
+    if (!near(hh.cheapest_launch_musd, mine, 1e-6)) ok = false;
+  }
+  return ok;
+})());
+
+// ---- 15. Fast enough for a browser, even before the searches are cached.
+var worst15 = 0;
+for (var i15 = 0; i15 < 12; i15++) {
+  G.resetCampaign(); G.run("cheapestCache = {}");
+  var t15 = process.hrtime.bigint(); G.newComeback(G.TIERS[i15 % 3].id); G.getComeback();
+  worst15 = Math.max(worst15, Number(process.hrtime.bigint() - t15) / 1e6);
+}
+var t15b = process.hrtime.bigint(); for (var j15 = 0; j15 < 50; j15++) G.getComeback();
+var hub15 = Number(process.hrtime.bigint() - t15b) / 1e6 / 50;
+check("15 a new comeback opens in under 100 ms, and the hub refreshes in under 10 ms", worst15 < 100 && hub15 < 10,
+  "new " + worst15.toFixed(1) + " ms, hub " + hub15.toFixed(2) + " ms");
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

@@ -839,6 +839,18 @@ function cheapestLaunchCost(c, topicId, orbitId) {
   var bodiesToTry = requiredCategories().indexOf("structure") !== -1 ? avail("structure") : [null];
   var launchers = byCost(LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id); }));
   var best = Infinity;
+  // Quick arithmetic before runChecks: a design too heavy for the rocket, or that does not fit its
+  // body, would be blocked anyway (launcher-reach, mass, body-payload, body-slots), so skip it.
+  // The small tolerance leaves every borderline design to runChecks, so the result never changes.
+  var extraMass = extras.reduce(function (t, p) { return t + p.mass_kg; }, 0);
+  var extraAtt = extras.filter(function (p) { return p.category === "attitude"; }).length;
+  function fits(body, load, hasProp) {
+    if (!body) return true;
+    if (round(load, 2) > (body.payload_kg || 0) + 1e-6) return false;
+    var s = body.slots || {};
+    return (s.instrument || 0) >= 1 && (s.power || 0) >= 1 && (s.comms || 0) >= 1 && (s.computer || 0) >= 1 &&
+           (s.attitude || 0) >= extraAtt && (s.propulsion || 0) >= (hasProp ? 1 : 0);
+  }
   OBJECTIVES.forEach(function (o) {
     if (!isObjectiveAvailable(o.id) || (topicId && o.id !== topicId)) return;
     var ins = avail("instrument").filter(function (p) {
@@ -856,10 +868,14 @@ function cheapestLaunchCost(c, topicId, orbitId) {
               var c4 = c3 + comp[f].cost_musd; if (c4 >= best) break;
               for (var g = 0; g < prop.length; g++) {
                 var c5 = c4 + (prop[g] ? prop[g].cost_musd : 0); if (c5 >= best) continue;
+                var load = ins[a].mass_kg + power[b].mass_kg + comms[e].mass_kg + comp[f].mass_kg + (prop[g] ? prop[g].mass_kg : 0) + extraMass;
                 for (var h = 0; h < launchers.length; h++) {
                   var cost0 = c5 + launchers[h].cost_musd; if (cost0 >= best) break;
+                  var capacity = (launchers[h].capacity_kg || {})[orb.id] || 0;
+                  if (!capacity || round(load, 2) > capacity + 1e-6) continue;
                   for (var k = 0; k < bodiesToTry.length; k++) {
                     var body = bodiesToTry[k], cost = cost0 + (body ? body.cost_musd : 0); if (cost >= best) break;
+                    if (round(load + (body ? body.mass_kg : 0), 2) > capacity + 1e-6 || !fits(body, load, !!prop[g])) continue;
                     var d = { tier: c.tier, objective: o.id, orbit: orb.id, launcher: launchers[h].id,
                               parts: [ins[a].id, power[b].id, comms[e].id, comp[f].id].concat(prop[g] ? [prop[g].id] : [],
                                      extras.map(function (x) { return x.id; }), body ? [body.id] : []) };
