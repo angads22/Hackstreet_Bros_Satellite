@@ -816,6 +816,42 @@
     return svg;
   }
 
+  // Flat icons: one colour (currentColor), a 16 x 16 grid, drawn here as shapes. They sit beside words and
+  // never replace them, so a screen reader or a colour-blind player loses nothing. Static art only.
+  var ICONS = {
+    mass:       [["path", { d: "M3 14h10l-1.4-7H4.4L3 14Z" }], ["circle", { cx: 8, cy: 4.6, r: 1.7 }]],
+    power:      [["path", { d: "M9.2 1.5 3.8 9H8l-1 5.5L12.2 7H8l1.2-5.5Z" }]],
+    budget:     [["circle", { cx: 8, cy: 8, r: 6 }], ["circle", { cx: 8, cy: 8, r: 2.4 }]],
+    data:       [["ellipse", { cx: 8, cy: 4, rx: 5.5, ry: 2 }], ["path", { d: "M2.5 4v8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2V4M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2" }]],
+    blocker:    [["circle", { cx: 8, cy: 8, r: 6 }], ["path", { d: "M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" }]],
+    warning:    [["path", { d: "M8 2 1.6 13.5h12.8L8 2Z" }], ["path", { d: "M8 6.4v3.2M8 11.7v.1" }]],
+    ok:         [["circle", { cx: 8, cy: 8, r: 6 }], ["path", { d: "M5.2 8.2l2 2 3.6-4" }]],
+    instrument: [["rect", { x: 2, y: 4.5, width: 12, height: 8.5, rx: 1.5 }], ["circle", { cx: 8, cy: 8.8, r: 2.3 }], ["path", { d: "M5.6 4.5 6.6 3h2.8l1 1.5" }]],
+    comms:      [["path", { d: "M8 14V8.2" }], ["circle", { cx: 8, cy: 6.6, r: 1.4 }], ["path", { d: "M4.9 4a4.4 4.4 0 0 0 0 5.2M11.1 4a4.4 4.4 0 0 1 0 5.2" }]],
+    computer:   [["rect", { x: 4, y: 4, width: 8, height: 8, rx: 1 }], ["path", { d: "M6.5 2v2M9.5 2v2M6.5 12v2M9.5 12v2M2 6.5h2M2 9.5h2M12 6.5h2M12 9.5h2" }]],
+    propulsion: [["path", { d: "M8 1.5c2.2 1.6 3.2 4 3.2 6.8L8 12 4.8 8.3C4.8 5.5 5.8 3.1 8 1.5Z" }], ["path", { d: "M6.8 14l1.2 1 1.2-1" }]],
+    structure:  [["path", { d: "M8 1.5 13.5 4.5v7L8 14.5l-5.5-3v-7L8 1.5Z" }], ["path", { d: "M2.5 4.5 8 7.5l5.5-3M8 7.5v7" }]],
+    attitude:   [["path", { d: "M13 8a5 5 0 1 1-1.6-3.7" }], ["path", { d: "M13.4 2.4v3h-3" }]]
+  };
+  ICONS.science = ICONS.instrument;
+  // A flat icon by name, or null for an unknown name. With a label it is an image; without one it is decoration.
+  function icon(name, label, className) {
+    var shapes = ICONS[name];
+    if (!shapes) return null;
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("class", "icon" + (className ? " " + className : ""));
+    if (label) { svg.setAttribute("role", "img"); svg.setAttribute("aria-label", label); }
+    else svg.setAttribute("aria-hidden", "true");
+    shapes.forEach(function (s) {
+      var node = document.createElementNS(NS, s[0]);
+      Object.keys(s[1]).forEach(function (k) { node.setAttribute(k, s[1][k]); });
+      svg.appendChild(node);
+    });
+    return svg;
+  }
+
   // The first sentence of a text, for cards that show one line and keep the rest behind "More".
   function firstSentence(text) {
     var t = String(text || ""), m = /^(.+?[.!?])(\s|$)/.exec(t);
@@ -1550,10 +1586,10 @@
   // ---------------------------------------------------------------- the four resource bars
   function barClass(m) { return !isNum(m) ? "" : m < 0 ? " bad" : m < 0.1 ? " warn" : ""; }
 
-  function bar(name, right, fill, cls, note) {
+  function bar(name, right, fill, cls, note, iconName) {
     var pct = isNum(fill) ? Math.max(0, Math.min(1, fill)) * 100 : 0;
     return el("div", { class: "bar" + (cls || "") }, [
-      el("div", { class: "bar-top" }, [el("span", { text: name }), el("span", { text: right })]),
+      el("div", { class: "bar-top" }, [el("span", { class: "bar-name" }, [iconName ? icon(iconName) : null, name]), el("span", { text: right })]),
       el("div", { class: "bar-track", role: "presentation" }, [el("div", { class: "bar-fill", style: "width: " + pct + "%" })]),
       note ? el("div", { class: "bar-note", text: note }) : null
     ]);
@@ -1566,16 +1602,16 @@
     var dataLost = t.data_gb_day > t.data_returned_gb_day;
     return el("div", { class: "bars" }, [
       bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass),
-          t.capacity_kg ? null : "Pick a rocket to see the limit"),
+          t.capacity_kg ? null : "Pick a rocket to see the limit", "mass"),
       bar("POWER", num(t.power_draw_w, 0) + " / " + num(t.power_gen_w, 0) + " W",
           isNum(m.power) ? 1 - m.power : (t.power_draw_w > 0 ? 1 : 0), isNum(m.power) ? barClass(m.power) : (t.power_draw_w > 0 ? " bad" : ""),
-          t.power_gen_w ? null : "Nothing makes power yet"),
-      bar("BUDGET", money(t.cost_musd) + " / " + money(t.budget_musd), isNum(m.budget) ? 1 - m.budget : null, barClass(m.budget)),
+          t.power_gen_w ? null : "Nothing makes power yet", "power"),
+      bar("BUDGET", money(t.cost_musd) + " / " + money(t.budget_musd), isNum(m.budget) ? 1 - m.budget : null, barClass(m.budget), null, "budget"),
       // For data a full bar is good: it is the share of data that reaches the ground.
       bar("DATA HOME", num(t.data_returned_gb_day) + " / " + num(t.data_gb_day) + " GB/DAY",
           t.data_gb_day > 0 ? t.data_returned_gb_day / t.data_gb_day : 0,
           dataLost ? (t.data_returned_gb_day > 0 ? " warn" : " bad") : "",
-          !design.orbit ? "Pick an orbit to see ground contact" : null)
+          !design.orbit ? "Pick an orbit to see ground contact" : null, "data")
     ]);
   }
 
@@ -1606,9 +1642,9 @@
     var rows = [];
     checks.blockers.forEach(function (c) {
       if (opts.skip && opts.skip.indexOf(c.id) !== -1) return;
-      rows.push({ c: c, kind: "bad", status: opts.short ? "[X]" : "NO GO" });
+      rows.push({ c: c, kind: "bad", status: "NO GO" });
     });
-    checks.warnings.forEach(function (c) { rows.push({ c: c, kind: "warn", status: opts.short ? "[!]" : "WARN" }); });
+    checks.warnings.forEach(function (c) { rows.push({ c: c, kind: "warn", status: "WARN" }); });
     if (!rows.length) return opts.short ? el("p", { class: "preview-line fix", text: "No problems right now." }) : null;
     return el("ul", { class: "checks" }, rows.map(function (row) {
       var target = FIX_SCREEN[row.c.id] || "build";
@@ -1619,7 +1655,10 @@
         opts.fix && target !== state.screen
           ? el("button", { type: "button", class: "fix", onclick: function () { go(target); },
               "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
-          : el("span", { class: "status", text: row.status })
+          // The short list (Build) shows the icon alone with a name for screen readers; the full list adds the words.
+          : el("span", { class: "status" }, opts.short
+              ? [icon(row.kind === "bad" ? "blocker" : "warning", row.kind === "bad" ? "Must fix" : "Warning")]
+              : [icon(row.kind === "bad" ? "blocker" : "warning"), row.status])
       ]);
     }));
   }
@@ -1996,7 +2035,7 @@
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
         onclick: function () { state.bin = c.id; state.hover = null; redraw(); }
       }, [
-        art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
+        icon(c.id) || art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
         el("span", { class: "bin-text" }, [
           el("span", { class: "bin-name", text: c.name }),
           el("span", { class: "bin-sub" + (need || over || (noRoom && n) ? " need" : ""), text: sub })
@@ -2179,7 +2218,7 @@
   // The objective line while you stand where the GPS points.
   function doText(screen) {
     var d = state.design;
-    if (screen === "build" && hasRequiredParts(d)) return "Clear the [X] problems under the bars.";
+    if (screen === "build" && hasRequiredParts(d)) return "Clear the problems marked with a cross under the bars.";
     if (screen === "launcher" && d.launcher && blockedAt(d).launcher) return "Still NO GO: try another rocket, or cut mass or cost at the Workshop.";
     if (screen === "review" && !runChecks(d).blockers.length) return "Launch when ready.";
     return DO_TEXT[screen];
@@ -2543,7 +2582,7 @@
 
   window.showDesignScreen = showDesignScreen;
   window.StarlineUI = {
-    el: el, art: art, facts: facts, button: button, num: num, money: money, starsText: starsText,
+    el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, starsText: starsText,
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
