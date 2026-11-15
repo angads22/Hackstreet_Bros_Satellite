@@ -2018,7 +2018,7 @@
     if (document.documentElement.dataset.era !== era) document.documentElement.dataset.era = era;
   }
 
-  function mount(screen, node) {
+  function mount(screen, node, sayKey) {
     state.screen = screen;
     markHome(screen);
     markEra(screen);
@@ -2027,6 +2027,7 @@
     app.appendChild(node);
     setStep(screen);
     setHint(screen);
+    if (window.GravMotion) GravMotion.mounted(app, screen, sayKey);   // entry animations only when the screen changes
   }
 
   // Redraws the current screen and keeps keyboard focus on the same control.
@@ -2460,7 +2461,7 @@
             : button("SKIP", function () { if (opts.skipToEnd) { at = beats.length - 1; draw1(); } else onDone(); }, { aria: "Skip the story" }),
           button([last ? (opts.doneLabel || "START") : "NEXT", " >"], function () { if (last) onDone(); else { at++; draw1(); } }, { primary: true })
         ])
-      ]));
+      ]), "intro:" + at);
       // Open at the top (the title page may have been scrolled), then focus NEXT without scrolling back down.
       window.scrollTo(0, 0);
       var next = document.querySelector(".intro .btn.primary");
@@ -3661,6 +3662,7 @@
       app.appendChild(node);
       setStep(screen);
       setHint(screen);
+      if (window.GravMotion) GravMotion.mounted(app, screen);
       app.focus();
       window.scrollTo(0, 0);
     },
