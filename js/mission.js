@@ -677,7 +677,7 @@ function limitingFactor(mission, totals, scienceShare) {
       var contact = orbitChange(mission, function (o) { return o.downlink_mult > (orbit ? orbit.downlink_mult : 0); }, true);
       if (radio || contact) {
         return say("data", dataHead + (radio ? changeText(radio) : "") + (radio && contact ? ", or " + lcFirst(orbitText(contact)) : contact ? orbitText(contact) : "") +
-          (contact ? " for longer ground contact." : ".") + (radio ? "" : thrusterNote(contact)), radio || contact);
+          (contact ? " for longer ground contact." : ".") + thrusterNote(contact), radio || contact);
       }
       var lighter = bestChange(mission, PARTS.filter(function (p) { return p.category === "instrument"; }).map(function (p) { return p.id; }), true, false, true);
       if (lighter) return say("data", dataHead + changeText(lighter) + ": it makes less data, so more of it gets home.", lighter);
@@ -716,8 +716,9 @@ function limitingFactor(mission, totals, scienceShare) {
       var later = PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1; })[0];
       return say("design", "Your satellite spun, so its pictures were smeared, as TIROS-1's were. " +
         (steady ? changeText(steady) + " to hold it steady." : era1957 ? "Research three-axis control to hold it steady."
-                : later ? inText(later.name).replace(/^./, function (x) { return x.toUpperCase(); }) + " would hold it steady: " + (design.year ? "they arrive in " + itemYear("parts", later.id) + "." : "fit them.")
-                : "Three-axis control would hold it steady."), steady, "attitude");
+                : later && design.year && !design.campaign && itemYear("parts", later.id) > design.year
+                  ? "Three-axis control would hold it steady: it arrives in " + itemYear("parts", later.id) + "."
+                  : "Three-axis control would hold it steady, on a body and rocket with room for it."), steady, "attitude");
     }
     var instrumentIds = PARTS.filter(function (p) { return p.category === "instrument"; }).map(function (p) { return p.id; });
     var weak = rate.instruments.filter(function (i) { return i.match === 0 || !i.sharp_enough; });
@@ -740,7 +741,7 @@ function limitingFactor(mission, totals, scienceShare) {
       " suits this objective better" + (better.launcher ? ", on the " + better.launcherName : "") + "." + thrusterNote(better), better, "orbit");
     var sharper = bestChange(mission, instrumentIds, true);
     if (sharper) return say("design", "Nothing ran short, but the science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
-    return say("design", "Nothing ran short, but the science fell below target, and nothing you can fit or fly earns more. A longer-lived orbit or another topic is the way up.", null, "instruments");
+    return say("design", "Nothing ran short, but the science fell below target. No single change you can make earns more: try a different design.", null, "instruments");
   }
   // In a campaign there is no "next tier": the next step is the lab, or another topic.
   if (mission.comeback) return say("none", "Target reached. Pay back the lenders, or take the next contract.");
@@ -846,20 +847,6 @@ function launcherChange(mission, test) {
     .sort(function (a, b) { return a.cost_musd - b.cost_musd; })
     .filter(function (x) { return canFly(mission, variantOf(d, { launcher: x.id })); })[0];
   return l ? { launcher: l.id, launcherName: inText(l.name) } : null;
-}
-
-// The orbit where instruments earn the most for this objective: science
-// multiplier x how often it looks x share of real targets in view.
-function bestOrbitFor(objective) {
-  var e = objective ? earthFor(objective.id) : null;
-  return ORBITS.slice().sort(function (a, b) {
-    function value(o) {
-      var fit = objective && objective.orbit_fit ? (objective.orbit_fit[o.id] || 0) : 1;
-      var view = e && e.orbit_view && e.orbit_view[o.id] !== undefined ? e.orbit_view[o.id] : 1;
-      return o.science_mult * fit * view * o.lifetime_months;
-    }
-    return value(b) - value(a);
-  })[0];
 }
 
 // ------------------------------------------------------------------ progress
