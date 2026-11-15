@@ -994,3 +994,128 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 /* An event: focus lands on its heading (not a control, so no ring), and every choice reads the same, with its cost under it. */
 .dialogue h2[tabindex="-1"]:focus { outline: none; }
 .choices .btn .odds { opacity: 1; color: var(--text-dim); }
+
+/* ======================================================================================================================
+   ERA THEME (owned by the era-theme task; ADD only, and keep this one block last in the file)
+   js/ui-design.js (markEra) sets data-era on <body> and <html>: "home" (the title screen: no overrides, the console look
+   above), "1958" (Part 1: Austin's field notebook and workshop) or "today" (Part 2: the clean console, sharpened).
+   Everything below is token overrides plus a few surface rules. Flat: no gradients, glow, blur or shadows; the grain is a
+   tiny repeating SVG of small solid squares. The tokens are set on <html> too: the low-poly art reads --lp-* from the page,
+   and a picture drawn before its screen is mounted reads them from <html>. */
+:root {
+  --font-story: var(--font-body);   /* the story lines, stamps and kickers; the 1958 look gives them a typewriter face */
+  --rule: var(--line);              /* the ledger rules: dashed and double borders */
+  --grain: none; --grain-paper: none; --fleck: none;
+}
+
+/* ---- Part 2: today. The system look, sharpened: cooler greys, a brighter orange and cyan. Contrast checked (4.5:1). */
+html[data-era="today"], body[data-era="today"] {
+  --surface: #131b28;     --surface-2: #1b2636;   --surface-3: #26344a;   --line: #2c3d56;    --border: #2c3d56;
+  --text: #eef2f8;        --text-dim: #a9b6c9;
+  --accent: #ff7b3e;      --accent-ink: #ff9763;
+  --info: #4fc3d4;        --info-ink: #6fd3e0;    --bad: #ff7461;         --stamp: #b32f1b;       --focus: #7fe3f0;
+  --paper: #eaf0f7;       --paper-ink: #111823;   --paper-muted: #546175; --ok-stamp: #1d6c75;
+  --pal-white: #eef2f8;   --pal-metal: #b7c2d1;   --pal-frame: #3d4a5e;   --pal-light: #ffc65c;   --pal-glass: #ffc65c;
+  --pal-red: #e2452e;     --pal-cell: #2f7a8a;    --pal-cell-dark: #1f5260; --pal-portrait: #1b2636;
+  --pal-metal-dark: #7d8aa0;   --pal-cell-light: #4fa3b3;   --pal-ion: #7fe3f0;   --pal-flame: #ff8a4b;
+  --map-ground: #131b28;  --map-lot: #1b2636;     --map-road: #2a3649;    --map-dash: #50617c;
+  --map-sea: #1f5566;     --map-wave: #2f7a8a;    --map-shore: #6fd3e0;
+}
+
+/* ---- Part 1: 1958. A worn field notebook and workshop: kraft and chalk-cream on a dark brown-black, rust, mustard, olive and
+   faded teal. Text pairs checked at 4.5:1 or more on the surfaces they sit on (handoff/browser-tests/theme.js checks the rest). */
+html[data-era="1958"], body[data-era="1958"] {
+  --space: #1a1710;       --bg: #1a1710;          --surface: #27221a;     --surface-2: #342d23;   --surface-3: #463c2e;
+  --line: #5a4d3a;        --border: #5a4d3a;      --rule: #7d6c50;
+  --text: #eadcc0;        --text-dim: #b8a98c;
+  --accent: #cf9f3c;      --accent-ink: #e0b85c;  --on-accent: #1a1710;                 /* mustard */
+  --info: #7fa396;        --info-ink: #93bcae;    --on-info: #1a1710;                   /* faded teal */
+  --bad: #f29479;         --stamp: #9a3a22;       --focus: #a6d3c4;                     /* rust, lightened to read on dark */
+  --paper: #e6d5ae;       --paper-ink: #2a2017;   --paper-muted: #5e4d37;  --ok-stamp: #35604a;   /* kraft, and olive ink */
+  --pal-white: #e8dcc0;   --pal-metal: #bfae8c;   --pal-frame: #4a3e30;   --pal-light: #d6a84a;
+  --pal-glass: #d6a84a;   --pal-red: #b5533a;     --pal-cell: #4f6f6a;    --pal-cell-dark: #36504d;
+  --pal-dark: #1f1a14;    --pal-skin: #d7a982;    --pal-hair: #5a3a24;    --pal-mouth: #7e3b30;
+  --pal-portrait: #342d23; --pal-night: #1a1710;
+  --pal-metal-dark: #86775f;   --pal-cell-light: #6f948c;   --pal-gold-dark: #9a6f2c;
+  --pal-ion: #a6d3c4;          --pal-flame: #d8864a;
+  --map-ground: #27221a;  --map-lot: #342d23;     --map-road: #3d3427;    --map-dash: #6a5b44;
+  --map-sea: #36504d;     --map-wave: #4f6f6a;    --map-shore: #86b3a6;
+  /* Type: a typewriter and a stencil. Google Fonts (index.html) with Courier-width fallbacks, so a missing font still reads
+     as a typed page. Courier Prime and Courier New are the same width, so the layout holds on the fallback. */
+  --pixel: "Stardos Stencil", "Rockwell Extra Bold", "Courier New", "Liberation Mono", monospace;
+  --mono: "Courier Prime", "Courier New", "Liberation Mono", Courier, monospace;
+  --font-head: var(--pixel);   --font-body: var(--mono);
+  --font-story: "Special Elite", "Courier Prime", "Courier New", "Liberation Mono", monospace;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='%23eadcc0' fill-opacity='.055'%3E%3Crect x='14' y='58' width='2' height='2'/%3E%3Crect x='38' y='58' width='2' height='2'/%3E%3Crect x='2' y='54' width='2' height='2'/%3E%3Crect x='22' y='2' width='2' height='2'/%3E%3Crect x='4' y='62' width='2' height='2'/%3E%3Crect x='62' y='34' width='2' height='2'/%3E%3Crect x='28' y='34' width='2' height='2'/%3E%3Crect x='38' y='48' width='2' height='2'/%3E%3Crect x='48' y='26' width='2' height='2'/%3E%3Crect x='30' y='54' width='2' height='2'/%3E%3Crect x='22' y='30' width='2' height='2'/%3E%3Crect x='4' y='46' width='2' height='2'/%3E%3Crect x='52' y='22' width='2' height='2'/%3E%3Crect x='10' y='62' width='2' height='2'/%3E%3Crect x='6' y='28' width='2' height='2'/%3E%3Crect x='28' y='6' width='2' height='2'/%3E%3Crect x='6' y='38' width='2' height='2'/%3E%3Crect x='48' y='4' width='2' height='2'/%3E%3Crect x='38' y='58' width='2' height='2'/%3E%3Crect x='16' y='36' width='2' height='2'/%3E%3Crect x='22' y='20' width='2' height='2'/%3E%3Crect x='32' y='44' width='2' height='2'/%3E%3Crect x='18' y='10' width='2' height='2'/%3E%3Crect x='54' y='40' width='2' height='2'/%3E%3Crect x='24' y='62' width='2' height='2'/%3E%3Crect x='30' y='10' width='2' height='2'/%3E%3C/g%3E%3C/svg%3E");
+  --grain-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='%232a2017' fill-opacity='.07'%3E%3Crect x='16' y='58' width='2' height='2'/%3E%3Crect x='36' y='30' width='2' height='2'/%3E%3Crect x='10' y='26' width='2' height='2'/%3E%3Crect x='10' y='0' width='2' height='2'/%3E%3Crect x='44' y='48' width='2' height='2'/%3E%3Crect x='8' y='34' width='2' height='2'/%3E%3Crect x='46' y='56' width='2' height='2'/%3E%3Crect x='22' y='26' width='2' height='2'/%3E%3Crect x='40' y='52' width='2' height='2'/%3E%3Crect x='32' y='30' width='2' height='2'/%3E%3Crect x='50' y='60' width='2' height='2'/%3E%3Crect x='20' y='56' width='2' height='2'/%3E%3Crect x='12' y='16' width='2' height='2'/%3E%3Crect x='60' y='44' width='2' height='2'/%3E%3Crect x='12' y='2' width='2' height='2'/%3E%3Crect x='18' y='52' width='2' height='2'/%3E%3Crect x='48' y='12' width='2' height='2'/%3E%3Crect x='32' y='48' width='2' height='2'/%3E%3Crect x='26' y='20' width='2' height='2'/%3E%3Crect x='22' y='12' width='2' height='2'/%3E%3Crect x='54' y='12' width='2' height='2'/%3E%3Crect x='42' y='44' width='2' height='2'/%3E%3C/g%3E%3C/svg%3E");
+  --fleck: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cg fill='%23eadcc0' fill-opacity='.04'%3E%3Crect x='42' y='24' width='4' height='4'/%3E%3Crect x='50' y='32' width='4' height='4'/%3E%3Crect x='8' y='36' width='4' height='4'/%3E%3Crect x='44' y='72' width='4' height='4'/%3E%3Crect x='82' y='74' width='4' height='4'/%3E%3Crect x='22' y='64' width='4' height='4'/%3E%3Crect x='56' y='6' width='4' height='4'/%3E%3Crect x='70' y='78' width='4' height='4'/%3E%3Crect x='54' y='80' width='4' height='4'/%3E%3Crect x='4' y='70' width='4' height='4'/%3E%3Crect x='40' y='94' width='4' height='4'/%3E%3Crect x='86' y='18' width='4' height='4'/%3E%3C/g%3E%3C/svg%3E");
+  /* The 3D art (js/lowpoly.js reads --lp-<name> on each draw): a faded, warm, slightly sepia print, like a 1950s map and a
+     field photo. The key light is warm, the shadows brown instead of blue (--lp-light-key / --lp-light-ambient). */
+  --lp-space: #1a1710;    --lp-star: #e6dcc4;
+  --lp-white: #e4dcc8;    --lp-cream: #d6c79f;    --lp-silver: #b0aa9c;   --lp-steel: #857f73;
+  --lp-graphite: #4a453d; --lp-black: #1f1b16;    --lp-gold: #bf9a4c;     --lp-copper: #a9704a;
+  --lp-cell: #3a4a52;     --lp-cellEdge: #6a7f80; --lp-red: #a8503a;      --lp-orange: #c27a3e;
+  --lp-yellow: #cba84a;   --lp-teal: #4f857c;     --lp-green: #6f8650;    --lp-glow: #f0cb8a;
+  --lp-glowCool: #c9dccf; --lp-sea: #3f6a73;      --lp-land: #7d8355;     --lp-sand: #c2a874;
+  --lp-ice: #e0dfd2;      --lp-cloud: #ece6d6;    --lp-sky: #a8b5ad;
+  --lp-skin1: #dfb694;    --lp-skin2: #b98a60;    --lp-skin3: #7e5638;
+  --lp-hair1: #2d241b;    --lp-hair2: #7b5535;    --lp-hair3: #b8a47e;
+  --lp-shirt1: #66808a;   --lp-shirt2: #77865f;   --lp-shirt3: #9d8664;   --lp-tie: #8a4130;
+  --lp-ground: #6f6a58;   --lp-concrete: #9d9886; --lp-grass: #66784a;    --lp-metalDark: #5a574f;
+  --lp-light-key: #dcb88a;     --lp-light-ambient: #75684f;
+}
+
+body[data-era="1958"] {
+  background-color: var(--bg);
+  background-image: var(--grain);
+  letter-spacing: 0;
+}
+body[data-era="1958"] .brand-name { letter-spacing: 2px; }
+
+/* Surfaces: cardboard tags and ledger paper. The home page's cut corners (clip-path) give way to square edges with a double
+   or dashed rule; padding gives back what the rule takes, so the layout does not move. */
+body[data-era="1958"] :is(.panel, .say, .dialogue, .btn, .icon-btn, .tab, .card, .part, .bin, .legend-item, .map-prompt, .hub-fact,
+    .banner, .try, .objective, .nasa-box, .chron-entry) { clip-path: none; }
+body[data-era="1958"] .panel { border: 3px double var(--rule); padding: 13px 15px; background-image: var(--grain); }
+body[data-era="1958"] .panel.paper {
+  background-image: var(--grain-paper); border-color: var(--paper-muted);
+  /* a torn bottom edge */
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), 97% 100%, 94% calc(100% - 4px), 90% calc(100% - 1px), 86% calc(100% - 5px),
+    82% 100%, 78% calc(100% - 3px), 74% calc(100% - 5px), 70% 100%, 66% calc(100% - 2px), 62% calc(100% - 5px), 58% 100%,
+    54% calc(100% - 4px), 50% calc(100% - 1px), 46% calc(100% - 5px), 42% 100%, 38% calc(100% - 3px), 34% calc(100% - 5px),
+    30% 100%, 26% calc(100% - 2px), 22% calc(100% - 5px), 18% 100%, 14% calc(100% - 4px), 10% calc(100% - 1px),
+    6% calc(100% - 5px), 3% 100%, 0 calc(100% - 3px));
+  padding-bottom: 18px;
+}
+body[data-era="1958"] .say, body[data-era="1958"] .dialogue { border: 2px dashed var(--rule); padding: 8px 16px 8px 8px; background-image: var(--grain); }
+body[data-era="1958"] .dialogue { padding: 16px; }
+body[data-era="1958"] :is(.card, .part, .bin, .legend-item) { border-style: dashed; background-image: var(--fleck); }
+body[data-era="1958"] :is(.card, .part, .bin, .legend-item):hover { border-color: var(--text-dim); }
+body[data-era="1958"] :is(.card, .part)[aria-pressed="true"], body[data-era="1958"] .card.chosen, body[data-era="1958"] .part.armed { border-style: solid; }
+body[data-era="1958"] .btn { border: 3px double var(--rule); padding: 0 17px; letter-spacing: 0.5px; }
+body[data-era="1958"] .btn.primary { border-color: var(--on-accent); background-image: var(--fleck); }
+body[data-era="1958"] .btn:disabled { border-style: dashed; border-color: var(--line); }
+body[data-era="1958"] .btn.quiet { border: 0; padding: 0 20px; }
+body[data-era="1958"] .btn.quiet, body[data-era="1958"] .choices .btn { letter-spacing: 0; }
+body[data-era="1958"] .icon-btn, body[data-era="1958"] .tab { border: 3px double var(--rule); }
+body[data-era="1958"] .tab.on { border-color: var(--on-accent); }
+body[data-era="1958"] .topbar { border-bottom: 3px double var(--rule); }
+body[data-era="1958"] .foot { border-top: 2px dashed var(--rule); }
+body[data-era="1958"] .hint { border-left: 3px dashed var(--info); }
+body[data-era="1958"] :is(.facts, .log) div, body[data-era="1958"] .log li { border-top-style: dashed; border-top-color: var(--rule); }
+body[data-era="1958"] .minimap, body[data-era="1958"] .map { border: 2px solid var(--rule); }
+body[data-era="1958"] .bar-track { background: var(--surface-3); }
+body[data-era="1958"] .sat-bench { background-image: var(--grain); border: 2px dashed var(--rule); padding: 4px; }
+body[data-era="1958"] img.lp-face { filter: sepia(0.55) saturate(0.8); }   /* the busts are drawn before their screen is on the page */
+
+/* Type: stencil headings, typed story lines. Stamps and tags are small, rotated and typed, like a rubber stamp. */
+body[data-era="1958"] .screen-head h1 { letter-spacing: 1px; text-decoration: underline double var(--rule); text-decoration-thickness: 2px; text-underline-offset: 7px; }
+body[data-era="1958"] .screen-head h1 svg.icon { text-decoration: none; }
+body[data-era="1958"] .panel > h2 { letter-spacing: 1.5px; }
+body[data-era="1958"] :is(.say-text p, .speech, .try, .chron-epilogue, .preset-note, .hint) { font-family: var(--font-story); }
+body[data-era="1958"] :is(.kicker, .say-name, .tag, .stamp, .banner, .verdict, .objective-key, .bar-note) { font-family: var(--font-story); }
+body[data-era="1958"] .kicker { display: inline-block; align-self: flex-start; transform: rotate(-1.5deg); transform-origin: left center; letter-spacing: 2px; }
+body[data-era="1958"] .tag { transform: rotate(-2deg); }
+body[data-era="1958"] .stamp { transform: rotate(-3deg); }
+body[data-era="1958"] .banner { font-weight: normal; }
+body[data-era="1958"] .say-text p { line-height: 1.1; }
