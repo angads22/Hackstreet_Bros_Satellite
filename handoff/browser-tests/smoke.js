@@ -1,23 +1,26 @@
+// A quick smoke test: home page, Part 1 step 1, the map, E to walk and E to go in, Build.
+// Usage: node smoke.js [shots dir]   or   node smoke.js <repo dir> <shots dir>
 const { chromium } = require('playwright');
+const path = require('path');
+const T = require('./lib');
+const { url, shots } = T.args();
+const { ok, done } = T.checker();
+
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
-  const errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('console', m => { if (m.type() === 'error' && !/fonts/.test((m.location()||{}).url||'')) errs.push(m.text()); });
-  await p.goto('file:///home/user/Hackstreet_Bros_Satellite/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload();
-  await p.waitForTimeout(800);
-  await p.click('[data-key="tier-training"]');
-  await p.waitForTimeout(300);
-  await p.screenshot({ path: process.argv[2] + '/map-0.png' });
-  console.log('prompt:', await p.locator('.map-prompt-text').innerText());
-  await p.keyboard.press('e'); await p.waitForTimeout(1200);
-  console.log('after E:', await p.locator('.map-prompt-text').innerText());
-  await p.keyboard.press('e'); await p.waitForTimeout(300);
-  console.log('screen:', await p.locator('.screen-head h1').innerText());
-  await p.click('[data-key="obj-wildfire"]');
-  await p.screenshot({ path: process.argv[2] + '/map-1-briefing.png' });
-  await p.click('text=GO TO TRACKING STATION'); await p.waitForTimeout(400);
-  await p.screenshot({ path: process.argv[2] + '/map-2-walking.png' });
-  await p.waitForTimeout(1500);
-  console.log('screen:', await p.locator('.screen-head h1').innerText());
-  console.log('errors:', errs);
+  const errors = T.watchErrors(p);
+  await T.noFonts(p);
+  await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
+  ok(await p.locator('.mode-card').count() === 2, 'home page: two modes');
+  await p.click('[data-key="part1-go"]'); await T.throughBeats(p);
+  ok(await T.waitHead(p, 'BASE MAP'), 'the map');
+  await p.screenshot({ path: path.join(shots, 'smoke-map.png') });
+  console.log('     prompt: ' + await p.locator('.map-prompt-text').innerText());
+  await p.keyboard.press('e'); await p.waitForTimeout(2500);
+  console.log('     after E: ' + await p.locator('.map-prompt-text').innerText());
+  await p.keyboard.press('e');
+  ok(await T.waitHead(p, 'BUILD'), 'E, E: into the Workshop');
+  ok(errors.length === 0, 'no errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await b.close();
+  done();
 })();

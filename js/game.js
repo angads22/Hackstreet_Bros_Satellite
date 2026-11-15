@@ -546,8 +546,11 @@ function runChecks(design) {
       if (sl.used > sl.max) block("body-slots", "The " + bs.name + " has room for " + sl.max + " " + cat + " part" + (sl.max === 1 ? "" : "s") + " (you fitted " + sl.used + ").");
     });
   }
+  // An orbit no rocket on offer reaches (1958 rockets reach only low orbit) is fixed at the orbit, not the rocket.
+  var noRocket = orbit ? !LAUNCHERS.some(function (l) { return isLauncherAvailable(l.id, design) && (l.capacity_kg || {})[orbit.id] > 0; }) : false;
+  var pickOrbit = orbit ? "No rocket you can use reaches " + orbit.name + ": pick another orbit." : "";
   if (!orbit) block("no-orbit", "Pick an orbit.");
-  if (!launcher) block("no-launcher", "Pick a launch vehicle.");
+  if (!launcher) block("no-launcher", noRocket ? pickOrbit : "Pick a launch vehicle.");
 
   requiredCategories().forEach(function (cat) {
     var has = parts.some(function (p) { return p.category === cat; });
@@ -556,7 +559,7 @@ function runChecks(design) {
 
   if (launcher && orbit) {
     if (!t.capacity_kg) {
-      block("launcher-reach", launcher.name + " cannot reach " + orbit.name + ".");
+      block("launcher-reach", noRocket ? pickOrbit : launcher.name + " cannot reach " + orbit.name + ": pick another rocket, or another orbit.");
     } else if (t.mass_kg > t.capacity_kg) {
       block("mass", "Spacecraft is " + t.mass_kg + " kg but the " + launcher.name +
         " can carry only " + t.capacity_kg + " kg to " + orbit.name + ".");
@@ -568,7 +571,7 @@ function runChecks(design) {
 
   if (t.budget_musd !== null && t.cost_musd > t.budget_musd) {
     block("budget", "Cost is $" + round(t.cost_musd, 2) + "M but " +
-      (design.campaign ? "the treasury holds $" : "the budget is $") + round(t.budget_musd, 2) + "M.");
+      (design.campaign ? (design.comeback ? "you have $" : "the treasury holds $") : "the budget is $") + round(t.budget_musd, 2) + "M.");
   }
 
   // A spinning satellite smears cameras, thermal imagers and radar.
@@ -581,9 +584,16 @@ function runChecks(design) {
   }
 
   // Time: in a campaign, the satellite must be built before the programme ends.
+  // Ajay's comeback (mode "comeback") has a deadline in months instead: js/mission.js checks it and the contract.
   if (design.campaign && typeof getCampaign === "function" && typeof CAMPAIGN !== "undefined") {
     var camp = getCampaign();
-    if (camp && camp.year + missionYears(design) > CAMPAIGN.end_year) {
+    if (camp && camp.mode === "comeback" || design.comeback) {
+      if (typeof comebackChecks === "function") {
+        var cb = comebackChecks(design, t);
+        cb.blockers.forEach(function (x) { block(x.id, x.text); });
+        cb.warnings.forEach(function (x) { warn(x.id, x.text); });
+      }
+    } else if (camp && camp.year + missionYears(design) > CAMPAIGN.end_year) {
       block("too-late", "Building this takes " + t.dev_months + " months: it could not launch before the programme ends in " + CAMPAIGN.end_year + ".");
     }
   }
@@ -600,8 +610,14 @@ function runChecks(design) {
   }
 
   if (orbit && t.delta_v_ms < dvNeeded(orbit, design)) {
-    block("delta-v", orbit.name + " needs " + dvNeeded(orbit, design) + " m/s of thrust from the spacecraft, but it has only " +
-      t.delta_v_ms + " m/s. Add propulsion or cut mass.");
+    // Say "add propulsion" only when a thruster exists for this design and its body has room for one.
+    var thrusters = PARTS.filter(function (p) { return p.category === "propulsion" && isPartAvailable(p.id, design); });
+    var hasThruster = parts.some(function (p) { return p.category === "propulsion"; });
+    var room = !bs || bs.slots.propulsion.max > bs.slots.propulsion.used;
+    block("delta-v", orbit.name + " needs " + dvNeeded(orbit, design) + " m/s of thrust from the spacecraft, but it has only " + t.delta_v_ms + " m/s. " +
+      (!thrusters.length ? "You have no thruster yet: pick another orbit."
+       : !room && !hasThruster ? "This body has no room for a thruster: pick a bigger body, or another orbit."
+       : "Add propulsion or cut mass."));
   }
 
   if (orbit && t.data_gb_day > t.data_returned_gb_day) {
@@ -659,7 +675,8 @@ function batteryLifeMonths(design) {
 function previewScience(design) {
   var orbit = getOrbit(design.orbit);
   var objective = getObjective(design.objective);
-  var rate = scienceRate(design, []);
+  // A comeback flies today, so its preview uses today's Sun; other designs keep the record's first year.
+  var rate = design.comeback && design.campaign ? scienceRate(design, [], null, designYear(design)) : scienceRate(design, []);
   var months = orbit ? orbit.lifetime_months : 0;
   var bl = batteryLifeMonths(design);
   if (bl !== null) months = Math.min(months, bl);
@@ -722,6 +739,7 @@ function previewToggle(design, partId) {
   var adding = design.parts.indexOf(partId) === -1;
   var after = { tier: design.tier, objective: design.objective, orbit: design.orbit,
                 launcher: design.launcher, parts: design.parts.slice(), campaign: design.campaign };
+  if (design.comeback) { after.comeback = true; after.contract = design.contract; }
   if (adding) addPart(after, partId); else removePart(after, partId);
 
   function snapshot(d) {

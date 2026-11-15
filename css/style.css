@@ -17,6 +17,7 @@
   --pal-glass: #e9b04b;   --pal-red: #d9482f;     --pal-cell: #2e6b72;    --pal-cell-dark: #1f4a50;
   --pal-dark: #1d1915;    --pal-skin: #e0ae86;    --pal-hair: #5a3a24;    --pal-mouth: #7e3b30;
   --pal-portrait: #352b23; --pal-night: #1a1612;
+  --space: #0b0f16;       /* the low-poly scenes' night sky (js/lowpoly.js 'space'): the home page's background */
   --pal-metal-dark: #8e7f67;   --pal-cell-light: #4d9aa0;   --pal-gold-dark: #a8742a;
 --pal-ion: #8fd6c9;          --pal-flame: #f08a4b;
   --map-ground: #231e19;  --map-lot: #2c251f;     --map-road: #3c332b;    --map-dash: #5e5042;
@@ -85,11 +86,12 @@ button:disabled { cursor: not-allowed; }
 .data-badge.partial { color: var(--accent-ink); }
 .data-badge.snapshot { color: var(--text-dim); }
 .data-badge.loading { color: var(--text-dim); border-style: dashed; }
-@media (min-width: 761px) {
-  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
-  html { scroll-padding-top: 240px; }   /* the header wraps to about 230px between 761 and 899px */
-}
+/* The header stays in view only on a wide screen, where it fits one row (about 130px): the brand's status line wraps
+   inside its own box instead of pushing the minimap and "?" onto rows of their own. Narrower (a phone, or 150 to 200%
+   zoom), it scrolls away with the page, so it never covers what has focus. */
 @media (min-width: 930px) {
+  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
+  .brand { flex: 0 1 300px; }
   html { scroll-padding-top: 144px; }
 }
 @media (max-height: 500px) {   /* landscape phones: a sticky header would eat the screen */
@@ -225,12 +227,12 @@ button:disabled { cursor: not-allowed; }
   cursor: pointer;
 }
 .card:hover { border-color: var(--text-dim); }
-.card[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); }
+.card[aria-pressed="true"], .card.chosen { background: var(--surface-2); border-color: var(--accent); }
 .card.locked { color: var(--text-dim); border-style: dashed; cursor: not-allowed; }
 .card.locked h3 { color: var(--text-dim); }
 .card-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 10px; }
 .card-title h3 { font-size: 24px; color: var(--text); }
-.card[aria-pressed="true"] .card-title h3 { color: var(--accent-ink); }
+.card[aria-pressed="true"] .card-title h3, .card.chosen .card-title h3 { color: var(--accent-ink); }
 .card-blurb { color: var(--text-dim); font-size: 20px; }
 .card.dim .card-blurb { color: var(--bad); }
 
@@ -249,6 +251,7 @@ button:disabled { cursor: not-allowed; }
   font-size: 18px;
   white-space: nowrap;
 }
+.card-title .tag { white-space: normal; max-width: 100%; }   /* a long "NEEDS RESEARCH: ..." wraps inside its card */
 .tag.good { color: var(--info-ink); }
 .tag.warn { color: var(--accent-ink); }
 .tag.bad { color: var(--bad); }
@@ -311,9 +314,12 @@ button:disabled { cursor: not-allowed; }
   padding: 10px;
 }
 
-/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. */
-.preview { height: 190px; overflow-y: auto; }
-@media (min-width: 930px) { .bench-col > .preview { position: sticky; top: var(--sticky-top, 8px); z-index: 3; align-self: stretch; } }
+/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. It lists the
+   change to the bars and what it fixes and causes before the part's story, and keeps the last part when the pointer
+   leaves the card, so the pointer can move onto it to scroll. It stays on top of the shelf while the parts scroll by. */
+.preview { height: clamp(190px, 36vh, 320px); overflow-y: auto; gap: 4px; }
+.part-picker { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.part-picker > .preview { position: sticky; top: var(--sticky-top, 0px); z-index: 3; }
 .bench-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .workshop > .bins, .workshop > .stack { position: sticky; top: var(--sticky-top, 8px); align-self: start; max-height: calc(100vh - var(--sticky-top, 8px) - 8px); overflow-y: auto; }
 @media (min-width: 930px) { .workshop { --sticky-top: 140px; } }   /* just under the sticky header */
@@ -321,7 +327,7 @@ button:disabled { cursor: not-allowed; }
 .workshop .sat-bench { max-width: 320px; }
 .workshop .shelf { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .preview h3 { font-size: 20px; color: var(--accent-ink); }
-.preview-line { font-size: 20px; }
+.preview-line { font-size: 19px; }
 .preview-line.fix { color: var(--info-ink); }
 .preview-line.cause { color: var(--bad); }
 .preview-empty { color: var(--text-dim); font-size: 20px; }
@@ -339,6 +345,8 @@ button:disabled { cursor: not-allowed; }
 }
 .part:hover, .part:focus-visible { border-color: var(--text-dim); }
 .part[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); }
+.part.armed { border-color: var(--accent); }   /* a finger's first tap: the next tap adds or removes it */
+.part-tap { align-self: flex-start; padding: 0 8px; background: var(--accent); color: var(--on-accent); font-size: 18px; }
 .part-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; align-items: baseline; }
 .part-name { font-size: 24px; line-height: 1; }
 .part-cost { color: var(--accent-ink); white-space: nowrap; }
@@ -412,43 +420,13 @@ button:disabled { cursor: not-allowed; }
 .banner { padding: 10px 14px; background: var(--accent); color: var(--on-accent); font-family: var(--pixel); font-weight: 700; font-size: 26px; }
 .banner.info { background: var(--surface); color: var(--text-dim); font-family: var(--mono); font-weight: normal; font-size: 22px; border: 4px solid var(--border); }
 
-/* ---------------------------------------------------------------- title (tier select) */
-.title { display: flex; flex-direction: column; gap: 22px; padding: 24px 0; }
+/* ---------------------------------------------------------------- title (the home page: see "the home page" below) */
 .kicker { font-size: 24px; letter-spacing: 4px; color: var(--info-ink); }
 .big-title { font-family: var(--pixel); font-weight: 700; font-size: clamp(48px, 12vw, 128px); line-height: 1; color: var(--accent-ink); text-shadow: 8px 8px 0 var(--stamp); }
-.tagline { font-size: 30px; max-width: 640px; }
 
 .empty { color: var(--text-dim); font-style: italic; }
 
-/* ---------------------------------------------------------------- tier select: eras across, tiers down */
-.eras { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); align-items: start; }
-.era { display: flex; flex-direction: column; gap: 8px; padding: 14px; background: var(--surface); border: 4px solid var(--border); min-width: 0; }
-.era.locked { border-style: dashed; }
-.era.locked h3, .era.locked .era-year { color: var(--text-dim); }
-.era-year { font-family: var(--pixel); font-weight: 700; font-size: 44px; line-height: 1; color: var(--accent-ink); }
-.era h3 { font-size: 22px; }
-.tier-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-.tier-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 56px;
-  padding: 6px 12px;
-  background: var(--bg);
-  color: var(--text);
-  border: 4px solid var(--border);
-  box-shadow: 4px 4px 0 var(--shadow);
-  text-align: left;
-  cursor: pointer;
-}
-.tier-btn:not(:disabled):hover { border-color: var(--accent); }
-.tier-btn.locked { border-style: dashed; box-shadow: none; color: var(--text-dim); cursor: not-allowed; }
-.tier-name { font-size: 24px; line-height: 1; }
-.tier-facts { font-size: 18px; line-height: 1.1; color: var(--text-dim); }
 /* ---------------------------------------------------------------- campaign hub */
-.campaign-panel { margin-top: 8px; }
-.tier-list.row { flex-direction: row; flex-wrap: wrap; }
-.tier-list.row .tier-btn { flex: 1 1 220px; }
 .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .tab { padding: 6px 16px; min-height: 44px; background: var(--surface); color: var(--text-dim); border: 4px solid var(--border); font-size: 22px; cursor: pointer; }
 .tab.on { background: var(--accent); color: var(--on-accent); border-color: var(--text); }
@@ -575,13 +553,22 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   font-weight: 700;
   font-size: 20px;
 }
+/* The name hangs under its marker (the marker's box is the number alone, centred on the door). Near the map's left or
+   right edge it starts or ends at the marker instead of being centred, so it is never cut off on a phone. */
 .blip-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
   padding: 0 6px;
   background: var(--bg);
   color: var(--text);
   font-size: 18px;
   white-space: nowrap;
 }
+.blip.edge-l .blip-name { left: 0; transform: none; }
+.blip.edge-r .blip-name { left: auto; right: 0; transform: none; }
 .blip.done .blip-num { background: var(--info); border-color: var(--info); color: var(--on-info); }
 .blip.next .blip-num { background: var(--accent); border-color: var(--text); color: var(--on-accent); animation: pulse 1s steps(2) infinite; }
 .blip.next .blip-name { color: var(--accent-ink); }
@@ -630,7 +617,6 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 }
 .map-prompt-text { font-size: 22px; }
 .map-prompt .btn { min-height: 44px; font-size: 22px; padding: 0 14px; }
-.map-objective { color: var(--accent-ink); font-size: 24px; }
 
 /* NASA data lines: the orbit cards, each mission month and the debrief comparison. */
 .nasa-line { margin: 0; color: var(--info-ink); font-size: 20px; }
@@ -654,7 +640,8 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 .legend-item:hover { border-color: var(--accent); }
 .legend-item .blip-num { width: 28px; height: 28px; font-size: 18px; flex: none; }
 .legend-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1; }
-.legend-does { font-size: 18px; color: var(--text-dim); }
+.keys-box { display: flex; flex-direction: column; gap: 10px; }
+@media (hover: none) { .keys-box { display: none; } }   /* a touch screen: the hint says to tap a place */
 
 @media (prefers-reduced-motion: reduce) {
   .blip.next .blip-num { animation: none; box-shadow: 0 0 0 4px var(--accent); }
@@ -673,6 +660,11 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 @media (max-width: 929px) {
   .workshop { grid-template-columns: 1fr; }
   .workshop > .bins, .workshop > .stack { position: static; max-height: none; }
+  /* One column: the bins, then the preview and the shelf, then the satellite and the bars. */
+  .workshop > .bench-col { display: contents; }
+  .workshop > .bins { order: -2; }
+  .workshop .part-picker { order: -1; }
+  .preview { height: clamp(120px, 30vh, 190px); }
 }
 
 @media (max-width: 760px) {
@@ -688,6 +680,7 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   .blip.next .blip-name { display: block; }
   .blip::before { content: ""; position: absolute; inset: -6px; }   /* 44px touch target */
   .workshop, .pad, .ledger { grid-template-columns: 1fr; }
+  .pad > .launch-control { order: -1; }   /* Readiness on a phone: the verdict and LAUNCH (or FIX) before the pictures */
   .bins { flex-direction: row; flex-wrap: wrap; }
   .bin { flex: 1 1 140px; }
   .dialogue { grid-template-columns: 1fr; }
@@ -761,22 +754,235 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 .chron-body p { font-size: 20px; color: var(--text-dim); margin: 2px 0 0; }
 @media (max-width: 760px) { .chron-entry { grid-template-columns: 1fr; } .chron-rating { font-size: 36px; } }
 /* ---------------------------------------------------------------- flat icons (one colour, beside words) */
-svg.icon { flex: none; width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+svg.icon { display: inline-block; flex: none; width: 1em; height: 1em; margin-inline-end: var(--icon-spacing, .35em); vertical-align: -.12em; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Inline symbols and a short, optional readiness assembly preview. */
-svg.icon { display: inline-block; margin-right: .35em; vertical-align: -.12em; }
-.part-stat { display: inline-block; }
+.bin, .bar-name, .check .status { --icon-spacing: 0px; }
+.part-stat { display: inline-block; white-space: nowrap; }
 .sat-small .sat-p { animation: sat-drop .4s ease-out both; animation-delay: var(--assembly-delay, 0ms); }
 @media (prefers-reduced-motion: reduce) {
   .sat-small .sat-p { animation: none; }
 }
 
-/* ---------------------------------------------------------------- home page: low-poly hero, plainer cards */
 .lp { display: block; width: 100%; background: var(--bg); }
-.lp-hero { aspect-ratio: 4 / 1; max-height: 340px; border: 4px solid var(--border); }
-@media (max-width: 640px) { .lp-hero { aspect-ratio: 3 / 2; } }
-.title .big-title { font-size: clamp(40px, 8vw, 88px); text-shadow: 4px 4px 0 var(--stamp); }
-.era.compact { gap: 4px; padding: 10px 14px; }
-.era.compact .era-year { font-size: 28px; }
 .btn.quiet { background: none; border-color: transparent; box-shadow: none; color: var(--text-dim); text-decoration: underline; }
 .btn.quiet:hover { color: var(--text); border-color: var(--border); }
+
+/* ---------------------------------------------------------------- the home page: a console title screen
+   body.is-home is set while it is up (js/ui-design.js, markHome): no header bar, hint or pixel ground strip, and the
+   title fills the first screen edge to edge. The low-poly scene (or, without it, a pixel sky) is the background; the
+   drawn title, one line and the two modes sit over its dark sky on solid panels. Flat: no gradients, shadows or glow.
+   Wide screens: the menu on the left, the satellite framed right. Tall screens (the same 1.15 switch as HERO_AIM):
+   the title on top, the satellite in the middle, the menu at the foot of the first screen. */
+body.is-home { background: var(--space); }
+.is-home .wrap { max-width: none; padding: 0; }
+.is-home .hint, .is-home .backdrop, .is-home .brand-name, .is-home .brand-status { display: none; }
+/* The header keeps only the LIVE DATA / SNAPSHOT badge, as a small chip in the top right corner. */
+.is-home .topbar { position: absolute; top: 16px; right: var(--home-side); z-index: 3; padding: 0; background: none; }
+.is-home .brand { min-width: 0; }
+.is-home .data-badge { background: var(--space); }
+.is-home .foot { position: absolute; right: var(--home-side); bottom: 16px; z-index: 2; margin: 0; padding: 0 8px; background: var(--space); font-size: 18px; }
+
+:root { --home-side: clamp(16px, 5vw, 88px); }
+.title {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: clamp(28px, 6vh, 80px) var(--home-side) 76px;
+  overflow: hidden;
+  background: var(--space);
+}
+.title > .lp-hero, .title > .title-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: var(--space); }
+.title-main { position: relative; z-index: 1; display: flex; flex-direction: column; width: min(100%, 40vw + 60px, 720px); min-width: min(100%, 360px); }
+.title .big-title { margin: 0; line-height: 0; color: var(--accent-ink); text-shadow: none; }
+.title .big-title .logo { display: block; width: 100%; height: auto; fill: currentColor; }
+.title .tagline { margin-top: 0.7em; font-size: clamp(22px, 2.2vw, 32px); line-height: 1.1; color: var(--text); letter-spacing: 1px; }
+
+/* The menu: two panels, the whole panel is the button. Corners cut like the letters of the title. */
+.title .modes { display: flex; flex-direction: column; gap: 14px; margin-top: clamp(24px, 6vh, 64px); }
+.mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 22px 14px;
+  background: var(--surface);
+  color: var(--text);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+.mode-card.lead { background: var(--accent); color: var(--on-accent); }
+.mode-card:hover { background: var(--surface-2); }
+.mode-card.lead:hover { background: var(--accent-ink); }
+.mode-top { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
+.mode-card .kicker { font-size: 20px; letter-spacing: 3px; color: var(--info-ink); }
+.mode-card.lead .kicker { color: var(--on-accent); }
+.mode-card .tag { font-size: 18px; color: var(--accent-ink); }
+.mode-card.lead .tag { background: var(--on-accent); border-color: var(--on-accent); color: var(--text); }
+.mode-card h2 { font-size: clamp(24px, 2.6vw, 38px); line-height: 1.05; color: var(--accent-ink); overflow-wrap: anywhere; }
+.mode-card.lead h2 { color: var(--on-accent); }
+.mode-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; margin-top: 6px; min-height: 32px; }
+.mode-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; font-size: 22px; }
+.mode-steps li { display: flex; align-items: baseline; gap: 6px; }
+.mode-step-num { font-family: var(--pixel); font-weight: 700; }
+.mode-steps .stars { letter-spacing: 1px; }
+.mode-steps li:not(.passed) { color: var(--text-dim); }
+.mode-card.lead .mode-steps li:not(.passed) { color: var(--stamp); }
+.mode-go { margin-left: auto; }
+/* The button: big plain words, its hit area stretched over the whole panel; focus draws a ring inside the panel. */
+.mode-go .btn, .mode-go .btn.primary, .mode-go .btn:disabled {
+  min-height: 32px;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: inherit;
+  font-family: var(--pixel);
+  font-weight: 700;
+  font-size: clamp(24px, 2.2vw, 30px);
+  white-space: nowrap;
+}
+.mode-go .btn:disabled { color: var(--text-dim); opacity: 1; }
+.mode-go .btn::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.mode-go .btn:focus-visible { outline: none; }
+.mode-go .btn:focus-visible::after { outline: 4px solid currentColor; outline-offset: -8px; }
+.mode-card:not(.lead) .mode-go .btn:focus-visible::after { outline-color: var(--info); }
+
+.title-foot { position: absolute; left: var(--home-side); bottom: 12px; z-index: 2; }
+.title-foot .btn.quiet { min-height: 32px; padding: 0 8px; background: var(--space); font-size: 18px; }
+.title-foot .btn.quiet:hover { border-color: transparent; }
+
+@media (max-aspect-ratio: 23/20) {
+  .title { justify-content: flex-start; padding-bottom: 64px; }
+  .title-main { flex: 1; width: min(100%, 600px); margin: 0 auto; }
+  .title .tagline { text-align: center; }
+  .title .modes { margin-top: auto; padding-top: 24px; }
+}
+@media (max-width: 480px) {
+  .mode-card { padding: 10px 16px 12px; }
+  .mode-card .kicker { font-size: 18px; letter-spacing: 2px; }
+  .mode-card h2 { font-size: 22px; }
+  .mode-steps { gap: 4px 12px; font-size: 20px; }
+}
+.preset-note { color: var(--text-dim); font-size: 20px; }
+
+/* ---------------------------------------------------------------- low-poly art in the screens (js/lp-*.js) */
+/* The satellite on the bench and on the Readiness review: a canvas at 4:3, the bench colour showing through. */
+.lp-bench .lp-sat { display: block; width: 100%; max-width: none; height: auto; aspect-ratio: 4 / 3; }
+/* The speakers' low-poly busts: one picture per face, on the portrait colour like the pixel portraits. */
+img.lp-face { background: var(--pal-portrait); object-fit: cover; }
+/* The launch pad on the Readiness review, and the lift-off shown for a moment after LAUNCH (a click skips it). */
+.lp-pad { aspect-ratio: 4 / 3; height: auto; }
+.launch-show { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; background: var(--pal-night); cursor: pointer; }
+.launch-show .lp-launch { width: min(100%, 960px, calc((100vh - 110px) * 4 / 3)); height: auto; aspect-ratio: 4 / 3; border: 4px solid var(--border); }
+/* The small Earth beside the month on the mission screen; the controls keep to the right (or wrap below on a phone). */
+.month-row { display: flex; align-items: flex-end; gap: 16px; min-width: 0; }
+.month-row > .stack { flex: none; white-space: nowrap; }
+.mission-earth { flex: 0 1 144px; width: 144px; min-width: 48px; height: auto; aspect-ratio: 4 / 3; background: var(--pal-night); border: 3px solid var(--border); }
+@media (max-width: 760px) { .mission-earth { flex-basis: 112px; width: 112px; } }
+/* The low-poly base map under the markers; once it has drawn, the pixel map's squares are hidden and only its route stays. */
+.map-lp { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.map.lp-on .map-art > rect { display: none; }
+
+/* ---------------------------------------------------------------- Part 2: Ajay's comeback (js/ui-comeback.js)
+   The difficulty picker, the workshop (the stakes, the contracts, PAY BACK), the debrief's money and the ending.
+   Rounded and flat, like the home page: no shadows or gradients on anything here. */
+.cb .screen-head { flex-direction: column; align-items: flex-start; gap: 2px; }
+.cb .screen-head .kicker { font-size: 20px; letter-spacing: 3px; }
+.cb .btn, .cb-result .btn, .deadline-banner .btn { border-radius: 8px; box-shadow: none; }
+.cb .panel { border-radius: 12px; }
+/* the picker: three difficulty cards */
+.cb-levels { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.cb-level { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; text-align: left; background: var(--surface); color: var(--text);
+  border: 4px solid var(--border); border-radius: 12px; cursor: pointer; }
+.cb-level:hover, .cb-level:focus-visible { border-color: var(--accent); }
+.cb-level-name { font-family: var(--pixel); font-weight: 700; font-size: 40px; line-height: 1; color: var(--accent-ink); }
+.cb-level-tier { font-size: 18px; letter-spacing: 2px; color: var(--text-dim); }
+/* the stakes: debt (with its meter), cash, months left */
+.cb-stakes { display: grid; gap: 12px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.cb-stat { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 16px; background: var(--surface); border: 4px solid var(--border); border-radius: 12px; }
+.cb-stat-label { font-size: 18px; letter-spacing: 3px; color: var(--text-dim); }
+.cb-stat-value { font-family: var(--pixel); font-weight: 700; font-size: clamp(34px, 6vw, 54px); line-height: 1; color: var(--text); }
+.cb-debt .cb-stat-value { color: var(--bad); }
+.cb-stat-value.cash { color: var(--info-ink); }
+.cb-stat.warn { border-color: var(--accent); }
+.cb-stat.warn .cb-stat-value, .cb-stat.warn .cb-note { color: var(--accent-ink); }
+.cb-note { font-size: 20px; color: var(--text-dim); }
+.cb-note.bad { color: var(--bad); }
+.cb-note.good { color: var(--info-ink); }
+.cb-meter { position: relative; height: 22px; background: var(--bg); border: 3px solid var(--border); border-radius: 8px; overflow: hidden; }
+.cb-meter-debt, .cb-meter-cash { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; transition: width 1.2s ease-out; }
+.cb-meter-debt { background: var(--bad); }
+.cb-meter-cash { top: 5px; bottom: 5px; background: var(--info); }
+@media (max-width: 760px) {
+  .cb-stakes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .cb-debt { grid-column: 1 / -1; }
+}
+/* the job board: one card per contract */
+.cb-jobs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); }
+.cb-job { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px 16px; background: var(--paper); color: var(--paper-ink); border: 4px solid var(--paper-ink); border-radius: 12px; }
+.cb-job-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 4px 10px; }
+.cb-job h3 { display: flex; align-items: center; font-size: 22px; min-width: 0; overflow-wrap: anywhere; }
+.cb-job h3 svg.icon { width: 1.3em; height: 1.3em; color: var(--stamp); }
+.cb-tag { flex: none; padding: 0 8px; border: 3px solid var(--paper-ink); border-radius: 6px; font-size: 16px; white-space: nowrap; }
+.cb-client { font-family: var(--pixel); font-weight: 700; font-size: 22px; }
+.cb-reason { color: var(--paper-muted); font-size: 21px; }
+.cb-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.cb-price strong { font-family: var(--pixel); font-size: 40px; line-height: 1; color: var(--ok-stamp); }
+.cb-price span { font-size: 20px; }
+.cb-terms { font-size: 18px; letter-spacing: 1px; color: var(--paper-muted); }
+.cb-job .btn { margin-top: auto; }
+.cb-job.brief { max-width: 520px; }
+/* PAY BACK and the flight log */
+.cb-pay-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.cb-pay-row .btn { min-width: 96px; justify-content: center; }
+.cb-log li { display: flex; justify-content: space-between; gap: 12px; }
+.cb-log-end { white-space: nowrap; }
+/* the readiness review: a flight that lands after the deadline */
+.deadline-banner { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; background: var(--accent); color: var(--on-accent); border-radius: 10px; }
+.deadline-banner strong { font-family: var(--pixel); font-size: 24px; }
+.deadline-banner p { font-size: 20px; }
+/* the debrief: the stamp, the money and the clock */
+.cb-result { display: flex; flex-direction: column; gap: 10px; border-radius: 12px; }
+.cb-result.nothing { border-color: var(--bad); }
+.cb-result-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.cb-stamp { display: inline-block; padding: 4px 16px; border: 5px solid var(--bad); border-radius: 10px; color: var(--bad); font-family: var(--pixel); font-weight: 700;
+  font-size: clamp(28px, 5vw, 40px); line-height: 1.1; transform: rotate(-4deg); animation: cb-stamp 0.45s ease-out both; }
+.cb-stamp.pass { border-color: var(--info); color: var(--info-ink); }
+@keyframes cb-stamp { from { opacity: 0; transform: rotate(-4deg) scale(1.6); } to { opacity: 1; transform: rotate(-4deg) scale(1); } }
+.cb-result, .cb-end { overflow: hidden; }   /* the stamp lands from larger: it must not widen the page while it does */
+.cb-ledger { display: flex; flex-direction: column; }
+.cb-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-top: 2px dashed var(--border); font-size: 21px; }
+.cb-row.cb-total { border-top: 3px solid var(--text-dim); font-family: var(--pixel); font-weight: 700; font-size: 24px; }
+.cb-amount { white-space: nowrap; }
+.cb-months strong { font-family: var(--pixel); font-size: 34px; color: var(--accent-ink); }
+/* the ending */
+.cb-end { align-items: center; text-align: center; }
+.cb-end .chron-stats { border-color: var(--border); }
+.cb-end .chron-stats strong { color: var(--accent-ink); }
+.cb-end .chron-stats span { color: var(--text-dim); }
+.cb-end .cb-headline { font-size: clamp(26px, 4vw, 34px); color: var(--text); max-width: 32ch; }
+.cb-scene { display: block; width: 100%; height: auto; aspect-ratio: 16 / 7; border-radius: 10px; }
+.cb-epilogue { color: var(--text); }
+@media (prefers-reduced-motion: reduce) {
+  .cb-meter-debt, .cb-meter-cash { transition: none; }
+  .cb-stamp { animation: none; }
+}
+
+/* ---------------------------------------------------------------- mission and debrief: sweep fixes (flat, rounded)
+   Fast forward shows when it is on (aria-pressed), not only by the month counting faster. */
+.controls .btn[aria-pressed="true"] { background: var(--info); color: var(--on-info); border-color: var(--info); }
+/* The debrief's score rows wrap on a narrow phone (320px): the value drops under its label instead of off the page. */
+.paper .row { flex-wrap: wrap; row-gap: 2px; }
+.paper .row-label { min-width: 0; overflow-wrap: anywhere; }
+.paper .row-value { margin-left: auto; }
+@media (max-width: 360px) {
+  .paper .row-label span:first-child { font-size: 24px; }
+  .paper .row-value { font-size: 30px; }
+  .ledger-head h1 { font-size: 30px; }
+}
+/* An event: focus lands on its heading (not a control, so no ring), and every choice reads the same, with its cost under it. */
+.dialogue h2[tabindex="-1"]:focus { outline: none; }
+.choices .btn .odds { opacity: 1; color: var(--text-dim); }

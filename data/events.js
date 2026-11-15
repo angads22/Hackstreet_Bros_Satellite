@@ -5,6 +5,8 @@
 // orbit_weight: how likely the event is in each orbit, relative to 1 (GAME VALUES).
 // A missing orbit_weight counts as 1 everywhere.
 // objectives: optional list of topic ids; the event then fires only on those missions.
+// Text names no part the satellite may not carry (an event can fire on any design for its topic): "your counter",
+// "your instrument", "the computer", never a Geiger counter, a tape recorder, a hinged panel or an infrared channel.
 
 const EVENTS = [
   // ------------------------------------------------ era events, tied to one topic each
@@ -12,7 +14,7 @@ const EVENTS = [
     id: "counter-silence",
     objectives: ["radiation"],
     title: "The counter goes silent",
-    text: "High over the Earth your Geiger counter suddenly reads zero, then starts again lower down. Is it broken, or is something up there so intense it swamps the counter?",
+    text: "High over the Earth your counter suddenly reads zero, then starts again lower down. Is it broken, or is something up there so intense it swamps the counter?",
     choices: [
       { label: "Assume it is broken and discard those passes", effect: { science_mult: 0.6 } },
       { label: "Trust the instrument: the silence is data",   effect: {} }
@@ -22,7 +24,7 @@ const EVENTS = [
     id: "spin-wobble",
     objectives: ["weather"],
     title: "A wobbling satellite",
-    text: "The spent rocket stage bumped your satellite as it separated, and now it wobbles as it spins. Your cloud pictures are smeared.",
+    text: "The spent rocket stage bumped your satellite as it separated, and now it wobbles. Your cloud pictures are smeared.",
     choices: [
       { label: "Live with the smeared data",           effect: { science_mult: 0.6 } },
       { label: "Try to damp the wobble by command",    effect: { fail_chance: 0.3, fails: "instrument" } }
@@ -32,7 +34,7 @@ const EVENTS = [
     id: "xray-flare",
     objectives: ["solar"],
     title: "A great solar flare",
-    text: "The Sun has erupted in one of the largest flares ever seen. Your photometer could catch it, but the burst of particles that follows may damage it.",
+    text: "The Sun has erupted in one of the largest flares ever seen. Your instrument could catch it, but the burst of particles that follows may damage it.",
     choices: [
       { label: "Keep watching through the flare",  effect: { science_mult: 1.3, fail_chance: 0.25, fails: "instrument" } },
       { label: "Protect the instrument and wait",  effect: { lose_months: 1 } }
@@ -70,10 +72,10 @@ const EVENTS = [
   },
   {
     id: "stuck-hinge",
-    title: "Stuck panel hinge",
-    text: "A solar panel hinge has jammed partway open, and you are getting less sunlight.",
+    title: "A power fault",
+    text: "A short in the power system is cutting the power your instruments get.",
     choices: [
-      { label: "Rock the spacecraft to free it", effect: { fail_chance: 0.3, fails: "power" } },
+      { label: "Switch circuits to clear it", effect: { fail_chance: 0.3, fails: "power" } },
       { label: "Live with less power",          effect: { science_mult: 0.8 } }
     ]
   },
@@ -88,11 +90,11 @@ const EVENTS = [
   },
   {
     id: "contamination",
-    title: "Fogged optics",
-    text: "Gas from the spacecraft's own materials has fogged the instrument. Images are getting blurry.",
+    title: "Outgassing",
+    text: "Gas from the spacecraft's own materials is settling on the instrument, and its readings are getting worse.",
     choices: [
       { label: "Bake it off with heaters", effect: { lose_months: 1 } },
-      { label: "Live with blurry data",     effect: { science_mult: 0.85 } }
+      { label: "Live with poorer data",     effect: { science_mult: 0.85 } }
     ]
   },
   {
@@ -119,7 +121,7 @@ const EVENTS = [
     id: "ion-antennas",
     objectives: ["ionosphere"],
     title: "The long antennas",
-    text: "Alouette's antennas are 45 metres from tip to tip, rolled up like tape measures. One refuses to unroll all the way, and the echoes come back lopsided.",
+    text: "Your sounder's antennas, like Alouette's, are 45 metres from tip to tip, rolled up like tape measures. One refuses to unroll all the way, and the echoes come back lopsided.",
     choices: [
       { label: "Command it to extend again, and risk a jam", effect: { fail_chance: 0.3, fails: "instrument" } },
       { label: "Fly with one short antenna",                  effect: { science_mult: 0.75 } }
@@ -171,17 +173,17 @@ const EVENTS = [
     title: "A hurricane under the camera",
     text: "A hurricane is crossing the Atlantic right below your orbit. Nobody has ever seen one whole.",
     choices: [
-      { label: "Shoot every pass, and fill the recorder", effect: { science_mult: 1.3, fail_chance: 0.2, fails: "computer" } },
+      { label: "Shoot every pass",                         effect: { science_mult: 1.3, fail_chance: 0.2, fails: "computer" } },
       { label: "Keep the usual schedule",                  effect: {} }
     ]
   },
   {
     id: "wx-tape",
     objectives: ["weather"],
-    title: "The tape recorder jams",
-    text: "The recorder that holds the pictures between ground passes keeps jamming. Without it you can only send pictures live.",
+    title: "The picture store jams",
+    text: "The computer that holds the pictures between ground passes keeps jamming. Without it you can only send pictures live.",
     choices: [
-      { label: "Cycle the recorder and hope",              effect: { fail_chance: 0.3, fails: "computer" } },
+      { label: "Reset it and hope",                        effect: { fail_chance: 0.3, fails: "computer" } },
       { label: "Send live pictures over stations only",    effect: { science_mult: 0.7 } }
     ]
   },
@@ -202,7 +204,7 @@ const EVENTS = [
     text: "A huge fire has thrown a pall of smoke over the region you were watching. Ordinary cameras see only grey.",
     choices: [
       { label: "Wait for clear air",                         effect: { lose_months: 1 } },
-      { label: "Use the infrared channel that sees through", effect: { science_mult: 0.85 } }
+      { label: "Keep observing through the smoke",           effect: { science_mult: 0.85 } }
     ]
   },
   {

@@ -1,19 +1,34 @@
+// Words per screen region (visible text), at 1280x800: the home page, then Part 1, step 1. The home page must stay
+// readable in five seconds, so its body (#app) has a budget.
+// Usage: node regions.js [shots dir]   or   node regions.js <repo dir> <shots dir>
 const { chromium } = require('playwright');
-const REPO = '/home/user/Hackstreet_Bros_Satellite';
-const ALL = { best_stars: {}, best_score: {}, best_stars_by_era: { igy: 3, nimbus: 3, eos: 3 } };
+const T = require('./lib');
+const { url } = T.args();
+const { ok, done } = T.checker();
+const HOME_BUDGET = 80;   // words in the home page body (#app), header and footer not counted
+
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
-  await p.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
-  const wait = t => p.locator('.screen-head h1', { hasText: t }).waitFor({ timeout: 8000 });
-  const regions = async (name, sels) => { const r = await p.evaluate(sels => sels.map(s => { const n = [...document.querySelectorAll(s)].map(e => e.innerText).join(' '); return [s, (n.match(/\S+/g) || []).length]; }), sels); console.log(name + ': ' + r.map(x => x[0] + '=' + x[1]).join('  ')); };
-  await p.goto('file://' + REPO + '/index.html'); await p.evaluate(a => localStorage.setItem('smdg-progress-v1', JSON.stringify(a)), ALL); await p.reload();
-  await regions('title', ['header', '#hint', '.era', '.campaign-panel', '.title']);
-  await p.click('[data-key="start-new-space-training"]'); await p.locator('.intro').waitFor({timeout:3000}).then(()=>p.click('text=SKIP'),()=>{}); /*SKIPINTRO*/ await wait('BASE MAP'); await p.waitForTimeout(300);
+  await T.noFonts(p);
+  const regions = async (name, sels) => {
+    const r = await p.evaluate(sels => sels.map(s => [s, ([...document.querySelectorAll(s)].map(e => e.innerText).join(' ').match(/\S+/g) || []).length]), sels);
+    console.log(name + ': ' + r.map(x => x[0] + '=' + x[1]).join('  '));
+    return Object.fromEntries(r);
+  };
+  await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
+  const home = await regions('home', ['header', '#hint', '[data-key="mode-part1"]', '[data-key="mode-part2"]', '#app', 'body']);
+  ok(home['#app'] <= HOME_BUDGET, `home page body: ${home['#app']} words (budget ${HOME_BUDGET})`);
+  await p.click('[data-key="part1-go"]');
+  await regions('beat', ['.intro']);
+  await T.throughBeats(p); await T.waitHead(p, 'BASE MAP'); await p.waitForTimeout(300);
   await regions('map', ['header', '#hint', '.map-prompt', '.map-layout aside', '.legend']);
-  await p.click('[data-key="blip-briefing"]'); await wait('BRIEFING'); await regions('briefing', ['header', '#hint', '.grid', '.nav-row']);
-  await p.click('[data-key="obj-sea-ice"]'); await p.click('.nav-row .btn.primary'); await wait('ORBIT'); await regions('orbit', ['header', '#hint', '.grid']);
-  await p.click('[data-key="orbit-sso"]'); await p.click('.nav-row .btn.primary'); await wait('BUILD'); await p.click('[data-key="bin-instrument"]');
+  await p.click('[data-key="blip-build"]'); await T.waitHead(p, 'BUILD'); await p.click('[data-key="bin-instrument"]');
   await regions('build', ['header', '#hint', '.bins', '.bench', '.workshop .stack', '.shelf', '.nav-row']);
-  await p.click('.nav-row .btn.primary'); await wait('LAUNCH VEHICLE'); await regions('rocket', ['header', '#hint', '.grid', '.pad .panel']);
+  await T.addParts(p, T.WALK[1].parts);
+  await p.click('.nav-row .btn.primary'); await T.waitHead(p, 'READINESS');
+  await regions('review', ['header', '#hint', '.pad > .panel', '.nav-row']);
+  await p.keyboard.press('m'); await T.waitHead(p, 'BASE MAP'); await p.click('[data-key="blip-launcher"]'); await T.waitHead(p, 'LAUNCH VEHICLE');
+  await regions('rocket', ['header', '#hint', '.grid', '.pad .panel']);
   await b.close();
+  done();
 })();
