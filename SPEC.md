@@ -134,6 +134,16 @@ Start poor (small budget, basic parts)
 - **Rewards are for new data only.** Money pays for the knowledge the new data adds (the same diminishing curve as before), and science points equal the new data. A flight that brings back nothing new earns **no reward**: no payout (the repeat floor is gone for it) and no science points. The annual grant and the rescue grant still arrive, so the programme can always fly again.
 - The hub shows each topic as `data_collected` of `data_cap`, and marks it `complete` at the cap. The Build screen's payout preview and the debrief say how much of a flight's data would be new, and name another type to try (`best_next_topic`).
 
+### Offers: customers ask for something specific (proposed, November 15, branch only)
+
+Each campaign year the hub shows up to two **open offers**: a customer (the National Academy of Sciences, the Weather Bureau, the coast guard, Canada's Defence Research Telecommunications Establishment...) wants a topic, sometimes from a particular orbit, by a year. Any flight that returns enough data for it claims the bonus in money and science points, **even if the data is not new** (the customer wants their own observation). Offers give the player a choice each year and a reason to use different orbits and topics.
+
+- Generated in code (`makeOffers` in `js/mission.js`) from the topics, orbits and rockets the programme can use now, with a seed from the year and flight count. No data file and no new data fields; the bonus is `0.2 x value_musd` and `0.3 x min_science`, the minimum is 60% of the topic's target, and the customer's name comes from a small table in the code.
+- `getHubInfo().offers`: `[{ id, topic, topic_name, orbit, orbit_name, min_science, bonus_musd, bonus_sci, year_to, client, text }]`.
+- `previewPayout(design).offers`: the open offers this design's topic and orbit match, `[{ text, bonus_musd, bonus_sci, min_science, met }]`; `met` is true when the preview science reaches the minimum.
+- `recordResult(m).offers_claimed`: `[{ text, client, topic, bonus_musd, bonus_sci }]`, and `best_next_topic` as before.
+- Saved as `offers` in the campaign; older saves without it get fresh offers at the next flight.
+
 ### The ending: the programme chronicle (proposed, November 15, branch only)
 
 A campaign's ending used to be one banner line. The chronicle tells the player's own story from what they did, and from the real missions in `data/missions.js`.

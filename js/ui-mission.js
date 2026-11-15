@@ -332,6 +332,7 @@
     var pct = function (x) { return Math.max(0, Math.min(1, x || 0)) * 100 + "%"; };
     return el("div", { class: "nasa-box payout-box" }, [
       el("h2", { text: "PAYOUT " + UI.money(result.payout_musd) }),
+      result.nothing_new ? el("p", { class: "banner", role: "alert", text: "NO REWARD: ALREADY COLLECTED. TRY ANOTHER TYPE." }) : null,
       el("div", { class: "bar" }, [
         el("div", { class: "bar-top" }, [el("span", { text: "KNOWLEDGE OF THIS TOPIC" }),
           el("span", { text: Math.round((before || 0) * 100) + "% to " + Math.round((after || 0) * 100) + "%" })]),
@@ -342,6 +343,9 @@
         ])
       ]),
       d.knowledge_paragraph ? el("p", { text: d.knowledge_paragraph }) : null,
+      UI.list(result.offers_claimed).length ? el("div", { class: "offers-claimed" }, UI.list(result.offers_claimed).map(function (o) {
+        return el("p", { class: "banner info", text: "OFFER MET: " + o.client + " paid " + UI.money(o.bonus_musd) + " and " + UI.num(o.bonus_sci, 0) + " science." });
+      })) : null,
       next ? el("p", { class: "nasa-line", text: "Try a new topic: " + next.name + "." }) : null,
       lessons.length ? el("p", { class: "nasa-line", text: "Shown in flight: " + lessons.join("; ") + "." }) : null,
       result.bailout ? el("p", { class: "part-note", text: "An emergency grant of " + UI.money(result.bailout_musd) + " topped up the treasury." }) : null,

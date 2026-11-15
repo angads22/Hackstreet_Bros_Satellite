@@ -280,6 +280,13 @@
         el("h2", { text: "TOPICS" }),
         el("div", { class: "grid" }, UI.list(info.topics).map(topicCard))
       ]),
+      UI.list(info.offers).length ? el("div", { class: "panel" }, [
+        el("h2", { text: "OPEN OFFERS" }),
+        el("p", { class: "nasa-line", text: "Meet one on a flight and the customer pays a bonus in money and science, even if the data is not new." }),
+        el("ul", { class: "log" }, UI.list(info.offers).map(function (o) {
+          return el("li", { class: "good", text: o.text + " (" + (o.year_to - info.year) + (o.year_to - info.year === 1 ? " year left)" : " years left)") });
+        }))
+      ]) : null,
       el("div", { class: "panel" }, [
         el("h2", { text: "THE LAB" }),
         el("p", { class: "nasa-line", id: "lab-summary", text: buy.research + " research and " + buy.upgrades + " upgrades can be bought now." }),

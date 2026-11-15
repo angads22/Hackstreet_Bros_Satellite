@@ -14,7 +14,7 @@ var LOW_MARGIN = 0.10;      // margins under 10% raise a warning
 // Part categories in Build-screen order (SPEC.md, "Structure and attitude control").
 // Switch-over: structure and attitude become required only when the Build screen
 // has bins for them. Design screens sets this to true in the same change.
-var NEW_CATEGORIES_REQUIRED = false;
+var NEW_CATEGORIES_REQUIRED = true;
 var CATEGORY_LIST = [
   { id: "structure",  name: "STRUCTURE",  sub: "The satellite's body",      required: "new" },
   { id: "instrument", name: "INSTRUMENTS", sub: "What the mission sees",    required: true },

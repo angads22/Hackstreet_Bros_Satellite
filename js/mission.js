@@ -781,6 +781,8 @@ function newCampaign(tierId) {
     won: false
   };
   saveCampaign(c);
+  makeOffers(c);   // after saving: what is open depends on the saved research
+  saveCampaign(c);
   return c;
 }
 
@@ -867,6 +869,7 @@ function settleCampaign(mission, debrief, result) {
   c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + newData;
   c.treasury_musd = round(c.treasury_musd + debrief.payout_musd + grant - mission.extra_cost_musd, 3);
   var yearFlown = c.year;
+  var offersClaimed = claimOffers(c, mission, yearFlown);
   var yearsPassed = missionYears(mission.design);
   c.year += yearsPassed;   // time as a resource: long builds cost years
   // Science points: this flight's data, plus a share of the whole archive for every year that passed.
@@ -900,7 +903,9 @@ function settleCampaign(mission, debrief, result) {
     }
   }
   saveCampaign(c);
+  if (!c.finished) { makeOffers(c); saveCampaign(c); }
 
+  result.offers_claimed = offersClaimed;
   result.payout_musd = debrief.payout_musd;
   result.grant_musd = grant;
   result.event_costs_musd = round(mission.extra_cost_musd, 3);
@@ -928,6 +933,78 @@ function archivePerYear(c) {
   var banked = 0;
   Object.keys(c.knowledge_science || {}).forEach(function (k) { banked += c.knowledge_science[k] || 0; });
   return round(banked * share, 1);
+}
+
+// ------------------------------------------------------------------ yearly offers
+// Customers ask for something specific (SPEC.md, "Offers"): a topic, sometimes from a given orbit, by a year.
+// Any flight that returns enough data for it claims the bonus, whether or not that data is new. Generated from the
+// topics, orbits and rockets the programme can use now; nothing here is a data file.
+var OFFER_COUNT = 2;      // open offers at any time
+var OFFER_YEARS = 2;      // years to deliver
+var OFFER_CLIENTS = {
+  radiation: ["the National Academy of Sciences", "the Air Force research office"],
+  solar: ["a university physics department", "the radio broadcasters' association"],
+  weather: ["the Weather Bureau", "an airline association"],
+  ionosphere: ["the Defence Research Telecommunications Establishment", "a shortwave radio operators' club"],
+  wildfire: ["the forestry service", "a state fire marshal"],
+  "sea-ice": ["the coast guard", "a shipping company"]
+};
+
+function offerText(o, topic, orbit) {
+  return o.client + " wants " + lcFirst(topic.name) + " data" + (orbit ? " from " + lcFirst(orbit.name) : "") +
+    ": at least " + o.min_science + " points by " + o.year_to + ". Bonus $" + o.bonus_musd + "M and " + o.bonus_sci + " science.";
+}
+
+function makeOffers(c) {
+  var rand = makeRandom((c.year * 7919 + (c.flights || 0) * 104729 + 17) >>> 0);
+  var open = (c.offers || []).filter(function (o) { return !o.done && o.year_to >= c.year; });
+  var topics = OBJECTIVES.filter(function (o) { return isObjectiveAvailable(o.id); });
+  for (var guard = 0; open.length < OFFER_COUNT && topics.length && guard < 30; guard++) {
+    var o = topics[Math.floor(rand() * topics.length)];
+    if (open.some(function (x) { return x.topic === o.id; })) continue;
+    // An orbit is named only if the topic can use it and some rocket we have can reach it.
+    var orbits = ORBITS.filter(function (orb) {
+      return (!o.orbit_fit || o.orbit_fit[orb.id] > 0) &&
+        LAUNCHERS.some(function (l) { return isLauncherAvailable(l.id) && ((l.capacity_kg || {})[orb.id] || 0) >= 10; });
+    });
+    var orb = orbits.length > 1 && rand() < 0.6 ? orbits[Math.floor(rand() * orbits.length)] : null;
+    var clients = OFFER_CLIENTS[o.id] || ["a customer"];
+    var offer = {
+      id: "offer-" + c.year + "-" + o.id, topic: o.id, orbit: orb ? orb.id : null,
+      min_science: Math.max(5, Math.round(0.6 * o.science_target / 5) * 5),
+      bonus_musd: round(0.2 * (o.value_musd || 0), 1), year_from: c.year, year_to: c.year + OFFER_YEARS,
+      client: clients[Math.floor(rand() * clients.length)], done: false
+    };
+    offer.bonus_sci = Math.round(0.3 * offer.min_science);
+    offer.text = offerText(offer, o, orb);
+    open.push(offer);
+  }
+  c.offers = open.concat((c.offers || []).filter(function (x) { return x.done; }));
+}
+
+// Claims every open offer this flight meets; returns what was claimed.
+function claimOffers(c, mission, yearFlown) {
+  var claimed = [];
+  (c.offers || []).forEach(function (o) {
+    if (o.done || o.topic !== mission.design.objective || yearFlown > o.year_to) return;
+    if (o.orbit && o.orbit !== mission.design.orbit) return;
+    if (mission.science < o.min_science) return;
+    o.done = true;
+    c.treasury_musd = round(c.treasury_musd + o.bonus_musd, 3);
+    c.science_pts = round((c.science_pts || 0) + o.bonus_sci, 1);
+    claimed.push({ text: o.text, client: o.client, topic: o.topic, bonus_musd: o.bonus_musd, bonus_sci: o.bonus_sci });
+  });
+  return claimed;
+}
+
+// The open offers, for the hub.
+function offersList(c) {
+  return (c.offers || []).filter(function (o) { return !o.done && o.year_to >= c.year; }).map(function (o) {
+    var t = getObjective(o.topic), orb = o.orbit ? getOrbit(o.orbit) : null;
+    return { id: o.id, topic: o.topic, topic_name: t ? t.name : o.topic, orbit: o.orbit, orbit_name: orb ? orb.name : null,
+             min_science: o.min_science, bonus_musd: o.bonus_musd, bonus_sci: o.bonus_sci, year_to: o.year_to,
+             client: o.client, text: o.text };
+  });
 }
 
 // ------------------------------------------------------------------ the ending: the programme chronicle
@@ -1036,6 +1113,7 @@ function getHubInfo() {
     treasury_musd: c.treasury_musd,
     science_pts: c.science_pts || 0,
     archive_sci_per_year: archivePerYear(c),
+    offers: offersList(c),
     topics: OBJECTIVES.map(function (o) {
       var S = c.knowledge_science[o.id] || 0;
       var open = isObjectiveAvailable(o.id);
@@ -1090,7 +1168,10 @@ function previewPayout(design) {
   var before = c ? (c.knowledge_science[design.objective] || 0) : 0;
   var cost = getTotals(design).cost_musd;
   var k = payoutFor(objective, before, previewScience(design).total);
-  return { expected_payout_musd: k.payout_musd, knowledge_before: k.knowledge_before,
+  var sci = previewScience(design).total;
+  var offers = c ? offersList(c).filter(function (o) { return o.topic === design.objective && (!o.orbit || o.orbit === design.orbit); })
+    .map(function (o) { return { text: o.text, bonus_musd: o.bonus_musd, bonus_sci: o.bonus_sci, min_science: o.min_science, met: sci >= o.min_science }; }) : [];
+  return { offers: offers, expected_payout_musd: k.payout_musd, knowledge_before: k.knowledge_before,
            knowledge_after: k.knowledge_after, novelty: k.novelty,
            new_data: k.new_data, data_left: k.data_left, topic_complete: k.topic_complete,
            cost_musd: cost, net_musd: round(k.payout_musd - cost, 3) };

@@ -14,7 +14,7 @@ function time(label, budgetMs, fn, n) {
 G.resetCampaign(); G.newCampaign("training");
 var c = G.getCampaign(); c.research = G.RESEARCH.map(function (r) { return r.id; }); c.treasury_musd = 500; G.saveCampaign(c);
 var d = G.newCampaignDesign(); G.setObjective(d, "sea-ice"); G.setOrbit(d, "sso"); G.setLauncher(d, "small");
-["sar-radar", "solar-large", "battery-28v", "radio-xband", "obc-basic", "prop-green-large"].forEach(function (p) { G.addPart(d, p); });
+["sar-radar", "solar-large", "battery-28v", "radio-xband", "obc-basic", "prop-green-large", "smallsat-bus", "reaction-wheels"].forEach(function (p) { G.addPart(d, p); });
 
 // The search caches by research owned; a dummy id gives a fresh (uncached) search each call.
 var fresh = 0;

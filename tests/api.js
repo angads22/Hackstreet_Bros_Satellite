@@ -41,7 +41,7 @@ has(d, ["tier", "objective", "orbit", "parts", "launcher"], "newDesign");
 has(G.getTotals(d), T, "getTotals (empty design)");
 has(G.getOrbitFacts(d), ["period_min", "laps_per_day", "eclipse_fraction"], "getOrbitFacts (no orbit)");
 G.setObjective(d, "radiation"); G.setOrbit(d, "leo"); G.setLauncher(d, "juno-1");
-["cosmic-ray-counter", "silicon-cells", "minitrack-beacon", "command-timer"].forEach(function (p) { G.addPart(d, p); });
+["cosmic-ray-counter", "silicon-cells", "minitrack-beacon", "command-timer", "explorer-body", "spin-stabilised"].forEach(function (p) { G.addPart(d, p); });
 has(G.getTotals(d).margins, ["mass", "power", "budget"], "getTotals.margins");
 has(G.getOrbitFacts(d), ["period_min", "laps_per_day", "eclipse_fraction", "eclipse_min", "speed_kms", "resolution_m",
                          "battery_needed_wh", "target_in_view"], "getOrbitFacts");
@@ -88,7 +88,7 @@ has(G.newCampaign("standard"), ["tier", "year", "treasury_musd", "knowledge_scie
 var cd = G.newCampaignDesign();
 check("newCampaignDesign marks the design", cd && cd.campaign === true);
 G.setObjective(cd, "radiation"); G.setOrbit(cd, "leo"); G.setLauncher(cd, "juno-1");
-["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"].forEach(function (p) { G.addPart(cd, p); });
+["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer", "explorer-body", "spin-stabilised"].forEach(function (p) { G.addPart(cd, p); });
 has(G.previewPayout(cd), ["expected_payout_musd", "knowledge_before", "knowledge_after", "novelty", "cost_musd", "net_musd"], "previewPayout");
 var hub = G.getHubInfo();
 has(hub, ["year", "treasury_musd", "lessons", "topics", "research", "missions", "finished", "won"], "getHubInfo");
@@ -107,7 +107,7 @@ has(G.importSave("not a code"), ["ok", "reason"], "importSave");
 
 // ---- hints
 var hd = G.newDesign("training"); G.setObjective(hd, "radiation"); G.setOrbit(hd, "leo");
-["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"].forEach(function (p) { G.addPart(hd, p); });
+["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer", "explorer-body", "spin-stabilised"].forEach(function (p) { G.addPart(hd, p); });
 var hb = G.getHints("build", hd);
 has(hb, ["mode", "tutorial", "tips"], "getHints");
 check("getHints leads with the design's own problem", /Sputnik|batter/i.test(hb.tips[0] || ""), hb.tips[0]);
@@ -127,10 +127,10 @@ check("every part has build_months", G.PARTS.every(function (p) { return typeof 
 var td = G.newDesign("training"); G.setObjective(td, "weather"); G.setOrbit(td, "leo"); G.setLauncher(td, "thor-able");
 ["vidicon-camera", "silicon-cells", "nicad-battery", "vhf-telemetry", "command-timer"].forEach(function (p) { G.addPart(td, p); });
 check("dev_months = longest build + 1 per 3 parts", G.getTotals(td).dev_months === 6 + 2, String(G.getTotals(td).dev_months));
-var before = G.previewScience(td).total; G.addPart(td, "spin-stabilised");
-var spun = G.previewScience(td).total; G.removePart(td, "spin-stabilised"); G.addPart(td, "reaction-wheels");
-check("spin smears the camera (60%), wheels do not", Math.abs(spun - 0.6 * before) < 0.2 && G.previewScience(td).total === before,
-  before + " / spin " + spun + " / wheels " + G.previewScience(td).total);
+G.addPart(td, "drum-body");
+G.addPart(td, "reaction-wheels"); var wheels = G.previewScience(td).total;
+G.removePart(td, "reaction-wheels"); G.addPart(td, "spin-stabilised"); var spun = G.previewScience(td).total;
+check("spin smears the camera (60%), wheels do not", wheels > 0 && Math.abs(spun - 0.6 * wheels) < 0.2, "wheels " + wheels + " / spin " + spun);
 
 // ---- switch-over: once structure and attitude are required
 var G2 = require("./load")({ newCategoriesRequired: true });

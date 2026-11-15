@@ -82,7 +82,7 @@
   var DO_TEXT = {
     briefing: "Pick a job for the satellite.",
     orbit:    "Choose an orbit that can see the target.",
-    build:    "Fit an instrument, power, a radio and a computer.",
+    build:    "Fit a body, an instrument, power, a radio, a computer and attitude control.",
     launcher: "Pick a rocket that can lift your satellite.",
     review:   "Clear every NO GO line, then launch."
   };
@@ -1645,8 +1645,13 @@
     if (!d || !d.campaign || typeof previewPayout !== "function") return null;
     var p = previewPayout(d);
     if (!p) return null;
-    return el("p", { class: "nasa-line payout-line", text: "Expected payout " + money(p.expected_payout_musd) +
-      ", cost " + money(p.cost_musd) + ", net " + (p.net_musd < 0 ? "-" : "") + money(Math.abs(p.net_musd)) });
+    var line = el("p", { class: "nasa-line payout-line", text: "Expected payout " + money(p.expected_payout_musd) +
+      ", cost " + money(p.cost_musd) + ", net " + (p.net_musd < 0 ? "-" : "") + money(Math.abs(p.net_musd)) +
+      (p.topic_complete ? ". Nothing new is left to collect here: no reward." : "") });
+    var offers = list(p.offers).map(function (o) {
+      return el("p", { class: "nasa-line payout-line", text: "Offer: " + o.text + (o.met ? " This design meets it." : " This design falls short of " + num(o.min_science, 0) + " points.") });
+    });
+    return offers.length ? el("div", null, [line].concat(offers)) : line;
   }
 
   function campaignPanel(tiers) {
@@ -1758,14 +1763,16 @@
       return t.name + " " + starsText((progress.best_stars || {})[t.id] || 0);
     }).join("   ") });
 
+    var campaignUp = tiers.length ? campaignPanel(tiers) : null;
     return el("section", { class: "title" }, [
       el("div", { class: "kicker", text: String(typeof STORY === "object" && STORY.subtitle ? STORY.subtitle : "A space mission design game").toUpperCase() }),
       el("h1", { class: "big-title", text: String(typeof STORY === "object" && STORY.title ? STORY.title : "GRAVITRON").toUpperCase() }),
       el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-      el("h2", { class: "subhead", text: eras.length ? "CHOOSE AN ERA AND A LEVEL" : "CHOOSE A LEVEL" }),
+      // The campaign is the game's core loop, so it comes first; a single mission is the quick alternative.
+      campaignUp,
+      el("h2", { class: "subhead", text: (campaignUp ? "OR FLY ONE MISSION: " : "") + (eras.length ? "CHOOSE AN ERA AND A LEVEL" : "CHOOSE A LEVEL") }),
       tiers.length ? grid : el("p", { class: "empty", text: "No tiers in the data yet." }),
       tiers.length ? best : null,
-      tiers.length ? campaignPanel(tiers) : null,
       el("div", null, [button("RESET PROGRESS", function () {
         if (typeof resetProgress === "function" && window.confirm("Forget every star you have earned?")) { resetProgress(); draw("title"); }
       })])
@@ -1980,7 +1987,8 @@
 
     state.avail = availability(d);   // one call per screen refresh; partCard reads it
     var cats = categories();
-    var cat = byId(cats, state.bin) || cats[0];   // the open bin
+    // The open bin: the one the player chose, else the instrument bin ("the reason we fly"), else the first.
+    var cat = byId(cats, state.bin) || byId(cats, "instrument") || cats[0];
     var body = getTotals(d).body || null;   // { name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null
     var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(cats.map(function (c) {
       var n = count[c.id] || 0;
