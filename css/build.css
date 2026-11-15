@@ -1,1 +1,4 @@
 /* v1.2 build: owned by builder B (Build screen). Loaded after style.css and story.css. */
+/* v1.2 build.css: owned by builder B (the Build screen). Loads after style.css. */
+.vstrip-slot:empty { display: none; }
+@media (max-width: 929px) { .workshop > .bench-col > .vstrip-slot { order: -3; } }   /* one column: the verdict leads, like the PROFIT line */
