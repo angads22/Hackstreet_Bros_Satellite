@@ -4,6 +4,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 0.7 beta (November 15, 2026)
+
+The game is GRAVITRON now: Austin's tutorial and Ajay's chapters tell one story across the levels, and the Build bench draws the satellite from the parts on board. Science points became a second currency, spent in the lab on research and upgrades, and the archive keeps old data paying. The ionosphere arrives as a topic from Canada's Alouette 1 data, each mission type now has a data cap with rewards for new data only, and the design screens use far fewer words.
+
 ### Added
 
 - **The Gravitron story.** The game is now GRAVITRON: The Gravitronical Odyssey. The first level is the tutorial, told by Austin Albert (a NASA engineer in the first satellite programme); every later level is told by his grandson Ajay, who runs a small aerospace business on loans and a conditional contract and wants to restore his grandfather's name. Each chapter opens with a few short beats, one at a time (NEXT or SKIP), then one short spoken line on each screen from your team, your partner, the customer or Austin's notebook, and a closing line that depends on the result. The map, briefing, orbit, build, launch, mission and debrief screens all use it. A new event, "Instrument calibration problem" (pause and recalibrate: one month; continue: 80% science), gets a notebook reply in Ajay's chapter. The 80% is a GAME VALUE to agree with the Simulation owner.
@@ -22,6 +26,14 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Polar orbits before 1995 need no disposal fuel,** as in history (Alouette 1 and Nimbus 1 reached them on a Thor-Agena); the debris rule dates from 1995.
 - **Less hand-holding.** On Trade Space and Point Design, research shows a hint instead of the exact lesson to earn.
 - **Saves:** campaign save version 3; older campaign saves start over.
+
+### Not in this version yet
+
+- Structure and attitude are still optional (`NEW_CATEGORIES_REQUIRED` is off in `js/game.js`).
+- **Launch failures** are planned and not built.
+- **Low-poly 3D art.** The engine and the models (satellite parts, rockets, Earth, people, base map) are built but not in the game yet.
+- **Suppliers, countries and travel costs** are a proposal in `SPEC.md`, not agreed.
+- The calibration event's 80% science is a game value still to agree with the Simulation owner.
 
 ## 0.6 beta (November 14, 2026)
 
