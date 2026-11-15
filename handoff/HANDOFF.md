@@ -19,7 +19,7 @@ Work on branch `claude/pensive-allen-ujtdag` (not `main`). Run `git fetch origin
 - Never compute game numbers on the screen. Every number comes from the back end (`getTotals`, `runChecks`, `previewPayout` and so on).
 - New code that depends on new art must fall back: `typeof LowPoly === "object"` plus try/catch, so the existing SVG art keeps working if it fails.
 - Keep it flat: no gradients, glass or shadows, no emoji as icons. Keep rounded corners. Use real content. Verify every change by running the game with real input, not by reading code.
-- Push to the branch only. After pushing, check whether a pull request is open for the branch (`list_pull_requests`); if none is, open a draft. Do not push anything else to `main` except `SPEC.md` commits.
+- Push to the branch only. Draft pull request #6 (https://github.com/angads22/Hackstreet_Bros_Satellite/pull/6) is open for the branch: keep using it, and call `subscribe_pr_activity` on it so its CI and review events reach you (the previous session did not subscribe, to save its limit). Open a new draft only if #6 has merged. Do not push anything else to `main` except `SPEC.md` commits.
 
 ## 2. What the user wants (their words, newest first)
 
