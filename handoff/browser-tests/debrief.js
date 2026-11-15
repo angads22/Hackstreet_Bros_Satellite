@@ -2,7 +2,7 @@
 // 3 stars) shows its stars landing one by one and the real discovery open; nothing animates under reduced motion; a
 // flight with no star gets no win moment; under 3 stars, a few words say what the next star needs; REDESIGN (or TRY
 // AGAIN) opens the screen where the named fix is made, with the fix as the objective; at 320 px nothing scrolls
-// sideways, while the stars land or after.
+// sideways, while the stars land or after. And at 200% zoom an event opens with its heading in view.
 // Usage: node debrief.js [shots dir]   or   node debrief.js <repo dir> <shots dir>
 const { chromium } = require('playwright');
 const path = require('path');
@@ -154,7 +154,38 @@ async function quiet(label, viewport) {
   await browser.close();
 }
 
+// 1280x720 at 200% zoom (640x360): each event opens with its heading in view and focused, the tall ones too.
+async function zoom200() {
+  console.log('[640x360, as 1280x720 at 200% zoom: the events]');
+  const { browser, page, errors } = await open({ width: 640, height: 360 });
+  await page.evaluate(() => {
+    const d = newDesign('expert'); setEra(d, 'new-space'); setObjective(d, 'sea-ice'); setOrbit(d, 'sso');
+    ['smallsat-bus', 'reaction-wheels', 'optical-camera', 'solar-large', 'radio-xband', 'obc-basic', 'battery-28v', 'prop-green-large'].forEach(id => addPart(d, id));
+    setLauncher(d, 'small'); window.showDesignScreen('review', d);
+  });
+  await waitHead(page, 'READINESS');
+  await page.locator('.btn.big').click(); await waitHead(page, 'MISSION');
+  const seen = [];
+  for (let i = 0; i < 600; i++) {
+    if (await head(page, 'DEBRIEF').count()) break;
+    if (await page.locator('[role="alertdialog"]').count()) {
+      seen.push(await page.evaluate(() => {
+        const h = document.getElementById('event-title'), r = h.getBoundingClientRect();
+        return { title: h.textContent, inView: r.top >= 0 && r.bottom <= innerHeight, focused: document.activeElement === h,
+                 tall: document.querySelector('[role="alertdialog"]').getBoundingClientRect().height > innerHeight };
+      }));
+      await page.locator('[role="alertdialog"] .choices .btn').first().click();
+    }
+    await page.waitForTimeout(50);
+  }
+  console.log('     ' + seen.map(e => e.title + (e.tall ? ' (taller than the screen)' : '')).join(', '));
+  ok(seen.length > 0 && seen.every(e => e.inView && e.focused), 'every event opens with its heading in view and focused');
+  ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
+  await browser.close();
+}
+
 (async () => {
+  await zoom200();
   await landing('desktop', { width: 1280, height: 800 });
   await landing('narrow320', { width: 320, height: 640 });
   await quiet('desktop', { width: 1280, height: 800 });
