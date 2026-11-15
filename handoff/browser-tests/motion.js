@@ -124,10 +124,11 @@ async function frameCost(p, act) {
   ok(anim.home.first.run.finite.some(x => x.name === 'gm-letter'), 'home: the logotype letters rise in');
   ok(anim.home.first.run.finite.some(x => x.name === 'gm-drop'), 'home: the menu drops in');
   ok(anim.intro.first.info.some(i => i.words > 3), 'intro: the story line is cut into word spans (' + anim.intro.first.info.map(i => i.words).join(',') + ')');
-  ok(anim.intro.first.run.finite.some(x => x.name === 'gm-word'), 'intro: the words slide up (Part 2 style, no era set)');
+  ok(anim.intro.first.run.finite.some(x => x.name === 'gm-word' || x.name === 'gm-type'), 'intro: the words reveal (they slide up in Part 2, type in in Part 1)');
   ok(anim.build.first.run.finite.some(x => x.name === 'gm-fade' || x.name === 'gm-up'), 'build: the screen enters');
   ok(anim.mission.first.run.finite.some(x => x.name === 'gm-up' || x.name === 'gm-fade'), 'mission: the screen enters');
-  ok(anim.debrief.first.run.finite.some(x => x.name === 'gm-star') && anim.debrief.first.run.finite.some(x => x.name === 'gm-rise'), 'debrief: the stars land and the rows come in order');
+  ok(anim.debrief.first.run.finite.some(x => x.name === 'gm-star' || x.name === 'star-land'), 'debrief: the stars land one by one (the debrief\'s own star-land, or the motion fallback gm-star)');
+  ok(anim.debrief.first.run.finite.some(x => x.name === 'gm-rise'), 'debrief: the rows come in order');
   ok(anim.hub.first.run.finite.some(x => x.name === 'gm-up'), 'Part 2 hub: the screen enters');
   const seenNames = await p.evaluate(() => window.__gm.slice());
   ok(seenNames.indexOf('gm-log') !== -1 && seenNames.indexOf('gm-flip') !== -1, 'mission: log lines slide in and the month flips (' + seenNames.filter(n => n === 'gm-log').length + ' log lines, ' + seenNames.filter(n => n === 'gm-flip').length + ' flips)');
@@ -161,7 +162,7 @@ async function frameCost(p, act) {
   await p.click('.nav-row .btn');   // MAP [M]: a screen change
   await T.waitHead(p, 'BASE MAP'); await p.waitForTimeout(450);
   const change = await p.evaluate(() => window.__gm.slice());
-  ok(change.some(n => /^gm-(up|fade)$/.test(n)) && change.indexOf('gm-word') !== -1, 'a screen change plays the entry and the story line (' + [...new Set(change)].join(',') + ')');
+  ok(change.some(n => /^gm-(up|fade)$/.test(n)) && (change.indexOf('gm-word') !== -1 || change.indexOf('gm-type') !== -1), 'a screen change plays the entry and the story line (' + [...new Set(change)].join(',') + ')');
 
   console.log('[Part 2: paying back flashes the numbers that changed, and plays no entry]');
   await p.evaluate(() => { newComeback('standard'); window.showComebackStart(); }); await settle(p, 1500);
@@ -183,7 +184,7 @@ async function frameCost(p, act) {
   await p.evaluate(() => { window.__gm.length = 0; });
   await p.click('.intro .btn.primary'); await p.waitForTimeout(150);
   const beat = await p.evaluate(() => window.__gm.slice());
-  ok(beat.indexOf('gm-word') !== -1, 'the next beat reveals its words');
+  ok(beat.indexOf('gm-word') !== -1 || beat.indexOf('gm-type') !== -1, 'the next beat reveals its words');
   ok(!beat.some(n => /^gm-(up|fade|drop)$/.test(n)), 'and the kicker and the buttons stay put (' + [...new Set(beat)].join(',') + ')');
   const beats = await p.evaluate(() => document.querySelector('.intro .say-text p').innerText);
   ok(beats.length > 10 && T.words(beats) > 3, 'the beat is whole text at once: "' + beats.slice(0, 40) + '..."');

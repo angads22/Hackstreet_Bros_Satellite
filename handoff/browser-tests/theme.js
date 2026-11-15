@@ -112,7 +112,9 @@ async function tour(viewport, fontsLabel) {
   ok(/^#[0-9a-f]{6}$/i.test(lp.key) && (lp.sea === null || lp.sea === '#3f6a73'), `p1: the 3D art has the 1958 light (${lp.key}) and palette (sea ${lp.sea})`);
   // the epilogue (after step 3), then Part 2's picker
   await p.click('[data-key="walk-next"]'); await p.locator('.intro').waitFor({ timeout: 5000 }); await visit('p1 epilogue', '1958');
-  await T.throughBeats(p);
+  await T.throughBeats(p);   // the last beat's button is OPEN THE BOX
+  await p.locator('[data-key="end-continue"]').waitFor({ timeout: 8000 }); await visit('p1 the box ending', '1958');
+  await p.click('[data-key="end-continue"]');   // CONTINUE TO PART 2
   await p.locator('.cb-levels').waitFor({ timeout: 5000 }); await visit('p2 picker', 'today');
 
   // ---- Part 2

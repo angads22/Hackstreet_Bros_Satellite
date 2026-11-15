@@ -319,6 +319,8 @@
   function showBox(onContinue) {
     var go = typeof onContinue === "function" ? onContinue : function () { UI.home(); };
     UI.leaveMission();
+    var era1958 = function () { if (typeof UI.era === "function") UI.era("1958"); };   // THE BOX is Part 1's ending: the 1958 look
+    era1958();
     drawEnding({
       id: "box", kind: "box", text: endingText("box"), stamp: null,
       head: [UI.modes && UI.modes.part1 ? UI.modes.part1.kicker : "PART 1", "PART 1 COMPLETE"],
@@ -328,6 +330,7 @@
         UI.button(["< ", "HOME"], function () { UI.home(); }, { key: "end-home" })
       ]
     });
+    era1958();   // mounting a screen sets the era from the design (none here), so set it again once the box is on the page
   }
 
   window.nextInterlude = nextInterlude;
