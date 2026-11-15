@@ -33,8 +33,8 @@ async function run(viewport, label) {
   ok(!(await page.locator('[data-key="part2-go"]').isDisabled()) && /^START/.test(await page.locator('[data-key="part2-go"]').innerText()),
     'Part 2 button is open and says START (no comeback saved)');
   const boxes = await page.evaluate(() => ['mode-part1', 'mode-part2'].map(k => document.querySelector(`[data-key="${k}"]`).getBoundingClientRect()).map(r => ({ x: r.x, y: r.y })));
-  ok(label === 'phone' ? boxes[1].y > boxes[0].y : Math.abs(boxes[1].y - boxes[0].y) < 2 && boxes[1].x > boxes[0].x,
-    label === 'phone' ? 'cards stacked on a phone' : 'cards side by side on desktop');
+  const vh = await page.evaluate(() => innerHeight), p2go = await page.locator('[data-key="part2-go"]').boundingBox();
+  ok(boxes[1].y > boxes[0].y && p2go && p2go.y + p2go.height <= vh, 'the two modes form a menu, Part 2 below Part 1, both on the first screen');
   ok(await page.locator('#minimap').isHidden(), 'no minimap on the home page');
   ok(await T.noScroll(page), 'home: no sideways scroll');
   console.log('     home words: ' + T.words(await page.locator('#app').innerText()) + ' in the page body, ' + T.words(await page.evaluate(() => document.body.innerText)) + ' with header and footer');
