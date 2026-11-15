@@ -2239,28 +2239,45 @@
     return id.indexOf("empty-") === 0 && byId(categories(), id.slice(6)) ? id.slice(6) : null;
   }
 
+  // The problems, ranked: blockers first and big (a cross, NO GO and the short label on one line), then the warnings small
+  // (a triangle, WARN); with more than two warnings the rest fold under "N more". Nothing rests on colour alone: the icon's
+  // shape, the word and the size differ. On Build (opts.add, Easy only) a blocker for an empty bin offers ADD, which opens it.
+  function checkRow(design, row, opts) {
+    var target = fixPlace(row.c, design);
+    var label = checkLabel(row.c);
+    var bin = fixBin(row.c);
+    return el("li", { class: "check " + row.kind }, [
+      el("span", { class: "check-text" }, [icon(row.kind === "bad" ? "blocker" : "warning"), el("strong", { text: label }),
+        label !== row.c.text ? el("details", { class: "more why" }, [el("summary", { text: "Why" }), el("span", { text: row.c.text })]) : null]),
+      opts.fix && target !== state.screen
+        ? el("button", { type: "button", class: "fix", onclick: function () { go(target, bin); },
+            "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
+        : opts.add && bin && target === state.screen && row.kind === "bad"
+        ? el("button", { type: "button", class: "add-part", "data-key": "add-" + bin, onclick: function () { opts.add(bin); },
+            "aria-label": "Open the " + bin + " bin: " + row.c.text }, "ADD >")
+        : el("span", { class: "status", text: row.status })
+    ]);
+  }
   function checkList(design, opts) {
     opts = opts || {};
     var checks = runChecks(design);
-    var rows = [];
+    var bad = [], warn = [];
     checks.blockers.forEach(function (c) {
       if (opts.skip && opts.skip.indexOf(c.id) !== -1) return;
-      rows.push({ c: c, kind: "bad", status: "NO GO" });
+      bad.push({ c: c, kind: "bad", status: "NO GO" });
     });
-    checks.warnings.forEach(function (c) { rows.push({ c: c, kind: "warn", status: "WARN" }); });
-    if (!rows.length) return opts.short ? el("p", { class: "preview-line fix", text: "No problems right now." }) : null;
-    return el("ul", { class: "checks" }, rows.map(function (row) {
-      var target = fixPlace(row.c, design);
-      var label = checkLabel(row.c);
-      return el("li", { class: "check " + row.kind }, [
-        el("span", { class: "check-text" }, [icon(row.kind === "bad" ? "blocker" : "warning"), el("strong", { text: label }),
-          label !== row.c.text ? el("details", { class: "more why" }, [el("summary", { text: "Why" }), el("span", { text: row.c.text })]) : null]),
-        opts.fix && target !== state.screen
-          ? el("button", { type: "button", class: "fix", onclick: function () { go(target, fixBin(row.c)); },
-              "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
-          : el("span", { class: "status", text: row.status })
-      ]);
-    }));
+    checks.warnings.forEach(function (c) { warn.push({ c: c, kind: "warn", status: "WARN" }); });
+    if (!bad.length && !warn.length) {
+      return opts.short ? el("p", { class: "preview-line fix no-problems", "data-key": "no-problems" }, [icon("ok"), "No problems"]) : null;
+    }
+    var shown = warn.length > 2 ? warn.slice(0, 2) : warn, folded = warn.length > 2 ? warn.slice(2) : [];
+    var rows = bad.concat(shown).map(function (row) { return checkRow(design, row, opts); });
+    if (folded.length) {
+      rows.push(el("li", { class: "check-fold" }, [el("details", { class: "more" }, [
+        el("summary", { text: folded.length + " more" }),
+        el("ul", { class: "fold-list" }, folded.map(function (row) { return checkRow(design, row, opts); }))])]));
+    }
+    return el("ul", { class: "checks ranked" }, rows);
   }
 
   // ---------------------------------------------------------------- the home page (two game modes)
@@ -2986,12 +3003,13 @@
       satelliteArt(d, chg)
     ]);
 
+    // PROBLEMS lead the right column (blockers are the first thing to read); the bars follow.
     var overview = el("div", { class: "panel" }, [
-      el("h2", { text: "MISSION OVERVIEW" }),
+      el("h2", { text: "PROBLEMS" }),
+      checkList(d, { short: true, skip: ["no-launcher"], add: assist(d) === "full" ? function (id) { state.bin = id; state.hover = null; redraw(); showShelf(); } : null }),
+      el("h2", { class: "divided", text: "MISSION OVERVIEW" }),
       resourceBars(d),
-      bodyCard(body),
-      el("h2", { class: "divided", text: "PROBLEMS" }),
-      checkList(d, { short: true, skip: ["no-launcher"] })
+      bodyCard(body)
     ]);
 
     var shelfParts = parts.filter(function (p) { return p.category === cat.id; });

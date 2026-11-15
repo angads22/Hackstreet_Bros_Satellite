@@ -49,6 +49,29 @@ async function open(b, w, h, mode) {
       // progress count: required bins only
       ok(await text(p, '[data-key="progress-count"]') === '0 of 6 needed', 'count starts at "0 of 6 needed": ' + await text(p, '[data-key="progress-count"]'));
       ok(await p.locator('.bin-sub.need').count() === 6, 'six bins carry .bin-sub.need');
+      // problems, ranked: blockers first and big, then warnings; every row has an icon and a word, not colour alone
+      await p.screenshot({ path: `${shots}/v12b-${mode}-${w}x${h}-start.png` });
+      const rank = await p.evaluate(() => {
+        const rows = [...document.querySelectorAll('.workshop .checks > li.check')];
+        const kinds = rows.map(r => r.classList.contains('bad') ? 'bad' : 'warn');
+        const size = k => { const r = rows.find(x => x.classList.contains(k)); return r ? parseFloat(getComputedStyle(r).fontSize) : null; };
+        return { kinds, bigBad: size('bad'), smallWarn: size('warn'), icons: rows.every(r => r.querySelector('svg.icon')),
+          words: rows.every(r => /NO GO|WARN|ADD|FIX/.test(r.innerText)), oneLine: rows.every(r => r.getBoundingClientRect().height < 80), heights: rows.map(r => Math.round(r.getBoundingClientRect().height)).join(),
+          heads: [...document.querySelectorAll('.workshop .stack .panel > h2')].map(n => n.innerText) };
+      });
+      ok(rank.kinds.length > 0 && rank.kinds.join().indexOf('warn,bad') === -1, 'blockers before warnings: ' + rank.kinds.join(' '));
+      ok(rank.icons && rank.words, 'every problem has an icon and a word (NO GO, WARN, ADD or FIX)');
+      ok(rank.oneLine, 'one line each (under 80px tall): ' + rank.heights);
+      ok(rank.bigBad >= 21 && (rank.smallWarn === null || rank.smallWarn < rank.bigBad), 'blockers are bigger than warnings: ' + rank.bigBad + ' / ' + rank.smallWarn);
+      ok(rank.heads[0] === 'PROBLEMS' && /MISSION OVERVIEW/.test(rank.heads.join()), 'PROBLEMS lead the right column: ' + rank.heads.join(' > '));
+      const addN = await p.locator('button.add-part').count();
+      const fixN = await p.locator('.workshop button.fix').count();
+      if (mode === 'p1') {
+        ok(addN > 0, 'Easy, Part 1: blockers for empty bins offer ADD (' + addN + ')');
+        const bin = (await p.locator('button.add-part').first().getAttribute('data-key')).replace('add-', '');
+        await p.locator('button.add-part').first().click();
+        ok(await p.locator(`[data-key="bin-${bin}"][aria-pressed="true"]`).count() === 1, 'ADD opens that bin: ' + bin);
+      } else ok(addN === 0 && fixN === 0, 'Normal and Hard: no ADD or FIX words before the problem (' + addN + ', ' + fixN + ')');
       const parts = mode === 'p1' ? T.WALK[1].parts : T.CONTRACT[TOPIC[mode]].parts;
       await T.addParts(p, parts.slice(0, 2));
       ok(/^\d of 6 needed$/.test(await text(p, '[data-key="progress-count"]')), 'count moves with parts: ' + await text(p, '[data-key="progress-count"]'));
@@ -56,6 +79,8 @@ async function open(b, w, h, mode) {
       ok(propulsionNeed === 0, 'the optional propulsion bin is never counted or marked Needed');
       await T.addParts(p, parts.slice(2));
       ok(await text(p, '[data-key="progress-count"]') === '6 of 6 needed' && await p.locator('.bin-sub.need').count() === 0, 'all six: "6 of 6 needed", no bin marked');
+      const none = await p.locator('[data-key="no-problems"]').count();
+      ok(none ? await text(p, '[data-key="no-problems"]') === 'No problems' : await p.locator('.workshop .checks .check.bad').count() === 0, 'a full design says "No problems" or has no blocker, only warnings: ' + await text(p, '.workshop .stack .panel'));
       ok(await T.noScroll(p), 'no sideways scroll');
       ok(errors.length === 0, 'no page errors ' + errors.join('|'));
       await p.screenshot({ path: `${shots}/v12b-${mode}-${w}x${h}.png` });

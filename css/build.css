@@ -9,3 +9,25 @@
 .bin-sub.need { color: var(--text-dim); font-size: 17px; }
 .bin-sub.need.over { color: var(--bad); font-size: 18px; }
 .bin[aria-pressed="true"] .bin-sub.need { color: var(--on-accent); }
+
+/* PROBLEMS, ranked. Blockers are big: a cross, the short label and NO GO on one line, a heavy bar on the left. Warnings are small:
+   a triangle, WARN, no bar. The icon's shape, the word and the size carry the rank, so colour is never the only signal. */
+.checks.ranked, .fold-list { gap: 4px; }
+.fold-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.check { align-items: center; }
+.check-text { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 8px; flex: 1; }
+.check-text .why { display: inline; }
+.check-text .why[open] { flex-basis: 100%; }
+.check-text svg.icon { align-self: center; flex: none; }
+.check.bad { padding: 4px 8px; border-left: 6px solid var(--bad); background: var(--surface-2); font-size: 21px; }
+.check.bad .check-text strong { font-family: var(--font-head); font-weight: 700; letter-spacing: 0; }
+.check.bad .status { font-family: var(--font-head); font-size: 16px; }
+.check.warn { padding: 0 8px; font-size: 19px; color: var(--text-dim); }
+.check.warn .status { font-size: 17px; }
+.check-fold { font-size: 18px; }
+button.add-part { flex: none; min-height: 32px; padding: 0 10px; background: none; border: 2px solid var(--info); color: var(--info-ink); cursor: pointer; font-size: 20px; }
+button.add-part:hover { background: var(--surface-3); }
+.no-problems { display: flex; align-items: center; gap: 8px; font-size: 22px; }
+
+/* A little more room for the problems on a laptop: the right column is 340px from 1200px wide. */
+@media (min-width: 1200px) { .workshop { grid-template-columns: 250px minmax(0, 1fr) 340px; } }
