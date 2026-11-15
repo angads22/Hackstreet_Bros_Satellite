@@ -115,7 +115,6 @@ button:disabled { cursor: not-allowed; }
 .brand-status { font-size: 17px; letter-spacing: 1px; color: var(--text-dim); }
 .brand-status b { color: var(--text); font-weight: normal; }
 
-.subhead { color: var(--info-ink); font-size: 24px; }
 .divided { padding-top: 8px; border-top: 1px solid var(--line); }
 .stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
