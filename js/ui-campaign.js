@@ -246,6 +246,7 @@
   function showCampaignHub() {
     var info = typeof getHubInfo === "function" ? getHubInfo() : null;
     if (!info) { window.showDesignScreen("title"); return; }   // no campaign saved
+    if (info.finished && typeof window.showChronicle === "function") { window.showChronicle(); return; }   // the ending (js/ui-ending.js)
     UI.leaveMission();
     var objectives = UI.data("OBJECTIVES");
     var missions = UI.list(info.missions);

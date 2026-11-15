@@ -262,7 +262,7 @@
       events.length ? el("ul", { class: "log" }, events) : null,
       done.design.campaign
         ? el("div", { class: "choices" }, [
-            UI.button(["BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
+            UI.button([result && result.campaign_over ? "THE STORY OF YOUR PROGRAMME" : "BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
             // A fresh launch of the same satellite, paid for again.
             result && result.campaign_over ? null : UI.button("REBUILD THIS SATELLITE", function () {
               var again = rebuildDesign(done.design);

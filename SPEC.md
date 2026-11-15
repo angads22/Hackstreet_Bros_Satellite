@@ -134,6 +134,15 @@ Start poor (small budget, basic parts)
 - **Rewards are for new data only.** Money pays for the knowledge the new data adds (the same diminishing curve as before), and science points equal the new data. A flight that brings back nothing new earns **no reward**: no payout (the repeat floor is gone for it) and no science points. The annual grant and the rescue grant still arrive, so the programme can always fly again.
 - The hub shows each topic as `data_collected` of `data_cap`, and marks it `complete` at the cap. The Build screen's payout preview and the debrief say how much of a flight's data would be new, and name another type to try (`best_next_topic`).
 
+### The ending: the programme chronicle (proposed, November 15, branch only)
+
+A campaign's ending used to be one banner line. The chronicle tells the player's own story from what they did, and from the real missions in `data/missions.js`.
+
+- `getChronicle()` works for a campaign in progress or a finished one: `{ title, finished, won, rating: { id, name, text }, headline, totals: { flights, stars, data, spent_musd, research, upgrades, knowledge, year }, topics: [{ id, name, knowledge, data, flights, best_stars, real_mission }], timeline: [{ year, kind: "flight" | "research" | "upgrade", title, text, flight?, stars? }], epilogue }`.
+- **Rating** (by the sum of the knowledge of all topics, and whether the programme won): Architects of the space age, Pioneers, An established programme, A promising start, Lessons learned. The text is in `js/mission.js` with the lessons; no new data fields.
+- Each flight is named G-1, G-2 and so on, gets a newspaper-style headline from what it did, and its real twin from the debrief's `closest_mission`.
+- The save remembers more per flight (`flight, new_data, first_look, months, ended_early, limiting, parts, real`) and a log of when research and upgrades were bought (`log`). Older saves without them still work.
+
 ### The lab, the archive and open choices (0.7, approved November 14)
 
 Playtest verdict: the campaign was one corridor (fly, get paid, buy the next node) with too much hand-holding, and science points paid for nothing. 0.7 makes it an incremental and simulator hybrid: every launch is still a hard design puzzle (simulator), and what the programme learns keeps piling up between launches (incremental).
@@ -727,6 +736,7 @@ getHubInfo()                    // { year, treasury_musd, science_pts, archive_s
                                 //   missions, finished, won }
                                 // depth = longest chain of prerequisites, so a tree screen can place each node in a column.
 buyResearch(id)                 // { ok, reason }; spends cost_musd and cost_sci
+getChronicle()                  // the programme's story (see "The ending"): { title, finished, won, rating, headline, totals, topics, timeline, epilogue }
 getLab()                        // { science_pts, treasury_musd, upgrades: [{ id, name, of, of_name, year, cost_musd, cost_sci,
                                 //   owned, can_buy, missing: [plain-English reasons], gains: [plain-English differences],
                                 //   blurb }] } or null outside a campaign. Research stays in getResearchTree().

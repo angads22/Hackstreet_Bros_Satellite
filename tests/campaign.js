@@ -206,5 +206,27 @@ check("11 a flight on a finished topic earns no money and no science points",
 check("11 and the hub marks the topic complete", G.getHubInfo().topics.filter(function (t) { return t.id === "radiation"; })[0].complete);
 check("11 the grant still arrives, so the programme can fly again", r11.grant_musd > 0 && G.getCampaign().treasury_musd >= G.cheapestLaunchCost(G.getCampaign()));
 
+// 12. The chronicle tells the player's own story.
+G.resetCampaign();
+check("12 no campaign, no chronicle", G.getChronicle() === null);
+G.newCampaign("training");
+var f12 = fly(campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"]));
+G.recordResult(f12);
+var c12 = G.getCampaign(); c12.science_pts = 50; G.saveCampaign(c12);
+G.buyResearch("solar-cells");
+G.recordResult(fly(campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmic-ray-counter", "mercury-battery", "silicon-cells", "minitrack-beacon", "command-timer"])));
+var ch12 = G.getChronicle();
+check("12 the chronicle lists flights and research in year order",
+  ch12.timeline.length === 3 && ch12.timeline[0].kind === "flight" && ch12.timeline.some(function (e) { return e.kind === "research"; }) &&
+  ch12.timeline.every(function (e, i, a) { return i === 0 || a[i - 1].year <= e.year; }), ch12.timeline.map(function (e) { return e.year + e.kind; }).join(" "));
+check("12 it names the topics flown and what history says", ch12.topics.length === 1 && ch12.topics[0].id === "radiation" && /Explorer/.test(ch12.topics[0].real_mission));
+check("12 every flight has a headline and its real twin", ch12.timeline.filter(function (e) { return e.kind === "flight"; }).every(function (e) { return e.title && /real twin/.test(e.text); }));
+check("12 an unfinished campaign has no epilogue yet", ch12.finished === false && ch12.epilogue === null && ch12.rating.name);
+var c12b = G.getCampaign(); c12b.finished = true; c12b.won = true; c12b.knowledge_science.radiation = 450; c12b.knowledge_science.solar = 500; c12b.knowledge_science.weather = 450; G.saveCampaign(c12b);
+var ch12b = G.getChronicle();
+check("12 a won campaign with broad knowledge rates highest", ch12b.won && ch12b.rating.id === "architects" && /^By /.test(ch12b.epilogue), ch12b.rating.id);
+var c12c = G.getCampaign(); delete c12c.log; c12c.missions.forEach(function (m) { delete m.real; delete m.flight; }); G.saveCampaign(c12c);
+check("12 a save without the newer fields still works", G.getChronicle().timeline.length >= 2);
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;
