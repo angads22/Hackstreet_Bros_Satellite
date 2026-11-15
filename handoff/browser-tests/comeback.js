@@ -128,6 +128,7 @@ async function run(viewport, label) {
   ok(await p.locator('[data-key="deadline-banner"]').count() === 0, 'review: no deadline banner when it lands in time');
   ok(await T.noScroll(p), 'review: no sideways scroll');
   await p.locator('.btn.big').click(); await T.waitHead(p, 'MISSION');
+  ok(/^PART 2 · MONTH 0\/\d+ · CASH /.test(await p.locator('#status').innerText()), 'mission header: the comeback\'s clock, cash and debt');
   await T.fly(p, 'first');
   ok(await T.waitHead(p, 'DEBRIEF'), 'debrief');
   await p.waitForTimeout(400);
@@ -168,6 +169,8 @@ async function run(viewport, label) {
     'the workshop says what was paid and shows the new debt');
   ok(await p.evaluate(() => document.activeElement && document.activeElement.id) === 'pay-note' && await p.evaluate(() => scrollY) > 0, 'after paying, the page stays at PAY BACK');
   await shot('5-paid');
+  await p.click('[data-key="hub-home"]'); await p.click('[data-key="part2-go"]'); await T.waitHead(p, 'WORKSHOP');
+  ok(await p.locator('#pay-note').count() === 0, 'the payment message does not come back on a later visit');
 
   // ---- a flight that lands after the deadline (the saved campaign moved close to it): the banner, then the lost ending
   await editSave(p, 'c.month = c.deadline_month - 3; c.offers.forEach(function (k) { if (!k.done) k.expires_month = c.month + 12; });');

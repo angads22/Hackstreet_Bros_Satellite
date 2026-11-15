@@ -74,6 +74,8 @@
 
   function status() {
     var m = run.mission;
+    // Part 2: the header keeps the comeback's own clock, cash and debt (the satellite's month is on the screen).
+    if (run.design.comeback && UI.comebackStatus) { UI.setStatus(UI.comebackStatus()); return; }
     UI.setStatus(UI.tierName() + " · MONTH " + num(m.month, 0) + "/" + num(m.lifetime_months, 0));
   }
 

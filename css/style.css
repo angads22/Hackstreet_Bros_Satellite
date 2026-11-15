@@ -853,7 +853,7 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-result.nothing { border-color: var(--bad); }
 .cb-result-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .cb-stamp { display: inline-block; padding: 4px 16px; border: 5px solid var(--bad); border-radius: 10px; color: var(--bad); font-family: var(--pixel); font-weight: 700;
-  font-size: clamp(30px, 6vw, 44px); line-height: 1.1; transform: rotate(-4deg); animation: cb-stamp 0.45s ease-out both; }
+  font-size: clamp(28px, 5vw, 40px); line-height: 1.1; transform: rotate(-4deg); animation: cb-stamp 0.45s ease-out both; }
 .cb-stamp.pass { border-color: var(--info); color: var(--info-ink); }
 @keyframes cb-stamp { from { opacity: 0; transform: rotate(-4deg) scale(1.6); } to { opacity: 1; transform: rotate(-4deg) scale(1); } }
 .cb-result, .cb-end { overflow: hidden; }   /* the stamp lands from larger: it must not widen the page while it does */

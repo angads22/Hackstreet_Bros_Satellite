@@ -14,7 +14,7 @@
   var QUARTER = 0.25;             // the countdown turns to the accent colour with this share of the months left
   var PAY_SHARES = [0.25, 0.5, 0.75];   // PAY BACK buttons: these shares of the most that is safe to pay, rounded down
   var COMEBACK = { comeback: true };    // stands in for a design when the story is asked for Ajay's lines
-  var hub = { note: "", bad: false, debtFrom: null, cashFrom: null };   // the last payment's message, and the meter before it
+  var hub = { note: "", bad: false, fresh: false, debtFrom: null };   // the last payment's message, and the meter before it
 
   function info() {
     try { return typeof getComeback === "function" ? getComeback() : null; } catch (e) { return null; }
@@ -147,6 +147,7 @@
     hub.debtFrom = r && r.ok ? { debt: c.debt_musd, cash: c.cash_musd, start: c.start_debt_musd } : null;
     hub.note = r && r.ok ? "Paid " + money(r.paid_musd) + ". Debt now " + money(r.debt_musd) + "." : (r && r.reason) || "That payment did not go through.";
     hub.bad = !(r && r.ok);
+    hub.fresh = true;   // the message is shown on the next draw only
     var y = window.scrollY;
     showComebackHub();
     window.scrollTo(0, y);   // stay at PAY BACK: the message is next to the buttons
@@ -186,6 +187,8 @@
     if (c.finished) { showComebackEnding(); return; }
     UI.leaveMission();
     UI.setStatus(title());
+    if (!hub.fresh) { hub.note = ""; hub.debtFrom = null; }
+    hub.fresh = false;
     var late = c.months_left <= c.deadline_month * QUARTER;
     var tooLate = noFlightInTime(c);
     var last = UI.list(c.missions)[UI.list(c.missions).length - 1];
