@@ -1424,8 +1424,34 @@
   }
   // SAT-END
 
+  // A speaker's low-poly bust (LowPoly.scenes.portrait, js/lp-people.js) as an <img class="portrait">, or null.
+  // Each face is drawn once, into a canvas off the page at 280 px (sharp at the largest 140 px size), and kept
+  // as a picture: the screens are rebuilt on every click and must not draw the faces again each time.
+  var FACES = {};
+  function lpFace(who) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.has !== "function" || !LowPoly.has("person", who) ||
+          !LowPoly.scenes || typeof LowPoly.scenes.portrait !== "function" || typeof LowPoly.render !== "function") return null;
+      if (!FACES[who]) {
+        var ps = LowPoly.scenes.portrait({ who: who, aspect: 1 });
+        var c = document.createElement("canvas");
+        c.width = 280; c.height = 280;
+        if (!LowPoly.render(c, ps.scene)) return null;
+        FACES[who] = { src: c.toDataURL("image/png"), alt: ps.label || "Portrait" };
+      }
+      return el("img", { class: "portrait lp-face", src: FACES[who].src, alt: FACES[who].alt, width: 140, height: 140 });
+    } catch (e) { return null; }
+  }
+  // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
+  // else null (the caller then shows the director).
+  function speakerFace(who) {
+    return lpFace(who) || (typeof speakerArt === "function" ? speakerArt(who) : null);
+  }
+
   // Mission control, who briefs the player.
   function directorArt() {
+    var face = lpFace("director");
+    if (face) return face;
     return art("0 0 16 16", [
       [0, 0, 16, 16, PAL.portrait],
       [5, 2, 6, 3, PAL.hair], [4, 3, 1, 4, PAL.hair], [11, 3, 1, 4, PAL.hair],
@@ -1624,7 +1650,7 @@
     var who = typeof line === "object" ? line.who : "team", text = typeof line === "object" ? line.text : String(line);
     if (!text) return null;
     var name = typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : "";
-    var face = typeof speakerArt === "function" ? speakerArt(who) : null;
+    var face = speakerFace(who);
     return el("div", { class: "say", role: "note" }, [
       face || directorArt(),
       el("div", { class: "say-text" }, [name ? el("span", { class: "say-name", text: String(name).toUpperCase() }) : null,
@@ -2658,7 +2684,7 @@
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
-    speakerArt: function (who) { return typeof speakerArt === "function" ? speakerArt(who) : null; },
+    speakerArt: speakerFace,
     speakerName: function (who) { return typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : ""; },
     satelliteArt: satelliteArt,
     setStep: setStep, setHint: setHint, setStatus: setStatus,

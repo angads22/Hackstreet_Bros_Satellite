@@ -784,3 +784,5 @@ svg.icon { display: inline-block; margin-right: .35em; vertical-align: -.12em; }
 /* ---------------------------------------------------------------- low-poly art in the screens (js/lp-*.js) */
 /* The satellite on the bench and on the Readiness review: a canvas at 4:3, the bench colour showing through. */
 .lp-bench .lp-sat { display: block; width: 100%; max-width: none; height: auto; aspect-ratio: 4 / 3; }
+/* The speakers' low-poly busts: one picture per face, on the portrait colour like the pixel portraits. */
+img.lp-face { background: var(--pal-portrait); object-fit: cover; }
