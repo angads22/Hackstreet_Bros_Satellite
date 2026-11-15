@@ -74,7 +74,7 @@ async function tour(viewport, fontsLabel) {
   await T.noFonts(p);
   await p.goto(url); await p.evaluate(() => localStorage.clear());
   await p.evaluate(() => localStorage.setItem('gravitron-walkthrough-v1', JSON.stringify({ done: { 1: 1, 2: 1 } })));
-  await p.reload(); await p.waitForTimeout(300);
+  await p.reload(); await T.seedRuns(p); await p.waitForTimeout(300);   // a fixed seed: the same contracts every run
   const eras = [];
   // The home page keeps the console look the home-page task owns: its era and layout are checked, its colours are not here.
   const visit = async (name, era) => {
