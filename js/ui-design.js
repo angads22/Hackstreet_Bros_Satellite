@@ -1296,10 +1296,11 @@
     }
 
     var svg = art("0 0 " + SAT_W + " " + height, [], satLabel(chosen), "sat");
-    groups.forEach(function (g) {
+    groups.forEach(function (g, index) {
       var node = document.createElementNS("http://www.w3.org/2000/svg", "g"), tmp = art("0 0 1 1", g.rects, null);
       node.setAttribute("class", g.cls);
       if (g.id) node.setAttribute("data-part", g.id);
+      if (size === "small" && g.id) node.style.setProperty("--assembly-delay", Math.min(index * 70, 700) + "ms");
       while (tmp.firstChild) node.appendChild(tmp.firstChild);
       svg.appendChild(node);
     });
@@ -1358,18 +1359,41 @@
     return art("0 0 187 152", r, ready ? "A rocket on the pad, tower light green" : "A rocket on the pad, tower light red", "scene");
   }
 
-  // Small 8x8 icons for the parts bins.
-  var BIN_ICONS = {
-    instrument: [[0, 2, 8, 5, PAL.ink], [2, 1, 2, 1, PAL.ink], [3, 3, 3, 3, PAL.sky], [4, 4, 1, 1, PAL.cyan]],
-    power:      [[0, 1, 8, 6, PAL.blue], [2, 1, 1, 6, PAL.sky], [5, 1, 1, 6, PAL.sky], [0, 4, 8, 1, PAL.sky]],
-    comms:      [[3, 4, 2, 4, PAL.muted], [3, 2, 2, 2, PAL.gold], [0, 1, 1, 3, PAL.cyan], [7, 1, 1, 3, PAL.cyan], [1, 0, 1, 1, PAL.cyan], [6, 0, 1, 1, PAL.cyan]],
-    computer:   [[1, 1, 6, 6, PAL.sky], [2, 2, 4, 4, PAL.ink], [3, 3, 2, 2, PAL.sky], [0, 2, 1, 1, PAL.muted], [7, 5, 1, 1, PAL.muted]],
-    propulsion: [[3, 0, 2, 5, PAL.ink], [2, 4, 1, 2, PAL.red], [5, 4, 1, 2, PAL.red], [3, 6, 2, 2, PAL.gold]],
-    structure:  [[1, 1, 6, 6, PAL.muted], [2, 2, 4, 4, PAL.sky], [1, 1, 6, 1, PAL.ink], [1, 6, 6, 1, PAL.line]],
-    attitude:   [[3, 3, 2, 2, PAL.ink], [1, 1, 2, 1, PAL.cyan], [1, 1, 1, 2, PAL.cyan], [5, 6, 2, 1, PAL.cyan], [6, 5, 1, 2, PAL.cyan],
-                 [5, 1, 1, 1, PAL.gold], [2, 6, 1, 1, PAL.gold]],
-    fallback:   [[2, 2, 4, 4, PAL.muted]]
+  // Flat symbols share the surrounding text colour. Labels stay in the DOM beside them.
+  var ICON_PATHS = {
+    mass: "M3 5h10l2 9H1z M6 5V2h4v3",
+    power: "M9 1L3 9h4l-1 6 7-9H9z",
+    budget: "M2 4h12v9H2z M2 4V2h10 M10 8h4",
+    data: "M2 2h12v4H2z M2 6v4h12V6 M2 10v4h12v-4 M4 4h1 M4 8h1 M4 12h1",
+    instrument: "M2 5h12v8H2z M5 5V3h4v2 M10 9a2 2 0 1 0-4 0 2 2 0 1 0 4 0",
+    comms: "M2 2l10 10 M2 2c-3 7 3 13 10 10 M8 10v4 M5 14h6 M10 2a4 4 0 0 1 4 4",
+    computer: "M4 4h8v8H4z M6 1v3 M10 1v3 M6 12v3 M10 12v3 M1 6h3 M1 10h3 M12 6h3 M12 10h3",
+    propulsion: "M5 10V5L8 1l3 4v5z M5 7l-3 5h3 M11 7l3 5h-3 M6 12l2 3 2-3",
+    structure: "M2 4l6-3 6 3v8l-6 3-6-3z M2 4l6 3 6-3 M8 7v8",
+    attitude: "M3 4a6 6 0 0 1 10 0 M10 4h3V1 M13 12a6 6 0 0 1-10 0 M3 15v-3h3 M6 8h4 M8 6v4",
+    warning: "M8 1l7 13H1z M8 5v4 M8 11v1",
+    blocked: "M5 1h6l4 4v6l-4 4H5l-4-4V5z M5 5l6 6 M11 5l-6 6",
+    briefing: "M3 2h10v13H3z M6 1h4v3H6z M5 7h6 M5 10h6",
+    orbit: "M11 8a3 3 0 1 0-6 0 3 3 0 1 0 6 0 M2 12C-2 8 12-2 14 4S4 18 2 12",
+    build: "M10 2l-2 3 3 3 3-2c1 4-3 6-5 4l-5 5-3-3 5-5c-2-3 0-6 4-5",
+    review: "M3 2h10v13H3z M5 8l2 2 4-5",
+    map: "M1 3l4-2 6 2 4-2v12l-4 2-6-2-4 2z M5 1v12 M11 3v12",
+    design: "M2 13L12 3l2 2L4 15H2z",
+    none: "M2 8l4 4 8-9"
   };
+  var ICON_ALIASES = { launcher: "propulsion", event: "warning", science: "instrument", cost: "budget" };
+  function icon(name, label) {
+    var ns = "http://www.w3.org/2000/svg";
+    var node = document.createElementNS(ns, "svg"), path = document.createElementNS(ns, "path");
+    node.setAttribute("viewBox", "0 0 16 16");
+    node.setAttribute("class", "ui-icon");
+    node.setAttribute("focusable", "false");
+    if (label) { node.setAttribute("role", "img"); node.setAttribute("aria-label", label); }
+    else node.setAttribute("aria-hidden", "true");
+    path.setAttribute("d", ICON_PATHS[ICON_ALIASES[name] || name] || ICON_PATHS.design);
+    node.appendChild(path);
+    return node;
+  }
 
   // ---------------------------------------------------------------- shell: header, objective line, minimap, hints
   function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
@@ -1430,7 +1454,7 @@
       mini.hidden = !show;
       if (show) {
         mini.appendChild(mapSvg(true, screen));
-        mini.appendChild(el("span", { class: "minimap-key", text: "MAP [M]" }));
+        mini.appendChild(el("span", { class: "minimap-key" }, [icon(screen), "MAP [M]"]));
       }
     }
   }
@@ -1514,7 +1538,7 @@
 
   // A screen title only. What used to be a sentence under it is the story line (sayLine) and the hint.
   function head(title) {
-    return el("div", { class: "screen-head" }, [el("h1", { text: title })]);
+    return el("div", { class: "screen-head" }, [el("h1", null, [icon(({"1":"briefing", "2":"orbit", "3":"build", "4":"launcher", "5":"review"})[title.charAt(0)] || "map"), title])]);
   }
 
   // ---- the story: one short spoken line per screen (STORY block above; "" shows nothing)
@@ -1553,7 +1577,7 @@
   function bar(name, right, fill, cls, note) {
     var pct = isNum(fill) ? Math.max(0, Math.min(1, fill)) * 100 : 0;
     return el("div", { class: "bar" + (cls || "") }, [
-      el("div", { class: "bar-top" }, [el("span", { text: name }), el("span", { text: right })]),
+      el("div", { class: "bar-top" }, [el("span", null, [({MASS:1, POWER:1, BUDGET:1, "DATA HOME":1})[name] ? icon(name === "DATA HOME" ? "data" : name.toLowerCase()) : null, name]), el("span", { text: right })]),
       el("div", { class: "bar-track", role: "presentation" }, [el("div", { class: "bar-fill", style: "width: " + pct + "%" })]),
       note ? el("div", { class: "bar-note", text: note }) : null
     ]);
@@ -1606,15 +1630,15 @@
     var rows = [];
     checks.blockers.forEach(function (c) {
       if (opts.skip && opts.skip.indexOf(c.id) !== -1) return;
-      rows.push({ c: c, kind: "bad", status: opts.short ? "[X]" : "NO GO" });
+      rows.push({ c: c, kind: "bad", status: "NO GO" });
     });
-    checks.warnings.forEach(function (c) { rows.push({ c: c, kind: "warn", status: opts.short ? "[!]" : "WARN" }); });
+    checks.warnings.forEach(function (c) { rows.push({ c: c, kind: "warn", status: "WARN" }); });
     if (!rows.length) return opts.short ? el("p", { class: "preview-line fix", text: "No problems right now." }) : null;
     return el("ul", { class: "checks" }, rows.map(function (row) {
       var target = FIX_SCREEN[row.c.id] || "build";
       var label = checkLabel(row.c);
       return el("li", { class: "check " + row.kind }, [
-        el("span", { class: "check-text" }, [el("strong", { text: label }),
+        el("span", { class: "check-text" }, [icon(row.kind === "bad" ? "blocked" : "warning"), el("strong", { text: label }),
           label !== row.c.text ? el("details", { class: "more why" }, [el("summary", { text: "Why" }), el("span", { text: row.c.text })]) : null]),
         opts.fix && target !== state.screen
           ? el("button", { type: "button", class: "fix", onclick: function () { go(target); },
@@ -1864,12 +1888,16 @@
   // ---------------------------------------------------------------- 3 Build
   function partStats(p) {
     var bits = [];
-    if (p.mass_kg) bits.push(num(p.mass_kg) + " kg");
-    if (p.power_draw_w) bits.push(num(p.power_draw_w, 0) + " W draw");
-    if (p.data_gb_day) bits.push(num(p.data_gb_day) + " GB/d made");
-    if (p.downlink_gb_day) bits.push(num(p.downlink_gb_day) + " GB/d sent");
-    if (p.battery_wh) bits.push(num(p.battery_wh, 0) + " Wh");
-    return bits.join(" · ");
+    function stat(kind, text) {
+      if (bits.length) bits.push(" · ");
+      bits.push(el("span", { class: "part-stat" }, [icon(kind), text]));
+    }
+    if (p.mass_kg) stat("mass", num(p.mass_kg) + " kg");
+    if (p.power_draw_w) stat("power", num(p.power_draw_w, 0) + " W draw");
+    if (p.data_gb_day) stat("data", num(p.data_gb_day) + " GB/d made");
+    if (p.downlink_gb_day) stat("comms", num(p.downlink_gb_day) + " GB/d sent");
+    if (p.battery_wh) stat("power", num(p.battery_wh, 0) + " Wh");
+    return bits;
   }
 
   function partCard(p) {
@@ -1909,8 +1937,8 @@
       onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); },
       onpointerleave: function (e) { if (e.pointerType === "mouse") { state.hover = null; refreshPreview(); } }
     }, [
-      el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost", text: money(p.cost_musd) })]),
-      el("span", { class: "part-stats", text: partStats(p) }),
+      el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
+      el("span", { class: "part-stats" }, partStats(p)),
       extra.length ? el("span", { class: "part-stats", text: extra.join(" · ") }) : null,
       note ? el("span", { class: "part-note", text: note }) : null,
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
@@ -1996,7 +2024,7 @@
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
         onclick: function () { state.bin = c.id; state.hover = null; redraw(); }
       }, [
-        art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
+        icon(c.id),
         el("span", { class: "bin-text" }, [
           el("span", { class: "bin-name", text: c.name }),
           el("span", { class: "bin-sub" + (need || over || (noRoom && n) ? " need" : ""), text: sub })
@@ -2339,7 +2367,7 @@
       var item = el("li", null, [el("button", {
         type: "button", class: "legend-item", "data-key": "legend-" + p.id, onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }),
-          el("span", { class: "legend-text" }, [el("span", { text: p.name }), does]),
+          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name]), does]),
           status])]);
       refs.legend[p.id] = { status: status, does: does };
       return item;
@@ -2543,7 +2571,7 @@
 
   window.showDesignScreen = showDesignScreen;
   window.StarlineUI = {
-    el: el, art: art, facts: facts, button: button, num: num, money: money, starsText: starsText,
+    el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, starsText: starsText,
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },

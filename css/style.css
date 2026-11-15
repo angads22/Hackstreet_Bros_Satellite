@@ -724,3 +724,11 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   .sat-p.is-new { animation: none; }
   .sat-p.is-gone, .sat-tag { display: none; }
 }
+
+/* Flat icons inherit each theme's text colour; words retain the meaning. */
+.ui-icon { display: inline-block; width: 1em; height: 1em; margin-right: .35em; vertical-align: -.12em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.part-stat { display: inline-block; }
+.sat-small .sat-p { animation: sat-drop .4s ease-out both; animation-delay: var(--assembly-delay, 0ms); }
+@media (prefers-reduced-motion: reduce) {
+  .sat-small .sat-p { animation: none; }
+}
