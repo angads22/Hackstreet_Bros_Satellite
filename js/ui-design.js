@@ -1812,7 +1812,8 @@
       text = next === screen ? doText(screen) : GO_TEXT[next];
     }
     if (line) {
-      line.textContent = text ? "OBJECTIVE: " + text : "";
+      while (line.firstChild) line.removeChild(line.firstChild);
+      if (text) { line.appendChild(el("span", { class: "objective-key", text: "OBJECTIVE " })); line.appendChild(document.createTextNode(text)); }
       line.hidden = !text;
     }
     if (mini) {

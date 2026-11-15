@@ -26,6 +26,7 @@
   --mono: "VT323", "Courier New", monospace;
   --font-head: var(--pixel);   --font-body: var(--mono);
   --cut: 14px;            /* the chamfer: panels 14px, buttons and tiles 10px, chips 6px */
+  --wrap-max: 1280px;     /* the page column (header, screen, footer); the screen agents own this */
   --header-h: 112px;      /* at least the sticky header's height (it measures 84 to 96px): scroll padding and sticky columns */
 }
 
@@ -59,6 +60,7 @@ button:disabled { cursor: not-allowed; }
 /* Focus: a 3px ring outside the element; inside it on the chamfered ones (clip-path would cut an outer ring off),
    dark on an orange or teal fill. */
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+#app:focus-visible { outline: none; }   /* the screen itself takes focus on a screen change (go()): not a control, no ring */
 .btn:focus-visible, .icon-btn:focus-visible, .tab:focus-visible, .card:focus-visible, .part:focus-visible, .bin:focus-visible,
 .legend-item:focus-visible, .cb-level:focus-visible { outline-offset: -6px; }
 .btn.primary:focus-visible, .bin[aria-pressed="true"]:focus-visible, .tab.on:focus-visible,
@@ -67,7 +69,7 @@ button:disabled { cursor: not-allowed; }
 .wrap {
   position: relative;
   z-index: 1;
-  max-width: 1280px;
+  max-width: var(--wrap-max);
   margin: 0 auto;
   padding: 0 16px 40px;
 }
@@ -128,6 +130,7 @@ button:disabled { cursor: not-allowed; }
   color: var(--text);
   font-size: 19px;
 }
+.objective-key { margin-right: 6px; font-size: 15px; letter-spacing: 2px; color: var(--info-ink); }
 .minimap {
   position: relative;
   flex: none;
