@@ -50,7 +50,7 @@ const barText = (p, name) => p.evaluate(n => { const x = [...document.querySelec
   ok(JSON.stringify(before) === JSON.stringify(await card.boundingBox()), 'hovering a card does not move it');
   const order = await p.evaluate(() => [...document.querySelectorAll('#preview > *')].map(n => n.className || n.tagName).join(','));
   // The part's animated explainer (js/ui-parts.js) now tells the story, above the effect lines, and replaces the blurb line.
-  ok(/^H2,H3,explainer[^,]*(,preview-line( fix| cause)?)+$/.test(order) && /cause/.test(order) && !/blurb/.test(order), 'the preview lists the explainer, then Fixes and Causes (the blurb is dropped): ' + order);
+  ok(/^H2,H3,(part-why,)?explainer[^,]*(,preview-line( fix| cause| lead)?)+$/.test(order) && /cause/.test(order) && !/blurb/.test(order), 'the preview lists the explainer, then Fixes and Causes (the blurb is dropped): ' + order);
   const box = await p.locator('#preview').boundingBox();
   await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 12 });
   const kept = await text(p, '#preview');

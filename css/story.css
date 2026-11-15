@@ -72,6 +72,48 @@
   .cb-end-buttons .btn { flex: 1 1 auto; min-height: 44px; padding: 0 14px; font-size: 22px; justify-content: center; }
 }
 
+/* ---------------------------------------------------------------- the journal (STORY SO FAR) */
+.journal { gap: 12px; }
+/* The header's objective line points at the map: not on this screen. */
+body:has(#app[data-screen="journal"]) .objective { display: none; }
+.jr-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.jr-now { display: flex; flex-direction: column; gap: 8px; }
+.jr-now .facts { max-width: 420px; }
+.jr-next { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 24px; line-height: 1.1; }
+.jr-ended { font-family: var(--pixel); font-weight: 700; font-size: 22px; letter-spacing: 1px; color: var(--accent-ink); }
+.jr-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 8px; }
+.jr-entry { display: flex; align-items: center; gap: 14px; min-width: 0; min-height: 76px; padding: 8px 14px 8px 8px; background: var(--surface); border-left: 6px solid var(--jr, var(--border)); }
+.jr-face { flex: none; display: block; width: 60px; height: 60px; overflow: hidden; }
+.jr-face .portrait { width: 60px; height: 60px; }
+.jr-face svg { width: 60px; height: 60px; display: block; }
+.jr-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jr-who { font-size: 16px; letter-spacing: 2px; color: var(--jr, var(--info-ink)); }
+.jr-text { font-size: 24px; line-height: 1.06; overflow-wrap: anywhere; }
+/* Colour by who is speaking (the notebook is the accent, the rival the warning colour). */
+.jr-entry.who-notebook { --jr: var(--accent-ink); }
+.jr-entry.who-rival { --jr: var(--bad); }
+.jr-entry.who-mum { --jr: var(--info-ink); }
+.jr-entry.who-partner { --jr: var(--info-ink); }
+.jr-entry.who-customer { --jr: var(--info-ink); }
+.jr-entry.who-team { --jr: var(--text-dim); }
+/* A line not found yet: dim, with a blank where the face goes. */
+.jr-entry.locked { background: transparent; border: 3px dashed var(--border); border-left-width: 3px; color: var(--text-dim); }
+.jr-face.blank { display: flex; align-items: center; justify-content: center; border: 3px dashed var(--border); border-radius: 50%; font-family: var(--pixel); font-weight: 700; font-size: 28px; color: var(--text-dim); }
+.jr-entry.locked .jr-text { letter-spacing: 6px; font-size: 26px; }
+
+/* The JOURNAL button: a quiet text link on the map and in the workshop, and on a home card (above the card's own hit area). */
+.btn[data-key^="journal-mode"] { position: relative; z-index: 2; }
+.mode-card .btn[data-key^="journal-mode"], .mode-card .btn[data-key^="journal-mode"]:not(:disabled):hover { min-height: 32px; padding: 0 8px; background: none; border: 2px solid currentColor; clip-path: none; color: inherit; font-size: 20px; }
+.mode-card .btn[data-key^="journal-mode"]:focus-visible { outline: 4px solid currentColor; outline-offset: 2px; }
+
+@media (max-width: 760px) {
+  .jr-entry { min-height: 68px; gap: 10px; }
+  .jr-face, .jr-face .portrait, .jr-face svg { width: 48px; height: 48px; }
+  .jr-text { font-size: 21px; }
+  .jr-next { font-size: 21px; }
+  .jr-tabs .tab { flex: 1 1 auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .story-beat, .cb-end-line { animation: none; }
 }

@@ -4,8 +4,10 @@
 // shows nothing and never throws. Every amount, month and count comes from the back end (getComeback,
 // getComebackEnding, acceptBuyout, refuseBuyout). This file only draws, with the helpers of js/ui-design.js.
 //
+// Also the journal, STORY SO FAR (read only, it writes nothing): openJournal and journalButton, drawn from the same
+// records and the back end, with the words in STORY.journal.
 // Shared names: window.nextInterlude(opts), window.showInterlude(done, opts), window.showComebackEnding(), and
-// window.StarlineStory { counter, forget, showEnding, showBox, found, ids }.
+// window.StarlineStory { counter, forget, showEnding, showBox, found, ids, openJournal, journalButton }.
 // Saved on this device: gravitron-endings-v1 (the ending ids found, a list) and gravitron-seen-v1 ({ seed: [interlude ids] }).
 (function () {
   "use strict";
@@ -138,30 +140,38 @@
              sell_hint: pick("sell_hint", ""), refuse_hint: pick("refuse_hint", "") };
   }
 
+  // The moments of a run, [id, has it come]. Pure: the journal reads the same list.
+  function momentsOf(c) {
+    var flights = c.flights || 0, share = debtShare(c);
+    return [
+      ["start", flights === 0],
+      ["after-1", flights >= 1],
+      ["refused", c.buyout === "refused"],
+      ["after-3", flights >= 3 || (c.tier === "training" && flights >= 2 && share !== null && share < 0.5)],
+      ["final", flights >= 1 && share !== null && share < 0.25]
+    ];
+  }
+  // The scenes a run with no seen record is taken to have seen (a comeback saved before the story existed): every
+  // moment that is behind it, and the offer once it has been answered. Pure: it writes nothing.
+  function behindOf(c) {
+    var behind = ["start"];   // the old opening scene was shown when the run began
+    momentsOf(c).forEach(function (m) { if (m[1] && behind.indexOf(m[0]) === -1) behind.push(m[0]); });
+    if (c.buyout === "refused" || c.buyout === "accepted") behind.push("offer");
+    return behind;
+  }
+
   // The interlude due now, or null: { id, beats, buttons? }. Pure: it marks nothing (showInterlude does).
   // opts.fresh: a comeback has just begun: its record starts empty.
   function nextInterlude(opts) {
     try {
       var c = comeback();
       if (!c || c.finished) return null;
-      var flights = c.flights || 0, share = debtShare(c);
-      var moments = [
-        ["start", flights === 0],
-        ["after-1", flights >= 1],
-        ["refused", c.buyout === "refused"],
-        ["after-3", flights >= 3 || (c.tier === "training" && flights >= 2 && share !== null && share < 0.5)],
-        ["final", flights >= 1 && share !== null && share < 0.25]
-      ];
+      var moments = momentsOf(c);
       // A run just begun starts with an empty record. A run this version has no record of (a comeback saved before the
       // story existed) must not replay a scene whose moment has already passed: every moment that is behind it is
       // marked seen, and only what is due from now on is shown.
       if (opts && opts.fresh) setSeen(c.seed, []);
-      else if (!hasRecord(c.seed)) {
-        var behind = ["start"];   // the old opening scene was shown when the run began
-        moments.forEach(function (m) { if (m[1] && behind.indexOf(m[0]) === -1) behind.push(m[0]); });
-        if (c.buyout === "refused" || c.buyout === "accepted") behind.push("offer");
-        setSeen(c.seed, behind);
-      }
+      else if (!hasRecord(c.seed)) setSeen(c.seed, behindOf(c));
       var seen = seenFor(c.seed);
       // An open offer must be answered (the back end blocks every new design until it is), so it is due until it is.
       if (c.buyout === "offered" || c.offer) {
@@ -310,6 +320,7 @@
       ]),
       buttons: [
         UI.button(["PLAY AGAIN", " >"], function () { if (C) C.showPicker(); }, { primary: true, key: "end-again", aria: "Play again: choose a difficulty" }),
+        window.StarlineOnline ? window.StarlineOnline.submitButton() : null,   // ONLINE (js/ui-online.js): SUBMIT SCORE, only when online is on
         UI.button(["< ", "HOME"], function () { UI.home(); }, { key: "end-home" })
       ]
     });
@@ -333,9 +344,182 @@
     era1958();   // mounting a screen sets the era from the design (none here), so set it again once the box is on the page
   }
 
+  // ---------------------------------------------------------------- the journal: STORY SO FAR
+  // What the player has learned so far, as short entries with a face. Read only: it reads the Part 1 record, the seen
+  // record, the endings found and getComeback(), and writes nothing (not even the backfill nextInterlude does). An entry the
+  // player has not reached shows as "???". Where it was opened from comes in as opts.back, and BACK and Esc go there.
+  var QUARTER = 0.25;   // "time is short" with this share of the months left or less (the workshop's own limit)
+  var jr = null;        // the journal on screen: { opts, part, ctx }
+
+  function journalText() {
+    var t = chapter("journal");
+    return t && (isList(t.part1) || isList(t.part2)) ? t : null;
+  }
+  function entriesOf(t, part) {
+    return (isList(t["part" + part]) ? t["part" + part] : []).filter(function (e) {
+      return e && typeof e === "object" && typeof e.id === "string" && typeof e.text === "string" && e.text;
+    });
+  }
+  // The Part 1 steps the player has passed (the walkthrough record, through the front end's own reader).
+  function stepPassed(n) {
+    try {
+      if (typeof UI.walkStars === "function") return typeof UI.walkStars(n) === "number";
+      var rec = readJSON("gravitron-walkthrough-v1");
+      return !!(rec && rec.done && typeof rec.done[String(n)] === "number" && rec.done[String(n)] >= 1);
+    } catch (e) { return false; }
+  }
+  // What the journal is drawn from, taken once when it opens: the step in play (a Part 1 design in hand), the run.
+  function journalContext(opts) {
+    var step = 0;
+    try { step = opts.design && typeof UI.walkStep === "function" ? UI.walkStep(opts.design) || 0 : 0; } catch (e) { step = 0; }
+    var c = comeback();
+    return { step: step, c: c, seen: c ? (hasRecord(c.seed) ? seenFor(c.seed).slice() : behindOf(c)) : [], endings: found() };
+  }
+  // A step is reached when it is in play or passed, or a later one is (a step's rules are in its opening scene).
+  function reached(ctx, n) {
+    if (ctx.step >= n) return true;
+    for (var i = n; i <= 3; i++) if (stepPassed(i)) return true;
+    return false;
+  }
+  // Has the moment this entry waits for come?
+  function isKnown(e, ctx) {
+    var c = ctx.c;
+    switch (e.when) {
+      case "start": return ctx.step >= 1 || reached(ctx, 1) || ctx.endings.indexOf("box") !== -1;
+      case "step-1": return reached(ctx, 1);
+      case "step-2": return reached(ctx, 2);
+      case "step-3": return stepPassed(3) || ctx.endings.indexOf("box") !== -1;
+      case "after-1": case "after-3": return !!c && ctx.seen.indexOf(e.when) !== -1;
+      case "offer": return !!c && (ctx.seen.indexOf("offer") !== -1 || c.buyout === "refused" || c.buyout === "accepted");
+      case "refused": return !!c && c.buyout === "refused";
+      case "sold": return !!c && c.buyout === "accepted";
+      default: return false;
+    }
+  }
+  // Part 1's "start" belongs to Part 1 only; Part 2's own "start" is the lenders' scene (the same word, the run's record).
+  function known(part, e, ctx) {
+    if (part === 2 && e.when === "start") return !!ctx.c && ctx.seen.indexOf("start") !== -1;
+    return isKnown(e, ctx);
+  }
+  function unlocked(part, ctx) {
+    var t = journalText();
+    return t ? entriesOf(t, part).filter(function (e) { return known(part, e, ctx); }).length : 0;
+  }
+
+  function nextLine(t, key) { var n = t.next && typeof t.next === "object" ? t.next : {}; return typeof n[key] === "string" ? n[key] : ""; }
+  // What to do next, in a few words: [text, kind]. Part 2 from the run; Part 1 from the first step not passed.
+  function nextStep(t, part, ctx) {
+    var c = ctx.c;
+    if (part === 1) {
+      for (var n = 1; n <= 3; n++) if (!stepPassed(n)) {
+        var s = story(), st = s && s.austin && s.austin.steps ? s.austin.steps[String(n)] : null;
+        return ["STEP " + n + (st && st.name ? " · " + st.name : ""), "warn"];
+      }
+      return [nextLine(t, "part1-done"), "good"];
+    }
+    if (!c) return [nextLine(t, "part2-none"), ""];
+    if (c.finished) return [nextLine(t, c.won ? "won" : c.buyout === "accepted" ? "sold" : "lost"), c.won ? "good" : "bad"];
+    if (c.buyout === "offered") return [nextLine(t, "offer"), "bad"];
+    if (c.deadline_month > 0 && c.months_left <= c.deadline_month * QUARTER) return [nextLine(t, "late"), "bad"];   // a fresh run is never late
+    if (!c.flights) return [nextLine(t, "start"), "warn"];
+    return [nextLine(t, "fly"), "warn"];
+  }
+
+  function entryEl(e, isOpen, t) {
+    var who = String(e.who || "team");
+    if (!isOpen) {
+      return el("li", { class: "jr-entry locked", "data-key": "journal-" + e.id, "data-state": "locked", "aria-label": "Not found yet" }, [
+        el("span", { class: "jr-face blank", "aria-hidden": "true", text: "?" }),
+        el("p", { class: "jr-text", text: typeof t.locked === "string" && t.locked ? t.locked : "???" })
+      ]);
+    }
+    var face = null;
+    try { face = typeof UI.speakerArt === "function" ? UI.speakerArt(who) : null; } catch (err) { face = null; }
+    return el("li", { class: "jr-entry known who-" + who, "data-key": "journal-" + e.id, "data-state": "known" }, [
+      el("span", { class: "jr-face" }, [face || UI.directorArt()]),
+      el("div", { class: "jr-body" }, [
+        speakerName(who) ? el("span", { class: "jr-who", text: String(speakerName(who)).toUpperCase() }) : null,
+        el("p", { class: "jr-text", text: e.text })
+      ])
+    ]);
+  }
+
+  function drawJournal() {
+    var t = journalText();
+    if (!jr || !t) { closeJournal(); return; }
+    var part = jr.part, ctx = jr.ctx, c = ctx.c, M = UI.modes || {};
+    // The era first: the low-poly faces take their palette from it when they are drawn (and again once mounted, which sets it from the design).
+    var look = function () { if (typeof UI.era === "function") UI.era(part === 1 ? "1958" : "today"); };
+    look();
+    var tab = function (n) {
+      var m = M["part" + n], on = n === part;
+      return el("button", { type: "button", class: "tab jr-tab" + (on ? " on" : ""), "aria-pressed": on ? "true" : "false", "data-key": "journal-tab-" + n,
+        onclick: function () { if (jr && jr.part !== n) { jr.part = n; drawJournal(); var again = document.querySelector('[data-key="journal-tab-' + n + '"]'); if (again) again.focus({ preventScroll: true }); } } },
+        m && m.kicker ? m.kicker : "PART " + n);
+    };
+    var nx = nextStep(t, part, ctx);
+    // The stakes right now (Part 2): from the back end. A finished run says how it ended instead of the months.
+    var stakes = part === 2 && c ? UI.facts([["DEBT", money(c.debt_musd)], c.finished ? null : ["MONTHS LEFT", num(c.months_left, 0)]]) : null;
+    var ended = part === 2 && c && c.finished && c.ending_id ? endingTitle(c.ending_id) : "";
+    var now = el("div", { class: "panel jr-now", "data-key": "journal-now" }, [
+      stakes,
+      ended ? el("p", { class: "jr-ended", text: ended }) : null,
+      nx[0] ? el("p", { class: "jr-next", "data-key": "journal-next" }, [el("span", { class: "tag " + (nx[1] || ""), text: "NEXT" }), el("span", { text: nx[0] })]) : null
+    ]);
+    var items = entriesOf(t, part).map(function (e) { return entryEl(e, known(part, e, ctx), t); });
+    UI.mount("journal", el("section", { class: "screen journal", "data-key": "journal", "data-part": String(part) }, [
+      el("div", { class: "screen-head" }, [el("h1", { text: typeof t.title === "string" ? t.title : "STORY SO FAR" })]),
+      el("div", { class: "jr-tabs", role: "group", "aria-label": "Which part" }, [tab(1), tab(2)]),
+      now,
+      el("ol", { class: "jr-list", "aria-label": (M["part" + part] && M["part" + part].kicker ? M["part" + part].kicker + ": " : "") + "what you have learned" }, items),
+      el("div", { class: "nav-row" }, [UI.button(["< ", "BACK"], closeJournal, { key: "journal-back", aria: "Back" })])
+    ]));
+    look();   // Part 1's entries wear the rustic look
+  }
+
+  function onJournalKey(e) {
+    if (!jr || !document.querySelector('[data-key="journal"]')) { document.removeEventListener("keydown", onJournalKey); return; }
+    if (e.key === "Escape" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.repeat) { e.preventDefault(); closeJournal(); }
+  }
+  // BACK or Esc: where the player came from, and the button they pressed gets the focus back.
+  function closeJournal() {
+    var was = jr;
+    jr = null;
+    document.removeEventListener("keydown", onJournalKey);
+    var back = was && was.opts && typeof was.opts.back === "function" ? was.opts.back : function () { UI.home(); };
+    back();
+    var key = was && was.opts ? was.opts.key : null, again = key ? document.querySelector('[data-key="' + key + '"]') : null;
+    if (again) again.focus({ preventScroll: true });
+  }
+  // opts: { back, design (the design in hand, if any), part (1 or 2), before (run first), key (the opener's data-key) }.
+  function openJournal(opts) {
+    opts = opts || {};
+    if (!journalText()) return false;
+    try { if (typeof opts.before === "function") opts.before(); } catch (e) { /* nothing to stop */ }
+    var ctx = journalContext(opts);
+    var part = opts.part === 1 || opts.part === 2 ? opts.part : ctx.step >= 1 ? 1 : ctx.c ? 2 : 1;
+    document.removeEventListener("keydown", onJournalKey);
+    jr = { opts: opts, part: part, ctx: ctx };
+    document.addEventListener("keydown", onJournalKey);
+    drawJournal();
+    var on = document.querySelector('[data-key="journal-tab-' + part + '"]');
+    if (on) on.focus({ preventScroll: true });
+    return true;
+  }
+  // The JOURNAL button for a screen. opts as for openJournal, and ifAny: only when that part has an entry unlocked.
+  // null when there is no story text for it, so a screen is the same without it.
+  function journalButton(opts) {
+    opts = opts || {};
+    try {
+      if (!journalText()) return null;
+      if (opts.ifAny && !unlocked(opts.part, journalContext(opts))) return null;
+    } catch (e) { return null; }
+    return UI.button("JOURNAL", function () { openJournal(opts); }, { quiet: true, key: opts.key || "journal-open", aria: "Open the story so far" });
+  }
+
   window.nextInterlude = nextInterlude;
   window.showInterlude = showInterlude;
   window.showComebackEnding = showEnding;
   window.StarlineStory = { counter: counter, forget: forget, showEnding: showEnding, showBox: showBox, found: found,
-    ids: function () { return IDS.slice(); } };
+    ids: function () { return IDS.slice(); }, openJournal: openJournal, journalButton: journalButton };
 })();

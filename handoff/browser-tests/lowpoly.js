@@ -147,7 +147,7 @@ async function lowPolyOn(viewport, label) {
   ok(fast > 2.5 * normal, `fast-forward speeds it up (${fast.toFixed(0)} against ${normal.toFixed(0)} degrees a second)`);
   await page.click('button[aria-label="Fast forward"]');
   // Past month 10 the month is wider: the Earth beside it must shrink, not wrap and push the screen down.
-  if (await page.locator('[role="alertdialog"]').count()) await page.locator('.choices .btn').first().click();
+  if (await page.locator('[role="alertdialog"], .mission-head.event-open').count()) await page.locator('.choices .btn').first().click();
   const h0 = await page.locator('.mission-head').evaluate(e => e.offsetHeight);
   await page.click('button[aria-label="Fast forward"]');
   for (let i = 0; i < 300 && +(await page.locator('.month').innerText()).replace(/\D/g, '') < 12; i++) {
@@ -155,7 +155,10 @@ async function lowPolyOn(viewport, label) {
     await page.waitForTimeout(40);
   }
   await page.click('button[aria-label="Pause the mission"]');
-  ok(await page.locator('.mission-head').evaluate(e => e.offsetHeight) === h0, 'the month row keeps its height past month 10');
+  // An open event makes the orbit step back (a smaller head): answer it first, so the two heights are comparable.
+  if (await page.locator('.mission-head.event-open').count()) { await page.locator('.choices .btn').first().click(); await page.waitForTimeout(100); }
+  const h1 = await page.locator('.mission-head').evaluate(e => e.offsetHeight);
+  ok(h1 === h0, `the month row keeps its height past month 10 (${h0} then ${h1})`);
   await page.screenshot({ path: path.join(shots, `lowpoly-${label}-mission.png`), fullPage: true });
   ok(await noSideScroll(page), 'Mission: no sideways scroll');
 

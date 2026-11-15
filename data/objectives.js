@@ -8,7 +8,7 @@ const OBJECTIVES = [
   {
     id: "radiation",
     name: "Radiation around Earth",
-    briefing: "It is 1957 and nobody knows what lies just above the atmosphere. Cosmic rays? Something new? Put a counter in orbit and listen to what it hears.",
+    briefing: "1957. Nobody knows what lies above the atmosphere. Put a counter in orbit and listen.",
     wants: ["radiation"],
     science_target: 100,         // GAME VALUE
     orbit_fit: { leo: 1.0, sso: 0.8, geo: 0.5 },   // GAME VALUES: the inner belt starts a few hundred km up
@@ -20,7 +20,7 @@ const OBJECTIVES = [
   {
     id: "solar",
     name: "Solar activity",
-    briefing: "The International Geophysical Year was timed for a peak in the Sun's 11-year cycle. Flares hurl X-rays that never reach the ground. Catch them from orbit, and fly when the Sun is busy.",
+    briefing: "The International Geophysical Year was timed for a solar peak. Flares send X-rays that never reach the ground. Catch them from orbit.",
     wants: ["solar", "radiation"],
     science_target: 250,         // GAME VALUE: the best 1958 design reaches about 180% (solar maximum)
     orbit_fit: { leo: 1.0, sso: 1.0, geo: 1.0 },   // the Sun is visible from every orbit
@@ -32,7 +32,7 @@ const OBJECTIVES = [
   {
     id: "weather",
     name: "First weather pictures",
-    briefing: "Forecasters see only what weather stations report, and most of Earth is ocean. A satellite could see every cloud. Prove it can be done.",
+    briefing: "Forecasters see only what stations report, and most of Earth is ocean. A satellite could see every cloud.",
     wants: ["imaging"],
     science_target: 100,         // GAME VALUE: TV cameras alone (as on TIROS-1) or cameras plus photocells
     orbit_fit: { leo: 0.8, sso: 1.0, geo: 0.6 },   // both reach it: more than one way to succeed
@@ -45,7 +45,7 @@ const OBJECTIVES = [
   {
     id: "wildfire",
     name: "Wildfire monitoring",
-    briefing: "Fires are spreading faster and burning longer every year. Firefighters need to know where new fires start, and they need to know quickly. Design a satellite that spots fire heat from orbit and gets that news to the ground.",
+    briefing: "Fires spread faster every year. Spot fire heat from orbit and get the news down fast.",
     wants: ["thermal", "imaging"],
     science_target: 160,        // GAME VALUE: the best design reaches about 108% (tests/balance.js)
     needs_resolution_m: 2000,   // GOES-R ABI finds fires with 2 km infrared pixels
@@ -64,7 +64,7 @@ const OBJECTIVES = [
   {
     id: "sea-ice",
     name: "Arctic sea-ice mapping",
-    briefing: "Arctic sea ice is shrinking, and ships, scientists and northern communities all need to know where it is. The Arctic is dark for months and often cloudy. Design a satellite that can map the ice anyway.",
+    briefing: "Arctic ice is shrinking and ships need to know where it is. It is dark for months and often cloudy.",
     wants: ["radar", "imaging"],  // a camera helps a little, in daylight and clear sky
     science_target: 200,
     orbit_fit: { leo: 0, sso: 1.0, geo: 0 },      // only a polar orbit passes over the Arctic; LEO and GEO cannot see it
@@ -76,7 +76,7 @@ const OBJECTIVES = [
   {
     id: "ionosphere",
     name: "The ionosphere from above",
-    briefing: "It is 1962. Radio signals bounce off the ionosphere, but nobody has seen its top side. Canada wants to fly a radio sounder above it and listen for the echoes. Which ground stations will hear your satellite?",
+    briefing: "1962. Nobody has seen the ionosphere's top side. Fly a radio sounder above it and listen for echoes.",
     wants: ["ionosphere"],
     science_target: 120,         // GAME VALUE
     orbit_fit: { leo: 1.0, sso: 1.0, geo: 0 },   // a sounder must fly just above the ionosphere

@@ -33,14 +33,14 @@
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
     title:    "",
-    map:      "Tap or click a place to walk there. Or walk with the arrow keys or WASD and press E to go in. The gold route leads to your next job.",
-    briefing: "Decide the goal before the hardware. The objective says which instruments count.",
-    orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
-    build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
-    launcher: "A bigger rocket solves mass and eats the budget.",
-    review:   "Blockers stop the launch. Warnings do not, but thin margins make events hit harder.",
-    mission:  "Designs get tested by things you did not plan. Pick one answer per event.",
-    debrief:  "Change the one thing that limited you, then fly the same design again."
+    map:      "Tap a place to walk there. Arrow keys or WASD walk; E goes in. The gold route is your next job.",
+    briefing: "Pick the goal first. It decides which instruments count.",
+    orbit:    "Orbit sets detail, ground contact, lifetime and launch cost.",
+    build:    "Every part costs in all four bars. Hover one to preview.",
+    launcher: "A bigger rocket fixes mass but eats budget.",
+    review:   "Red stops the launch. Amber is a risk.",
+    mission:  "Pick one answer per event.",
+    debrief:  "Fix the one thing that limited you, then fly again."
   };
 
   // This file's screen names -> the screen names getHints uses.
@@ -74,18 +74,18 @@
   var EDGES = [["gate", "j1"], ["j1", "j2"], ["j2", "j3"], ["j1", "briefing"], ["j1", "build"],
                ["j2", "orbit"], ["j2", "launcher"], ["j3", "review"], ["j3", "ground"]];
   var GO_TEXT = {
-    briefing: "Go to Mission Control and pick a job.",
-    orbit:    "Go to the Tracking Station and choose an orbit.",
-    build:    "Go to the Workshop and build the satellite.",
-    launcher: "Go to the Rocket Yard and pick a rocket.",
-    review:   "Go to the Launch Pad for the readiness review."
+    briefing: "Go to Mission Control.",
+    orbit:    "Go to the Tracking Station.",
+    build:    "Go to the Workshop.",
+    launcher: "Go to the Rocket Yard.",
+    review:   "Go to the Launch Pad."
   };
   var DO_TEXT = {
-    briefing: "Pick a job for the satellite.",
-    orbit:    "Choose an orbit that can see the target.",
-    build:    "Fit a body, an instrument, power, a radio, a computer and attitude control.",
-    launcher: "Pick a rocket that can lift your satellite.",
-    review:   "Clear every NO GO line, then launch."
+    briefing: "Pick a job.",
+    orbit:    "Pick an orbit that sees the target.",
+    build:    "Fill every required column.",
+    launcher: "Pick a rocket that can lift it.",
+    review:   "Clear every NO GO, then launch."
   };
   // Part 1, Austin's walkthrough: three standalone missions in the 1958 era, Training tier (hints on).
   // A field set here is preset: that place counts as visited and its cards are read-only for the step.
@@ -170,6 +170,10 @@
   //     `start` repeats `intro` (the same six beats); show only one of them.
   //   STORY.ajay.endings = { legend, comeback, close, sold, timeout, broke }, each { title, kicker, beats, line }.
   //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), mum.
+  //   STORY.journal = { title, part1, part2, next, locked }: the STORY SO FAR screen. part1 and part2 are lists of
+  //     { id, who, text, when }: one or two short lines each. `when` names the moment that unlocks the entry (js/ui-story.js
+  //     decides when it has come: start, step-1, step-2, step-3, offer, refused, sold, after-1, after-3). `next` holds the
+  //     few words for what to do now. No game number is written there: the debt and the months come from getComeback().
   var STORY = {
     title: "GRAVITRON",
     subtitle: "The Gravitronical Odyssey",
@@ -624,6 +628,44 @@
   STORY.ajay.interludes.offer.sell_hint = "The whole debt is cleared. The workshop and the notebook are gone.";
   STORY.ajay.interludes.offer.refuse_hint = "The debt stays. The workshop and the notebook stay yours.";
   STORY.ajay.interludes.start = STORY.ajay.intro.map(function (b) { return { who: b.who, text: b.text }; });
+
+  // The journal (STORY SO FAR): what the player has learned so far, one or two short lines per entry. An entry shows
+  // as "???" until its moment has come. Same voice as the scenes above; no digits, no money.
+  STORY.journal = {
+    title: "STORY SO FAR",
+    locked: "???",
+    part1: [
+      { id: "setup", who: "team", when: "start", text: "Sputnik beeps over our roof. Someone else got there first." },
+      { id: "rule-1", who: "notebook", when: "step-1", text: "Rule one: no power, no signal. Cells keep it alive." },
+      { id: "rule-2", who: "notebook", when: "step-2", text: "Rule two: every orbit has a night. The battery carries us." },
+      { id: "rule-3", who: "notebook", when: "step-2", text: "Rule three: data that never comes home proves nothing." },
+      { id: "discovery", who: "notebook", when: "step-3", text: "At the top, the counter went silent. Radiation, all round the Earth." },
+      { id: "voss", who: "team", when: "step-3", text: "Voss took the credit. Then he blamed Austin for the loss." },
+      { id: "box", who: "notebook", when: "step-3", text: "Austin shut the notebook in a box. His grandson opens it." }
+    ],
+    part2: [
+      { id: "lenders", who: "partner", when: "start", text: "The lenders want the debt back, or they take Grandpa's workshop." },
+      { id: "mum", who: "mum", when: "after-1", text: "Mum co-signed the loan with the house. Our house." },
+      { id: "iron-eclipse", who: "rival", when: "offer", text: "Iron Eclipse bought your patents for almost nothing." },
+      { id: "offer", who: "rival", when: "offer", text: "It will clear the debt, for the workshop and the notebook." },
+      { id: "refused", who: "partner", when: "refused", text: "You said no. Now you have to win it." },
+      { id: "sold", who: "rival", when: "sold", text: "You said yes. The debt is gone. So is the workshop." },
+      { id: "last-page", who: "notebook", when: "after-3", text: "His design was right. Voss changed it, then founded Iron Eclipse." }
+    ],
+    // What to do now, in a few words. Part 1 adds the step's name (from austin.steps) after "next".
+    next: {
+      part1: "Fly the next step.",
+      "part1-done": "Part one is done. On to the comeback.",
+      "part2-none": "Start the comeback from the home page.",
+      start: "Pick a contract. Fly it.",
+      fly: "Fly a contract. Data pays the debt.",
+      offer: "Answer Iron Eclipse first.",
+      late: "Time is short. Fly something cheap and sure.",
+      won: "Debt paid. Play again?",
+      sold: "Sold out. Play again for the other road.",
+      lost: "The keys are gone. Try again."
+    }
+  };
 
   // ---- the code that picks a line (no text below this point) ----
   // Every name here starts with "story" so it cannot clash with the rest of this file.
@@ -1971,7 +2013,7 @@
     var mini = document.getElementById("minimap");
     var text = "";
     if (screen === "mission") text = "Keep the satellite alive.";
-    else if (screen === "debrief") text = "Read what limited you, then fly again.";
+    else if (screen === "debrief") text = "Fix what limited you, then fly again.";
     else if (state.design && screen !== "title" && screen !== "hub" && screen !== "intro") {
       var next = waypoint();
       text = next === screen ? doText(screen) : GO_TEXT[next];
@@ -2168,6 +2210,24 @@
     ]);
   }
 
+  // WORLD (the long pole): one line under the bars, from getSchedule only. Part 1 and every level may show it: it is derived
+  // from the build times the player already sees. "Without it" is left out when no other part is left to take over.
+  function longPoleLine(design) {
+    var s = design && list(design.parts).length && typeof getSchedule === "function" ? getSchedule(design) : null;
+    if (!s || !s.long_pole) return null;
+    function months(n) { return num(n, 0) + (n === 1 ? " month" : " months"); }
+    return el("p", { class: "long-pole", "data-key": "long-pole",
+      text: "Longest part: " + s.long_pole + ", " + months(s.long_pole_months) + "." + (s.next_months > 0 ? " Without it: " + months(s.next_months) + "." : "") });
+  }
+
+  // WORLD (lead time): a part's lead_months is DOSSIER information. The paid builder's StarlineUI.infoKnown gates it; until
+  // that exists it is always shown.
+  function leadLine(p) {
+    if (!p || !isNum(p.lead_months)) return null;
+    var known = window.StarlineUI && window.StarlineUI.infoKnown ? window.StarlineUI.infoKnown(p.id, "dossier") : true;
+    return known ? el("p", { class: "preview-line lead", text: "Lead time: ~" + num(p.lead_months, 0) + (p.lead_months === 1 ? " month" : " months") + " to arrive" }) : null;
+  }
+
   // "Battery only: runs out in about 2.2 months", from previewScience (its months stop when the battery is spent).
   function batteryNote(design) {
     var s = typeof previewScience === "function" ? previewScience(design) : null;
@@ -2280,7 +2340,9 @@
   function comebackStatus(info) {
     info = info || comebackInfo();
     if (!info) return "PART 2";
-    return "PART 2 · MONTH " + num(info.month, 0) + "/" + num(info.deadline_month, 0) + " · CASH " + money(info.cash_musd) +
+    // The cash keeps its hundredths when it has them: the engineers' fees are a few cents each.
+    var cash = isNum(info.cash_musd) && Math.abs(info.cash_musd * 10 - Math.round(info.cash_musd * 10)) > 1e-6 ? "$" + num(info.cash_musd, 2) + "M" : money(info.cash_musd);
+    return "PART 2 · MONTH " + num(info.month, 0) + "/" + num(info.deadline_month, 0) + " · CASH " + cash +
       " · DEBT " + money(info.debt_musd);
   }
   function comebackLevel(tierId) {
@@ -2304,25 +2366,34 @@
     });
     return best;
   }
-  // Build and Rocket Yard: "Pays $X · costs $Y with the cheapest rocket · net $Z · 3 stars +$B". Before a rocket is
+  // PROFIT, one line: "PROFIT +$6.8M" in the good colour, "PROFIT -$1.2M" in the bad one. The number is the back end's
+  // (previewProfit before the flight, flightProfit after it). Null when there is no number yet.
+  function profitLine(v, key) {
+    if (!isNum(v)) return null;
+    var text = (v < 0 ? "-" : "+") + money(Math.abs(v));
+    return el("p", { class: "profit " + (v > 0 ? "pos" : v < 0 ? "neg" : "zero"), "data-key": key || "profit-line", "data-musd": String(v) }, [
+      el("span", { class: "profit-label", text: "PROFIT" }), " ", el("strong", { class: "profit-amount", text: text })]);
+  }
+  // Build and Rocket Yard: "PROFIT +$6.8M", then "Pays $X · costs $Y with the cheapest rocket · 3 stars +$B". Before a rocket is
   // chosen, the cost counts the cheapest rocket that lifts it, so the line never shows a profit the launch would eat.
+  // Every number is previewProfit()'s (pay, cost, profit) or the contract's own price and bonus.
   function comebackPayLine(d) {
     var p = typeof previewPayout === "function" ? previewPayout(d) : null;
     var k = p && p.contract;
     if (!p || !k) return null;
+    var f = typeof previewProfit === "function" ? previewProfit(d) : null;
     if (p.topic_complete && !(p.new_data > 0)) {
-      return el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." });
+      return el("div", { class: "payout", "data-key": "contract-pay" }, [assist(d) === "minimal" ? null : profitLine(f && f.profit_musd),
+        el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." })]);
     }
-    var t = getTotals(d), rocket = d.launcher ? null : cheapestRocketFor(d, t.mass_kg);
-    var cost = Math.round((p.cost_musd + (rocket ? rocket.cost_musd : 0)) * 1000) / 1000;
-    var net = Math.round((p.expected_payout_musd - cost) * 1000) / 1000;
-    var terms = assist(d) === "minimal";   // Hard: the contract's terms, not a forecast of what this design will earn
+    var terms = assist(d) === "minimal";   // Hard: the contract's terms, not a forecast of what this design will earn (no PROFIT line either)
+    var cost = f && isNum(f.cost_musd) ? f.cost_musd : null, estimate = !!(f && f.launch_estimated);
     var bits = [terms ? "Pays up to " + money(k.price_musd) + " for " + num(k.min_science, 0) + " points"
         : "Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
-      "costs " + money(cost) + (rocket ? " with the cheapest rocket" : d.launcher ? "" : " + a rocket"),
-      !terms && (d.launcher || rocket) ? "net " + (net < 0 ? "-" : "") + money(Math.abs(net)) : null,
+      cost !== null ? "costs " + money(cost) + (estimate ? " with the cheapest rocket" : "") : "costs " + money(p.cost_musd) + " + a rocket",
       "3 stars +" + money(k.bonus_musd)];
-    return el("p", { class: "nasa-line payout-line", "data-key": "contract-pay" }, bits.filter(Boolean).join(" · "));
+    return el("div", { class: "payout", "data-key": "contract-pay" }, [terms ? null : profitLine(f && f.profit_musd),
+      el("p", { class: "nasa-line payout-line" }, bits.join(" · "))]);
   }
   // Briefing: the contract card (js/ui-comeback.js) and the topic it sets. The topic cannot change here.
   function comebackBriefing(d) {
@@ -2410,6 +2481,7 @@
   // A preset choice: set by the step, so its place counts as visited and its cards are read-only.
   function isPreset(screen) {
     if (isComebackDesign(state.design)) return comebackPreset(screen, state.design);
+    if (state.design && state.design.duel) return screen === "briefing" || screen === "orbit";   // ONLINE-DUEL: the seed sets the topic and the orbit
     var cfg = walkStepOf(state.design) ? walkConfig(state.walk.step) : null;
     return !!(cfg && PRESET_FIELD[screen] && cfg[PRESET_FIELD[screen]]);
   }
@@ -2501,12 +2573,24 @@
   // A menu entry: the whole panel is its button (the button's hit area covers the panel), so the label, the name and
   // the state read as one choice. lead: the entry to play next, drawn solid.
   function modeEntry(key, M, lead, extra, go) {
-    return el("div", { class: "mode-card" + (lead ? " lead" : ""), "data-key": key }, [
+    // A click anywhere on the panel presses its button (the stretched hit area of the CSS is not trusted in every
+    // browser), except on another button in it (JOURNAL). The button stays the one real control for keyboard and
+    // screen readers; a disabled one ("COMING NEXT") does nothing.
+    var card = el("div", { class: "mode-card" + (lead ? " lead" : "") + (go && go.disabled ? " off" : ""), "data-key": key, onclick: function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest("button, a, .mode-go .btn")) return;
+      if (go && !go.disabled) go.click();
+    } }, [
       el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
       el("h2", { text: M.name }),
       window.StarlineStory ? window.StarlineStory.counter() : null,
-      el("div", { class: "mode-foot" }, [extra.state || el("span"), el("div", { class: "mode-go" }, [go])])
+      el("div", { class: "mode-foot" }, [extra.state || el("span"),
+        // JOURNAL (js/ui-story.js): only when this part has something in it, and absent when that file is.
+        window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ part: key === "mode-part1" ? 1 : 2,
+          ifAny: true, back: function () { showDesignScreen("title"); }, key: "journal-" + key }) : null,
+        el("div", { class: "mode-go" }, [go])])
     ]);
+    return card;
   }
 
   function part1Card(lead) {
@@ -2550,7 +2634,8 @@
       el("div", { class: "title-main" }, [
         logotype(String(STORY.title || "GRAVITRON").toUpperCase()),
         el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)])
+        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)]),
+        window.StarlineOnline ? window.StarlineOnline.homeRow() : null   // ONLINE (js/ui-online.js): LEADERBOARD and DUEL, quiet
       ]),
       el("div", { class: "title-foot" }, [button("RESET EVERYTHING", function () {
         if (!window.confirm("Erase everything? Your stars, your Part 1 steps and any comeback in progress will be gone.")) return;
@@ -2578,7 +2663,7 @@
     return card;
   }
   function presetNote(screen) {
-    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : "Set for this step." }) : null;
+    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : state.design && state.design.duel ? "Set for the duel." : "Set for this step." }) : null;
   }
 
   // ---------------------------------------------------------------- 1 Briefing
@@ -2691,6 +2776,55 @@
   }
 
   // ---------------------------------------------------------------- 3 Build
+  // WHY: a small flat box for an instrument that adds nothing to the job: what the job wants against what the part is.
+  // The words are partWhy()'s (js/mission.js, from the objective's wants and the part's tags); null when the part counts.
+  // PAID PART INFORMATION (SPEC.md, "Paying engineers for part information"): in Part 2 on Normal and Hard some of a part's
+  // information is asked of the engineers for a fee. infoKnown() is the back end's partInfoKnown (true in Part 1, in a
+  // standalone design, on Easy and for a group already paid for), so the world builder's lead-time line can use it too.
+  // The groups: "sheet", "performance", "dossier". The bars, blockers and readiness review are never gated.
+  var INFO_LABEL = { sheet: "SHEET", performance: "SCIENCE", dossier: "DOSSIER" };
+  var INFO_WORD = { sheet: "sheet", performance: "performance", dossier: "dossier" };
+  function infoKnown(partId, group) {
+    return typeof partInfoKnown === "function" ? partInfoKnown(state.design, partId, group) : true;
+  }
+  // Only an instrument has a PERFORMANCE group worth asking for (what it measures, science a month).
+  function hasPerformance(p) { return !!p && p.category === "instrument"; }
+  // The groups of this part that are still "?" and worth asking for. `where` is "card" (sheet, performance) or "preview" (all three).
+  function unknownGroups(p, where) {
+    var out = [];
+    if (!infoKnown(p.id, "sheet")) out.push("sheet");
+    if (hasPerformance(p) && !infoKnown(p.id, "performance")) out.push("performance");
+    if (where !== "card" && !infoKnown(p.id, "dossier")) out.push("dossier");
+    return out;
+  }
+  function askEngineers(p, group, button) {
+    var r = typeof buyPartInfo === "function" ? buyPartInfo(state.design, p.id, group) : { ok: false, reason: "No engineers." };
+    if (r.ok) { state.hover = p.id; redraw(); return; }
+    // Not enough cash: nothing was bought. Say so once, next to the button.
+    button.title = r.reason || "";
+    if (button.parentNode && !button.parentNode.querySelector(".ask-fail")) {
+      button.parentNode.appendChild(el("span", { class: "part-note ask-fail", role: "alert", text: "Not enough cash" }));
+    }
+  }
+  // One "?" with its ASK button. Short on a card ("ASK $0.04M"), the full words in the preview.
+  function askLine(p, group, short) {
+    var fee = typeof partInfoFee === "function" ? partInfoFee(state.design, p.id, group) : 0;
+    var button = el("button", {
+      type: "button", class: "ask", "data-key": "ask-" + p.id + "-" + group,
+      "aria-label": "Ask the engineers for the " + INFO_WORD[group] + " of " + p.name + ", " + money(fee),
+      onclick: function () { askEngineers(p, group, button); }
+    }, [short ? "ASK " : "ASK THE ENGINEERS ", el("span", { class: "ask-fee", text: money(fee) })]);
+    return el("div", { class: "ask-line", "data-key": "unknown-" + p.id + "-" + group }, [
+      el("span", { class: "ask-what", text: INFO_LABEL[group] + " ?" }), button]);
+  }
+  function whyBox(design, partId, withName) {
+    if (!infoKnown(partId, "dossier")) return null;   // the WHY box is part of the DOSSIER group
+    var w = typeof partWhy === "function" ? partWhy(design, partId) : null;
+    if (!w) return null;
+    var p = byId(data("PARTS"), partId);
+    return el("p", { class: "part-why", "data-key": "why-" + partId, role: "note" }, [
+      el("span", { class: "part-why-chip", text: "WHY?" }), " ", withName && p ? el("strong", { text: p.name + ": " }) : null, w.text]);
+  }
   function partStats(p) {
     var bits = [];
     function stat(kind, text) {
@@ -2698,7 +2832,8 @@
       if (bits.length) bits.push(" ");
       bits.push(el("span", { class: "part-stat" }, [separator, icon(kind), text]));
     }
-    if (p.mass_kg) stat("mass", num(p.mass_kg) + " kg");
+    // A body leads with what it CARRIES (partCard); its own mass is what it WEIGHS.
+    if (p.mass_kg) stat("mass", (p.category === "structure" && p.payload_kg ? "WEIGHS " + num(p.mass_kg) + " KG" : num(p.mass_kg) + " kg"));
     if (p.power_draw_w) stat("power", fine(p.power_draw_w) + " W draw");
     if (p.data_gb_day) stat("data", dataText(p.data_gb_day) + "/d made");
     if (p.downlink_gb_day) stat("comms", dataText(p.downlink_gb_day) + "/d sent");
@@ -2717,11 +2852,13 @@
       ]);
     }
     var f = getPartFacts(d, p.id) || {};
+    // Paid part information: a group the engineers have not been asked about shows as "?" (see askLine).
+    var sheetOk = infoKnown(p.id, "sheet"), perfOk = !hasPerformance(p) || infoKnown(p.id, "performance");
     var extra = [];
-    if (f.power_gen_w) extra.push("+" + num(f.power_gen_w, 0) + " W");
-    if (isNum(f.science_per_month)) extra.push("up to " + num(f.science_per_month) + " sci/mo");
-    if (isNum(f.resolution_m)) extra.push(num(f.resolution_m) + " m detail");
-    var note = f.counts === false ? "Does not count for this objective"
+    if (f.power_gen_w && sheetOk) extra.push("+" + num(f.power_gen_w, 0) + " W");
+    if (isNum(f.science_per_month) && perfOk) extra.push("up to " + num(f.science_per_month) + " sci/mo");
+    if (isNum(f.resolution_m) && perfOk) extra.push(num(f.resolution_m) + " m detail");
+    var note = !perfOk ? null : f.counts === false ? "Does not count for this objective"
       : f.sharp_enough === false ? "Too blurry from this orbit" : null;
     function preview() { state.hover = p.id; refreshPreview(); }
     var card = el("button", {
@@ -2735,6 +2872,7 @@
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
         if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
+        if (window.GravAudio) GravAudio.sfx(on ? "remove" : "add");   // sound: js/audio.js
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
       },
@@ -2744,7 +2882,8 @@
       onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
-      el("span", { class: "part-stats" }, partStats(p)),
+      sheetOk && p.category === "structure" && p.payload_kg ? el("span", { class: "part-carry", "data-key": "carries-" + p.id }, [icon("mass"), "CARRIES " + num(p.payload_kg, 0) + " KG"]) : null,
+      sheetOk ? el("span", { class: "part-stats" + (p.category === "structure" && p.payload_kg ? " small" : "") }, partStats(p)) : null,
       extra.length ? el("span", { class: "part-stats" }, extra.reduce(function (bits, text, i) {
         if (i) bits.push(" ");
         bits.push(el("span", { class: "part-stat", text: (i ? "· " : "") + text }));
@@ -2754,7 +2893,10 @@
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
     ]);
     if (state.touch && state.hover === p.id) markArmed(card, on);
-    return card;
+    // A button cannot sit inside the card button: the "?" lines and their ASK buttons go under it (Part 2, Normal and Hard).
+    var unknown = unknownGroups(p, "card");
+    if (!unknown.length) return card;
+    return el("div", { class: "part-slot" }, [card, el("div", { class: "ask-lines" }, unknown.map(function (g) { return askLine(p, g, true); }))]);
   }
   // A finger's first tap on a card: the card says that a second tap adds (or removes) it. One card at a time.
   function markArmed(card, on) {
@@ -2794,24 +2936,37 @@
     }
     var dl = t.delta || {};
     var bits = [];
-    if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
-    if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
-    if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
+    // Paid part information: what a click changes in mass, power and data is the SHEET, in science the PERFORMANCE; the price
+    // is the catalogue's and always shows.
+    var sheetOk = infoKnown(p.id, "sheet"), perfOk = !hasPerformance(p) || infoKnown(p.id, "performance"), dossierOk = infoKnown(p.id, "dossier");
+    if (sheetOk && p.category === "structure" && isNum(p.payload_kg) && t.adding) bits.push("carries " + num(p.payload_kg, 0) + " kg");   // the same two numbers as the card: CARRIES, then what it weighs
+    if (sheetOk && dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
+    if (sheetOk && dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
+    if (sheetOk && dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
     if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
-    if (dl.data_returned_gb_day) bits.push("data home " + dataText(dl.data_returned_gb_day, true) + "/day");
-    if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
-    if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
-    if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
+    if (sheetOk && dl.data_returned_gb_day) bits.push("data home " + dataText(dl.data_returned_gb_day, true) + "/day");
+    if (sheetOk && dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
+    if (sheetOk && dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
+    if (perfOk && dl.science_total) bits.push("science " + signed(dl.science_total, 0));
+    var unknown = unknownGroups(p, "preview");
     var ch = checkChanges(state.design, state.hover);
     box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
-    box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
-    if (assist() === "full") {   // above Easy the player works out what a part fixes or breaks
+    var why = whyBox(state.design, state.hover);   // the part adds nothing to the job: say why, first
+    if (why) box.appendChild(why);
+    if (bits.length || !unknown.length) box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
+    unknown.forEach(function (g) { box.appendChild(askLine(p, g, false)); });   // "?" and ASK THE ENGINEERS, with the fee
+    // Above Easy the player works out what a part fixes or breaks, unless the engineers were paid for the DOSSIER (which holds it).
+    if (assist() === "full" || (isComebackDesign(state.design) && dossierOk)) {
       ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
       ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
     }
+    var lead = leadLine(p);   // WORLD: the lead time, one line of the part's dossier
+    if (lead) box.appendChild(lead);
     // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
+    // The explainer and the blurb are the DOSSIER: until it is paid for they are not drawn (its "?" and ASK are above).
+    if (!dossierOk) return;
     var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
-    if (story) box.insertBefore(story, box.children[2] || null);
+    if (story) box.insertBefore(story, box.children[why ? 3 : 2] || null);   // under the heading and the WHY box
     else if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
@@ -2855,7 +3010,7 @@
       el("h2", { text: "SCIENCE PREVIEW" }),
       el("p", { class: "science-total", text: num(s.total, 0) + " / " + num(s.target, 0) + " pts" }),
       rows.length ? el("dl", { class: "facts" }, rows) : null
-    ]);
+    ].concat(list(s.instruments).map(function (i) { return whyBox(design, i.id, true); })));
   }
 
   // The satellite's body: what it can carry (payload) against what is fitted. All numbers from getTotals().body.
@@ -2864,7 +3019,7 @@
     var over = body.payload_used_kg > body.payload_kg;
     return el("div", { class: "body-card" }, [
       el("h2", { class: "divided", text: "BODY: " + String(body.name || "").toUpperCase() }),
-      bar("PAYLOAD", num(body.payload_used_kg) + " / " + num(body.payload_kg, 0) + " KG",
+      bar("CARRIES", num(body.payload_used_kg) + " / " + num(body.payload_kg, 0) + " KG",
           body.payload_kg > 0 ? body.payload_used_kg / body.payload_kg : 0, over ? " bad" : "")
     ]);
   }
@@ -2913,6 +3068,7 @@
     var overview = el("div", { class: "panel" }, [
       el("h2", { text: "MISSION OVERVIEW" }),
       resourceBars(d),
+      longPoleLine(d),
       bodyCard(body),
       el("h2", { class: "divided", text: "PROBLEMS" }),
       checkList(d, { short: true, skip: ["no-launcher"] })
@@ -2961,6 +3117,17 @@
     if (top > window.innerHeight * 0.5 || top < 0) window.scrollTo(0, window.pageYOffset + top);
   }
 
+  // ---------------------------------------------------------------- launch risk (Part 2)
+  // The back end (getLaunchRisk) turns a rocket's failure chance into LOW, MEDIUM or HIGH; the screens only colour it:
+  // the existing good, warn and bad. No number is shown. Nothing for Part 1, which never fails at launch.
+  var RISK_TAG = { low: ["good", "RISK LOW"], medium: ["warn", "RISK MEDIUM"], high: ["bad", "RISK HIGH"] };
+  function riskTag(design, launcherId) {
+    if (typeof getLaunchRisk !== "function" || !design || !design.comeback) return null;
+    var r = getLaunchRisk({ comeback: design.comeback, campaign: design.campaign, launcher: launcherId });
+    var t = r && RISK_TAG[r.level];
+    return t ? el("span", { class: "tag risk " + t[0], "data-key": "risk-" + launcherId, text: t[1] }) : null;
+  }
+
   // ---------------------------------------------------------------- 4 Launch vehicle
   function drawLauncher() {
     var d = state.design;
@@ -2990,7 +3157,8 @@
         facts([
           ["Price", money(l.cost_musd)],
           orbit ? ["Lifts", reach ? num(cap, 0) + " kg" : "no"] : null
-        ])
+        ]),
+        riskTag(d, l.id)
       ]);
       return isPreset("launcher") ? presetView(card, d.launcher === l.id) : card;
     });
@@ -3033,6 +3201,7 @@
         text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
           : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),
       comebackDeadline(d, checks),
+      d.launcher && riskTag(d, d.launcher) ? el("p", { class: "risk-row" }, [el("span", { class: "countdown-label", text: "ROCKET" }), riskTag(d, d.launcher)]) : null,
       forecast,
       // The one thing to do first: with nothing blocking, LAUNCH comes before the warnings (it was below the fold on a
       // laptop); while something blocks, the NO GO lines and their FIX buttons come first.
@@ -3050,7 +3219,7 @@
       head("5 · READINESS REVIEW"),
       sayLine("review"),
       el("div", { class: "pad" }, [
-        el("div", { class: "stack" }, [padArt(!blocked), satelliteArt(d, null, "small"), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])]),
+        el("div", { class: "stack" }, [padArt(!blocked), satelliteArt(d, null, "small"), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d), longPoleLine(d)])]),
         control
       ]),
       navRow(null)
@@ -3375,6 +3544,9 @@
           // M and Esc go back into the place you stand at.
           el("div", { class: "keys-box" }, [el("h2", { class: "divided", text: "KEYS" }),
             el("p", { class: "keys" }, [el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " back inside"])]),
+          // The journal (js/ui-story.js): absent when that file is. Walking stops first so a walk cannot swap the screen under it.
+          window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ design: state.design,
+            before: stopWalking, back: function () { showDesignScreen("map"); }, key: "map-journal" }) : null,
           el("div", null, [isComebackDesign(state.design)
             ? button("BACK TO THE WORKSHOP", function () { window.showComebackHub(); }, { key: "map-workshop" })
             : inCampaign()
@@ -3436,6 +3608,14 @@
     setStep("map");
   }
 
+  // The walk across the base is a treat for the first flight; from the second flight of a comeback it is a tax (ui-review.md,
+  // problem 9): the player arrives at once. Reduced motion already sets WALK_MS to 0.
+  function walkMs() {
+    try {
+      if (WALK_MS && isComebackDesign(state.design) && typeof getComeback === "function") { var c = getComeback(); if (c && c.flights >= 1) return 0; }
+    } catch (e) { /* walk as usual */ }
+    return WALK_MS;
+  }
   function stopWalking() {
     if (state.walkTimer) clearTimeout(state.walkTimer);
     state.walkTimer = null;
@@ -3453,7 +3633,7 @@
     function next() {
       if (i >= path.length || state.screen !== "map") { state.walking = false; state.walkTimer = null; updateMap(); if (done) done(); return; }
       var from = NODES[path[i - 1]], to = NODES[path[i]];
-      var ms = (Math.abs(to.x - from.x) + Math.abs(to.y - from.y)) * WALK_MS;
+      var ms = (Math.abs(to.x - from.x) + Math.abs(to.y - from.y)) * walkMs();
       state.player = path[i];
       placePlayer(path[i], ms, from);
       i++;
@@ -3607,6 +3787,7 @@
       document.removeEventListener("keydown", onKeyShow, true);
       if (box && box.parentNode) box.parentNode.removeChild(box);
       launchShowing = false;
+      if (window.GravAudio) GravAudio.duck(false);
       done();
     }
     // T-MINUS 00:00:05 ... 01, then 00:00:00 and LIFT-OFF; the status line follows the sequence.
@@ -3615,9 +3796,12 @@
       var ms = now() - start;
       var left = Math.max(0, Math.ceil(LAUNCH_COUNT - ms / LAUNCH_TICK_MS));
       var text = "00:00:0" + left;
-      if (count.textContent !== text) count.textContent = text;
+      if (count.textContent !== text) { count.textContent = text; if (window.GravAudio && left > 0) GravAudio.sfx("tick"); }   // sound: js/audio.js
       var phase = left > 0 ? "count" : ms < climbAt ? "liftoff" : ms < finaleAt || !finale ? "climb" : "orbit";
-      if (box.getAttribute("data-phase") !== phase) box.setAttribute("data-phase", phase);
+      if (box.getAttribute("data-phase") !== phase) {
+        box.setAttribute("data-phase", phase);
+        if (window.GravAudio) GravAudio.sfx(phase === "liftoff" ? "liftoff" : phase === "orbit" ? "orbit" : "");
+      }
       var say = "";
       LAUNCH_STATUS.forEach(function (s) { if (ms >= s[0]) say = s[1]; });
       if (status.textContent !== say) status.textContent = say;
@@ -3633,6 +3817,7 @@
       return LAUNCH_FOLLOW_UNTIL + Math.min(1, (ms - climbAt) / LAUNCH_CLIMB_MS) * (LAUNCH_SCENE_END - LAUNCH_FOLLOW_UNTIL);
     }
     launchShowing = true;
+    if (window.GravAudio) GravAudio.duck(true);   // the music steps back for the launch
     timer = setTimeout(finish, showMs);   // armed first: a hidden tab or a drawing error cannot hold the player here
     try {
       var lp = lpCanvas(function (L) { return L.scenes.pad({ launcherId: row.id, launcher: row, ready: true }); }, "lp-launch");
@@ -3695,7 +3880,7 @@
 
   window.showDesignScreen = showDesignScreen;
   window.StarlineUI = {
-    el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, starsText: starsText,
+    el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, profitLine: profitLine, starsText: starsText,
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
@@ -3712,6 +3897,7 @@
     // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
     era: function (name) { markEra("era", name); },
     assist: assist,
+    infoKnown: infoKnown,   // paid part information: true when this group ("sheet", "performance", "dossier") of the part may be shown
     mount: function (screen, node) {
       state.screen = screen;
       markHome(screen);
@@ -3731,6 +3917,7 @@
     // debrief, keeps the best stars of a step that passed and returns { step, passed, kept, best_stars, last } (null
     // for any other design; kept: this flight fell short but the step had passed before). startWalkStep(n) starts step n; showEpilogue() follows step 3.
     walkStep: walkStepOf,
+    walkStars: walkStars,   // read-only: the best stars of a passed Part 1 step, or null (the journal)
     walkResult: walkResult,
     startWalkStep: startWalkStep,
     showEpilogue: showEpilogue,
@@ -3767,6 +3954,8 @@
     draw("title");
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  // perf: index.html defers every script, so this file runs before the later ui-*.js files (ui-comeback.js defines window.showComebackStart).
+  // DOMContentLoaded fires after the last deferred script has run: start then. A page that loads this file by hand starts at once.
+  if (document.readyState === "loading" || (document.currentScript && document.currentScript.defer)) document.addEventListener("DOMContentLoaded", start);
   else start();
 })();

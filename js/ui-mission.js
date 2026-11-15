@@ -44,7 +44,7 @@
     n.fastBtn = UI.button(">>", toggleFast, { aria: "Fast forward" });
     n.fastBtn.setAttribute("aria-pressed", "false");
 
-    // A small low-poly Earth with this orbit beside the month (LowPoly.scenes.earth); nothing without the 3D art. The
+    // A low-poly Earth with this orbit, big, with the month as a small counter at its side (LowPoly.scenes.earth); nothing without the 3D art. The
     // satellite on the ring is the player's own (the model the Build bench shows), flying the whole mission at the
     // mission's pace (setPace); the built-in one when the model cannot be made.
     var earth = UI.lpCanvas ? UI.lpCanvas(function (L) {
@@ -61,11 +61,14 @@
     UI.mount("mission", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
       UI.say ? UI.say("mission-start", null) : null,
-      el("div", { class: "mission-head" }, [
-        // The month and the Earth stay on one line: on a narrow phone the Earth gets smaller instead of wrapping.
-        el("div", { class: "month-row" }, [el("div", { class: "stack" }, [n.month, n.of]), earth ? earth.canvas : null]),
-        el("div", { class: "controls" }, [n.pause, n.fastBtn])
-      ]),
+      // The orbit is the picture; the month is a small counter at its side, with PAUSE and fast-forward under it. On a
+      // narrow phone the Earth gets smaller instead of the counter wrapping below it.
+      (n.head = el("div", { class: "mission-head orbit-head" }, [
+        el("div", { class: "orbit-row" }, [
+          earth ? earth.canvas : null,
+          el("div", { class: "side-counter" }, [n.month, n.of, el("div", { class: "controls" }, [n.pause, n.fastBtn])])
+        ])
+      ])),
       el("div", { class: "panel" }, [
         el("div", { class: "bar" }, [
           el("div", { class: "bar-top" }, [el("span", { text: "SCIENCE" }), n.sciText]),
@@ -77,7 +80,9 @@
       el("div", { class: "panel" }, [el("h2", { text: "MISSION LOG" }), n.log])
     ]));
     status();
-    log("Launch. " + (objective ? objective.name : "Mission") + " begins.", "good");
+    // Part 2: the rocket may fail at launch (decided by startMission): the mission is over before it begins.
+    if (mission.launch_failed) log("The rocket failed at launch. Mission over.", "bad");
+    else log("Launch. " + (objective ? objective.name : "Mission") + " begins.", "good");
     schedule();
   }
 
@@ -160,6 +165,8 @@
     run.waiting = true;
     stopTimer();
     setPace();
+    if (window.GravAudio) GravAudio.sfx("event");   // sound: js/audio.js
+    run.nodes.head.classList.add("event-open");   // the orbit shrinks so the question is on the screen
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
     run.choices = UI.list(event.choices);
@@ -205,14 +212,14 @@
         " of losing " + (FAIL_NAMES[e.fails] || e.fails));
     }
     if (e.lose_months) bits.push("lose " + num(e.lose_months, 0) + " month" + (e.lose_months === 1 ? "" : "s"));
-    if (e.science_mult) bits.push("science \u00d7" + e.science_mult + " from now on");
+    if (e.science_mult) bits.push("science \u00d7" + e.science_mult);
     if (e.cost_musd && !/\$/.test(c.label || "")) bits.push("costs " + UI.money(e.cost_musd));
     return bits;
   }
   function protectedChoice(c) { var e = c.effect || {}; return !!(e.fail_chance && e.fails && !(c.fail_chance_now > 0)); }
   function sentence(bits) { var t = bits.join(", "); return t.charAt(0).toUpperCase() + t.slice(1); }
   function choiceCost(c) {
-    if (protectedChoice(c)) return "Protected: no effect";
+    if (protectedChoice(c)) return "Protected";
     var bits = costBits(c, true);
     return bits.length ? sentence(bits) : "No cost";
   }
@@ -237,6 +244,7 @@
     }
     if (out.ended_early) log("Mission over.", "bad");   // a normal last month ends in finish(), not as a loss
     run.waiting = false;
+    run.nodes.head.classList.remove("event-open");
     if (out.ended) { finish(); return; }
     schedule();
     run.nodes.pause.focus();
@@ -315,9 +323,7 @@
       ]),
       nextStarLine(d, PARTS_OF_SCORE)
     ].concat(rows).concat([
-      el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })]),
-      d.stars === 2 && d.science < d.science_target
-        ? el("p", { class: "star-goal", text: "Reach the science target for the third star." }) : null
+      el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
     ]));
 
     var events = UI.list(d.events).map(function (e) {
@@ -350,6 +356,7 @@
       events.length ? el("ul", { class: "log" }, events) : null,
       walk ? walkButtons(walk, done.design, d)
       : comeback ? comebackButtons(result)
+      : done.design.duel && UI.duelButtons ? UI.duelButtons(done, d)   // ONLINE-DUEL (js/ui-online.js): SEND RESULT and who won
       : done.design.campaign
         ? el("div", { class: "choices" }, [
             UI.button([result && result.campaign_over ? "THE STORY OF YOUR PROGRAMME" : "BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
@@ -366,6 +373,7 @@
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
       teamLine(done.design, d),
       win ? winMoment(d) : null,
+      comeback ? profitBand(done) : null,
       el("div", { class: "ledger" }, [paper, side]),
       comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null
     ]));
@@ -452,7 +460,7 @@
   var ROW_WORDS = { science: "more science returned", efficiency: "better value for money", budget: "more of the budget left",
                     margins: "wider mass and power margins", events: "safer event choices", novelty: "more new science" };
   function nextStarLine(d, partsOfScore) {
-    if (!(d.stars >= 0 && d.stars < 3)) return null;
+    if (d.launch_failed || !(d.stars >= 0 && d.stars < 3)) return null;   // a rocket that never flew has no next star to chase
     var b = d.breakdown || {}, most = null, room = 0;
     Object.keys(b).forEach(function (k) {
       var max = partsOfScore[k] && partsOfScore[k][1];
@@ -472,7 +480,7 @@
   function closestMoment(d) {
     var c = d.closest_mission;
     if (!c || !c.name || !c.blurb) return null;
-    var shared = UI.list(c.shared).join("; ");
+    var shared = UI.list(c.shared).slice(0, 1).join("; ");
     return el("div", { class: "win-discovery" }, [
       el("h2", { text: "LIKE " + String(c.name).toUpperCase() + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" }),
       el("p", { text: c.blurb + (shared ? " Like yours: " + shared + "." : "") })
@@ -538,11 +546,14 @@
     var launch = done.mission.launch_totals ? done.mission.launch_totals.cost_musd : 0;
     var paid = result.contract_paid_musd || 0, bonus = result.contract_bonus_musd || 0;
     var stamp = outcome === "paid" ? "PAID" : outcome === "part" ? "PAID IN PART" : "NOT PAID";
+    var stillOpen = !!(result.launch_failed && typeof getComeback === "function" && (getComeback() || { contracts: [] }).contracts.some(function (x) { return x.id === k.id; }));
     var why = outcome !== "nothing" ? null
+      : result.launch_failed ? (stillOpen ? "The contract is still open: fly it again." : "The contract ran out. Take another.")
       : result.nothing_new ? (d.knowledge_paragraph || "No new data: this topic is already known.")
       : "No data came home, so there was nothing to pay for.";
     var C = window.StarlineComeback;
     var cashBefore = before ? before.cash_musd : null, debtBefore = before ? before.debt_musd : null;
+    var engineers = result.engineers_musd > 0 ? result.engineers_musd : 0;   // what the engineers cost for this flight; only shown when something was bought
     return el("div", { class: "nasa-box cb-result " + outcome, "data-key": "contract-result" }, [
       el("div", { class: "cb-result-top" }, [
         el("span", { class: "cb-stamp " + (outcome === "nothing" ? "fail" : "pass"), role: "status", text: stamp }),
@@ -554,7 +565,10 @@
         result.lost_reason === "seized" ? "THE LENDERS TOOK EVERYTHING: THE COMEBACK IS OVER" :
         result.lost_reason === "name" ? "THE DEADLINE CAME WITHOUT A NAME: THE COMEBACK IS OVER" : "THE DEADLINE HAS PASSED: THE COMEBACK IS OVER" }) : null,
       typeof cashBefore === "number" ? ledger("cash-ledger", [
-        ["CASH BEFORE LAUNCH", cashBefore],
+        // Paid part information (2.0): the engineers were paid before the launch, so the cash the hub showed then is already
+        // net of them. With a fee the ledger starts from the cash before it, so the column still adds up.
+        [engineers > 0 ? "CASH BEFORE" : "CASH BEFORE LAUNCH", Math.round((cashBefore + engineers) * 1000) / 1000],
+        engineers > 0 ? ["ENGINEERS", -engineers] : null,
         ["LAUNCH", -launch],
         [outcome === "part" ? "PAID (" + num(done.mission.science, 0) + " OF " + num(k.min_science, 0) + " POINTS)" : "CONTRACT PAID", paid],
         bonus > 0 ? ["3-STAR BONUS", bonus] : null,
@@ -567,6 +581,16 @@
       C && landed ? C.meter({ debt: result.debt_musd, cash: result.cash_musd, start: landed.start_debt_musd },
         { debt: landed.debt_musd, cash: landed.cash_musd }, "Debt " + UI.money(result.debt_musd) + ", cash " + UI.money(result.cash_musd)) : null,
       el("p", { class: "cb-months", "data-key": "months-left" }, [el("strong", { text: num(result.months_left, 0) }), " MONTHS LEFT"])
+    ]);
+  }
+  // Part 2: PROFIT above the report, where the eye lands first: what the flight paid (with the 3-star bonus) minus what it
+  // cost (rocket, parts and events). Both numbers are flightProfit()'s. Part 1 has no money, so it has no PROFIT.
+  function profitBand(done) {
+    var fp = typeof flightProfit === "function" ? flightProfit(done.mission) : null;
+    if (!fp) return null;
+    return el("div", { class: "profit-band", "data-key": "debrief-profit" }, [
+      UI.profitLine(fp.profit_musd, "debrief-profit-line"),
+      el("p", { class: "nasa-line", text: "Paid " + UI.money(fp.paid_musd) + " · cost " + UI.money(fp.cost_musd) })
     ]);
   }
   function comebackButtons(result) {
@@ -583,6 +607,8 @@
     var line = UI.storyLine ? UI.storyLine("contract", done.design, outcome) : "";
     if (!line || !UI.sayEl) return null;
     var k = done.mission.contract || {};
+    // A rocket that failed at launch: the client wants its data, not the "nothing new" line.
+    if (done.mission.launch_failed) line = { who: line.who, text: "We still need that data. Fly it again." };
     return UI.sayEl({ who: line.who, text: line.text, name: k.client ? String(k.client).toUpperCase() : "" });
   }
 
@@ -612,6 +638,7 @@
 
   // "POWER LIMITED THIS MISSION": the name is a NASA Mission Design Lab discipline from the back end.
   function limitingHeading(d) {
+    if (d.launch_failed) return "THE ROCKET FAILED AT LAUNCH";
     var name = d.limiting_name || LIMIT_NAMES[d.limiting] || String(d.limiting || "");
     return (name + " limited this mission").toUpperCase();
   }
@@ -647,7 +674,7 @@
   function closestLine(d) {
     var c = d.closest_mission;
     if (!c || !c.name) return d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null;
-    var shared = UI.list(c.shared).join("; ");
+    var shared = UI.list(c.shared).slice(0, 1).join("; ");
     var body = [el("p", { class: "card-blurb", text: (c.blurb || "") + (shared ? " Like yours: " + shared + "." : "") })];
     if (d.real_mission) body.push(el("p", { class: "card-blurb", text: d.real_mission }));
     return el("details", { class: "more", open: d.stars === 3 }, [el("summary", { text: "Closest real mission: " + c.name + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" })].concat(body));

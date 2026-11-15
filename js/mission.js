@@ -54,6 +54,7 @@ function copyDesign(design) {
   if (design.campaign) copy.campaign = true;
   if (design.comeback) { copy.comeback = true; copy.contract = design.contract || null; }
   if (design.year) { copy.year = design.year; copy.era = design.era; }
+  if (design.duel) copy.duel = { seed: design.duel.seed };   // ONLINE-DUEL: a quick 1v1 flight, never part of a save
   return copy;
 }
 
@@ -88,7 +89,7 @@ function startMission(design) {
   var seed = designSeed(design);
 
   // Campaign: pay at launch, count the flight, and give each flight fresh luck.
-  var flight = 0, scienceBefore = 0, contract = null;
+  var flight = 0, scienceBefore = 0, contract = null, failSeed = 0;
   var startYear = design.year || (typeof CAMPAIGN !== "undefined" ? CAMPAIGN.start_year : null);
   if (design.campaign) {
     var c = getCampaign();
@@ -101,6 +102,7 @@ function startMission(design) {
     flight = c.flights;
     scienceBefore = c.knowledge_science[design.objective] || 0;
     seed = (seed ^ Math.imul(flight, 2654435761)) >>> 0;
+    failSeed = (seed ^ Math.imul((c.seed || 0) + 1, 2246822519)) >>> 0;   // the run's seed makes each run's luck its own
     // The flight lives only in this page until its debrief records it. The log keeps what it cost, so a
     // page closed or reloaded in flight gives the money back (refundLostFlights) instead of losing it.
     var launchId = missionId(seed);
@@ -134,6 +136,11 @@ function startMission(design) {
   }
   schedule.sort(function (a, b) { return a.month - b.month; });
 
+  // Part 2 only: the rocket may fail at launch. The roll has its own random stream (the run's seed, the design and the
+  // flight number), so it never changes which events a flight meets, and the same design on the same flight of the
+  // same run always gets the same outcome. Decided now: a failed launch ends the mission at once, with no science.
+  var launchFailed = !!(design.comeback && design.campaign && makeRandom((failSeed ^ 0x9E3779B9) >>> 0)() < launchFailureChance(design));
+
   var totals = launchTotals;
   var thin = (totals.margins.mass !== null && totals.margins.mass < LOW_MARGIN) ||
              (totals.margins.power !== null && totals.margins.power < LOW_MARGIN);
@@ -165,11 +172,32 @@ function startMission(design) {
     lost: { data: 0, power: 0, event: 0 },
     // Real-world tally against NASA data (data/earth.js):
     real: { fires_in_view: 0, fires_reported: 0, months_mapped: 0, dark_months_mapped: 0 },
-    ended: false,
-    ended_early: false,
-    end_reason: null,
+    ended: launchFailed,
+    ended_early: launchFailed,
+    launch_failed: launchFailed,   // Part 2: the rocket failed at launch (no month flown, no science)
+    end_reason: launchFailed ? { launch: true, event: null, title: "Launch failure", category: null, part: null } : null,
     recorded: null            // the result of recordResult, once called
   };
+}
+
+// ------------------------------------------------------------------ launch risk (Part 2 only)
+// Where the failure chance of a rocket (data/launchers.js, failure_chance) turns into a level for the screens. GAME VALUES.
+var LAUNCH_RISK_MEDIUM = 0.05;   // a chance of this or more is MEDIUM
+var LAUNCH_RISK_HIGH = 0.15;     // a chance of this or more is HIGH
+
+// The chance this design's launch fails, 0 to 1. Only a comeback design rolls the dice: Part 1's steps and every other
+// mode never fail at launch. No part lowers it (no part's data says so).
+function launchFailureChance(design) {
+  if (!design || !design.comeback) return 0;
+  var l = getLauncher(design.launcher);
+  return l && isNumber(l.failure_chance) ? Math.max(0, Math.min(1, l.failure_chance)) : 0;
+}
+// { level: "low" | "medium" | "high" | null, chance }. The level is what the screens show (never the number); null when
+// the design has no rocket yet or does not roll the dice (Part 1).
+function getLaunchRisk(design) {
+  if (!design || !design.comeback || !getLauncher(design.launcher)) return { level: null, chance: 0 };
+  var chance = launchFailureChance(design);
+  return { level: chance >= LAUNCH_RISK_HIGH ? "high" : chance >= LAUNCH_RISK_MEDIUM ? "medium" : "low", chance: chance };
 }
 
 function isProtected(design, eventId) {
@@ -326,7 +354,7 @@ function withLiveNow(summary, objectiveId) {
   if (l && objectiveId === "solar" && l.sunspots_through) {
     var y = parseInt(l.sunspots_through.slice(0, 4), 10), m = parseInt(l.sunspots_through.slice(5, 7), 10) - 1;
     var sn = sunspots(y, m);
-    if (sn !== null) now = "The latest monthly sunspot number, for " + l.sunspots_through + ", is " + Math.round(sn) +
+    if (sn !== null) now = "Latest monthly sunspot number (" + l.sunspots_through + "): " + Math.round(sn) +
       " (SILSO, via NOAA's Space Weather Prediction Center).";
   }
   if (!summary) return now ? { now: now, text: now } : null;
@@ -351,14 +379,14 @@ function realWorldSummary(mission) {
       soundings_heard: heard,
       share_of_alouette: pace > 0 ? round(heard / pace, 3) : 0,
       stations_in_reach_share: reach,
-      text: "Alouette 1 swept the ionosphere " + e.soundings.toLocaleString("en-US") + " times between 1962 and 1973, and " +
-        e.stations + " ground stations heard it (CSA, digitised Alouette 1 ionograms). The busiest were " +
+      text: "Alouette 1 swept the ionosphere " + e.soundings.toLocaleString("en-US") + " times in 1962-1973; " +
+        e.stations + " ground stations heard it (CSA). Busiest: " +
         (top[0] ? top[0].name + " (" + top[0].soundings.toLocaleString("en-US") + ")" : "") +
         (top[1] ? " and " + top[1].name + " (" + top[1].soundings.toLocaleString("en-US") + ")" : "") +
-        ", under the auroral zone. From this orbit your satellite could reach the stations that heard " + Math.round(reach * 100) +
-        "% of Alouette's soundings. Over " + mission.month + " months it would have sent about " + heard.toLocaleString("en-US") +
-        " soundings home, " + Math.round(100 * (pace > 0 ? heard / pace : 0)) + "% of Alouette's pace." +
-        (reach < 1 ? " Alouette flew an 80-degree orbit to pass over the polar stations." : "")
+        ", under the auroral zone. From this orbit you reach stations that heard " + Math.round(reach * 100) +
+        "% of its soundings. Over " + mission.month + " months: about " + heard.toLocaleString("en-US") +
+        " soundings home, " + Math.round(100 * (pace > 0 ? heard / pace : 0)) + "% of its pace." +
+        (reach < 1 ? " Alouette flew an 80-degree orbit over the polar stations." : "")
     };
   }
   if (e.sunspots && mission.start_year !== null) {
@@ -371,9 +399,8 @@ function realWorldSummary(mission) {
     return {
       year: y0, sunspots: round(sn0, 0),
       text: when + " the Sun averaged " + Math.round(sn0) + " sunspots a month (SILSO, Royal Observatory of Belgium). " +
-        "Between " + e.sunspots.start_year + " and " + (e.sunspots.start_year + all.length - 1) + " the yearly average ran from " +
-        Math.round(quiet) + " to " + Math.round(peak) + ": the Sun has an 11-year cycle, so when you fly decides how much there is to see. " +
-        "The International Geophysical Year was timed for the 1957-58 maximum, the strongest on record."
+        "Yearly averages " + e.sunspots.start_year + "-" + (e.sunspots.start_year + all.length - 1) + " ran from " +
+        Math.round(quiet) + " to " + Math.round(peak) + ": an 11-year cycle, so when you fly matters."
     };
   }
   if (e.monthly_share) {
@@ -386,10 +413,10 @@ function realWorldSummary(mission) {
       fires_reported: Math.round(reported),
       share_reported: seen > 0 ? round(reported / (e.detections * years), 3) : 0,
       text: "In " + e.year + ", NASA's MODIS instruments made " + e.detections.toLocaleString("en-US") +
-        " active-fire detections worldwide. From this orbit your satellite could see " + Math.round(view * 100) +
-        "% of them. Over " + mission.month + " months it would have reported about " +
+        " active-fire detections worldwide. From this orbit you could see " + Math.round(view * 100) +
+        "% of them. Over " + mission.month + " months: about " +
         Math.round(reported).toLocaleString("en-US") + " fire detections, " +
-        Math.round(100 * reported / (e.detections * Math.max(years, 1 / 12))) + "% of all those NASA recorded."
+        Math.round(100 * reported / (e.detections * Math.max(years, 1 / 12))) + "% of NASA\'s."
     };
   }
   if (e.extent_mkm2) {
@@ -403,11 +430,11 @@ function realWorldSummary(mission) {
       text: "In September " + e.year + ", Arctic sea ice shrank to " + e.extent_mkm2[sep] +
         " million km2, " + drop + "% below the 1981-2010 average (NSIDC). " +
         (mission.real.months_mapped === 0
-          ? "Your satellite never mapped the ice."
-          : "Your satellite mapped the ice in " + mission.real.months_mapped + " of " + mission.month + " months, " +
+          ? "You never mapped the ice."
+          : "You mapped it in " + mission.real.months_mapped + " of " + mission.month + " months, " +
             (mission.real.dark_months_mapped
-              ? "including " + mission.real.dark_months_mapped + " months of polar night, when only radar can see."
-              : "but none in the " + dark + " months of polar night each year, when only radar can see."))
+              ? "including " + mission.real.dark_months_mapped + " of polar night, when only radar sees."
+              : "but none of the " + dark + " polar-night months each year, when only radar sees."))
     };
   }
   return null;
@@ -473,6 +500,7 @@ function chooseEvent(mission, choice) {
 // Score (SPEC.md "Scoring"): science 50, efficiency 15, margins 15, events 10,
 // novelty 10. Three stars also need the science target. Lost months and event
 // costs count against everything they affect.
+var LAUNCH_FAILED_TEXT = "The rocket failed at launch. The satellite is lost, and the money for it is gone.";
 var EVENT_PENALTY = { part: 4, month: 1, per_musd: 2 };   // points off the 10 event points
 
 function getDebrief(mission) {
@@ -499,6 +527,7 @@ function getDebrief(mission) {
     events: round(eventPoints, 1),
     novelty: round(10 * k.novelty, 1)
   };
+  if (mission.launch_failed) { parts.margins = 0; parts.events = 0; }   // a rocket that never flew earns nothing
   var score = Math.round(parts.science + parts.efficiency + parts.margins + parts.events + parts.novelty);
   var stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 50 ? 1 : 0;
   if (stars === 3 && mission.science < target) stars = 2;   // 3 stars need the target
@@ -507,7 +536,7 @@ function getDebrief(mission) {
   // Ajay's comeback: the client pays in proportion to the data, plus the 3-star bonus (score and stars are unchanged).
   var cpay = mission.contract ? contractPay(mission.contract, design, mission.science, k.new_data, stars) : null;
   var kp = "";
-  if (mission.campaign_flight) {
+  if (mission.campaign_flight && !mission.launch_failed) {
     if (k.nothing_new && cpay) kp = "Nothing new: this topic's data has already been collected, so the client paid nothing. Take a contract on another topic.";
     else if (k.nothing_new) kp = "Nothing new: this topic's data has already been collected, so the flight earned no money and no science points. Try another mission type.";
     // The 1957 campaign pays by the knowledge curve; a comeback client pays by the contract, so these two lines do not apply there.
@@ -525,9 +554,10 @@ function getDebrief(mission) {
     breakdown: parts,
     science: round(mission.science, 1),
     science_target: target,
-    paragraph: DEBRIEF[lim.key] || "",
+    paragraph: mission.launch_failed ? LAUNCH_FAILED_TEXT : DEBRIEF[lim.key] || "",
+    launch_failed: !!mission.launch_failed,
     real_mission: objective ? objective.real_mission : "",
-    real_world: withLiveNow(realWorldSummary(mission), mission.design.objective),
+    real_world: mission.launch_failed ? null : withLiveNow(realWorldSummary(mission), mission.design.objective),   // a rocket that never flew saw nothing
     closest_mission: closestMission(design),
     limiting_name: disciplineName(lim),
     segments: segmentLines(mission, totals, k, cpay),
@@ -623,6 +653,14 @@ function limitingFactor(mission, totals, scienceShare) {
     return out;
   }
 
+  // Part 2: the rocket failed at launch. Nothing about the design caused it; a safer rocket lowers the odds next time.
+  if (mission.launch_failed) {
+    var risk = launchFailureChance(design);
+    var safer = launcherChange(mission, function (l) { return (l.failure_chance || 0) < risk; });
+    return say("launch", safer ? "Next time, fly the " + safer.launcherName + ": it fails less often." : "Fly it again. This rocket fails now and then.",
+      safer, "event");
+  }
+
   if (mission.ended_early) {
     var r = mission.end_reason, part = getPart(r.part);
     var ev = findById(EVENTS, r.event);
@@ -639,31 +677,31 @@ function limitingFactor(mission, totals, scienceShare) {
     }).map(function (p) { return p.id; }), false, true);
     var safe = ev ? ev.choices.filter(function (c) { return !(c.effect && c.effect.fail_chance); })[0] : null;
     var choice = safe ? "“" + safe.label + "”" : "the safer option";
-    if (guard) return say("event", head + changeText(guard) + ", which guards against it, or pick " + choice + " next time.", guard);
-    if (spare) return say("event", head + "Carry a spare: " + lcFirst(changeText(spare)) + ", or pick " + choice + " next time.", spare);
-    return say("event", head + "Next time, pick " + choice + ".");
+    if (guard) return say("event", head + changeText(guard) + " to guard against it, or pick " + choice + ".", guard);
+    if (spare) return say("event", head + "Carry a spare: " + lcFirst(changeText(spare)) + ", or pick " + choice + ".", spare);
+    return say("event", head + "Pick " + choice + " next time.");
   }
 
   // A battery-only satellite that fell silent: the history lesson that leads to solar cells.
   if (mission.end_cause === "batteries" && scienceShare < 1) {
-    var silent = "Your batteries ran down after " + mission.month + " month" + (mission.month > 1 ? "s" : "") +
-      " and the satellite fell silent, as Sputnik 1 did after 21 days. ";
+    var silent = "Batteries ran down after " + mission.month + " month" + (mission.month > 1 ? "s" : "") +
+      ": silent, like Sputnik 1 after 21 days. ";
     var cells = bestChange(mission, PARTS.filter(isGenerator).map(function (p) { return p.id; }), true);
-    if (cells) return say("power", silent + changeText(cells) + " so the Sun keeps it running.", cells);
+    if (cells) return say("power", silent + changeText(cells) + " to run on sunlight.", cells);
     var bigger = bestChange(mission, PARTS.filter(function (p) { return p.battery_wh; }).map(function (p) { return p.id; }), true);
-    if (bigger) return say("power", silent + changeText(bigger) + ": it stores more, so the satellite lasts longer.", bigger);
+    if (bigger) return say("power", silent + changeText(bigger) + ": it stores more, so it lasts longer.", bigger);
     if (era1957 && PARTS.some(function (p) { return isGenerator(p) && !isPartAvailable(p.id, design); })) {
-      return say("power", silent + "Solar cells would keep it running: research them.");
+      return say("power", silent + "Research solar cells.");
     }
     // Instruments that earn nothing are the bigger problem: no power source helps them (the design branches below).
-    if (scienceRate(design, []).per_month > 0) return say("power", silent + "Parts that draw less would make the battery last longer.");
+    if (scienceRate(design, []).per_month > 0) return say("power", silent + "Parts that draw less make it last longer.");
   }
 
   // An orbit that cannot see the target at all comes before everything else.
   if (objective && orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
     var seeing = orbitChange(mission, function (o) { return objective.orbit_fit[o.id] > 0; });
     return say("design", "From " + inText(orbit.name) + " the spacecraft cannot see what " + inText(objective.name) + " needs. " +
-      (seeing ? orbitText(seeing) + " instead." + thrusterNote(seeing) : "Pick an orbit that can, then clear what the readiness review asks."), seeing, "orbit");
+      (seeing ? orbitText(seeing) + " instead." + thrusterNote(seeing) : "Pick an orbit that can."), seeing, "orbit");
   }
 
   var lost = mission.lost;
@@ -680,8 +718,8 @@ function limitingFactor(mission, totals, scienceShare) {
           (contact ? " for longer ground contact." : ".") + thrusterNote(contact), radio || contact);
       }
       var lighter = bestChange(mission, PARTS.filter(function (p) { return p.category === "instrument"; }).map(function (p) { return p.id; }), true, false, true);
-      if (lighter) return say("data", dataHead + changeText(lighter) + ": it makes less data, so more of it gets home.", lighter);
-      return say("data", dataHead + "No radio or orbit you can use sends more: carry an instrument that makes less data.");
+      if (lighter) return say("data", dataHead + changeText(lighter) + ": less data, more gets home.", lighter);
+      return say("data", dataHead + "No radio or orbit sends more: carry an instrument that makes less data.");
     }
     if (biggest === lost.power) {
       if (totals.power_gen_w < totals.power_draw_w) {
@@ -689,32 +727,32 @@ function limitingFactor(mission, totals, scienceShare) {
           totals.power_draw_w + " W. Add or enlarge a solar panel, or cut the draw.");
       }
       var store = bestChange(mission, PARTS.filter(function (p) { return p.battery_wh; }).map(function (p) { return p.id; }), true);
-      if (store) return say("power", "Your instruments switched off in Earth's shadow. " + changeText(store) + " to carry them through the eclipse.", store);
-      return say("power", "Your instruments switched off in Earth's shadow, and no battery you can fit carries a " + totals.power_draw_w +
-        " W satellite through it. Choose parts that draw less.");
+      if (store) return say("power", "Instruments switched off in Earth's shadow. " + changeText(store) + " to carry them through.", store);
+      return say("power", "Instruments switched off in Earth's shadow; no battery you can fit carries a " + totals.power_draw_w +
+        " W satellite. Choose parts that draw less.");
     }
-    return say("event", "Events cost you months of observing. The safer choice, or a part that guards against an event, keeps the mission running.");
+    return say("event", "Events cost you months. Pick safer choices, or fit a part that guards against them.");
   }
 
   if (scienceShare < 1) {
     if (totals.margins.budget !== null && totals.margins.budget < LOW_MARGIN) {
       var cheaper = design.year && !design.campaign ? null : launcherChange(mission, function (l) { return l.cost_musd < (getLauncher(design.launcher) || {}).cost_musd; });
       return say("budget", "You spent " + Math.round((1 - totals.margins.budget) * 100) + "% of the budget. " +
-        (cheaper ? "The " + cheaper.launcherName + " is cheaper and still carries it, which frees money for better instruments."
-                 : "Cheaper parts would free money for better instruments."), cheaper);
+        (cheaper ? "The " + cheaper.launcherName + " is cheaper and still carries it."
+                 : "Cheaper parts free money for better instruments."), cheaper);
     }
     if (totals.margins.mass !== null && totals.margins.mass < LOW_MARGIN) {
       var roomier = design.year && !design.campaign ? null : launcherChange(mission, function (l) {
         return ((l.capacity_kg || {})[design.orbit] || 0) > totals.capacity_kg; });
-      return say("mass", "The rocket was nearly full. " + (roomier ? "The " + roomier.launcherName + " carries more, or lighter parts would give you room."
-                                                                    : "Lighter parts would give you room."), roomier);
+      return say("mass", "The rocket was nearly full. " + (roomier ? "The " + roomier.launcherName + " carries more, or use lighter parts."
+                                                                    : "Use lighter parts."), roomier);
     }
     var rate = scienceRate(design, []);
     if (rate.instruments.some(function (i) { return i.smeared && i.match > 0; })) {
       var steady = bestChange(mission, PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1; })
         .map(function (p) { return p.id; }), true);
       var later = PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1; })[0];
-      return say("design", "Your satellite spun, so its pictures were smeared, as TIROS-1's were. " +
+      return say("design", "Your satellite spun and smeared its pictures, as TIROS-1 did. " +
         (steady ? changeText(steady) + " to hold it steady." : era1957 ? "Research three-axis control to hold it steady."
                 : later && design.year && !design.campaign && itemYear("parts", later.id) > design.year
                   ? "Three-axis control would hold it steady: it arrives in " + itemYear("parts", later.id) + "."
@@ -724,7 +762,7 @@ function limitingFactor(mission, totals, scienceShare) {
     var weak = rate.instruments.filter(function (i) { return i.match === 0 || !i.sharp_enough; });
     if (weak.length) {
       var suit = bestChange(mission, instrumentIds, true);
-      return say("design", "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. " +
+      return say("design", "Some instruments earned nothing: wrong type, or too blurry from this orbit. " +
         (suit ? changeText(suit) + "." : "Swap them for ones that suit it."), suit, "instruments");
     }
     // A wanted instrument type nobody carries is the cheapest way to more science.
@@ -734,14 +772,14 @@ function limitingFactor(mission, totals, scienceShare) {
     var extra = bestChange(mission, PARTS.filter(function (p) {
       return p.category === "instrument" && p.tags.some(function (t) { return wanted.indexOf(t) !== -1; }); }).map(function (p) { return p.id; }), true, false, false, true);
     if (extra) {
-      return say("design", "Nothing ran short, but one instrument was not enough. " + changeText(extra) + " as well; this objective counts it too.", extra, "instruments");
+      return say("design", "Nothing ran short, but one instrument was not enough. " + changeText(extra) + " as well: it counts too.", extra, "instruments");
     }
     var better = orbitChange(mission, function () { return true; }, true);
-    if (better) return say("design", "Nothing ran short, but the science fell below target. " + inText(getOrbit(better.orbit).name).replace(/^./, function (x) { return x.toUpperCase(); }) +
+    if (better) return say("design", "Nothing ran short, but science fell below target. " + inText(getOrbit(better.orbit).name).replace(/^./, function (x) { return x.toUpperCase(); }) +
       " suits this objective better" + (better.launcher ? ", on the " + better.launcherName : "") + "." + thrusterNote(better), better, "orbit");
     var sharper = bestChange(mission, instrumentIds, true);
-    if (sharper) return say("design", "Nothing ran short, but the science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
-    return say("design", "Nothing ran short, but the science fell below target. No single change you can make earns more: try a different design.", null, "instruments");
+    if (sharper) return say("design", "Nothing ran short, but science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
+    return say("design", "Nothing ran short, but science fell below target. No single change earns more: try a different design.", null, "instruments");
   }
   // In a campaign there is no "next tier": the next step is the lab, or another topic. A flight whose record ended
   // the game (the debrief reads the advice after recordResult) has no next flight or contract.
@@ -897,6 +935,11 @@ function recordResult(mission) {
   if (mission.recorded) return mission.recorded;         // a second call changes nothing
   var tierId = mission.design.tier;
   var d = getDebrief(mission);
+  // ONLINE-DUEL: a duel flight is its own thing: it never moves the stars record, the eras or the comeback save.
+  if (mission.design.duel) {
+    mission.recorded = { stars: d.stars, best_stars: d.stars, unlocked: null, era_unlocked: null, duel: true };
+    return mission.recorded;
+  }
   var p = getProgress();
   var i = TIERS.map(function (t) { return t.id; }).indexOf(tierId);
   var nextId = TIERS[i + 1] ? TIERS[i + 1].id : null;
@@ -970,6 +1013,8 @@ function upgradeCampaign(c) {
   if (c.version !== campaignVersion() || c.mode !== "comeback") return changed;
   if (c.seed === undefined) { c.seed = Math.floor(Math.random() * 4294967296); changed = true; }
   if (c.buyout === undefined) { c.buyout = "none"; changed = true; }
+  if (c.complications === undefined) { c.complications = []; changed = true; }   // added with the complications: none have struck yet
+  if (c.info === undefined) { c.info = {}; changed = true; }   // added with paid part information (2.0): nothing bought yet, and nothing taken away
   if (c.start_debt_musd === undefined) {
     var legacy = LEGACY_START_DEBT[c.tier], t = comebackTier(c);
     var start = legacy !== undefined && wasOld ? legacy : t ? t.debt_musd : undefined;
@@ -1290,6 +1335,7 @@ function flightHeadline(m, o, orbitName) {
   var topic = o ? o.name : m.objective;
   // A flight lost after it met its goal says so first: the stars and the headline tell the same story.
   var met = o && isNumber(m.science) && m.science >= o.science_target;
+  if (m.ended_early && m.months === 0) return "Rocket lost at launch";   // a comeback flight that never left the pad
   if (m.ended_early) return (met ? "Goal met, then lost" : "Satellite lost") + (isCount(m.months) ? " after " + m.months + (m.months === 1 ? " month" : " months") : "");
   if (m.new_data <= 0) return "Old news: " + topic + " measured again";
   if (m.first_look && m.stars >= 2) return topic + ": the first data comes home";
@@ -1530,7 +1576,16 @@ function validLogEntry(e) {
   if (e.kind === "payment") return isNumber(e.musd) && isNumber(e.month);
   if (e.kind === "loan") return isNumber(e.musd) && isNumber(e.month) && isOptional(e.fee_musd, isNumber);
   if (e.kind === "launch") return isText(e.id) && isNumber(e.musd) && isOptional(e.flight, isCount);
+  if (e.kind === "info") return isText(e.id) && isNumber(e.musd) && isOptional(e.flight, isCount);
   return isText(e.id);
+}
+// The part information a comeback has bought: part id -> the groups known (INFO_GROUPS).
+function validInfo(x) {
+  return isRecord(x) && Object.keys(x).every(function (k) { return isListOf(x[k], function (g) { return INFO_GROUPS.indexOf(g) !== -1; }); });
+}
+// One complication that struck between flights, as applyComplication saves it.
+function validComplication(e) {
+  return isRecord(e) && isText(e.id) && isText(e.tag) && isText(e.text) && isCount(e.flight) && isNumber(e.month);
 }
 function validCampaign(c) {
   if (!isRecord(c) || c.version !== campaignVersion() || (c.mode !== "campaign" && c.mode !== "comeback") || !getTier(c.tier)) return false;
@@ -1544,6 +1599,8 @@ function validCampaign(c) {
   var cfg = comebackConfig();
   return !!(cfg && cfg.tiers[c.tier]) && isNumber(c.month) && isNumber(c.deadline_month) && isNumber(c.debt_musd) &&
     isCount(c.seed) && c.seed <= 4294967295 && BUYOUT_STATES.indexOf(c.buyout) !== -1 && isOptional(c.start_debt_musd, isNumber) &&
+    isOptional(c.complications, function (l) { return isListOf(l, validComplication); }) &&
+    isOptional(c.info, validInfo) &&
     isOptional(c.credit, isNumber) && isOptional(c.reputation, isNumber) && isOptional(c.borrowed_musd, isNumber) && isOptional(c.seized, isFlag);
 }
 
@@ -1768,6 +1825,10 @@ function segmentLines(mission, t, k, cpay) {
   var spare = t.capacity_kg ? Math.round(100 * (t.capacity_kg - t.mass_kg) / t.capacity_kg) : null;
   var parts = designParts(d);
   var lines = [];
+  if (mission.launch_failed) {
+    return [{ id: "launch", name: "Launch segment", text: (launcher ? launcher.name : "The rocket") + " failed at launch. Nothing reached orbit." },
+            { id: "user", name: "User segment", text: "No data came home" + (mission.contract ? ", so " + lcFirst(mission.contract.client) + " paid nothing." : ".") }];
+  }
   lines.push({ id: "launch", name: "Launch segment",
     text: (launcher ? launcher.name : "The rocket") + " carried " + round(t.mass_kg, 1) + " kg to " +
       (orbit ? inText(orbit.name) : "orbit") + (spare !== null ? ", with " + spare + "% of its capacity to spare." : ".") });
@@ -1969,6 +2030,7 @@ function contractPay(k, design, science, newData, stars) {
 function claimContract(c, mission, newData, stars) {
   var k = openContract(c, mission.design.contract);
   if (!k) return [];
+  if (mission.launch_failed) return [];   // a lost rocket pays nothing, and the client still wants its data: the contract stays open
   k.done = true;
   var p = contractPay(mission.contract || contractSnapshot(k), mission.design, mission.science, newData, stars);
   c.treasury_musd = round(c.treasury_musd + p.paid_musd + p.bonus_musd, 3);
@@ -1987,6 +2049,70 @@ function previewContractPay(design, c) {
            topic_complete: k.topic_complete, cost_musd: cost, net_musd: round(p.paid_musd - cost, 3),
            contract: ct ? { id: ct.id, client: ct.client, price_musd: ct.price_musd, bonus_musd: ct.bonus_musd,
                             min_science: ct.min_science, orbit: ct.orbit, expected_pay_musd: p.paid_musd, met: p.met } : null };
+}
+
+// The Build screen's PROFIT line for a comeback design: what the client pays if the flight goes as planned, minus
+// what it costs (the parts, plus the rocket). With no rocket chosen yet the cheapest one on offer that lifts the design
+// to its orbit stands in (launch_estimated true); with none that can, the cost and the profit are null. Null outside a
+// comeback or without a contract. Event costs are luck, so they are not in a preview.
+function previewProfit(design) {
+  if (!design || !design.comeback || !design.campaign) return null;
+  var c = getCampaign();
+  if (!isComeback(c)) return null;
+  var p = previewContractPay(design, c);
+  if (!p || !p.contract) return null;
+  var t = getTotals(design), chosen = getLauncher(design.launcher), launcher = chosen, estimated = false;
+  if (!chosen && design.orbit) {
+    LAUNCHERS.forEach(function (l) {
+      var cap = l.capacity_kg ? l.capacity_kg[design.orbit] : 0;
+      if (!isLauncherAvailable(l.id, design) || !(cap > 0) || cap < t.mass_kg) return;
+      if (!launcher || l.cost_musd < launcher.cost_musd) launcher = l;
+    });
+    estimated = !!launcher;
+  }
+  var parts = round(t.cost_musd - (chosen ? chosen.cost_musd : 0), 3);
+  var launch = launcher ? launcher.cost_musd : null;
+  return { pay_musd: p.expected_payout_musd, parts_musd: parts, launch_musd: launch, launch_estimated: estimated,
+           launcher_id: launcher ? launcher.id : null, cost_musd: launch === null ? null : round(parts + launch, 3),
+           profit_musd: launch === null ? null : round(p.expected_payout_musd - parts - launch, 3),
+           met: p.contract.met, no_new_data: !!(p.topic_complete && !(p.new_data > 0)) };
+}
+
+// The debrief's PROFIT line for a finished comeback flight: what the client paid (with the 3-star bonus) minus what the
+// flight cost (the parts and the rocket at launch, and the cost of the events). Interest on the debt is not the flight's.
+// Null for a flight that is not a comeback or has not been recorded (recordResult) yet.
+function flightProfit(mission) {
+  var r = mission && mission.comeback ? mission.recorded : null;
+  if (!r || !isNumber(r.contract_paid_musd)) return null;
+  var launch = mission.launch_totals ? mission.launch_totals.cost_musd : 0;
+  var paid = round(r.contract_paid_musd + (r.contract_bonus_musd || 0), 3), events = r.event_costs_musd || 0;
+  var engineers = r.engineers_musd || 0;   // paid for part information before this launch (2.0): part of what the flight cost
+  return { paid_musd: paid, launch_musd: launch, event_costs_musd: events, engineers_musd: engineers, cost_musd: round(launch + events + engineers, 3),
+           profit_musd: round(paid - launch - events - engineers, 3) };
+}
+
+// Why a part adds nothing to the job (the Build screen's WHY box), in a few words, or null when it counts. Only
+// instruments earn science. Three reasons, from the objective's `wants` and the part's `tags`: its type is not wanted
+// ("type"), it is too blurry from this orbit ("blurry"), or the orbit cannot see the target at all ("orbit").
+function partWhy(design, partId) {
+  var p = getPart(partId), objective = design ? getObjective(design.objective) : null;
+  if (!p || p.category !== "instrument" || !objective) return null;
+  var f = getPartFacts(design, partId);
+  if (!f) return null;
+  var wants = (objective.wants || []).slice(), tags = (p.tags || []).slice();
+  if (f.counts === false) {
+    return { id: "type", wants: wants, tags: tags,
+             text: "Job wants " + wants.join(" or ") + ". " + (tags.length ? "This part reads " + tags.join(" and ") + "." : "This part is neither.") };
+  }
+  if (f.sharp_enough === false) {
+    return { id: "blurry", wants: wants, tags: tags,
+             text: "Too blurry: sees " + f.resolution_m + " m, the job needs " + objective.needs_resolution_m + " m." };
+  }
+  var orbit = design.orbit ? getOrbit(design.orbit) : null;
+  if (orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
+    return { id: "orbit", wants: wants, tags: tags, text: "Right type, wrong orbit: the target is out of sight." };
+  }
+  return null;
 }
 
 // ---- the money and the clock
@@ -2107,6 +2233,8 @@ function newComeback(tierId, seed) {
     missions: [],
     flights: 0,
     log: [],
+    complications: [],              // what has gone wrong (or right) between flights, shown once in the workshop
+    info: {},                       // part information bought from the engineers: part id -> the groups known (buyPartInfo)
     credit: creditConfig() ? creditConfig().start : 100,   // the lenders' patience, 0 to 100
     reputation: 0,                                          // a name: grows with the stars Ajay's satellites earn
     borrowed_musd: 0,                                       // loans taken so far (not counting their fees)
@@ -2162,6 +2290,7 @@ function getComeback() {
     act: missions.length >= 2 ? 3 : missions.length + 1,       // 1 before any flight is settled, 2 after one, 3 after two or more
     last_flight: last ? { stars: last.stars || 0, paid_musd: last.payout_musd || 0, new_data: last.new_data || 0,
                           ended_early: !!last.ended_early, topic: last.objective, topic_name: lastTopic ? lastTopic.name : last.objective } : null,
+    complications: (c.complications || []).map(function (e) { return { id: e.id, tag: e.tag, text: e.text, flight: e.flight, month: e.month }; }),   // oldest first
     debt_share_left: c.won || !(c.debt_musd > 0) ? 0 : startD > 0 ? Math.max(0.01, round(Math.min(1, c.debt_musd / startD), 2)) : 1,   // 0..1, for choosing beats only
     buyout: c.buyout || "none",                                 // "none" | "offered" | "refused" | "accepted"
     offer: c.buyout === "offered" && !c.finished ? { id: "buyout" } : null,   // open until acceptBuyout() or refuseBuyout()
@@ -2227,6 +2356,73 @@ function newComebackDesign(contractId) {
   return d;
 }
 
+// ------------------------------------------------------------------ paying engineers for part information
+// SPEC.md, "Paying engineers for part information". A part's information is three groups; the level decides which are
+// free (CAMPAIGN.comeback.info_free), the rest cost a fee each (info_fee_musd), paid once per run and part from the cash.
+// Part 1, a standalone design and the lab are always free. getPartFacts and the other fact functions are unchanged and
+// still return everything: only the screens hide, so the tests and the simulator are unaffected.
+var INFO_GROUPS = ["sheet", "performance", "dossier"];
+
+// The comeback a design pays its engineers in, or null when its information is free.
+function infoRun(design) {
+  if (!design || !design.comeback) return null;
+  var c = getCampaign();
+  return isComeback(c) && !c.finished ? c : null;
+}
+// The groups a level gives without paying; a level with no entry gives all.
+function infoFreeGroups(tierId) {
+  var cfg = comebackConfig();
+  var free = cfg && cfg.info_free ? cfg.info_free[tierId] : null;
+  return Array.isArray(free) ? free : INFO_GROUPS;
+}
+function infoFee(group) {
+  var cfg = comebackConfig();
+  var fee = cfg && cfg.info_fee_musd ? cfg.info_fee_musd[group] : 0;
+  return isNumber(fee) && fee > 0 ? fee : 0;
+}
+// True when the screen may show this group of this part: always in Part 1, a standalone design and on Easy; on Normal and
+// Hard for the groups the level gives free and the ones the engineers were paid for.
+function partInfoKnown(design, partId, group) {
+  if (INFO_GROUPS.indexOf(group) === -1) return true;
+  var c = infoRun(design);
+  if (!c || infoFreeGroups(c.tier).indexOf(group) !== -1) return true;
+  var bought = c.info ? c.info[partId] : null;
+  return Array.isArray(bought) && bought.indexOf(group) !== -1;
+}
+// What asking the engineers costs right now: 0 when the group is already known.
+function partInfoFee(design, partId, group) {
+  return partInfoKnown(design, partId, group) ? 0 : infoFee(group);
+}
+// ASK THE ENGINEERS: pays the fee from the comeback's cash, once per run for a part and group; the group then stays known.
+// Not enough cash: nothing is bought. Asking for what is already known (or free) costs nothing and is ok.
+function buyPartInfo(design, partId, group) {
+  function no(reason, cost) { return { ok: false, reason: reason, cost_musd: cost || 0 }; }
+  if (INFO_GROUPS.indexOf(group) === -1) return no("Ask for the sheet, the performance or the dossier.");
+  if (!findById(PARTS, partId)) return no("No such part.");
+  var c = infoRun(design);
+  if (!c || partInfoKnown(design, partId, group)) return { ok: true, reason: null, cost_musd: 0 };
+  var fee = infoFee(group);
+  if (c.treasury_musd < fee - 1e-9) {
+    return no("Not enough cash: the engineers charge $" + fee + "M and Ajay has $" + c.treasury_musd + "M.", fee);
+  }
+  // Like PAY BACK, never spend into a dead end: after the fee the cash and the loans the lenders still allow must pay for a launch.
+  var cheapest = comebackCheapest(c);
+  if (isFinite(cheapest) && c.treasury_musd - fee + maxBorrow(c) < cheapest - 1e-9) {
+    return no("Not enough cash: after the fee Ajay could not pay for any launch, even with a loan.", fee);
+  }
+  c.treasury_musd = round(c.treasury_musd - fee, 3);
+  c.info = c.info || {};
+  c.info[partId] = (c.info[partId] || []).concat(group);
+  // The log keeps each fee with the flight it was paid for (the next one): the debrief's ledger line sums them.
+  (c.log = c.log || []).push({ year: c.year, month: c.month, kind: "info", id: partId + ":" + group, musd: fee, flight: (c.flights || 0) + 1 });
+  saveCampaign(c);
+  return { ok: true, reason: null, cost_musd: fee };
+}
+// What the engineers cost for one flight (its number, as the campaign counts them): the debrief's ledger line.
+function infoFeesFor(c, flight) {
+  return round((c.log || []).reduce(function (t, e) { return e.kind === "info" && e.flight === flight ? t + (e.musd || 0) : t; }, 0), 3);
+}
+
 // PAY BACK: moves cash to the debt. Refuses what is not a positive number, more than the cash, and a
 // partial payment that would leave too little cash to launch anything (more than safe_pay_max_musd).
 // More than the debt pays the debt. Paying the whole debt wins at once.
@@ -2289,6 +2485,54 @@ function borrow(amountMusd) {
            credit: creditOf(c), max_borrow_musd: maxBorrow(c) };
 }
 
+// ---- complications: small things that go wrong (or right) in the workshop between flights
+// Three kinds, drawn from the run's seed and the flight count, so the same run always meets the same ones. Each is a small
+// change to a contract or to the clock that is already in the save; the only new save field is the list of those that have struck.
+var COMPLICATION_CHANCE = 0.5;     // GAME VALUE: the chance one strikes after a settled flight
+var COMPLICATION_PRICE = 0.15;     // GAME VALUE: a client changes its price by this share, up or down
+var COMPLICATION_DELAY = 1;        // GAME VALUE: months a delay costs (and the interest on them)
+var COMPLICATION_KINDS = ["client-left", "price", "delay"];
+
+// What (if anything) strikes after flight number `flight` of this run: { kind, pick, up } with random numbers, or null. Pure.
+function drawComplication(seed, flight) {
+  var rand = makeRandom(((seed || 0) ^ Math.imul((flight || 0) + 1, 2654435761) ^ 0x51ED270B) >>> 0);
+  if (rand() >= COMPLICATION_CHANCE) return null;
+  return { kind: COMPLICATION_KINDS[Math.floor(rand() * COMPLICATION_KINDS.length)], pick: rand(), up: rand() < 0.5 };
+}
+// Applies it to the saved run (the caller saves and refills the contracts). Returns the entry added to c.complications, or null.
+function applyComplication(c) {
+  var cfg = comebackConfig();
+  if (!cfg || c.finished || !isComeback(c) || !(c.debt_musd > 0)) return null;
+  var draw = drawComplication(c.seed, c.flights);
+  if (!draw) return null;
+  var list = c.complications = c.complications || [];
+  if (list.some(function (e) { return e.flight === c.flights; })) return null;   // once per flight
+  var open = (c.offers || []).filter(function (k) { return !k.done && k.expires_month > c.month; });
+  var k = open.length ? open[Math.floor(draw.pick * open.length)] : null;
+  var topic = k ? getObjective(k.topic) : null, what = topic ? inText(topic.name) : "a";
+  var entry = null;
+  if (draw.kind === "client-left" && k && open.length > 1) {
+    k.expires_month = c.month;   // gone today: the board deals another
+    entry = { id: "client-left", tag: "bad", text: k.client + " dropped its " + what + " contract." };
+  } else if (draw.kind === "price" && k) {
+    k.price_musd = round(k.price_musd * (1 + (draw.up ? 1 : -1) * COMPLICATION_PRICE), 1);
+    k.bonus_musd = round(k.price_musd * cfg.bonus_3_stars, 1);
+    k.text = contractText(k, topic, k.orbit ? getOrbit(k.orbit) : null);
+    entry = { id: draw.up ? "price-up" : "price-down", tag: draw.up ? "good" : "warn",
+              text: k.client + (draw.up ? " raised" : " cut") + " its " + what + " price to $" + k.price_musd + "M." };
+  } else if (draw.kind === "delay" && c.deadline_month - c.month > 4 * COMPLICATION_DELAY) {
+    c.debt_musd = accrueInterest(c.debt_musd, COMPLICATION_DELAY);
+    c.month += COMPLICATION_DELAY;
+    c.year = comebackStartYear() + Math.floor(c.month / 12);
+    entry = { id: "delay", tag: "warn", text: "A supplier ran late: " + COMPLICATION_DELAY + (COMPLICATION_DELAY === 1 ? " month" : " months") + " lost." };
+  }
+  if (!entry) return null;
+  entry.flight = c.flights;
+  entry.month = c.month;
+  list.push(entry);
+  return entry;
+}
+
 // Called from settleCampaign for a comeback flight: the contract pays, events cost cash, months pass and
 // the debt grows; then contracts expire and refill, and the comeback may end.
 function settleComeback(c, mission, debrief, result) {
@@ -2312,7 +2556,7 @@ function settleComeback(c, mission, debrief, result) {
   }
   c.year = comebackStartYear() + Math.floor(c.month / 12);
   c.science_pts = round((c.science_pts || 0) + newData, 1);
-  var newLessons = lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
+  var newLessons = mission.launch_failed ? [] : lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
   c.lessons = c.lessons.concat(newLessons);
   c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
                     spent_musd: debrief.spent_musd, science: round(mission.science, 1),
@@ -2324,6 +2568,7 @@ function settleComeback(c, mission, debrief, result) {
                     month: c.month, contract: mission.design.contract || null });   // comeback: the month the pay came, and for whom
   saveCampaign(c);
   makeOffers(c);
+  if (applyComplication(c)) makeOffers(c);   // a client that left, or a month that went, changes what is open
   checkComebackEnd(c);
   maybeOfferBuyout(c);
   saveCampaign(c);
@@ -2353,12 +2598,15 @@ function settleComeback(c, mission, debrief, result) {
   result.contract_paid_musd = pay.paid_musd;
   result.contract_bonus_musd = pay.bonus_musd;
   result.cash_musd = c.treasury_musd;
+  result.engineers_musd = infoFeesFor(c, mission.campaign_flight || c.flights);   // paid to the engineers for part information before this launch
   result.debt_musd = c.debt_musd;
   result.interest_musd = interest;
   result.months_used = used;
   result.months_left = Math.max(0, c.deadline_month - c.month);
   result.comeback_over = !!c.finished;
   result.lost_reason = lostReason(c);
+  result.launch_failed = !!mission.launch_failed;
+  result.complication = (c.complications || []).filter(function (e) { return e.flight === c.flights; })[0] || null;   // the one that struck after this flight
   result.credit = creditOf(c);
   result.credit_change = round(creditOf(c) - creditBefore, 1);
   result.reputation = reputationOf(c);
@@ -2381,7 +2629,8 @@ function getComebackEnding() {
     var o = getObjective(m.objective), orbit = getOrbit(m.orbit);
     var k = (c.offers || []).filter(function (x) { return x.id === m.contract; })[0];
     timeline.push({ month: m.month, title: "G-" + (m.flight || i + 1) + ": " + flightHeadline(m, o, orbit ? orbit.name : m.orbit),
-      text: "Flown for " + (k ? lcFirst(k.client) : "no client") + " from " + inText(orbit ? orbit.name : m.orbit) + ": " +
+      text: m.ended_early && m.months === 0 ? "The rocket failed at launch, for " + (k ? lcFirst(k.client) : "no client") + ". Nothing reached orbit." :
+        "Flown for " + (k ? lcFirst(k.client) : "no client") + " from " + inText(orbit ? orbit.name : m.orbit) + ": " +
         round(m.science, 0) + " points of data, " + (m.stars || 0) + (m.stars === 1 ? " star" : " stars") + ", paid " + money(m.payout_musd || 0) + "." +
         (m.real ? " Its real twin: " + m.real.name + " (" + m.real.year + ")." : "") });
   });
@@ -2436,4 +2685,45 @@ function getComebackEnding() {
     timeline: timeline,
     epilogue: epilogue
   };
+}
+
+// ------------------------------------------------------------------ online features (SPEC.md, "Online features")
+// A run's score for the global leaderboard: 500 for a win, plus 100 per star earned, plus 10 per month left on a win, plus
+// 5 per point of reputation. The numbers are ONLINE.run_score (data/online.js). Pure: it only reads the comeback (the saved
+// one, or the one passed in) and writes nothing. Null while there is no finished comeback.
+var RUN_SCORE_DEFAULT = { win: 500, per_star: 100, per_month_left: 10, per_reputation: 5 };
+function getRunScore(c) {
+  c = c || getCampaign();
+  if (!isComeback(c) || !c.finished) return null;
+  var k = typeof ONLINE !== "undefined" && ONLINE && ONLINE.run_score ? ONLINE.run_score : RUN_SCORE_DEFAULT;
+  var stars = (c.missions || []).reduce(function (t, m) { return t + (m.stars || 0); }, 0);
+  var won = !!c.won;
+  var left = won ? Math.max(0, c.deadline_month - c.month) : 0;
+  var rep = Math.max(0, reputationOf(c));
+  return { score: Math.round((won ? k.win : 0) + k.per_star * stars + k.per_month_left * left + k.per_reputation * rep),
+           won: won, stars: stars, months_left: left, reputation: rep, tier: c.tier };
+}
+
+// The quick 1v1 duel: both players get the same seed from the server, so the same setup (ONLINE.duel_setups): topic, orbit,
+// era and tier, and the same starting cash (the tier's budget). Null without a usable seed or setup.
+function getDuelSetup(seed) {
+  var list = typeof ONLINE !== "undefined" && ONLINE && ONLINE.duel_setups ? ONLINE.duel_setups : [];
+  var n = Number(seed);
+  if (!list.length || !isFinite(n) || n < 0 || n !== Math.floor(n)) return null;
+  var pick = list[Math.floor(makeRandom(n >>> 0)() * list.length)];
+  var tier = getTier(pick.tier), era = getEra(pick.era);
+  return { seed: n, objective: pick.objective, orbit: pick.orbit, era: pick.era, year: era ? era.year : null,
+           tier: pick.tier, tier_name: tier ? tier.name : pick.tier, cash_musd: tier ? tier.budget_musd : null };
+}
+// A fresh standalone design for a duel: the setup's topic, orbit, era and tier, marked as a duel flight. It never joins
+// the comeback or the stars record (recordResult skips it). Null when the seed gives no setup.
+function newDuelDesign(seed) {
+  var s = getDuelSetup(seed);
+  if (!s) return null;
+  var d = newDesign(s.tier);
+  setEra(d, s.era);
+  setObjective(d, s.objective);
+  setOrbit(d, s.orbit);
+  d.duel = { seed: s.seed };
+  return d;
 }

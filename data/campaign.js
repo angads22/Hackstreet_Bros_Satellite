@@ -18,6 +18,8 @@ const CAMPAIGN = {
   // Every value is a GAME VALUE, tuned by simulating hundreds of comebacks per difficulty (see CHANGELOG.md): a run is short.
   // A sensible player wins Easy in 2 flights, Normal in 3 and Hard in 4, with a few months to spare; Hard is still won
   // about 9 times in 10 by a sensible player; a careless player (random parts) loses on every difficulty.
+  // Launch failure (data/launchers.js failure_chance) can cost a flight, so each deadline got six months (the same simulator:
+  // before the failures and the six months, after the failures alone, after both; see CHANGELOG.md).
   comeback: {
     tiers: {                  // per difficulty (tier id): Easy, Normal and Hard
       training: { cash_musd: 6, debt_musd: 30, deadline_months: 60, loan_cap_musd: 20, reputation_goal: 12 },   // GAME VALUES
@@ -37,6 +39,18 @@ const CAMPAIGN = {
       loan_fee: 0.05,             // share of a loan added to the debt on top of the loan
       interest_spread: 0.02,      // extra monthly interest at zero credit; it scales with the credit lost
       reputation_per_star: 2      // reputation gained for each star a flight earns
+    },
+    // Paying engineers for part information (SPEC.md, "Paying engineers for part information"). A part's information is
+    // three groups: sheet (mass, power, data rate), performance (what it measures, science a month) and dossier (its
+    // catches, what it fixes and causes, the WHY box, the explainer). Easy knows all three, Normal the sheet, Hard none;
+    // the rest is asked of the engineers once per run and part, and paid from the cash. A sensible Normal player asks about
+    // the parts they weigh (about 6 to 8 of them): $0.3M to $0.5M of a $4M start. On Hard, where nothing is free, the same
+    // care costs about $1M of $3M. All GAME VALUES, in $M.
+    info_fee_musd: { sheet: 0.02, performance: 0.04, dossier: 0.04 },
+    info_free: {              // the groups each difficulty (tier id) gets without paying
+      training: ["sheet", "performance", "dossier"],
+      standard: ["sheet"],
+      expert: []
     },
     interest_per_month: 0.005,    // GAME VALUE: the debt grows by this share every month, compounded (about 6% a year)
     launch_campaign_months: 2,    // GAME VALUE: months from a finished satellite to its data reaching the client

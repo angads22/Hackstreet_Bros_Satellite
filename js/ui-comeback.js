@@ -73,6 +73,13 @@
     return h === "off" ? "None: no forecasts, risks as bands" : h === "request" ? "Less: no part hints, no FIX links" : "Full";
   }
 
+  // What the level makes the player pay for (CAMPAIGN.comeback.info_free, "Paying engineers for part information").
+  function infoText(id) {
+    var cfg = config(), free = cfg && cfg.info_free ? cfg.info_free[id] : null;
+    if (!free || free.length >= 3) return "Free";
+    return free.length ? free[0].charAt(0).toUpperCase() + free[0].slice(1) + " free, rest paid" : "All paid";
+  }
+
   // ---------------------------------------------------------------- the difficulty picker
   function showPicker() {
     UI.leaveMission();
@@ -86,7 +93,7 @@
         el("span", { class: "cb-level-name", text: levelName(id) }),
         el("span", { class: "cb-level-tier", text: row ? String(row.name).toUpperCase() : "" }),
         UI.facts([["Cash", money(t.cash_musd)], ["Debt", money(t.debt_musd)], ["Deadline", num(t.deadline_months, 0) + " months"],
-          ["Help", helpText(row)]])
+          ["Help", helpText(row)], ["Part facts", infoText(id)]])
       ]);
     });
     UI.mount("comeback-start", el("section", { class: "screen cb" }, [
@@ -267,6 +274,16 @@
     return rows.length ? el("div", { class: "panel" }, [el("h2", { text: "FLIGHTS" }), el("ul", { class: "log cb-log" }, rows)]) : null;
   }
 
+  // What struck since the last flight (back end: getComeback().complications): one line each, a colour tag first.
+  var COMPLICATION_WORDS = { "client-left": "CLIENT GONE", "price-up": "PRICE UP", "price-down": "PRICE DOWN", delay: "DELAY" };
+  function complicationLines(c) {
+    return UI.list(c.complications).filter(function (e) { return e.flight === c.flights; }).map(function (e) {
+      var kind = e.tag === "good" || e.tag === "bad" ? e.tag : "warn";
+      return el("p", { class: "cb-complication", "data-key": "complication-" + e.id }, [
+        el("span", { class: "tag " + kind, text: COMPLICATION_WORDS[e.id] || "NEWS" }), " " + e.text]);
+    });
+  }
+
   function showComebackHub() {
     var c = info();
     if (!c) { showPicker(); return; }
@@ -324,6 +341,7 @@
       el("div", { class: "panel cb-board" }, [
         el("h2", { text: "CONTRACTS" }),
         situation && situation.text ? el("p", { class: "cb-note", text: situation.text }) : null,
+        el("div", { class: "cb-complications" }, complicationLines(c)),
         jobs.length ? el("div", { class: "cb-jobs" }, jobs) : el("p", { class: "cb-note", text: "No contracts are open." })
       ]),
       payPanel(c),
@@ -331,6 +349,7 @@
       flightLog(c),
       el("div", { class: "nav-row" }, [
         UI.button(["< ", "HOME"], function () { UI.home(); }, { key: "hub-home" }),
+        window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ part: 2, back: showComebackHub, key: "hub-journal" }) : null,   // js/ui-story.js
         UI.button("NEW COMEBACK", function () {
           if (window.confirm("Start a new comeback? This one is lost.")) showPicker();
         }, { quiet: true, key: "hub-new" })

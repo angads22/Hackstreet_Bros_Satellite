@@ -118,12 +118,12 @@ async function run(viewport, label) {
   await p.click('[data-key="blip-build"]'); ok(await T.waitHead(p, 'BUILD'), 'the Workshop is open (the orbit is set by the contract)');
   await T.addParts(p, T.CONTRACT.solar.parts);
   const line = await p.locator('[data-key="contract-pay"]').innerText();
-  console.log('     pay line: ' + line);
-  ok(/with the cheapest rocket/.test(line) && /net /.test(line), 'Build pay line counts the cheapest rocket');
+  console.log('     pay line: ' + line.replace(/\n/g, ' | '));
+  ok(/with the cheapest rocket/.test(line) && /PROFIT/.test(line), 'Build pay line counts the cheapest rocket and leads with PROFIT');
   await p.click('.nav-row .btn.primary'); await T.waitHead(p, 'LAUNCH VEHICLE');
   await p.click(`[data-key="rocket-${T.CONTRACT.solar.launcher}"]`);
   const line2 = await p.locator('[data-key="contract-pay"]').innerText();
-  ok(parseM(line2.split('net ')[1]) === parseM(line.split('net ')[1]), `the net on Build equals the net with the rocket chosen (${line2})`);
+  ok(parseM(line2.split('PROFIT')[1]) === parseM(line.split('PROFIT')[1]), `the PROFIT on Build equals the PROFIT with the rocket chosen (${line2.replace(/\n/g, ' | ')})`);
   await p.click('.nav-row .btn.primary'); await T.waitHead(p, 'READINESS');
   ok(await p.locator('[data-key="deadline-banner"]').count() === 0, 'review: no deadline banner when it lands in time');
   ok(await T.noScroll(p), 'review: no sideways scroll');
