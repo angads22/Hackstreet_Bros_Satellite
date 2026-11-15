@@ -2087,6 +2087,7 @@ function getComeback() {
     seize_credit: seizeLine(),
     max_borrow_musd: maxBorrow(c),
     loan_fee: creditConfig() ? creditConfig().loan_fee : 0,
+    credit_per_loan: creditConfig() ? creditConfig().per_loan : 0,
     borrowed_musd: c.borrowed_musd || 0,
     reputation: reputationOf(c),
     reputation_goal: reputationGoal(c),

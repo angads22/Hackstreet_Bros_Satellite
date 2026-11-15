@@ -30,6 +30,7 @@ One row per resource used. QA copies this into the project page.
 | Canadian Wildland Fire Information System, satellite hotspots in the last 24 hours | Natural Resources Canada (from NASA MODIS and VIIRS) | https://cwfis.cfs.nrcan.gc.ca/ | `js/live-data.js`: "right now" fire-detection count in the debrief | Called live |
 | Explorer 1, Vanguard 1 and Sputnik 1 figures (mass, batteries, transmitters, operating days) | Secondary sources found by web search | see `data/parts.js` source fields | Era battery and beacon parts | NEEDS HUMAN CHECK against NSSDCA |
 | Real missions for the debrief comparison (Explorer 1 and 3, Vanguard 2, TIROS-1, SOLRAD 1, SDO, GOES-R, Terra, FOREST, PlanetScope, Seasat, RADARSAT Constellation, ICEYE) | NASA, NOAA, CSA, Planet, ICEYE, OroraTech | see the `source` field of each record in `data/missions.js` | Debrief "your design's real twin" | NEEDS HUMAN CHECK (masses marked) |
+| Pixelify Sans and VT323 (web fonts) | Google Fonts (SIL Open Font License) | https://fonts.google.com/specimen/VT323 | `index.html` (loaded from Google Fonts); `css/fonts/VT323-Regular.woff2` (the digits, kept in the repo for offline play) | No |
 
 ## Tools and other resources
 

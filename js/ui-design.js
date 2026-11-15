@@ -149,8 +149,8 @@
   // and "epilogue". Keys: intro, step-open, step-close, epilogue, map, briefing, orbit, build, launcher, review,
   // mission-start, mission-end, debrief, closing, notebook, event-calibration. "closing" on a walkthrough step that
   // passed is that step's close beat. Part 2 adds: why (extra: the number of flights), hub (extra: "start", "paid",
-  // "halfway" or "late"), contract (extra: "paid", "part" or "nothing") and ending (extra: "won", "deadline" or
-  // "cash"; a list of beats). Call them with a comeback design, or with { comeback: true } outside the design screens.
+  // "halfway", "late", "loaned", "credit" or "name"), contract (extra: "paid", "part" or "nothing") and ending (extra: "won",
+  // "deadline", "cash", "seized" or "name"; a list of beats). Call them with a comeback design, or with { comeback: true } outside the design screens.
   // extra: debrief and closing take the getDebrief result; mission-end takes it too (or the chooseEvent
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
@@ -330,7 +330,10 @@
         start: "Three contracts on the table. Pick one you can actually deliver.",
         paid: "That one paid. Pay some debt, or fly again while the interest ticks.",
         halfway: "Halfway there. The lenders have stopped calling twice a day.",
-        late: "Clock's nearly out. Fly something cheap and sure."
+        late: "Clock's nearly out. Fly something cheap and sure.",
+        loaned: "Cash in hand. The lenders will remember this.",
+        credit: "Credit is thin. One more loan could cost everything.",
+        name: "Debt's clear. Now fly well and make them say our name."
       },
       // The debrief's last line: what the client says about the data (paid in full, in part, or not at all).
       contract: {
@@ -338,11 +341,13 @@
         part: "Not everything we asked for. We paid for what arrived.",
         nothing: "Nothing new in that data. We can't pay for it."
       },
-      // The ending: won, or lost by time or by cash.
+      // The ending: won, or lost by time, by cash, by the lenders seizing everything or by never making a name.
       ending: {
         won: [{ who: "partner", text: "Debt paid. The workshop is yours." }, { who: "notebook", text: "Well done. Now build the next one." }],
         deadline: [{ who: "partner", text: "The deadline passed. The lenders took the keys." }, { who: "notebook", text: "Failure is a lesson. Try again." }],
-        cash: [{ who: "partner", text: "Nothing left to launch with. The lenders took the keys." }, { who: "notebook", text: "Build cheaper. Try again." }]
+        cash: [{ who: "partner", text: "Nothing left to launch with. The lenders took the keys." }, { who: "notebook", text: "Build cheaper. Try again." }],
+        seized: [{ who: "partner", text: "Credit gone. The lenders took everything." }, { who: "notebook", text: "Borrow less. Earn their trust first." }],
+        name: [{ who: "partner", text: "Debt paid. But nobody knows our name." }, { who: "notebook", text: "A name is earned one good flight at a time." }]
       },
       map: {
         start: ["Nothing costs money until launch. Try ideas freely."],

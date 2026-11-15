@@ -26,14 +26,15 @@
   --mono: "Digits", "VT323", "Courier New", monospace;
 }
 
-/* Digits only (U+0030-0039) come from a plain system monospace font, so a 5 never reads as an S
-   in the pixel headings. Letters keep the pixel fonts; if none of these fonts is installed the
-   digits fall back to the pixel font as before. Uses installed fonts, so nothing is downloaded. */
+/* Digits only (U+0030-0039) are drawn in VT323, a pixel terminal font with clear digits, so a 5 never
+   reads as an S in the pixel headings and the numbers still look like the rest of the game. The file is
+   kept in css/fonts/ (SIL Open Font License) so it works offline. Letters keep Pixelify Sans and VT323. */
 @font-face {
   font-family: "Digits";
-  src: local("Consolas"), local("Menlo"), local("DejaVu Sans Mono"), local("Liberation Mono"), local("Courier New"), local("Courier");
+  src: url("fonts/VT323-Regular.woff2") format("woff2"), local("VT323");
   unicode-range: U+0030-0039;
-  font-weight: 400 700;
+  font-weight: 400;          /* headings ask for bold: the browser thickens it, as VT323 is thin */
+  size-adjust: 128%;         /* VT323 digits are small beside Pixelify Sans letters: scale them to match */
 }
 
 * { box-sizing: border-box; }
@@ -919,6 +920,12 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-stat-value.cash { color: var(--info-ink); }
 .cb-stat.warn { border-color: var(--accent); }
 .cb-stat.warn .cb-stat-value, .cb-stat.warn .cb-note { color: var(--accent-ink); }
+.cb-stakes-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.cb-bar { position: relative; height: 18px; background: var(--bg); border: 3px solid var(--border); border-radius: 8px; overflow: hidden; }
+.cb-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--info); transition: width 0.8s ease-out; }
+.cb-credit .cb-bar-fill { background: var(--accent); }
+.cb-credit.warn .cb-bar-fill { background: var(--bad); }
+.cb-bar-line { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--text); }
 .cb-note { font-size: 20px; color: var(--text-dim); }
 .cb-note.bad { color: var(--bad); }
 .cb-note.good { color: var(--info-ink); }
@@ -977,7 +984,7 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-scene { display: block; width: 100%; height: auto; aspect-ratio: 16 / 7; border-radius: 10px; }
 .cb-epilogue { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
-  .cb-meter-debt, .cb-meter-cash { transition: none; }
+  .cb-meter-debt, .cb-meter-cash, .cb-bar-fill { transition: none; }
   .cb-stamp { animation: none; }
 }
 

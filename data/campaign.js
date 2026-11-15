@@ -27,9 +27,9 @@ const CAMPAIGN = {
     // Loans, credit and a name (SPEC.md, "Loans, credit and a name"). All GAME VALUES.
     credit: {
       start: 100,                 // credit runs 0 to 100
-      seize: 20,                  // at or below this the lenders take everything and the comeback is lost
-      per_loan: 8,                // credit lost for each loan
-      per_late_month: 0.5,        // credit lost for each month that passes with the debt above the cash
+      seize: 30,                  // at or below this the lenders take everything and the comeback is lost
+      per_loan: 12,               // credit lost for each loan
+      per_late_month: 0.8,        // credit lost for each month that passes with the debt above the cash
       per_lost_satellite: 10,     // credit lost when a satellite is lost before its mission ends
       per_star: 2,                // credit gained for each star a flight earns
       per_payment: 1,             // credit gained for a payment of at least min_payment_musd

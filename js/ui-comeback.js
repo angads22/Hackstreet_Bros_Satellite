@@ -148,6 +148,7 @@
     hub.note = r && r.ok ? "Paid " + money(r.paid_musd) + ". Debt now " + money(r.debt_musd) + "." : (r && r.reason) || "That payment did not go through.";
     hub.bad = !(r && r.ok);
     hub.fresh = true;   // the message is shown on the next draw only
+    hub.where = "pay";
     var y = window.scrollY;
     showComebackHub();
     window.scrollTo(0, y);   // stay at PAY BACK: the message is next to the buttons
@@ -165,7 +166,84 @@
       el("h2", { text: "PAY BACK" }),
       buttons.length ? el("div", { class: "cb-pay-row" }, buttons)
         : el("p", { class: "cb-note", text: "Keep the cash for the next launch." }),
-      hub.note ? el("p", { class: "cb-note" + (hub.bad ? " bad" : " good"), id: "pay-note", tabindex: "-1", role: hub.bad ? "alert" : "status", text: hub.note }) : null
+      hub.note && hub.where !== "borrow" ? el("p", { class: "cb-note" + (hub.bad ? " bad" : " good"), id: "pay-note", tabindex: "-1", role: hub.bad ? "alert" : "status", text: hub.note }) : null
+    ]);
+  }
+
+  // ---- loans, credit and a name (SPEC.md, "Loans, credit and a name"). Every number comes from getComeback / borrow.
+  var BORROW_SHARES = [0.25, 0.5, 1];   // BORROW buttons: these shares of the most the lenders will lend now, rounded down
+
+  function borrowAmounts(c) {
+    var max = c.max_borrow_musd || 0, out = [], step = max >= 4 ? 1 : 0.1;
+    BORROW_SHARES.forEach(function (sh) {
+      var v = Math.floor(max * sh / step + 1e-9) * step;
+      v = Math.round(v * 10) / 10;
+      if (v > 0 && out.indexOf(v) === -1) out.push(v);
+    });
+    return out;
+  }
+
+  function takeLoan(amount) {
+    var r = typeof borrow === "function" ? borrow(amount) : { ok: false, reason: "Borrowing is not available." };
+    hub.note = r && r.ok ? "Borrowed " + money(r.borrowed_musd) + " (fee " + money(r.fee_musd) + " added to the debt). Debt now " + money(r.debt_musd) +
+      ". Credit now " + num(r.credit, 0) + "." : (r && r.reason) || "That loan did not go through.";
+    hub.bad = !(r && r.ok);
+    hub.fresh = true;
+    hub.where = "borrow";
+    var c = info();
+    if (c && c.finished) { showComebackEnding(); return; }
+    var y = window.scrollY;
+    showComebackHub();
+    window.scrollTo(0, y);
+    var msg = document.getElementById("borrow-note");
+    if (msg) msg.focus();
+  }
+
+  // A plain bar from 0 to 100 (or to `top`), with an optional line (the seize line) and a label for screen readers.
+  function bar(value, top, line, label, cls) {
+    var share = function (v) { return Math.max(0, Math.min(1, v / (top || 1))) * 100 + "%"; };
+    return el("div", { class: "cb-bar " + (cls || ""), role: "img", "aria-label": label }, [
+      el("div", { class: "cb-bar-fill", style: "width: " + share(value) }),
+      line != null ? el("div", { class: "cb-bar-line", style: "left: " + share(line) }) : null
+    ]);
+  }
+
+  function creditStat(c) {
+    if (typeof c.credit !== "number") return null;
+    var danger = c.credit <= (c.seize_credit || 0) + 2 * (c.credit_per_loan || 8);
+    return el("div", { class: "cb-stat cb-credit" + (danger ? " warn" : ""), "data-key": "stat-credit" }, [
+      el("span", { class: "cb-stat-label", text: "CREDIT" }),
+      el("strong", { class: "cb-stat-value", id: "cb-credit", text: num(c.credit, 0) + " / 100" }),
+      bar(c.credit, 100, c.seize_credit, "Credit " + num(c.credit, 0) + " of 100; the lenders take everything at " + num(c.seize_credit, 0), "credit"),
+      el("span", { class: "cb-note", role: danger ? "alert" : null,
+        text: danger ? "THE LENDERS TAKE EVERYTHING AT " + num(c.seize_credit, 0) : "BELOW " + num(c.seize_credit, 0) + " THEY TAKE EVERYTHING" })
+    ]);
+  }
+
+  function nameStat(c) {
+    if (typeof c.reputation !== "number" || !(c.reputation_goal > 0)) return null;
+    return el("div", { class: "cb-stat cb-name", "data-key": "stat-name" }, [
+      el("span", { class: "cb-stat-label", text: "YOUR NAME" }),
+      el("strong", { class: "cb-stat-value cash", id: "cb-name", text: num(c.reputation, 0) + " / " + num(c.reputation_goal, 0) }),
+      bar(c.reputation, c.reputation_goal, null, "Reputation " + num(c.reputation, 0) + " of " + num(c.reputation_goal, 0) + " needed to win", "name"),
+      el("span", { class: "cb-note", text: c.debt_musd <= 0 && c.reputation < c.reputation_goal ? "DEBT PAID. NOW MAKE A NAME: FLY WELL." : "STARS MAKE A NAME. PAY THE DEBT AND REACH IT TO WIN" })
+    ]);
+  }
+
+  function borrowPanel(c) {
+    if (typeof c.max_borrow_musd !== "number") return null;
+    var amounts = borrowAmounts(c);
+    var buttons = amounts.map(function (v) {
+      return UI.button(money(v), function () { takeLoan(v); }, { key: "borrow-" + v, aria: "Borrow " + money(v) });
+    });
+    var fee = Math.round((c.loan_fee || 0) * 100);
+    return el("div", { class: "panel cb-pay cb-borrow", "data-key": "borrow-panel" }, [
+      el("h2", { text: "BORROW" }),
+      el("p", { class: "cb-note", text: amounts.length
+        ? "Up to " + money(c.max_borrow_musd) + " now. A " + fee + "% fee goes on the debt, credit drops by " + num(c.credit_per_loan, 0) + " a loan, and low credit makes interest dearer."
+        : "The lenders will lend no more." }),
+      buttons.length ? el("div", { class: "cb-pay-row" }, buttons) : null,
+      hub.note && hub.where === "borrow" ? el("p", { class: "cb-note" + (hub.bad ? " bad" : " good"), id: "borrow-note", tabindex: "-1", role: hub.bad ? "alert" : "status", text: hub.note }) : null
     ]);
   }
 
@@ -187,6 +265,7 @@
     if (c.finished) { showComebackEnding(); return; }
     UI.leaveMission();
     UI.setStatus(title());
+    var borrowedNow = hub.fresh && hub.where === "borrow" && !hub.bad;   // the line after a loan
     if (!hub.fresh) { hub.note = ""; hub.debtFrom = null; }
     hub.fresh = false;
     var late = c.months_left <= c.deadline_month * QUARTER;
@@ -215,7 +294,10 @@
       ])
     ]);
 
-    var situation = !c.flights ? line("hub", "start") : c.debt_musd < c.start_debt_musd / 2 ? line("hub", "halfway")
+    var lowCredit = typeof c.credit === "number" && c.credit <= (c.seize_credit || 0) + 2 * (c.credit_per_loan || 8);
+    var needName = typeof c.reputation === "number" && c.debt_musd <= 0 && c.reputation < c.reputation_goal;
+    var situation = lowCredit ? line("hub", "credit") : needName ? line("hub", "name") : borrowedNow ? line("hub", "loaned")
+      : !c.flights ? line("hub", "start") : c.debt_musd < c.start_debt_musd / 2 ? line("hub", "halfway")
       : last && last.payout_musd > 0 ? line("hub", "paid") : null;
     var jobs = UI.list(c.contracts).map(function (k) {
       return contractCard(k, { onFly: function () {
@@ -228,6 +310,7 @@
     UI.mount("comeback", el("section", { class: "screen cb" }, [
       el("div", { class: "screen-head" }, [el("span", { class: "kicker", text: "PART 2 · " + levelName(c.tier) }), el("h1", { text: "THE WORKSHOP" })]),
       stakes,
+      c.credit !== undefined ? el("div", { class: "cb-stakes cb-stakes-2" }, [creditStat(c), nameStat(c)]) : null,
       say(line("why", c.flights)),
       el("div", { class: "panel cb-board" }, [
         el("h2", { text: "CONTRACTS" }),
@@ -235,6 +318,7 @@
         jobs.length ? el("div", { class: "cb-jobs" }, jobs) : el("p", { class: "cb-note", text: "No contracts are open." })
       ]),
       payPanel(c),
+      borrowPanel(c),
       flightLog(c),
       el("div", { class: "nav-row" }, [
         UI.button(["< ", "HOME"], function () { UI.home(); }, { key: "hub-home" }),
@@ -252,7 +336,7 @@
     var c = info();
     UI.leaveMission();
     UI.setStatus(title());
-    var kind = e.won ? "won" : (e.lost_reason === "cash" || e.lost_reason === "seized") ? "cash" : "deadline";   // the story has a beat set per kind; the headline and epilogue say the rest
+    var kind = e.won ? "won" : (e.lost_reason === "cash" || e.lost_reason === "seized" || e.lost_reason === "name") ? e.lost_reason : "deadline";
     var t = e.totals || {};
     var scene = e.won && UI.lpCanvas ? UI.lpCanvas(function (L) {
       return typeof L.scenes.title === "function" ? L.scenes.title({}) : null;
