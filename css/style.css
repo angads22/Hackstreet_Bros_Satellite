@@ -1056,13 +1056,13 @@ html[data-era="1958"], body[data-era="1958"] {
   --lp-graphite: #4a453d; --lp-black: #1f1b16;    --lp-gold: #bf9a4c;     --lp-copper: #a9704a;
   --lp-cell: #3a4a52;     --lp-cellEdge: #6a7f80; --lp-red: #a8503a;      --lp-orange: #c27a3e;
   --lp-yellow: #cba84a;   --lp-teal: #4f857c;     --lp-green: #6f8650;    --lp-glow: #f0cb8a;
-  --lp-glowCool: #c9dccf; --lp-sea: #3f6a73;      --lp-land: #7d8355;     --lp-sand: #c2a874;
+  --lp-glowCool: #c9dccf; --lp-sea: #3f6a73;      --lp-land: #7a7f5f;     --lp-sand: #b9a784;
   --lp-ice: #e0dfd2;      --lp-cloud: #ece6d6;    --lp-sky: #a8b5ad;
   --lp-skin1: #dfb694;    --lp-skin2: #b98a60;    --lp-skin3: #7e5638;
   --lp-hair1: #2d241b;    --lp-hair2: #7b5535;    --lp-hair3: #b8a47e;
   --lp-shirt1: #66808a;   --lp-shirt2: #77865f;   --lp-shirt3: #9d8664;   --lp-tie: #8a4130;
-  --lp-ground: #6f6a58;   --lp-concrete: #9d9886; --lp-grass: #66784a;    --lp-metalDark: #5a574f;
-  --lp-light-key: #dcb88a;     --lp-light-ambient: #75684f;
+  --lp-ground: #6f6a58;   --lp-concrete: #9d9886; --lp-grass: #647352;    --lp-metalDark: #5a574f;
+  --lp-light-key: #d2c3a4;     --lp-light-ambient: #6b6455;
 }
 
 body[data-era="1958"] {
