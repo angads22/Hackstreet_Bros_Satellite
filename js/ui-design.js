@@ -1906,6 +1906,13 @@
 
   // ---------------------------------------------------------------- shell: header, objective line, minimap, hints
   function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
+  // How much the screens help before a problem happens (SPEC.md, "Difficulty: how much help"), from the level's
+  // existing `hints` value: "on" is full help, "request" some, "off" minimal. Facts (blockers, part numbers, what
+  // limited the flight) show on every level; what goes away is the game working out the answer for the player.
+  function assist(design) {
+    var t = byId(data("TIERS"), (design || state.design || {}).tier);
+    return t && t.hints === "off" ? "minimal" : t && t.hints === "request" ? "some" : "full";
+  }
   // What the header calls this mission: "PART 1 · STEP 2" for a walkthrough step, else the tier's name.
   function modeName() {
     if (isComebackDesign(state.design)) return "PART 2 · " + comebackLevel(state.design.tier);
@@ -2303,9 +2310,11 @@
     var t = getTotals(d), rocket = d.launcher ? null : cheapestRocketFor(d, t.mass_kg);
     var cost = Math.round((p.cost_musd + (rocket ? rocket.cost_musd : 0)) * 1000) / 1000;
     var net = Math.round((p.expected_payout_musd - cost) * 1000) / 1000;
-    var bits = ["Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
+    var terms = assist(d) === "minimal";   // Hard: the contract's terms, not a forecast of what this design will earn
+    var bits = [terms ? "Pays up to " + money(k.price_musd) + " for " + num(k.min_science, 0) + " points"
+        : "Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
       "costs " + money(cost) + (rocket ? " with the cheapest rocket" : d.launcher ? "" : " + a rocket"),
-      (d.launcher || rocket) ? "net " + (net < 0 ? "-" : "") + money(Math.abs(net)) : null,
+      !terms && (d.launcher || rocket) ? "net " + (net < 0 ? "-" : "") + money(Math.abs(net)) : null,
       "3 stars +" + money(k.bonus_musd)];
     return el("p", { class: "nasa-line payout-line", "data-key": "contract-pay" }, bits.filter(Boolean).join(" · "));
   }
@@ -2790,8 +2799,10 @@
     var ch = checkChanges(state.design, state.hover);
     box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
-    ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
-    ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    if (assist() === "full") {   // above Easy the player works out what a part fixes or breaks
+      ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
+      ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    }
     // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
     var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
     if (story) box.insertBefore(story, box.children[2] || null);
@@ -3004,7 +3015,7 @@
     var rocket = byId(data("LAUNCHERS"), d.launcher);
     // The science this design should bring home if nothing goes wrong, against the job's target (previewScience),
     // shown before the one click that cannot be undone. Short of the target: amber, and the button says ANYWAY.
-    var sci = d.objective && d.orbit && typeof previewScience === "function" ? previewScience(d) : null;
+    var sci = assist(d) !== "minimal" && d.objective && d.orbit && typeof previewScience === "function" ? previewScience(d) : null;
     var short = !!sci && sci.target > 0 && sci.share < 1;
     var forecast = sci && sci.target > 0 ? bar("SCIENCE FORECAST", num(sci.total, 0) + " / " + num(sci.target, 0) + " PTS", sci.share,
       short ? " warn" : "", short ? "Short of the target" : null, "science") : null;
@@ -3020,7 +3031,7 @@
       // The one thing to do first: with nothing blocking, LAUNCH comes before the warnings (it was below the fold on a
       // laptop); while something blocks, the NO GO lines and their FIX buttons come first.
       blocked ? null : launchBtn,
-      checkList(d, { fix: true }),
+      checkList(d, { fix: assist(d) === "full" }),
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
         ["Orbit", orbit ? orbit.name : "not chosen"],
@@ -3694,6 +3705,7 @@
     leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; markEra("hub"); },
     // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
     era: function (name) { markEra("era", name); },
+    assist: assist,
     mount: function (screen, node) {
       state.screen = screen;
       markHome(screen);

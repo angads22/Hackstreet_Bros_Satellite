@@ -198,7 +198,12 @@
   // A part that protects against the event cancels everything the risky choice would do, its upside too (chooseEvent).
   function costBits(c, withRisk) {
     var e = c.effect || {}, bits = [];
-    if (withRisk && c.fail_chance_now > 0 && e.fails) bits.push(Math.round(c.fail_chance_now * 100) + "% chance of losing " + (FAIL_NAMES[e.fails] || e.fails));
+    if (withRisk && c.fail_chance_now > 0 && e.fails) {
+      // Hard shows a band, not the number: the player judges the risk.
+      var pct = c.fail_chance_now, hard = UI.assist && run && UI.assist(run.design) === "minimal";
+      bits.push((hard ? (pct < 0.15 ? "a small chance" : pct < 0.35 ? "a real chance" : "a likely chance") : Math.round(pct * 100) + "% chance") +
+        " of losing " + (FAIL_NAMES[e.fails] || e.fails));
+    }
     if (e.lose_months) bits.push("lose " + num(e.lose_months, 0) + " month" + (e.lose_months === 1 ? "" : "s"));
     if (e.science_mult) bits.push("science \u00d7" + e.science_mult + " from now on");
     if (e.cost_musd && !/\$/.test(c.label || "")) bits.push("costs " + UI.money(e.cost_musd));
