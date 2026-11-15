@@ -359,6 +359,7 @@
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
       teamLine(done.design, d),
       win ? winMoment(d) : null,
+      comeback ? profitBand(done) : null,
       el("div", { class: "ledger" }, [paper, side]),
       comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null
     ]));
@@ -558,6 +559,16 @@
       C && landed ? C.meter({ debt: result.debt_musd, cash: result.cash_musd, start: landed.start_debt_musd },
         { debt: landed.debt_musd, cash: landed.cash_musd }, "Debt " + UI.money(result.debt_musd) + ", cash " + UI.money(result.cash_musd)) : null,
       el("p", { class: "cb-months", "data-key": "months-left" }, [el("strong", { text: num(result.months_left, 0) }), " MONTHS LEFT"])
+    ]);
+  }
+  // Part 2: PROFIT above the report, where the eye lands first: what the flight paid (with the 3-star bonus) minus what it
+  // cost (rocket, parts and events). Both numbers are flightProfit()'s. Part 1 has no money, so it has no PROFIT.
+  function profitBand(done) {
+    var fp = typeof flightProfit === "function" ? flightProfit(done.mission) : null;
+    if (!fp) return null;
+    return el("div", { class: "profit-band", "data-key": "debrief-profit" }, [
+      UI.profitLine(fp.profit_musd, "debrief-profit-line"),
+      el("p", { class: "nasa-line", text: "Paid " + UI.money(fp.paid_musd) + " · cost " + UI.money(fp.cost_musd) })
     ]);
   }
   function comebackButtons(result) {

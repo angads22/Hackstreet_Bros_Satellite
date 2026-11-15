@@ -367,6 +367,22 @@ button:disabled { cursor: not-allowed; }
 .part-stats { font-size: 19px; color: var(--text-dim); }
 .part-note { font-size: 19px; color: var(--bad); }
 .part.dim .part-name { color: var(--text-dim); }
+/* A body leads with what it CARRIES; its own weight is the smaller line under it. */
+.part-carry { display: block; font-family: var(--font-head); font-size: 21px; line-height: 1.1; color: var(--text); }
+.part-stats.small { font-size: 17px; }
+/* WHY: an instrument that adds nothing to the job (partWhy): a flat box in the warning colour, what the job wants against what the part is. */
+.part-why { margin: 0; padding: 4px 8px; border: 2px solid var(--accent-ink); color: var(--accent-ink); font-size: 19px; line-height: 1.15; }
+.part-why-chip { display: inline-block; padding: 0 6px; background: var(--accent); color: var(--on-accent); font-family: var(--font-head); font-size: 16px; letter-spacing: 1px; }
+/* PROFIT (Part 2): one line, the good colour when it is above zero and the bad one when it is below. */
+.payout { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.profit { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 4px 12px; border: 2px solid var(--line); background: var(--surface); font-family: var(--font-head); }
+.profit-label { font-size: 22px; letter-spacing: 1px; color: var(--text-dim); }
+.profit-amount { font-size: 34px; line-height: 1.1; }
+.profit.pos { border-color: var(--info-ink); } .profit.pos .profit-amount { color: var(--info-ink); }
+.profit.neg { border-color: var(--bad); } .profit.neg .profit-amount { color: var(--bad); }
+.profit-band { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; }
+.profit-band .profit { padding: 8px 16px; }
+.profit-band .profit-amount { font-size: clamp(34px, 6vw, 48px); }
 
 /* ---------------------------------------------------------------- resource bars */
 .bars { display: flex; flex-direction: column; gap: 10px; }
@@ -676,6 +692,7 @@ kbd { padding: 0 6px; background: var(--surface-2); border: 1px solid var(--line
   .workshop > .bench-col { display: contents; }
   .workshop > .bins { order: -2; }
   .workshop .part-picker { order: -1; }
+  .workshop > .bench-col > .payout { order: -3; }   /* Part 2: the PROFIT line leads, above the bins */
   .preview { height: clamp(120px, 30vh, 190px); }
 }
 
@@ -1249,12 +1266,14 @@ body[data-era="1958"] .say-text p { line-height: 1.1; }
 .explainer.ex-compact figcaption { flex: 1 1 0; min-width: 0; }
 .explainer.ex-compact .ex-hook { font-size: 18px; }
 .explainer.ex-compact .ex-does, .explainer.ex-compact .ex-trade { font-size: 17px; margin-top: 2px; }
+.explainer.ex-compact .ex-does { margin-top: 0; font-size: 19px; color: var(--text); }
 @media (max-width: 760px) {
   /* a phone: the picture shrinks beside the words, so the hook and what the part does show without scrolling the preview */
   .explainer.ex-compact { gap: 8px; }
   .explainer.ex-compact .ex-svg { flex: 0 0 108px; width: 108px; border-width: 2px; }
   .explainer.ex-compact .ex-hook { font-size: 17px; }
   .explainer.ex-compact .ex-does, .explainer.ex-compact .ex-trade { font-size: 16px; }
+  .explainer.ex-compact .ex-does { font-size: 18px; }
 }
 /* colours: fills (ex-f-) and strokes (ex-s-) */
 .ex-f-metal { fill: var(--pal-metal, #c4b396); } .ex-s-metal { stroke: var(--pal-metal, #c4b396); }

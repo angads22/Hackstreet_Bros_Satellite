@@ -2291,23 +2291,32 @@
     });
     return best;
   }
-  // Build and Rocket Yard: "Pays $X · costs $Y with the cheapest rocket · net $Z · 3 stars +$B". Before a rocket is
+  // PROFIT, one line: "PROFIT +$6.8M" in the good colour, "PROFIT -$1.2M" in the bad one. The number is the back end's
+  // (previewProfit before the flight, flightProfit after it). Null when there is no number yet.
+  function profitLine(v, key) {
+    if (!isNum(v)) return null;
+    var text = (v < 0 ? "-" : "+") + money(Math.abs(v));
+    return el("p", { class: "profit " + (v > 0 ? "pos" : v < 0 ? "neg" : "zero"), "data-key": key || "profit-line", "data-musd": String(v) }, [
+      el("span", { class: "profit-label", text: "PROFIT" }), " ", el("strong", { class: "profit-amount", text: text })]);
+  }
+  // Build and Rocket Yard: "PROFIT +$6.8M", then "Pays $X · costs $Y with the cheapest rocket · 3 stars +$B". Before a rocket is
   // chosen, the cost counts the cheapest rocket that lifts it, so the line never shows a profit the launch would eat.
+  // Every number is previewProfit()'s (pay, cost, profit) or the contract's own price and bonus.
   function comebackPayLine(d) {
     var p = typeof previewPayout === "function" ? previewPayout(d) : null;
     var k = p && p.contract;
     if (!p || !k) return null;
+    var f = typeof previewProfit === "function" ? previewProfit(d) : null;
     if (p.topic_complete && !(p.new_data > 0)) {
-      return el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." });
+      return el("div", { class: "payout", "data-key": "contract-pay" }, [profitLine(f && f.profit_musd),
+        el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." })]);
     }
-    var t = getTotals(d), rocket = d.launcher ? null : cheapestRocketFor(d, t.mass_kg);
-    var cost = Math.round((p.cost_musd + (rocket ? rocket.cost_musd : 0)) * 1000) / 1000;
-    var net = Math.round((p.expected_payout_musd - cost) * 1000) / 1000;
+    var cost = f && isNum(f.cost_musd) ? f.cost_musd : null, estimate = !!(f && f.launch_estimated);
     var bits = ["Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
-      "costs " + money(cost) + (rocket ? " with the cheapest rocket" : d.launcher ? "" : " + a rocket"),
-      (d.launcher || rocket) ? "net " + (net < 0 ? "-" : "") + money(Math.abs(net)) : null,
+      cost !== null ? "costs " + money(cost) + (estimate ? " with the cheapest rocket" : "") : "costs " + money(p.cost_musd) + " + a rocket",
       "3 stars +" + money(k.bonus_musd)];
-    return el("p", { class: "nasa-line payout-line", "data-key": "contract-pay" }, bits.filter(Boolean).join(" · "));
+    return el("div", { class: "payout", "data-key": "contract-pay" }, [profitLine(f && f.profit_musd),
+      el("p", { class: "nasa-line payout-line" }, bits.join(" · "))]);
   }
   // Briefing: the contract card (js/ui-comeback.js) and the topic it sets. The topic cannot change here.
   function comebackBriefing(d) {
@@ -2676,6 +2685,15 @@
   }
 
   // ---------------------------------------------------------------- 3 Build
+  // WHY: a small flat box for an instrument that adds nothing to the job: what the job wants against what the part is.
+  // The words are partWhy()'s (js/mission.js, from the objective's wants and the part's tags); null when the part counts.
+  function whyBox(design, partId, withName) {
+    var w = typeof partWhy === "function" ? partWhy(design, partId) : null;
+    if (!w) return null;
+    var p = byId(data("PARTS"), partId);
+    return el("p", { class: "part-why", "data-key": "why-" + partId, role: "note" }, [
+      el("span", { class: "part-why-chip", text: "WHY?" }), " ", withName && p ? el("strong", { text: p.name + ": " }) : null, w.text]);
+  }
   function partStats(p) {
     var bits = [];
     function stat(kind, text) {
@@ -2683,7 +2701,8 @@
       if (bits.length) bits.push(" ");
       bits.push(el("span", { class: "part-stat" }, [separator, icon(kind), text]));
     }
-    if (p.mass_kg) stat("mass", num(p.mass_kg) + " kg");
+    // A body leads with what it CARRIES (partCard); its own mass is what it WEIGHS.
+    if (p.mass_kg) stat("mass", (p.category === "structure" && p.payload_kg ? "WEIGHS " + num(p.mass_kg) + " KG" : num(p.mass_kg) + " kg"));
     if (p.power_draw_w) stat("power", fine(p.power_draw_w) + " W draw");
     if (p.data_gb_day) stat("data", dataText(p.data_gb_day) + "/d made");
     if (p.downlink_gb_day) stat("comms", dataText(p.downlink_gb_day) + "/d sent");
@@ -2729,7 +2748,8 @@
       onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
-      el("span", { class: "part-stats" }, partStats(p)),
+      p.category === "structure" && p.payload_kg ? el("span", { class: "part-carry", "data-key": "carries-" + p.id }, [icon("mass"), "CARRIES " + num(p.payload_kg, 0) + " KG"]) : null,
+      el("span", { class: "part-stats" + (p.category === "structure" && p.payload_kg ? " small" : "") }, partStats(p)),
       extra.length ? el("span", { class: "part-stats" }, extra.reduce(function (bits, text, i) {
         if (i) bits.push(" ");
         bits.push(el("span", { class: "part-stat", text: (i ? "· " : "") + text }));
@@ -2789,12 +2809,14 @@
     if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
     var ch = checkChanges(state.design, state.hover);
     box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
+    var why = whyBox(state.design, state.hover);   // the part adds nothing to the job: say why, first
+    if (why) box.appendChild(why);
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
     ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
     ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
     // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
     var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
-    if (story) box.insertBefore(story, box.children[2] || null);
+    if (story) box.insertBefore(story, box.children[why ? 3 : 2] || null);   // under the heading and the WHY box
     else if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
@@ -2838,7 +2860,7 @@
       el("h2", { text: "SCIENCE PREVIEW" }),
       el("p", { class: "science-total", text: num(s.total, 0) + " / " + num(s.target, 0) + " pts" }),
       rows.length ? el("dl", { class: "facts" }, rows) : null
-    ]);
+    ].concat(list(s.instruments).map(function (i) { return whyBox(design, i.id, true); })));
   }
 
   // The satellite's body: what it can carry (payload) against what is fitted. All numbers from getTotals().body.
@@ -2847,7 +2869,7 @@
     var over = body.payload_used_kg > body.payload_kg;
     return el("div", { class: "body-card" }, [
       el("h2", { class: "divided", text: "BODY: " + String(body.name || "").toUpperCase() }),
-      bar("PAYLOAD", num(body.payload_used_kg) + " / " + num(body.payload_kg, 0) + " KG",
+      bar("CARRIES", num(body.payload_used_kg) + " / " + num(body.payload_kg, 0) + " KG",
           body.payload_kg > 0 ? body.payload_used_kg / body.payload_kg : 0, over ? " bad" : "")
     ]);
   }
@@ -3678,7 +3700,7 @@
 
   window.showDesignScreen = showDesignScreen;
   window.StarlineUI = {
-    el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, starsText: starsText,
+    el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, profitLine: profitLine, starsText: starsText,
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
