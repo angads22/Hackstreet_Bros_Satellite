@@ -2365,9 +2365,11 @@
         el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
         el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)])
       ]),
-      el("div", { class: "title-foot" }, [button("RESET PROGRESS", function () {
-        if (!window.confirm("Forget every star you have earned?")) return;
+      el("div", { class: "title-foot" }, [button("RESET EVERYTHING", function () {
+        if (!window.confirm("Erase everything? Your stars, your Part 1 steps and any comeback in progress will be gone.")) return;
+        // Everything the game saves: the stars, the Part 1 record and the comeback (a saved campaign).
         if (typeof resetProgress === "function") resetProgress();
+        if (typeof resetCampaign === "function") resetCampaign();
         walkForget();
         draw("title");
       }, { quiet: true, key: "reset-progress" })])
