@@ -320,6 +320,7 @@
       ]),
       buttons: [
         UI.button(["PLAY AGAIN", " >"], function () { if (C) C.showPicker(); }, { primary: true, key: "end-again", aria: "Play again: choose a difficulty" }),
+        window.StarlineOnline ? window.StarlineOnline.submitButton() : null,   // ONLINE (js/ui-online.js): SUBMIT SCORE, only when online is on
         UI.button(["< ", "HOME"], function () { UI.home(); }, { key: "end-home" })
       ]
     });

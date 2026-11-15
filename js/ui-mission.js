@@ -355,6 +355,7 @@
       events.length ? el("ul", { class: "log" }, events) : null,
       walk ? walkButtons(walk, done.design, d)
       : comeback ? comebackButtons(result)
+      : done.design.duel && UI.duelButtons ? UI.duelButtons(done, d)   // ONLINE-DUEL (js/ui-online.js): SEND RESULT and who won
       : done.design.campaign
         ? el("div", { class: "choices" }, [
             UI.button([result && result.campaign_over ? "THE STORY OF YOUR PROGRAMME" : "BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
