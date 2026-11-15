@@ -1,1 +1,39 @@
-/* v1.2 flight: owned by builder D. Loaded after style.css and story.css. */
+/* v1.2 flight: owned by builder D. Loaded after style.css and story.css. The Mission screen's pace line and the debrief's
+   verdict strip. Flat, rounded, no gradients. New keyframes only inside prefers-reduced-motion: no-preference. */
+
+/* ---- Debrief: the answer first. One line: the stamp, the money change, the debt, the months left. */
+.vstrip-result { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px; border: 2px solid var(--line); border-radius: 10px;
+  background: var(--surface); min-width: 0; }
+.vstrip-result.pass, .vstrip-result.paid, .vstrip-result.part { border-color: var(--info); }
+.vstrip-result.fail, .vstrip-result.nothing { border-color: var(--bad); }
+.vs-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; min-width: 0; }
+.vs-fig { display: flex; align-items: baseline; gap: 8px; margin: 0; font-family: var(--font-head); white-space: nowrap; }
+.vs-fig strong { font-size: clamp(30px, 5vw, 44px); line-height: 1.05; color: var(--text); }
+.vs-label { font-size: 20px; letter-spacing: 1px; color: var(--text-dim); }
+.vstrip-result .cb-months strong { color: var(--accent-ink); }
+.vstrip-result .vs-profit { margin: 0; gap: 0; }
+.vstrip-result .vs-profit .profit { padding: 0; border: 0; background: none; }
+.vstrip-result .vs-profit .nasa-line { font-size: 20px; }
+.vstrip-result .stamp { margin-left: auto; }
+.vs-client { color: var(--text-dim); font-size: 20px; }
+.vstrip-result .banner { clip-path: none; border-radius: 8px; }
+.vdebrief > .limit { margin-top: 12px; }
+.vdetails { margin: 8px 0; }
+.vdetails > summary { display: inline-block; padding: 8px 14px; border: 2px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--info-ink);
+  cursor: pointer; font-size: 22px; min-height: 40px; }
+.vdetails[open] > summary { margin-bottom: 10px; }
+.vdetails-body { min-width: 0; }
+.vdebrief .next-bar .choices { flex-direction: row; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .vs-main { gap: 6px 14px; }
+  .vstrip-result .stamp { margin-left: 0; }
+  .vs-fig { white-space: normal; }
+}
+
+/* ---- Mission: the pace line on the science bar. A tick at the contract's minimum, a faint line at the expected finish. */
+.pace-track { position: relative; overflow: visible; border-radius: 3px; }
+.pace-track .bar-fill { border-radius: 3px; }
+.pace-tick, .pace-expect { position: absolute; transform: translateX(-50%); pointer-events: none; border-radius: 2px; }
+.pace-tick { top: -7px; bottom: -7px; width: 4px; background: var(--text); }
+.pace-expect { top: -4px; bottom: -4px; width: 2px; background: var(--info-ink); opacity: 0.55; }
+.pace-note { margin-top: 8px; font-size: 20px; color: var(--text-dim); }

@@ -2355,6 +2355,8 @@
     var p = typeof previewPayout === "function" ? previewPayout(d) : null;
     var k = p && p.contract;
     if (!p || !k) return null;
+    // Build with the verdict strip (js/ui-verdict.js): the strip carries PROFIT and the pay terms, so no second line here.
+    if (state.screen === "build" && window.StarlineUI && typeof window.StarlineUI.fillVerdict === "function") return null;
     var f = typeof previewProfit === "function" ? previewProfit(d) : null;
     if (p.topic_complete && !(p.new_data > 0)) {
       return el("div", { class: "payout", "data-key": "contract-pay" }, [assist(d) === "minimal" ? null : profitLine(f && f.profit_musd),

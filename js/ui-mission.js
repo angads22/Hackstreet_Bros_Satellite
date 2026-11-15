@@ -38,6 +38,7 @@
     n.fill = el("div", { class: "bar-fill" });
     n.sciText = el("span", { text: "0 / " + num(objective ? objective.science_target : 0, 0) });
     n.real = el("p", { class: "nasa-line", "aria-live": "off" });
+    var pace = paceInfo(design, mission, objective);
     n.log = el("ol", { class: "log", "aria-live": "polite" });
     n.event = el("div", { class: "stack" });
     n.pause = UI.button("PAUSE", togglePause, { aria: "Pause the mission" });
@@ -72,8 +73,11 @@
       el("div", { class: "panel" }, [
         el("div", { class: "bar" }, [
           el("div", { class: "bar-top" }, [el("span", { text: "SCIENCE" }), n.sciText]),
-          el("div", { class: "bar-track", role: "presentation" }, [n.fill])
+          el("div", { class: "bar-track pace-track", role: "presentation" }, [n.fill,
+            pace.min !== null ? el("span", { class: "pace-tick", "data-key": "pace-min", "aria-hidden": "true", style: "left: " + paceAt(pace.min, pace.target) }) : null,
+            pace.expect !== null ? el("span", { class: "pace-expect", "data-key": "pace-expect", "aria-hidden": "true", style: "left: " + paceAt(pace.expect, pace.target) }) : null])
         ]),
+        paceNote(pace),
         n.real
       ]),
       n.event,
@@ -82,6 +86,28 @@
     status();
     log("Launch. " + (objective ? objective.name : "Mission") + " begins.", "good");
     schedule();
+  }
+
+  // The pace line on the science bar. A tick where the contract's minimum sits (its terms, copied onto the mission at launch:
+  // a fact, on every level), and a faint line where the design is expected to finish (previewScience: a forecast, so Easy and
+  // Normal only; Hard keeps the tick alone). Part 1 has no contract, so no tick. Every number is the back end's.
+  function paceInfo(design, mission, objective) {
+    var target = objective && objective.science_target > 0 ? objective.science_target : 0, out = { min: null, expect: null, target: target };
+    if (!(target > 0)) return out;
+    var k = design.comeback && mission ? mission.contract : null;
+    if (k && isFinite(k.min_science) && k.min_science > 0) out.min = k.min_science;
+    if (UI.assist && UI.assist(design) !== "minimal" && typeof previewScience === "function") {
+      var sci = previewScience(design);
+      if (sci && isFinite(sci.total)) out.expect = sci.total;
+    }
+    return out;
+  }
+  function paceAt(value, target) { return Math.round(Math.max(0, Math.min(1, value / target)) * 1000) / 10 + "%"; }
+  function paceNote(pace) {
+    var bits = [];
+    if (pace.min !== null) bits.push("Contract " + num(pace.min, 0) + " pts");
+    if (pace.expect !== null) bits.push("Expected " + num(pace.expect, 0) + " pts");
+    return bits.length ? el("p", { class: "pace-note", "data-key": "pace-note", text: bits.join(" \u00b7 ") }) : null;
   }
 
   function status() {
@@ -314,11 +340,7 @@
     });
 
     var paper = el("div", { class: "panel paper" }, [
-      el("div", { class: "ledger-head" }, [
-        el("h1", { text: "MISSION REPORT" }),
-        starStamp(d.stars)
-      ]),
-      nextStarLine(d, PARTS_OF_SCORE)
+      el("div", { class: "ledger-head" }, [el("h1", { text: "MISSION REPORT" })])
     ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
     ]));
@@ -334,26 +356,18 @@
     // A win (3 stars, a Part 1 step passed, or a Part 2 contract PAID in full): the result moment above the report
     // shows the stars landing and the real discovery, open, so the side panel does not repeat it.
     var win = d.stars >= 3 || !!(walk && walk.passed) || outcome === "paid";
-    var side = el("div", { class: "panel limit" }, [
-      d.stars === 3 ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
-      comeback ? comebackBlock(done, d, result, landed, outcome) : null,
-      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
-        text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
+    // The answer first (the verdict strip), then what limited you and TRY THIS, then the way on in the next bar.
+    // Everything else (the report, the ledgers, the real Earth, the segments, the events) folds under Details.
+    var buttons = walk ? walkButtons(walk, done.design, d) : comeback ? comebackButtons(result) : null;
+    var limit = el("div", { class: "panel limit" }, [
+      d.stars === 3 && !comeback ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
       // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them. A standalone
       // flight that opens one gets a button that starts it (unlockButtons, under the advice).
       el("h2", null, [UI.icon(limitIcon(d)) || UI.icon(d.limiting), limitingHeading(d)]),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
-      campaignBlock(done.design, d, result),
-      d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
-        el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
-      segmentRows(d),
-      win && closestMoment(d) ? (d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null) : closestLine(d),
-      events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
-      events.length ? el("ul", { class: "log" }, events) : null,
-      walk ? walkButtons(walk, done.design, d)
-      : comeback ? comebackButtons(result)
-      : done.design.campaign
+      nextStarLine(d, PARTS_OF_SCORE),   // what the next star needs: the other half of "what to do now", so it stays in view
+      buttons ? null : done.design.campaign
         ? el("div", { class: "choices" }, [
             UI.button([result && result.campaign_over ? "THE STORY OF YOUR PROGRAMME" : "BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
             // A fresh launch of the same satellite, paid for again.
@@ -364,14 +378,27 @@
           ])
         : unlocks ? el("div", { class: "stack" }, [unlocks, standaloneButtons(done, d, false)]) : standaloneButtons(done, d, true)
     ]);
+    var more = el("div", { class: "stack vdetails-body" }, [
+      comeback ? comebackLedgers(done, result, landed) : null,
+      campaignBlock(done.design, d, result),
+      d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
+        el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
+      segmentRows(d),
+      win && closestMoment(d) ? (d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null) : closestLine(d),
+      events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
+      events.length ? el("ul", { class: "log" }, events) : null
+    ]);
 
-    UI.mount("debrief", el("section", { class: "screen" }, [
+    UI.mount("debrief", el("section", { class: "screen vdebrief" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
+      verdictLine(done, d, result, outcome, walk),
+      limit,
       teamLine(done.design, d),
       win ? winMoment(d) : null,
-      comeback ? profitBand(done) : null,
-      el("div", { class: "ledger" }, [paper, side]),
-      comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null
+      el("details", { class: "more vdetails", "data-key": "debrief-details" }, [el("summary", { text: "Details" }),
+        el("div", { class: "ledger" }, [paper, more])]),
+      comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null,
+      buttons ? el("div", { class: "next-bar", "data-key": "debrief-next" }, [buttons]) : null
     ]));
     // A passed step points on, not back at "what limited you".
     if (walk && walk.passed) objectiveLine(walk.last ? "On to the epilogue." : "On to the next step.");
@@ -535,26 +562,50 @@
     }).concat([el("div", { class: "cb-row cb-total", "data-musd": String(total) }, [el("span", { text: totalLabel }),
       el("span", { class: "cb-amount", text: ledgerMoney(cents(total), false) })])]));
   }
-  function comebackBlock(done, d, result, landed, outcome) {
+  // The answer first (the debrief's verdict strip): one big line with the verdict stamp, the money change (PROFIT, from
+  // flightProfit), the debt now and the months left; then what limited you and TRY THIS. Part 1 has no money: its line is
+  // the stars and whether the step passed. Every number is from recordResult(), flightProfit() or getDebrief().
+  function verdictLine(done, d, result, outcome, walk) {
+    var comeback = !!done.design.comeback;
+    if (comeback && result && typeof result.cash_musd === "number") {
+      var k = done.mission.contract || {};
+      var stamp = outcome === "paid" ? "PAID" : outcome === "part" ? "PAID IN PART" : "NOT PAID";
+      var why = outcome !== "nothing" ? null
+        : result.nothing_new ? (d.knowledge_paragraph || "No new data: this topic is already known.")
+        : "No data came home, so there was nothing to pay for.";
+      return el("div", { class: "vstrip vstrip-result " + outcome, "data-key": "contract-result" }, [
+        el("div", { class: "vs-main" }, [
+          el("span", { class: "cb-stamp " + (outcome === "nothing" ? "fail" : "pass"), role: "status", text: stamp }),
+          profitBand(done),
+          el("span", { class: "vs-fig", "data-key": "debrief-debt" }, [el("span", { class: "vs-label", text: "DEBT" }), el("strong", { text: UI.money(result.debt_musd) })]),
+          el("span", { class: "vs-fig cb-months", "data-key": "months-left" }, [el("strong", { text: num(result.months_left, 0) }), el("span", { class: "vs-label", text: "MONTHS LEFT" })]),
+          starStamp(d.stars)
+        ]),
+        k.client ? el("p", { class: "cb-client vs-client", text: k.client }) : null,
+        why ? el("p", { class: "part-note", text: why }) : null,
+        result.comeback_over ? el("p", { class: "banner", role: "alert",
+          text: result.lost_reason === "cash" ? "OUT OF CASH: THE COMEBACK IS OVER" : "THE DEADLINE HAS PASSED: THE COMEBACK IS OVER" }) : null
+      ]);
+    }
+    return el("div", { class: "vstrip vstrip-result" + (walk ? (walk.passed ? " pass" : " fail") : ""), "data-key": "debrief-verdict" }, [
+      el("div", { class: "vs-main" }, [
+        starStamp(d.stars),
+        walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
+          text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") })
+          : el("span", { class: "vs-fig" }, [el("span", { class: "vs-label", text: "SCORE" }), el("strong", { text: num(d.score, 0) })])
+      ])
+    ]);
+  }
+  // Folded under Details: the cash, the debt and the debt meter (the story of the money, row by row).
+  function comebackLedgers(done, result, landed) {
     if (!result || typeof result.cash_musd !== "number") return null;
-    var before = done.before || null;
-    var k = done.mission.contract || {};
+    var before = done.before || null, k = done.mission.contract || {};
+    var outcome = contractOutcome(done, result);
     var launch = done.mission.launch_totals ? done.mission.launch_totals.cost_musd : 0;
     var paid = result.contract_paid_musd || 0, bonus = result.contract_bonus_musd || 0;
-    var stamp = outcome === "paid" ? "PAID" : outcome === "part" ? "PAID IN PART" : "NOT PAID";
-    var why = outcome !== "nothing" ? null
-      : result.nothing_new ? (d.knowledge_paragraph || "No new data: this topic is already known.")
-      : "No data came home, so there was nothing to pay for.";
     var C = window.StarlineComeback;
     var cashBefore = before ? before.cash_musd : null, debtBefore = before ? before.debt_musd : null;
-    return el("div", { class: "nasa-box cb-result " + outcome, "data-key": "contract-result" }, [
-      el("div", { class: "cb-result-top" }, [
-        el("span", { class: "cb-stamp " + (outcome === "nothing" ? "fail" : "pass"), role: "status", text: stamp }),
-        el("span", { class: "cb-client", text: k.client || "" })
-      ]),
-      why ? el("p", { class: "part-note", text: why }) : null,
-      result.comeback_over ? el("p", { class: "banner", role: "alert",
-        text: result.lost_reason === "cash" ? "OUT OF CASH: THE COMEBACK IS OVER" : "THE DEADLINE HAS PASSED: THE COMEBACK IS OVER" }) : null,
+    return el("div", { class: "nasa-box cb-result " + outcome, "data-key": "contract-ledgers" }, [
       typeof cashBefore === "number" ? ledger("cash-ledger", [
         ["CASH BEFORE LAUNCH", cashBefore],
         ["LAUNCH", -launch],
@@ -567,16 +618,15 @@
         ["INTEREST, " + num(result.months_used, 0) + " MONTHS", result.interest_musd]
       ], "DEBT NOW", result.debt_musd) : null,
       C && landed ? C.meter({ debt: result.debt_musd, cash: result.cash_musd, start: landed.start_debt_musd },
-        { debt: landed.debt_musd, cash: landed.cash_musd }, "Debt " + UI.money(result.debt_musd) + ", cash " + UI.money(result.cash_musd)) : null,
-      el("p", { class: "cb-months", "data-key": "months-left" }, [el("strong", { text: num(result.months_left, 0) }), " MONTHS LEFT"])
+        { debt: landed.debt_musd, cash: landed.cash_musd }, "Debt " + UI.money(result.debt_musd) + ", cash " + UI.money(result.cash_musd)) : null
     ]);
   }
-  // Part 2: PROFIT above the report, where the eye lands first: what the flight paid (with the 3-star bonus) minus what it
+  // Part 2: PROFIT in the verdict line, where the eye lands first: what the flight paid (with the 3-star bonus) minus what it
   // cost (rocket, parts and events). Both numbers are flightProfit()'s. Part 1 has no money, so it has no PROFIT.
   function profitBand(done) {
     var fp = typeof flightProfit === "function" ? flightProfit(done.mission) : null;
     if (!fp) return null;
-    return el("div", { class: "profit-band", "data-key": "debrief-profit" }, [
+    return el("div", { class: "profit-band vs-profit", "data-key": "debrief-profit" }, [
       UI.profitLine(fp.profit_musd, "debrief-profit-line"),
       el("p", { class: "nasa-line", text: "Paid " + UI.money(fp.paid_musd) + " · cost " + UI.money(fp.cost_musd) })
     ]);
