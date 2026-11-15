@@ -33,6 +33,15 @@ The Claude session building this hit (or is about to hit) its usage limit. This 
   - `handoff/lowpoly/gallery.html` shows every model.
 - **Version:** `main` is at 0.8 beta. The next cut is **0.9 beta**, done at the end (below).
 
+## Decisions the user made at 11:15 Eastern (these override anything above)
+
+- **Reset clears everything.** Done on `main` (RESET EVERYTHING also clears a comeback).
+- **Yareem said "yeah go ahead"** to the open data questions: the calibration event's 80% science and the new fields are agreed.
+- **Delete `handoff/` at the very end** (after everything has merged). Before you do, move the browser tests to `tests/browser/` (`git mv handoff/browser-tests tests/browser`, then fix any path in a script header or in `CHANGELOG.md`), and the engine's docs and gallery to `docs/lowpoly/` (`handoff/lowpoly/API.md`, `gallery.html`, `engine-tests/`). Delete the rest, including this file, in its own commit.
+- **Say SI, never AI,** in every text, doc and commit (the submission form's field is "Use of Super Intelligence (SI)").
+- **Animated text** to make the game feel alive, and **the 1950s and 60s (Part 1) should feel more rustic** (typewriter, kraft and rust, stamps), with Part 2 staying modern. In flight when this was written: an era theme (`body[data-era]`), motion (`js/motion.js`), and a layout pass for laptops (1366x768), in worktrees `modes/ux-sys`, `ux-a`, `ux-b`, `ux-theme`, `ux-motion`.
+- **Rideshare and heavy rockets** are the same real rocket (a Falcon 9); the Launch vehicle card for rideshare says SHARED RIDE. No data change.
+
 ## State at 10:45 Eastern (branch `claude/pensive-allen-ujtdag` on GitHub, commit `11f1511` or later)
 
 **Done and pushed:**
