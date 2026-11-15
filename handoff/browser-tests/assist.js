@@ -30,10 +30,10 @@ function check(o) {
     await p.waitForTimeout(700);
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
-    await p.click('[data-key="part2-go"]');
+    await T.seedRuns(p); await p.click('[data-key="part2-go"]');
     const card = (await p.locator('[data-key="level-' + level + '"]').innerText()).replace(/\n+/g, ' ');
     await p.click('[data-key="level-' + level + '"]');
-    await T.throughBeats(p);
+    await T.pastScenes(p);
     await T.waitHead(p, 'WORKSHOP');
     // Make sure a contract with a proof design is on the table (the seed decides which three open).
     await p.evaluate(() => {

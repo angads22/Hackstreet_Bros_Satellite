@@ -1,0 +1,56 @@
+/* docs/ui-measure/overlay.css: the "after" of docs/ui-review.md, as CSS only.
+   Loaded by measure.js with --overlay. It does not edit the game: the screens rebuild #app on every click, so only CSS
+   survives. It covers the density items of the review (what fits above the fold, what is in the way). The ledger strip,
+   the verdict gauges, the satellite's own warning states, audio and the walk-skip need DOM or logic changes and are NOT
+   measured here. Every rule says which problem it answers. Hand this file to a screen agent as a recipe. */
+
+/* 1. One instruction, not four. The team's speech line stays; the header's OBJECTIVE line and the big screen title go
+      (the title stays for screen readers). */
+.objective { display: none !important; }
+.screen-head h1 { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.screen-head { min-height: 0; padding: 0; margin: 0; }
+
+/* 2. A shorter header. It is sticky from 930 px wide, so every pixel of it is taken from every screen. */
+.topbar { padding-top: 6px; padding-bottom: 4px; row-gap: 4px; }
+.minimap { width: 76px; }
+
+/* 3. The speech line is one short strip, not a block (a small face, the line). */
+.say { padding-top: 4px; padding-bottom: 4px; }
+.say .portrait { width: 48px; height: 48px; }
+.say .speech, .say p { font-size: 22px; line-height: 1.1; }
+
+/* 4. The next step is always reachable: pinned to the bottom of the viewport, with the page's own background. */
+.nav-row { position: sticky; bottom: 0; z-index: 6; background: var(--bg); padding: 8px 0; margin-top: 0; }
+
+/* 5. Build: a shorter satellite, and no greyed-out cards the player cannot use. (The review's "show later parts" control
+      needs DOM.) The side columns and the preview stay pinned: measured, un-pinning them doubled the scrolling at
+      1366x768 and hid the preview while a lower card was hovered. Two fixes only: the pinned columns start under the
+      shorter header, and they do not scroll inside themselves (axe: scrollable-region-focusable). */
+.bench canvas.sat { max-height: 24vh; width: auto; max-width: 100%; }
+.part.locked { display: none; }
+.workshop { --sticky-top: 108px !important; }
+.workshop > .bins, .workshop > .stack { max-height: none !important; overflow: visible !important; }
+
+/* 5b. Phone: the four bars become a 2x2 block, the satellite is smaller, every control is at least 44 px. (A swipeable
+       strip for the seven bins was tried and left out: it needs a real layout pass and device testing, not CSS alone.) */
+@media (max-width: 760px) {
+  .bars { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+  .bench canvas.sat { max-height: 18vh; }
+  button, .btn, summary, .tab { min-height: 44px; }
+  summary { min-width: 44px; display: inline-flex; align-items: center; }
+}
+summary { min-width: 24px; padding: 0 4px; }
+
+/* 6. Debrief: the answer first. The paid/not-paid box, what limited the flight, TRY THIS and the way on come before the
+      detail; the receipt moves under them when the columns stack. */
+.ledger > .limit { display: flex; flex-direction: column; }
+.ledger > .limit > .banner { order: -6; }
+.ledger > .limit > .cb-result, .ledger > .limit > .nasa-box.cb-result { order: -5; }
+.ledger > .limit > h2, .ledger > .limit > h2 + p { order: -4; }
+.ledger > .limit > .try { order: -3; }
+.ledger > .limit > .choices { order: -2; }
+@media (max-width: 1080px) { .ledger > .paper { order: 5; } }
+
+/* 7. Contrast: the red status words (NO GO) were 4.34:1 on the panel colour; 4.5:1 is the AA minimum. */
+.status { color: #f4705b; }
+.check.bad .status, .tag.bad, .bin-sub.need { color: #f4705b; }
