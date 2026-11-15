@@ -4,6 +4,9 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- Icons use one spacing rule, part-card separators stay with their values, and the Rocket Yard has its own rocket icon. Instrument-card science says "up to" to distinguish its potential from the flight forecast.
+- Readiness says READY or HOLD instead of showing a countdown that never moves. The debrief explains the science requirement for a third star; full stars get a success banner and an expanded real-mission comparison.
+
 ## 0.9 beta (November 15, 2026)
 
 Two game modes and the whole game in low-poly 3D. Part 1 is Austin's guided 1958 walkthrough; Part 2 is Ajay's comeback, a race to pay back a debt by flying satellites for paying customers. The home page is a console-style title screen, every screen is drawn in faceted low poly, and the bugs a full playtest sweep confirmed are fixed.
