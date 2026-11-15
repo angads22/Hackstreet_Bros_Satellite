@@ -556,7 +556,7 @@ function getDebrief(mission) {
     paragraph: mission.launch_failed ? LAUNCH_FAILED_TEXT : DEBRIEF[lim.key] || "",
     launch_failed: !!mission.launch_failed,
     real_mission: objective ? objective.real_mission : "",
-    real_world: withLiveNow(realWorldSummary(mission), mission.design.objective),
+    real_world: mission.launch_failed ? null : withLiveNow(realWorldSummary(mission), mission.design.objective),   // a rocket that never flew saw nothing
     closest_mission: closestMission(design),
     limiting_name: disciplineName(lim),
     segments: segmentLines(mission, totals, k, cpay),
