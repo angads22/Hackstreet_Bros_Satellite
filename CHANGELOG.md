@@ -7,7 +7,6 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 ### Added
 
 - **More screen icons and an assembly preview.** Place headers, the map legend, minimap, part statistics and debrief use the shared flat icons. The Readiness satellite assembles part by part; reduced-motion settings show it immediately.
-
 - **Flat icons beside the words.** The parts bins, the four resource bars (mass, power, budget, data) and the problem lists now carry a simple one-colour icon; a blocker shows a cross, a warning a triangle. The words stay next to every icon.
 - **The Gravitron story.** The game is now GRAVITRON: The Gravitronical Odyssey. The first level is the tutorial, told by Austin Albert (a NASA engineer in the first satellite programme); every later level is told by his grandson Ajay, who runs a small aerospace business on loans and a conditional contract and wants to restore his grandfather's name. Each chapter opens with a few short beats, one at a time (NEXT or SKIP), then one short spoken line on each screen from your team, your partner, the customer or Austin's notebook, and a closing line that depends on the result. The map, briefing, orbit, build, launch, mission and debrief screens all use it. A new event, "Instrument calibration problem" (pause and recalibrate: one month; continue: 80% science), gets a notebook reply in Ajay's chapter. The 80% is a GAME VALUE to agree with the Simulation owner.
 - **A drawing for each part on the satellite.** The Build bench draws the satellite from what is on board (body, instruments, solar panels, antennas, thrusters, attitude control) and shows the part you just added dropping in, with its name. The Readiness review shows the same satellite, small.
@@ -20,6 +19,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Changed
 
+- **The core loop: each mission type has a data cap, and rewards are for new data only.** A flight that brings back nothing new earns no money and no science points, and the debrief says to try another type. The hub's topics carry `data_collected`, `data_cap` and `complete`; `previewPayout` and the debrief carry `new_data`.
 - **Far fewer words on the design screens** (the team lead's "too many words"). Visible words fell about 40% overall: the briefing 73%, the rocket yard 57%, the debrief 52%, Build 46%. Cards now show a name and the numbers; what a job, an era or a part is about waits behind "About this job" or in the hover preview; each check shows a short label ("TOO HEAVY") with the full sentence behind "Why"; the debrief folds the four segments and the real missions into one line each; the map's controls are key caps; the one-line hint shows only the first time a screen is visited, and the "?" button brings it back.
 - **Polar orbits before 1995 need no disposal fuel,** as in history (Alouette 1 and Nimbus 1 reached them on a Thor-Agena); the debris rule dates from 1995.
 - **Less hand-holding.** On Trade Space and Point Design, research shows a hint instead of the exact lesson to earn.
