@@ -8,7 +8,7 @@ const MISSIONS = [
   {
     id: "explorer-1", name: "Explorer 1", year: 1958, agency: "US Army / JPL",
     objective: "radiation", orbit: "leo", tags: ["radiation"], mass_kg: 13.97, power: "battery",
-    blurb: "America's first satellite. Its counter went silent high up: swamped by the radiation belts.",
+    blurb: "America's first satellite. Its counter went silent high up; James Van Allen realised it was swamped by the radiation belts.",
     source: "Explorer 1 facts (13.97 kg, cosmic-ray package, battery power) checked by hand by the team; NASA's former Explorer 1 overview page now redirects to https://science.nasa.gov/mission/explorer-1/ and no longer gives the mass."
   },
   {
