@@ -37,7 +37,7 @@ The Claude session building this hit (or is about to hit) its usage limit. This 
 
 These ran in local git worktrees of the Claude session. **Only what was pushed to `claude/pensive-allen-ujtdag` survives.** Check `git log origin/claude/pensive-allen-ujtdag` and compare with the list below; redo what is missing.
 
-1. **Part 2 screens.** Almost certainly pushed, since it was done when this file was written: the picker, workshop hub, contract flights, debrief money, ending, Ajay's story, and the `comeback.js` browser test. `campaign.js` is retired; `calib`, `live` and `iono` were repointed through Part 2.
+1. **Part 2 screens: DONE and pushed** (in `1eb0b97` and before). The picker, the workshop hub, contract flights, the debrief money story, the ending, Ajay's story, and `handoff/browser-tests/comeback.js` (155 checks). Every browser and node test passed on it.
 2. **Back-end fixes** (were on a local branch `modes/fixbe`). Findings are in `handoff/notes/findings-backend.json`; each has repro, expected, actual and root cause. Redo any that are not on the branch:
    - TRY THIS suggests impossible parts, parts too heavy for the body or rocket, or orbits no rocket reaches. Every suggestion must be something the player can actually do.
    - A battery-only satellite is ended by the first event.
@@ -54,7 +54,8 @@ These ran in local git worktrees of the Claude session. **Only what was pushed t
    - the orbit badge contradicts its own "In view" line;
    - phone overflow on the Launch vehicle screen;
    - map labels cut off, and the map repeats its instruction four times.
-4. **Home page redesign:** three design directions, judged on screenshots (see "Still to do", 1).
+4. **Home page redesign:** three design directions were being built on local branches `modes/hp1` (console title screen), `modes/hp2` (two eras side by side) and `modes/hp3` (mission poster), with a judge to pick one (see "Still to do", 1).
+5. **Mission and debrief fixes** (were on a local branch `modes/fixb`): the countdown on the lift-off, event costs on the choice buttons, the 3-star celebration, REDESIGN guidance, a11y and layout (see "Still to do", 2).
 
 ## Still to do, in this order
 
