@@ -116,7 +116,24 @@ async function fly(page, choice) {
 }
 // Part 2: from the home page, start a comeback on a difficulty ('training', 'standard' or 'expert') and go through Ajay's
 // intro to the workshop. Returns the intro beats' text.
+// A comeback's contracts come from its seed, drawn at random when the picker starts one. The tests that fly a proof design need
+// the same contracts every time: this makes the picker's comeback start from a fixed seed per difficulty (20 on Normal and Hard: solar from low orbit,
+// radiation and wildfire with no orbit named; 7 on Easy: an ionosphere contract from polar orbit). Call it after each page load.
+const SEEDS = { training: 7, standard: 20, expert: 20 };
+function seedRuns(page) {
+  return page.evaluate(seeds => { const real = window.newComeback; if (real.__seeded) return; window.newComeback = function (t, s) { return real(t, s === undefined ? seeds[t] : s); }; window.newComeback.__seeded = true; }, SEEDS);
+}
+// Through any story scene on screen (js/ui-story.js): NEXT to the end, and REFUSE at Iron Eclipse's offer, which must be answered
+// before a new flight can start. Stops at the first screen that is not a scene.
+async function pastScenes(page) {
+  for (let i = 0; i < 40; i++) {
+    if (await page.locator('.story-offer').count()) await page.click('[data-key="offer-refuse"]');
+    else if (await page.locator('.intro').count()) await page.click('.intro .btn.primary');
+    else break;
+  }
+}
 async function startComeback(page, tierId) {
+  await seedRuns(page);
   await page.click('[data-key="part2-go"]');
   await page.click(`[data-key="level-${tierId}"]`);
   const beats = await throughBeats(page);
@@ -148,4 +165,4 @@ async function stars(page) {
 }
 
 module.exports = { args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
-  CONTRACT, addParts, throughBeats, fly, stars, startComeback, launchContract };
+  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, throughBeats, fly, stars, startComeback, launchContract };

@@ -15,7 +15,7 @@ const KEY = 'smdg-campaign';
 function nodeFlight(tierId, topic) {
   const load = require(path.join(repo, 'tests', 'load.js'));
   const G = load({ storage: load.memoryStorage() });
-  const start = G.newComeback(tierId);
+  const start = G.newComeback(tierId, T.SEEDS[tierId]);
   const k = start.contracts.find(x => x.topic === topic);
   if (!k) return null;
   const d = G.newComebackDesign(k.id);
@@ -55,7 +55,7 @@ async function run(viewport, label) {
   const shot = n => p.screenshot({ path: path.join(shots, `comeback-${label}-${n}.png`), fullPage: true });
   const hub = () => p.evaluate(() => getComeback());
   const bodyWords = () => p.evaluate(() => document.body.innerText).then(T.words);
-  await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
+  await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload(); await T.seedRuns(p);
 
   // ---- the picker: three difficulties, each with its cash, debt and deadline from CAMPAIGN.comeback
   ok(/^START/.test(await p.locator('[data-key="part2-go"]').innerText()), 'home: Part 2 reads START');
@@ -220,7 +220,7 @@ async function run(viewport, label) {
     ok(c2.raw && c2.shown, 'NOT PAID: the cash still adds up');
     await p.waitForTimeout(700);
     await shot('5b-not-paid');
-    await p.click('[data-key="debrief-workshop"]'); await T.waitHead(p, 'WORKSHOP');
+    await p.click('[data-key="debrief-workshop"]'); await T.pastScenes(p); await T.waitHead(p, 'WORKSHOP');   // the second flight brings Iron Eclipse's offer: refused here
   } else console.log('     (no open contract has a proof design here: the NOT PAID check is skipped)');
 
   // ---- a flight that lands after the deadline (the saved campaign moved close to it, and the solar contract flown
@@ -229,7 +229,7 @@ async function run(viewport, label) {
     'var s = c.offers.filter(function (k) { return k.topic === "solar"; })[0];' +
     'if (s && !c.offers.some(function (k) { return k.topic === "solar" && !k.done; })) c.offers.push(Object.assign({}, s, { id: s.id + "-again", done: false, expires_month: c.month + 12 }));' +
     'c.knowledge_science.solar = 0;');
-  await p.reload(); await p.click('[data-key="part2-go"]'); await T.waitHead(p, 'WORKSHOP');
+  await p.reload(); await T.seedRuns(p); await p.click('[data-key="part2-go"]'); await T.pastScenes(p); await T.waitHead(p, 'WORKSHOP');
   ok(/No flight can land before the deadline/.test(await p.locator('[data-key="stat-months"]').innerText()) &&
      /warn/.test(await p.locator('[data-key="stat-months"]').getAttribute('class')), 'workshop: the countdown warns that no flight can land in time');
   ok(await p.locator('[data-key="fly-solar"]').count() === 1, 'a solar contract is open (opened again if needed)');
@@ -272,7 +272,7 @@ async function run(viewport, label) {
   ok(await p.locator('.cb-level').count() === 3, 'TRY AGAIN opens the picker');
   await p.click('[data-key="level-training"]'); await T.throughBeats(p); await T.waitHead(p, 'WORKSHOP');
   await editSave(p, 'c.treasury_musd = c.debt_musd + 1;');
-  await p.reload();
+  await p.reload(); await T.seedRuns(p);
   ok(/^CONTINUE/.test(await p.locator('[data-key="part2-go"]').innerText()), 'home: a comeback running reads CONTINUE');
   await p.click('[data-key="part2-go"]'); await T.waitHead(p, 'WORKSHOP');
   ok(await p.locator('[data-key="pay-all"]').count() === 1, 'PAY ALL appears once the cash covers the debt');
@@ -295,7 +295,7 @@ async function reduced() {
   const p = await ctx.newPage();
   const errors = T.watchErrors(p);
   await T.noFonts(p);
-  await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
+  await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload(); await T.seedRuns(p);
   await T.startComeback(p, 'training');
   await editSave(p, 'c.treasury_musd = c.debt_musd + 1;');
   await p.evaluate(() => window.showComebackHub());

@@ -15,7 +15,7 @@ const outFile = process.argv.slice(2).find(a => /\.json$/.test(a));
     const b = await chromium.launch(); const p = await b.newPage({ viewport });
     await T.noFonts(p);
     const count = async name => { out[name] = out[name] || {}; out[name][label] = T.words(await p.evaluate(() => document.body.innerText)); };
-    await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
+    await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload(); await T.seedRuns(p);
     await count('1 home');
     await p.click('[data-key="part1-go"]'); await count('2 story beat');
     await T.throughBeats(p); await T.waitHead(p, 'BASE MAP'); await p.waitForTimeout(300); await count('3 map');
