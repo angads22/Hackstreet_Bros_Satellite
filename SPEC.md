@@ -17,6 +17,8 @@ Missions sit inside a **campaign**. The player runs their own space programme: n
 - **Scenario:** a campaign of Earth-observation missions, with three orbit choices, two topics at the start and more opened by research.
 - **Give this whole doc to your SI** at the start of every session, so all six assistants build the same game.
 
+> **Where the game stands (version 2.0).** The home page offers two modes (see "Two game modes"): Part 1, Austin's guided 1958 walkthrough, and Part 2, Ajay's comeback. The campaign described in this section is the engine under Part 2, and the 1957 campaign with its lab and research tree stays in the code and the tests, but only the two modes are reachable from the home page. Some sections below were written as proposals before they merged; each heading now says what is built.
+
 ## How we are judged
 
 Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026). Every judge scores five criteria from 1 to 5, with equal weight. Submission closes **Sunday, November 15 at 11:59 p.m. local time**.
@@ -88,8 +90,8 @@ From the official challenge text (Details tab, saved 2026-11-14). Covered: objec
 Open, in order of weight in the challenge text:
 
 1. **Team play for up to four**, with roles that pull against each other. It is in the Objectives, not only the extras. Proposed: pass-and-play, one subsystem per player, a goal per role, and a readiness review everyone signs. Needs a data file for roles: data owner to approve.
-2. **Time as a resource** (development time, not only lifetime). Proposed: a build time per part, shown on the readiness review and advancing the campaign calendar. Needs a new part field: data owner to approve.
-3. **Structure and attitude control** are named components but are not parts yet. Proposed: two new part categories with one or two simple parts each. Changes the data format: data owner to approve.
+2. **Time as a resource** (development time, not only lifetime). **Done:** every part has `build_months`, the readiness review shows the development time, and it advances the calendar. Version 2.0 adds `lead_months` and names the long pole (see "Real-world elements").
+3. **Structure and attitude control** are named components. **Done:** two part categories, `structure` and `attitude`, both required (see "Data format").
 4. **"No single perfect solution."** Checked by `tests/balance.js`: at least two different designs earn three stars for every objective.
 
 ### Progression: eras, bodies and the research tree (approved)
@@ -122,7 +124,7 @@ The first era is open; **two stars in an era opens the next** (on any tier). Tie
 | Modern smallsat bus | 1995 | 150 kg | 2 | 1 | ESPA-class buses |
 | 12U CubeSat frame | 2018 | 22 kg | 1 | 1 | CubeSat 101 |
 
-Readiness checks (only when a body is fitted, which becomes always once the switch-over is on): `body-count` (more than one body), `body-payload` (parts heavier than the body carries), `body-slots` (more parts of a category than it has slots).
+Readiness checks (a body is always required now that the switch-over is on): `body-count` (more than one body), `body-payload` (parts heavier than the body carries), `body-slots` (more parts of a category than it has slots).
 
 **3. Campaign research tree.** Research unlocks bodies as well as parts. `getResearchTree()` returns `{ nodes, edges }` so a reusable tree component can draw it without knowing the rules: nodes carry `id, name, year, depth, cost_musd, blurb, unlocks_names, owned, can_buy, missing`; edges are `{ from, to }` prerequisites.
 
@@ -136,7 +138,7 @@ Readiness checks (only when a body is fitted, which becomes always once the swit
 | **Relevance** | The challenge asks for "different difficulty levels, mission types, or scenarios" and "simple and advanced components depending on the difficulty level". Eras are both, and they rest on NASA's own mission history (NSSDCA). | — |
 | **Presentation** | A 30-second demo can open in 1958 with Explorer 1 and close in 2026, which is a story in itself. The screens need only an era picker and slot counts on the body. | The research-tree screen is the biggest new screen; it is only needed for the campaign, so eras come first. |
 
-### Difficulty: how much help (proposed, November 15, our branch only)
+### Difficulty: how much help (approved November 15; in the game from version 2.0)
 
 Higher levels hide **answers, never facts**. A blocker, a part's numbers and what limited the flight show on every level. What goes away is the game working out the answer for the player before the problem happens. Help that comes **after** the player met the issue (the debrief's "what limited this mission" and TRY THIS) stays on every level: it is the hints table, shown when you experience the issue.
 
@@ -173,7 +175,7 @@ A part's information comes in three **groups**: **SHEET** (mass, power draw, dat
 
 ### Real-world elements: the long pole and lead time (approved November 15, version 2.0)
 
-From `docs/real-world-plan.md` (two satellite engineers visited the table). Built in 2.0: **Step 1**, `getSchedule(design)` returns `{ long_pole, long_pole_months, next_months, integration_months, total_months }` from the existing `build_months` (no change to any timing), and the Build bar and the readiness review name the long pole ("Longest part: synthetic aperture radar, 8 months. Without it: 5 months"). **Step 2**, one new data field per part, `lead_months` (months between ordering and delivery, a rounded range from the sources in `docs/real-world-plan.md`, each with a `source` note and labelled GAME VALUE), shown in the DOSSIER group; it does **not** change `dev_months` or any rule in 2.0. Steps 3 to 6 of the plan (counting back from the launch slot, expediting, test blocks, heritage) are not built.
+From `docs/real-world-plan.md` (two satellite engineers visited the table). **Built in 2.0, Step 1:** `getSchedule(design)` returns `{ long_pole, long_pole_months, next_months, integration_months, total_months }` from the existing `build_months` (no change to any timing), and the Build bar and the readiness review name the long pole (for example "Longest part: synthetic aperture radar, 18 months. Without it: 12 months."). **Step 2:** one new data field per part, `lead_months` (months between ordering and delivery), labelled GAME VALUE in a comment beside each value and shown in the DOSSIER group; it does **not** change `dev_months` or any rule in 2.0. Where the plan quotes a real range (wheels and star trackers, solar cells, thrusters) the comment names it and says where in it the value sits; a value with no quoted range says that instead. Steps 3 to 6 of the plan (counting back from the launch slot, expediting, test blocks, heritage) are not built.
 
 ### Online features (approved November 15, version 2.0)
 
@@ -189,6 +191,16 @@ Two features need a server: a **global leaderboard** and a **quick 1v1 duel**. T
 ### Sound (approved November 15, version 2.0)
 
 Music and sound effects, **made for the game**: `js/audio.js` synthesises every sound in the browser with the Web Audio API (oscillators, filtered noise, a generated reverb tail). No recording, sample, library or downloaded file is used, so nothing needs a licence and `SOURCES.md` says so. Slow, chill ambient music (a warm, tape-worn mood for the 1958 look, a clean one for Part 2) and short effects for button presses, adding or removing a part, the launch countdown, lift-off and orbit, each star, the PAID stamp, a win or a loss, and events. The page asks for no sound before the player's first click or key; MUSIC and SOUNDS switches in the footer turn each off and are remembered (`localStorage` key `gravitron-audio-v1`); the sound pauses when the tab is hidden. The game works without it (no Web Audio, or both switches off). The file adds no data field and nothing is saved in a comeback.
+
+### Launch failures, complications and the story journal (approved November 15, version 2.0)
+
+Part 2 only. These make a flight a risk and give the comeback surprises between flights.
+
+- **Launch failures.** Each rocket in `data/launchers.js` has a `failure_chance` from 0 to 1 (approved by the data owner; a GAME VALUE, from 0.01 for the heavy rocket, a Falcon 9, to 0.5 for Vanguard, most of whose early tries failed). Only a comeback flight rolls the dice: Part 1 and every standalone design never fail at launch. The dice are seeded from the run, the design and the flight, so the same run replays the same way, and no part lowers the chance. A failed launch flies no month and earns no science (`mission.launch_failed`), counts as a lost satellite for credit, and the debrief says the rocket failed, leaves out the real-Earth paragraph and suggests a safer rocket if there is one.
+- **Risk is a level, never a number.** `getLaunchRisk(design)` returns `{ level, chance }`: LOW under 5%, MEDIUM from 5%, HIGH from 15% (GAME VALUES in `js/mission.js`). The rocket cards and the readiness review show the level; it is `null` without a rocket and outside Part 2.
+- **More in the way.** Five more short mission events (27 in all), and a **complication** after a settled flight while debt remains (a one-in-two chance): a client drops a contract, a client raises or cuts its price by 15%, or a supplier runs late and costs one month and its interest. They are seeded per flight, saved in the comeback as `complications` (an older save gets an empty list) and shown once in the workshop.
+- **Longer deadlines.** To leave room for a failed launch, new runs got six more months on each deadline (now 60 months on Easy, 54 on Normal and Hard).
+- **STORY SO FAR, a journal.** A front-end screen (a button on the base map, in the Part 2 workshop and on a home card) that lists, in a line or two each, what the player has learned so far in each part. It is drawn from `STORY.journal` in `js/ui-design.js`, has no back-end function and saves nothing.
 
 ### Two game modes (approved November 15, replaces tier select)
 
@@ -224,7 +236,7 @@ Ajay can borrow more, but the lenders' trust is not free. Every number below is 
 - **Seized:** at credit 30 or below, with debt left, the lenders take everything: the cash goes to 0 and the comeback is lost (`lost_reason: "seized"`).
 - **A name:** each star a flight earns adds 2 to reputation. Paying the debt to 0 does not win by itself: reputation must also reach the difficulty's goal (Easy 12, Normal 20, Hard 28). With the debt at 0 and no name, the comeback goes on; if the deadline passes, or nothing left can launch and no loan helps, it is lost as `lost_reason: "name"`.
 - **Why this shape:** the player trades cash now for a dearer, riskier future, and cannot just buy the win: it takes good flights (stars) to earn both a name and the trust to keep borrowing.
-- **Screens:** the back end is done and tested (`tests/comeback.js`, test 16). The workshop still needs a BORROW control, a credit meter next to the debt meter, the reputation bar and the current interest rate; until then the new endings show through the existing ending screen.
+- **Screens:** done (`tests/comeback.js`). The workshop has a BORROW control, a credit meter next to the debt meter, the reputation bar and the current interest rate, and the endings have their own screens.
 
 **New fields for loans (approved by the user, November 15):** `CAMPAIGN.comeback.credit` (start, seize, per_loan, per_late_month, per_lost_satellite, per_star, per_payment, min_payment_musd, loan_fee, interest_spread, reputation_per_star); each tier gains `loan_cap_musd` and `reputation_goal`; the comeback save gains `credit`, `reputation`, `borrowed_musd`, `seized`, `seized_musd` (a save without them starts at full credit and no name, so no save version bump); a `loan` entry in the log; `getComeback()` gains `credit`, `seize_credit`, `max_borrow_musd`, `loan_fee`, `borrowed_musd`, `reputation`, `reputation_goal`, `base_interest_per_month` (and `interest_per_month` is now the rate right now); `recordResult` gains `credit`, `credit_change`, `reputation`, `reputation_goal`; new function `borrow`.
 
@@ -232,7 +244,7 @@ Ajay can borrow more, but the lenders' trust is not free. Every number below is 
 
 | Where | Field |
 | --- | --- |
-| `data/campaign.js` | `CAMPAIGN.comeback`: per difficulty the starting cash, debt and deadline in months; the monthly interest; the launch campaign in months; the number of open contracts; a contract's length in months; the 3-star bonus. All game values. |
+| `data/campaign.js` | `CAMPAIGN.comeback`: per difficulty the starting cash, debt and deadline in months; the monthly interest; the launch campaign in months; the number of open contracts; a contract's length in months; the 3-star bonus; from 2.0 `info_fee_musd` (the fee for each of the three groups of part information) and `info_free` (the groups each difficulty gets free). All game values. |
 | `data/contracts.js` (new) | One global, `CONTRACTS`: for each topic, a list of `{ client, reason }`. |
 | The campaign save | `mode`, `month`, `debt_musd`, `deadline_month`; then `seed` (a per-run random number), `buyout` (`"none"`, `"offered"`, `"refused"` or `"accepted"`) and `start_debt_musd` (the debt the run began with). Saves are **upgraded in place and never discarded** (see "Existing players keep their saves"). |
 | `data/campaign.js` (story) | `CAMPAIGN.comeback.buyout_after_flights` (2), `legend_avg_stars` (2.5) and `close_share` (0.1). Game values. Yareem agreed these and the save fields above on November 15 ("yeah go ahead"). |
@@ -256,7 +268,7 @@ Start poor (small budget, basic parts)
 - **Rewards are for new data only.** Money pays for the knowledge the new data adds (the same diminishing curve as before), and science points equal the new data. A flight that brings back nothing new earns **no reward**: no payout (the repeat floor is gone for it) and no science points. The annual grant and the rescue grant still arrive, so the programme can always fly again.
 - The hub shows each topic as `data_collected` of `data_cap`, and marks it `complete` at the cap. The Build screen's payout preview and the debrief say how much of a flight's data would be new, and name another type to try (`best_next_topic`).
 
-### Offers: customers ask for something specific (proposed, November 15, branch only)
+### Offers: customers ask for something specific (built; back end of the 1957 campaign, off the home page)
 
 Each campaign year the hub shows up to two **open offers**: a customer (the National Academy of Sciences, the Weather Bureau, the coast guard, Canada's Defence Research Telecommunications Establishment...) wants a topic, sometimes from a particular orbit, by a year. Any flight that returns enough data for it, **and some of it new**, claims the bonus in money and science points (offers follow the core loop: no new data, no reward). A topic already at its data cap gets no offers. Offers give the player a choice each year and a reason to use different orbits and topics.
 
@@ -266,7 +278,7 @@ Each campaign year the hub shows up to two **open offers**: a customer (the Nati
 - `recordResult(m).offers_claimed`: `[{ text, client, topic, bonus_musd, bonus_sci }]`, and `best_next_topic` as before.
 - Saved as `offers` in the campaign; older saves without it get fresh offers at the next flight.
 
-### The ending: the programme chronicle (proposed, November 15, branch only)
+### The ending: the programme chronicle (built; back end of the 1957 campaign, off the home page)
 
 A campaign's ending used to be one banner line. The chronicle tells the player's own story from what they did, and from the real missions in `data/missions.js`.
 
@@ -286,7 +298,7 @@ Playtest verdict: the campaign was one corridor (fly, get paid, buy the next nod
 - **The archive: data keeps paying.** Every campaign year, scientists re-analyse what the programme has already returned: `science_pts` grows by `archive_share` of all the science banked so far, so every flight keeps feeding the lab. (Not a satellite living longer: the mission simulation already flies each satellite until its orbit decays or its batteries die.) Real: Alouette 1's ionograms were nearly lost, then digitised by the CSA from 2017 and are being studied again.
 - **Less hand-holding.** On Trade Space and Point Design, a research node's lesson condition is hidden behind a hint ("A review board wants proof of engineering discipline") until the lesson is earned. Initial Feasibility keeps the exact wording.
 - **A Canadian topic from Canadian data: the ionosphere.** Alouette 1 (1962), the first satellite built by a country other than the USSR or the US, sounded the ionosphere from above. The CSA's digitised Alouette 1 ionograms (699,369 soundings received by 33 ground stations, 1962-1973; `data/result_master.csv`, CSA Open Data) drive the topic: which ground stations a low orbit can reach, and the season. The sounder had no tape recorder, so only soundings heard by a ground station count; the debrief compares the player's satellite with Alouette's real record.
-- **Calls for proposals (if time):** each campaign year the hub offers two seeded calls (for example "IGY: radiation data by 1959, bonus $12M"), drawn from `data/calls.js`. Taking one is optional.
+- **Calls for proposals: not built as described.** The idea (two seeded calls a year, drawn from a `data/calls.js`) was dropped: there is no such file. A customer's request is covered by the campaign's offers ("Offers" below, generated in code) and by Part 2's contracts (`data/contracts.js`).
 - **Chronicle headline:** the debrief adds `headline`, a newspaper-style line built from the mission, its real data and the year, for the hub's history and the ending.
 
 New data fields (approved): parts `upgrade: { of, year, cost_musd, cost_sci, requires: [research ids] }`; research `cost_sci`; `CAMPAIGN.archive_share`, `CAMPAIGN.save_version` 3; an `ionosphere` entry in `data/earth.js` (`source`, `soundings`, `stations`, `soundings_by_year`, `stations_by_year`, `monthly_share`, `orbit_view`, `top_stations`); a new objective `ionosphere`, research `topside-sounding`, parts `topside-sounder`, `isis-sounder` and other successor parts. Campaign state adds `science_pts` and `upgrades`.
@@ -312,7 +324,7 @@ In a campaign, the seven screens sit between visits to the **Campaign hub**, whi
 
 1. **Briefing.** The player picks a science objective, such as wildfire monitoring or sea-ice mapping. The objective sets a science target and says which instrument types count. *Teaches: decide the goal before the hardware.*
 2. **Orbit.** The player picks one of three orbits. Each card states its trade-off in one line: image detail, time in contact with the ground, mission lifetime, and how hard it is to reach. *Teaches: where you fly changes everything else.*
-3. **Build.** The player picks parts in five categories: instruments, power, comms, computer and propulsion. Four bars update live: mass, power, budget and data. *Teaches: every part costs something in all four.*
+3. **Build.** The player picks parts in seven categories: structure, instruments, power, comms, computer, attitude and propulsion. Four bars update live: mass, power, budget and data. *Teaches: every part costs something in all four.*
 4. **Launch vehicle.** The player picks a rocket. The game checks that the spacecraft's mass fits that rocket for the chosen orbit. *Teaches: a bigger rocket solves mass and eats the budget.*
 5. **Readiness review.** A go / no-go list shows every failed check with a one-line reason. Blockers stop the launch. Warnings do not. *Teaches: thin margins are a choice, not an accident.*
 6. **Mission.** The simulation runs month by month. Two or three events interrupt it, and the player makes one decision per event. *Teaches: designs get tested by things you did not plan.*
@@ -388,7 +400,7 @@ Each objective carries one extra field, `orbit_fit`, that multiplies its science
 
 These field names are fixed. Nobody renames or adds a field without the data person agreeing, because the game logic reads them by name. The values below are placeholders, not real specs.
 
-**Parts** in `data/parts.js`, about 15 in total, three per category:
+**Parts** in `data/parts.js`, 41 in total across seven categories (the values in this sample are placeholders):
 
 ```js
 {
@@ -407,20 +419,23 @@ These field names are fixed. Nobody renames or adds a field without the data per
   protects: [],            // event ids this part defends against
   blurb: "Sharp images, but heavy and data-hungry.",
   source: "https://...",   // a page a human opened and checked
-  build_months: 6          // approved: months to build and test this part (time as a resource)
+  build_months: 6,         // approved: months to build and test this part (time as a resource)
+  lead_months: 4           // approved (2.0): months from ordering to delivery; a GAME VALUE, see "Real-world elements"
 }
 ```
+
+More part fields are documented where they belong: `payload_kg` and `slots` on bodies ("Progression"), `upgrade` ("The lab, the archive and open choices") and the fields the math adds ("Fields the math adds to the data format").
 
 **Structure and attitude control** (approved by the data owner; the challenge names both as spacecraft components). Two more part categories in the same format:
 
 - **`structure`**: the satellite's body. Mass and cost, like any part.
 - **`attitude`**: how the satellite points. Its `tags` say how: `"spin"` (spin-stabilised, as Explorer 1 and TIROS-1 were) or `"three-axis"` (held steady, from Nimbus 1 in 1964). Cameras, thermal imagers and radar on a spinning satellite smear their pictures: their science counts at 60%.
 
-**Switch-over.** While the Build screen has bins for only the first five categories, the two new ones are optional and a design without them behaves exactly as before. `game.js` holds the switch, `NEW_CATEGORIES_REQUIRED`; Design screens turns it on in the same change that adds the two bins. The list of categories, with display names and whether each is required, comes from `getCategories()`, so the screens need not hard-code it.
+**Switch-over (done).** `game.js` holds the switch, `NEW_CATEGORIES_REQUIRED`, and it is on: the Build screen has seven bins and a design needs a structure and an attitude part like any other required category. The list of categories, with display names and whether each is required, comes from `getCategories()`, so the screens need not hard-code it.
 
 **Time as a resource** (the challenge names development time and operating lifetime). Development time = the longest `build_months` among the parts, plus one month of integration and testing for every three parts. `getTotals` returns it as `dev_months`. In a campaign the calendar moves on by the development time (at least one year per mission), so a complex satellite costs years the programme may not have; a design that could not launch before `end_year` is blocked (`too-late`). Explorer 1 was built in about three months.
 
-**Launch vehicles** in `data/launchers.js`, three in total:
+**Launch vehicles** in `data/launchers.js`, seven in total:
 
 ```js
 {
@@ -428,6 +443,7 @@ These field names are fixed. Nobody renames or adds a field without the data per
   name: "Small launcher",
   cost_musd: 10,
   capacity_kg: { leo: 300, sso: 200, geo: 0 },  // 0 = cannot reach
+  failure_chance: 0.08,    // approved (2.0): the chance the launch fails, 0 to 1; a GAME VALUE; only Part 2 flights roll the dice
   blurb: "Cheap, but only for light spacecraft.",
   source: "https://..."
 }
@@ -462,7 +478,7 @@ These field names are fixed. Nobody renames or adds a field without the data per
 }
 ```
 
-**Events** in `data/events.js`, six to eight in total:
+**Events** in `data/events.js`, 27 in total:
 
 ```js
 {
@@ -493,7 +509,7 @@ const CAMPAIGN = {
   repeat_floor_musd: 0.3,     // minimum payout for any finished mission
   win: { topics_known: 3, knowledge: 0.6 },   // win when this many topics reach this knowledge share
   grant_musd: 1,              // agency grant added to the treasury after each mission
-  save_version: 1             // bump when the saved shape changes; an older save is discarded
+  save_version: 5             // bump when the saved shape changes; an older save is upgraded in place, never discarded ("Existing players keep their saves")
 };
 ```
 
@@ -507,7 +523,7 @@ const CAMPAIGN = {
 
 `science_target` keeps its meaning: the per-mission star target, not the knowledge ceiling.
 
-**Research** in `data/research.js`: one global, `RESEARCH`, six to eight records. Anything not named in any research record is available from the start, so `parts.js` and `launchers.js` gain no fields.
+**Research** in `data/research.js`: one global, `RESEARCH`, 17 records. Anything not named in any research record is available from the start, so `parts.js` and `launchers.js` gain no fields.
 
 ```js
 {
@@ -543,7 +559,7 @@ const CAMPAIGN = {
 
 **Battery-only satellites.** A spacecraft with a battery and no solar panel may launch, as Sputnik 1 and Explorer 1 did. It runs until the battery is spent (battery energy divided by power draw), then the mission ends: Sputnik 1 fell silent after about 21 days, Vanguard 1's solar-powered transmitter ran for more than six years. The readiness review shows this as a warning, not a blocker.
 
-**Real missions** in `data/missions.js` (approved by the data owner): one global, `MISSIONS`, about a dozen real satellites the debrief can compare the player's design with, from Explorer 1 to RADARSAT. Like the NASA telescope game's results screen, but matched on the actual design.
+**Real missions** in `data/missions.js` (approved by the data owner): one global, `MISSIONS`, 14 real satellites the debrief can compare the player's design with, from Explorer 1 to RADARSAT. Like the NASA telescope game's results screen, but matched on the actual design.
 
 ```js
 {
@@ -775,7 +791,7 @@ Everyone on the team works through SI, and an SI will confidently summarise a do
 
 ## Front end and back end
 
-There is no server: the whole game runs in the player's browser. "Back end" here means the logic layer in `js/game.js`, and "front end" means everything the player sees. The two only talk through the functions listed below.
+The whole game runs in the player's browser; the only server is the optional one in `server/` (2.0), for the leaderboard and the duel. "Back end" here means the logic layer in `js/game.js`, and "front end" means everything the player sees. The two only talk through the functions listed below.
 
 |  | Front end | Back end |
 | --- | --- | --- |
@@ -832,6 +848,8 @@ previewToggle(design, partId)   // { adding, before, after, delta, fixes: [{ id,
                                 // before/after/delta hold mass_kg, power_draw_w, power_gen_w, cost_musd, data_gb_day,
                                 // data_returned_gb_day, delta_v_ms, battery_wh, science_total.
 runChecks(design)               // { blockers: [{ id, text }], warnings: [{ id, text }] }
+getSchedule(design)             // { long_pole (the slowest part's name, or null), long_pole_months, next_months (the longest build
+                                //   without it), integration_months, total_months }: the long pole, from build_months (2.0)
 
 // js/mission.js (Simulation)
 startMission(design)            // returns a mission; readable fields: month, lifetime_months, science
@@ -886,6 +904,25 @@ getLiveData()                   // { status: "live" | "partial" | "snapshot", fe
                                 // For the LIVE DATA / SNAPSHOT badge. The debrief's real_world.now holds the same "right now" text.
 exportSave()                    // the whole save (campaign and tier progress) as one text code; may be long
 importSave(code)                // { ok, reason }; a bad code never crashes and never overwrites a good save
+
+// js/mission.js (Simulation): Part 2, the comeback, and the 2.0 features. Part 1 and standalone designs ignore all of these.
+newComeback(tierId, seed)       // starts and saves a comeback (replacing any save); seed is optional; returns getComeback()
+getComeback()                   // the workshop's numbers: cash, debt, month, deadline, credit, reputation, contracts; null unless the save is a comeback
+newComebackDesign(contractId)   // a design that flies for one open contract (its topic, and its orbit if named, preset); null if none
+borrow(amountMusd)              // { ok, reason, borrowed_musd, fee_musd, cash_musd, debt_musd, ... }: more cash, the fee goes on the debt, credit drops
+payDebt(amountMusd)             // { ok, reason, paid_musd, cash_musd, debt_musd, credit, won }: PAY BACK; paying all of it wins at once
+flightMonths(design)            // months a comeback flight takes on the calendar: development time plus the launch campaign
+previewProfit(design)           // Build's PROFIT line: what the client pays minus what the flight costs; null without a contract
+flightProfit(mission)           // the debrief's PROFIT line for a recorded comeback flight; null otherwise
+partWhy(design, partId)         // why a part adds nothing to the job ("type", "blurry" or "orbit"), or null when it counts
+getLaunchRisk(design)           // { level: "low" | "medium" | "high" | null, chance }; screens show the level, never the number
+partInfoKnown(design, partId, group)  // true when a screen may show this group ("sheet", "performance" or "dossier") of the part
+partInfoFee(design, partId, group)    // what asking the engineers costs now; 0 when the group is already known
+buyPartInfo(design, partId, group)    // ASK THE ENGINEERS: { ok, reason, cost_musd }; paid once per run for a part and group
+getComebackEnding()             // the ending: a short chronicle of the comeback, won, lost or still running
+getRunScore(c)                  // the leaderboard score of a finished comeback (the saved one if c is left out); null while it runs
+getDuelSetup(seed)              // the duel's shared setup: topic, orbit, era, tier and cash; null without a usable seed
+newDuelDesign(seed)             // a fresh standalone design for one duel flight; it never joins the comeback or the stars record
 ```
 
 Changes in a campaign:
@@ -901,7 +938,7 @@ Changes in a campaign:
 
 All of these are live on `main` with real maths. Every one can be tried in the browser console (F12) before any screen exists.
 
-A real server is only needed for an online leaderboard, which is out of scope. If it is ever added, `game.js` moves to it unchanged.
+A server is needed only for the 2.0 leaderboard and duel ("Online features"), and the game never needs one to play. If more were ever moved to a server, `game.js` would go unchanged.
 
 ## Player interaction, screen by screen
 
@@ -980,7 +1017,7 @@ Building is a chain of trade-offs: each part fixes one problem and creates the n
 
 - **Click to toggle.** Clicking a card adds the part; clicking it again removes it. No drag and drop.
 - **Several parts per category, one of each part.** Two instruments, or a spare computer, are allowed and useful. The same part cannot be added twice.
-- **Four categories are required:** instrument, power, comms and computer. Propulsion is optional, but polar and geostationary orbits need its speed change.
+- **Six categories are required:** structure, instrument, power, comms, computer and attitude. Propulsion is optional, but polar and geostationary orbits need its speed change.
 - **Bad choices are allowed.** Nothing is disabled on this screen. A part that does not suit the objective or orbit is greyed out with its reason, but stays clickable; the player learns from the result.
 - **Problems show up here, live.** Under the bars, list `runChecks(design)` blockers and warnings as they change, so the player does not discover them only at the Readiness review.
 - **Orbit comes first.** Resolution, ground contact and the speed change needed all depend on the orbit, so part cards show different numbers in different orbits. The launcher comes after, so the mass bar shows "pick a rocket" until then.
@@ -1000,7 +1037,7 @@ Building is a chain of trade-offs: each part fixes one problem and creates the n
 
 | Element | Source | Behaviour |
 | --- | --- | --- |
-| Five columns | `PARTS` grouped by `category`: instrument, power, comms, computer, propulsion | Mark each required column until it has a part. |
+| Seven bins | `getCategories()`: structure, instrument, power, comms, computer, attitude, propulsion | Mark each required bin until it has a part. |
 | Part card | Data fields: `name`, `blurb`, `mass_kg`, `power_draw_w`, `cost_musd`, `data_gb_day`, `downlink_gb_day`, `battery_wh` | Show only fields that are not 0. Selected cards are highlighted. |
 | Computed card numbers | `getPartFacts(design, part.id)` | Solar panels: `power_gen_w`. Instruments: `science_per_month` and `resolution_m`. Grey out with "does not count for this objective" when `counts` is false, or "too blurry from this orbit" when `sharp_enough` is false. |
 | Hover preview | `previewToggle(design, part.id)` on hover (on touch screens, a first tap shows it and a second tap toggles) | Show the change before clicking: each non-zero `delta` as "+0.8 kg, +15 W, +$0.15M, data home +5.45 GB/day, science +188", and one line each for `fixes` (green, "Fixes: ...") and `causes` (red, "Causes: ..."). If `adding` is false, title it "Remove". The design does not change until the click. |
@@ -1009,7 +1046,7 @@ Building is a chain of trade-offs: each part fixes one problem and creates the n
 | Live problems | `runChecks(design)` | Blockers in red and warnings in amber, under the bars. Ignore `no-launcher` here; it belongs to the next screen. |
 | Science preview | `previewScience(design)` | "About `total` of `target` over `months` months", with a small row per instrument. An estimate, not a promise. |
 
-**Example: sea ice in polar orbit, Standard tier.** These are the real numbers the back end returns after each click; the screen should make this story readable.
+**Example: sea ice in polar orbit, Standard tier.** These are the real numbers the back end returns after each click; the screen should make this story readable. (The table was written before structure and attitude became required: its first row still matches the code, and a design now also needs a structure and an attitude part before the last blocker clears.)
 
 | Player does | Mass kg | Power W (draw / made) | Budget $M | Data GB/day (home / made) | Science (preview / 200) | Still blocking |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -1075,6 +1112,7 @@ Where each check is fixed:
 | Your design's real twin | `d.closest_mission` | "Your design is closest to TIROS-1 (1960, NASA)", then its `shared` reasons ("both carried TV cameras", "both flew in low orbit") and its `blurb`. |
 | Real-world cousin | `d.real_mission` | One line. |
 | Events log | `d.events`: `title`, `label`, `failed_part` | What happened and what the player chose. |
+| A failed launch | `d.launch_failed` | The paragraph says the rocket failed; no real-Earth paragraph; the suggestion names a safer rocket if there is one. |
 | Buttons | | **Redesign**: back to Build with the same `design`. **New mission**: the base map with a fresh `newDesign(tier)`, Mission Control next. **Change tier**: tier select. |
 
 Without a campaign, the same design always replays the same mission (the seed comes from the design), so the player can see exactly what their change did. In a campaign each flight has fresh luck.
@@ -1106,17 +1144,13 @@ Yareem holds all three back-end roles. The full ordered plan, with the timeline 
 
 **Judging (all roles):** the demo is a video of 30 seconds or less, or at most 7 slides; `SOURCES.md` is the References list; the tests are on `main` as validity evidence: `node tests/formulas.js` (the eight formulas), `node tests/campaign.js` (the economy and research tree), `node tests/balance.js` (balance guarantees), `node tests/api.js` (the contract with the screens), `node tests/speed.js` (nothing freezes a browser), plus the red-team harness in `tests/redteam/`.
 
-**Status (Saturday night):** Phases A to F are on `main`. The 1957 campaign plays end to end in text (`node tests/play.js --campaign` on the working branch): 3 era topics plus 2 modern ones, 27 parts, 7 rockets and a 15-node research tree from 1958 solar cells to reusable rockets. A greedy campaign bot wins Training around 1963 and Standard around 1969, and times out on Expert, so a thoughtful player has room to do better. Known gaps, reported by `tests/balance.js` rather than hidden: the 1957 era flies low orbit only, as in history (polar orbits need thrusters from modern research); geostationary never wins, because fast fire detection is not scored yet (red team N5).
+**Status (written Saturday night; counts and gaps updated for version 2.0):** Phases A to F are on `main`. The 1957 campaign plays end to end in text (`node tests/play.js --campaign` on the working branch): the data now holds 41 parts, 7 rockets, 6 topics, 27 events, a 17-node research tree from 1958 solar cells to reusable rockets, and 14 real missions. A greedy campaign bot won Training around 1963 and Standard around 1969 and timed out on Expert when this was measured on Saturday night (not re-measured since), so a thoughtful player has room to do better. Known gaps, reported by `tests/balance.js` rather than hidden: the 1957 era flies low orbit only, as in history (polar orbits need thrusters from modern research); geostationary never wins, because fast fire detection is not scored yet (red team N5).
 
 ## Workflow
-
-&#91;embedded content: how the six aspects connect · data to logic to screens to main\]
 
 ### Working rules
 
 Data feeds both logic files, each logic file feeds its own screens, and everything meets on `main`, which QA plays and reports back on.
-
-### Working rules
 
 - **`main` always runs.** It deploys to GitHub Pages on every merge. A merge that breaks the game is reverted first and fixed second.
 - **One branch per task.** Name it after the aspect, such as `rules/eclipse` or `story/solar-storm`, and keep it to a few hours of work.
@@ -1143,7 +1177,7 @@ The game carries a version number, and `CHANGELOG.md` at the top of the repo rec
 3. Each owner clones the repo, makes a branch, and opens a first PR within the first hour, even if it only replaces one stub.
 4. Conflicts should be rare because every file has one owner. The one shared spot is the list of script tags in `index.html`, which the Design screens owner edits on request.
 
-Two technical rules for every SI:
+Three technical rules for every SI:
 
 - **No `import`.** Browsers block it when a page is opened straight from a file. Each data file defines one global, such as `const PARTS = [...]`, loaded with a plain script tag.
 - **`fetch` only in `js/live-data.js`,** only to services that allow browser calls, and always with the snapshot as the fallback ("Live open data"). The game must still work from a file with no internet.
@@ -1173,12 +1207,12 @@ Times are local. Submissions open Saturday at 9:00 AM and close Sunday at 11:59 
 
 We are not building any of these, even if an SI offers to:
 
-- Online or networked multiplayer
+- Online or networked multiplayer beyond the two 2.0 features, the global leaderboard and the quick 1v1 duel ("Online features"), which are optional and off when the game runs locally
 - A real-time 3D game engine, a physics simulation of launches, or models and art imported from elsewhere. The art is faceted, flat-shaded low-poly drawn by our own small renderer from code (`js/lowpoly.js` and the `js/lp-*.js` model files); launches and assembly may be shown with it in short animations, never simulated with it.
 - Real orbital mechanics or trajectory maths
-- Accounts, logins or a server
+- Accounts and logins. The game needs no server to play; the optional one in `server/` stores only a typed nickname and a random player id
 - More than one destination. Mars and the Moon wait until the Earth mission is finished.
-- A rival SI space programme, and any online leaderboard. The campaign save stays in the browser, with export and import codes.
+- A rival SI space programme. The comeback and campaign saves stay in the browser, with export and import codes.
 
 **Stretch list, in order**, started only after the first full playthrough works:
 
