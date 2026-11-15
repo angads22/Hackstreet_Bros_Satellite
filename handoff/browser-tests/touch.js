@@ -1,0 +1,21 @@
+const { chromium, devices } = require('playwright');
+(async () => {
+  const b = await chromium.launch(); const ctx = await b.newContext({ ...devices['iPhone 13'] }); const p = await ctx.newPage();
+  await p.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  await p.goto('file://' + (process.env.REPO || '/home/user/Hackstreet_Bros_Satellite') + '/index.html'); await p.evaluate(() => localStorage.setItem('smdg-progress-v1', JSON.stringify({ best_stars: {}, best_score: {}, best_stars_by_era: { igy: 3, nimbus: 3, eos: 3 } }))); await p.reload();
+  const wait = t => p.locator('.screen-head h1', { hasText: t }).waitFor({ timeout: 8000 });
+  await p.tap('[data-key="start-new-space-training"]'); await p.locator('.intro').waitFor({timeout:3000}).then(()=>p.click('text=SKIP'),()=>{}); /*SKIPINTRO*/ await wait('BASE MAP');
+  await p.tap('[data-key="blip-briefing"]'); await wait('BRIEFING');
+  await p.tap('[data-key="obj-sea-ice"]'); await p.tap('.nav-row .btn.primary'); await wait('ORBIT');
+  await p.tap('[data-key="orbit-sso"]'); await p.tap('.nav-row .btn.primary'); await wait('BUILD');
+  await p.tap('[data-key="bin-instrument"]');
+  const card = '[data-key="part-sar-radar"]';
+  await p.tap(card);
+  const afterOne = [await p.locator(card).getAttribute('aria-pressed'), (await p.locator('#preview').innerText()).split('\n').filter(Boolean)[1]];
+  await p.tap(card);
+  const afterTwo = await p.locator(card).getAttribute('aria-pressed');
+  console.log('first tap: pressed=' + afterOne[0] + ' preview="' + afterOne[1] + '"');
+  console.log('second tap: pressed=' + afterTwo);
+  console.log(afterOne[0] === 'false' && /ADD/.test(afterOne[1]) && afterTwo === 'true' ? 'PASSED' : 'FAILED');
+  await b.close();
+})();

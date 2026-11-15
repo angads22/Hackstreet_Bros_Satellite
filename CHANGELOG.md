@@ -6,10 +6,27 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Added
 
+- **More screen icons and an assembly preview.** Place headers, the map legend, minimap, part statistics and debrief use the shared flat icons. The Readiness satellite assembles part by part; reduced-motion settings show it immediately.
+- **Flat icons beside the words.** The parts bins, the four resource bars (mass, power, budget, data) and the problem lists now carry a simple one-colour icon; a blocker shows a cross, a warning a triangle. The words stay next to every icon.
+- **The ending: the programme chronicle.** When a campaign ends (won or out of time), the game tells the player's own story: a front page with a rating (Architects of the space age, Pioneers, An established programme, A promising start, Lessons learned), what each topic taught and what history says, and a year-by-year timeline of every flight (named G-1, G-2…, with a headline and its real twin), research and upgrade. `getChronicle()`; `js/ui-ending.js`.
 - **Offers.** Each year the hub shows up to two open offers from customers ("the Weather Bureau wants cloud pictures from a polar orbit by 1960"). A flight that returns enough data claims the bonus in money and science, even if the data is not new. The Build screen says whether the design you are building meets one, and the debrief says when one was met. `getHubInfo().offers`, `previewPayout().offers`, `recordResult().offers_claimed`.
 - **Every satellite needs a body and an attitude part** (the switch-over, `NEW_CATEGORIES_REQUIRED`, is now on). Explorer-style cylinder and spin stabilisation are the cheap, historical starting pair. Point Design starts with $18M (was $16M) so a radar on the small launcher still fits.
 - **Eleven new events,** so every topic has its own stories: Alouette's lopsided antennas, auroral radio noise and a blizzard at Resolute Bay (ionosphere); a rival reporting the same belts and a belt bigger than predicted (radiation); a hurricane under the camera and a jammed tape recorder (weather); a giant sunspot group (solar); smoke over the target (wildfire); the ice edge moving (sea ice); and a rare alignment for any mission. Several are chances, not just dangers: spend money or take a risk for more science.
-- **The ending: the programme chronicle.** When a campaign ends (won or out of time), the game tells the player's own story: a front page with a rating (Architects of the space age, Pioneers, An established programme, A promising start, Lessons learned), what each topic taught and what history says, and a year-by-year timeline of every flight (named G-1, G-2…, with a headline and its real twin), research and upgrade. `getChronicle()`; `js/ui-ending.js`.
+
+### Changed
+
+- **The Build screen no longer fights the mouse.** The "IF YOU CLICK" panel used to grow with its text and push every card away from the pointer, so hovering made cards flicker and clicks miss. It now has a fixed height. The part cards moved up under the satellite, and the bins and the four bars stay in view while you scroll, so you see what each click did.
+- **Pause and fast-forward can no longer cancel the walk to the debrief** when pressed as the mission ends.
+- **A better opening.** Explorer-sized mercury batteries now last about 50 days (Explorer 1's transmitters lasted 31 and 105), so the first flight earns real data, and Silicon solar cells cost 4 science: one flight pays for them, so the opening no longer needs the same dud flight twice. Winning a campaign now needs three topics at 70% known (was 60%), so a campaign lasts longer.
+- **The title leads with the campaign,** the core loop; a single mission is the quick alternative below it. The Build screen opens on the instrument bin. In a campaign, the debrief points to the lab instead of "the next tier".
+- **The campaign test and the balance sweep now include a body and an attitude part** in every design.
+
+## 0.7 beta (November 15, 2026)
+
+The game is GRAVITRON now: Austin's tutorial and Ajay's chapters tell one story across the levels, and the Build bench draws the satellite from the parts on board. Science points became a second currency, spent in the lab on research and upgrades, and the archive keeps old data paying. The ionosphere arrives as a topic from Canada's Alouette 1 data, each mission type now has a data cap with rewards for new data only, and the design screens use far fewer words.
+
+### Added
+
 - **The Gravitron story.** The game is now GRAVITRON: The Gravitronical Odyssey. The first level is the tutorial, told by Austin Albert (a NASA engineer in the first satellite programme); every later level is told by his grandson Ajay, who runs a small aerospace business on loans and a conditional contract and wants to restore his grandfather's name. Each chapter opens with a few short beats, one at a time (NEXT or SKIP), then one short spoken line on each screen from your team, your partner, the customer or Austin's notebook, and a closing line that depends on the result. The map, briefing, orbit, build, launch, mission and debrief screens all use it. A new event, "Instrument calibration problem" (pause and recalibrate: one month; continue: 80% science), gets a notebook reply in Ajay's chapter. The 80% is a GAME VALUE to agree with the Simulation owner.
 - **A drawing for each part on the satellite.** The Build bench draws the satellite from what is on board (body, instruments, solar panels, antennas, thrusters, attitude control) and shows the part you just added dropping in, with its name. The Readiness review shows the same satellite, small.
 - **The lab: research adds, upgrades replace.** Science returned is now a currency (`science_pts`). Research costs money *and* science. Six real successor parts can be bought as upgrades, each replacing its predecessor for the rest of the campaign: Explorer 4's scintillation counter (shrugs off the swamped-counter event), OSO 1's X-ray spectrometer, radiation-hard n-on-p solar cells (after Starfish Prime, 1962), Nimbus 1's camera system, PCM digital telemetry and Alouette 2's sounder. `getLab()`, `buyUpgrade(id)`.
@@ -21,15 +38,19 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Changed
 
-- **The title leads with the campaign,** the core loop; a single mission is the quick alternative below it. The Build screen opens on the instrument bin.
-- **The campaign test and the balance sweep now include a body and an attitude part** in every design.
-- **A better opening.** Explorer-sized mercury batteries now last about 50 days (Explorer 1's transmitters lasted 31 and 105), so the first flight earns real data, and Silicon solar cells cost 4 science: one flight pays for them, so the opening no longer needs the same dud flight twice. Winning a campaign now needs three topics at 70% known (was 60%), so a campaign lasts longer.
-- **The Build screen no longer fights the mouse.** The "IF YOU CLICK" panel used to grow with its text and push every card away from the pointer, so hovering made cards flicker and clicks miss. It now has a fixed height. The part cards moved up under the satellite, and the bins and the four bars stay in view while you scroll, so you see what each click did.
 - **The core loop: each mission type has a data cap, and rewards are for new data only.** A flight that brings back nothing new earns no money and no science points, and the debrief says to try another type. The hub's topics carry `data_collected`, `data_cap` and `complete`; `previewPayout` and the debrief carry `new_data`.
 - **Far fewer words on the design screens** (the team lead's "too many words"). Visible words fell about 40% overall: the briefing 73%, the rocket yard 57%, the debrief 52%, Build 46%. Cards now show a name and the numbers; what a job, an era or a part is about waits behind "About this job" or in the hover preview; each check shows a short label ("TOO HEAVY") with the full sentence behind "Why"; the debrief folds the four segments and the real missions into one line each; the map's controls are key caps; the one-line hint shows only the first time a screen is visited, and the "?" button brings it back.
 - **Polar orbits before 1995 need no disposal fuel,** as in history (Alouette 1 and Nimbus 1 reached them on a Thor-Agena); the debris rule dates from 1995.
 - **Less hand-holding.** On Trade Space and Point Design, research shows a hint instead of the exact lesson to earn.
 - **Saves:** campaign save version 3; older campaign saves start over.
+
+### Not in this version yet
+
+- Structure and attitude are still optional (`NEW_CATEGORIES_REQUIRED` is off in `js/game.js`).
+- **Launch failures** are planned and not built.
+- **Low-poly 3D art.** The engine and the models (satellite parts, rockets, Earth, people, base map) are built but not in the game yet.
+- **Suppliers, countries and travel costs** are a proposal in `SPEC.md`, not agreed.
+- The calibration event's 80% science is a game value still to agree with the Simulation owner.
 
 ## 0.6 beta (November 14, 2026)
 

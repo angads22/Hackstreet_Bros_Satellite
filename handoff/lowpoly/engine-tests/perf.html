@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>LowPoly perf</title>
+<style>html,body{margin:0;background:#222}canvas{display:block}</style>
+<script src="../../js/lowpoly.js"></script></head>
+<body><canvas id="c" style="width:800px;height:600px"></canvas>
+<script>
+// Build a stress scene of about n triangles that fills the frame.
+function makeScene(n) {
+  var L = LowPoly, items = [], total = 0;
+  function add(mesh, pos, rot) { items.push({ mesh: mesh, pos: pos, rot: rot || [0, 0, 0] }); total += L.count(mesh); }
+  add(L.box(2, 2, 2, 'silver'), [0, 0, 0]);
+  add(L.box(0.2, 0.05, 3, 'cell'), [-2.4, 0, 0], [0, 0, 0]);
+  add(L.box(0.2, 0.05, 3, 'cell'), [2.4, 0, 0]);
+  add(L.cylinder(0.6, 0.4, 1.2, 10, 'gold'), [0, 1.6, 0]);
+  var k = 0;
+  while (total < n) {
+    var remaining = n - total;
+    var m = remaining >= 320 ? L.sphere(0.5 + (k % 3) * 0.1, 2, ['steel', 'copper', 'white', 'teal'][k % 4])
+          : remaining >= 80 ? L.sphere(0.5, 1, 'orange') : L.cylinder(0.3, 0.3, 0.6, Math.max(3, Math.min(10, Math.floor(remaining / 4))), 'red');
+    add(m, [Math.cos(k * 1.3) * 1.6, Math.sin(k * 0.7) * 1.2, Math.sin(k * 1.3) * 1.6], [k * 20, k * 30, 0]);
+    k++;
+  }
+  return { items: items, camera: { yaw: 30, pitch: 20, fov: 35 }, light: {}, background: { color: 'space', stars: true, seed: 5 }, label: 'stress' };
+}
+function timeFrames(n, frames, flush) {
+  var c = document.getElementById('c'), scene = makeScene(n), times = [], info;
+  LowPoly.render(c, scene, {}); // warm up (allocations, JIT)
+  for (var i = 0; i < 20; i++) { scene.camera.yaw = 30 + i * 3; LowPoly.render(c, scene, {}); }
+  for (i = 0; i < frames; i++) {
+    scene.camera.yaw = 30 + i * 3.6;
+    var t0 = performance.now();
+    info = LowPoly.render(c, scene, {});
+    if (flush) c.getContext('2d').getImageData(0, 0, 1, 1);
+    times.push(performance.now() - t0);
+  }
+  times.sort(function (a, b) { return a - b; });
+  var sum = 0; times.forEach(function (t) { sum += t; });
+  return { tris: LowPoly.count(LowPoly.merge(scene.items.map(function (it) { return it.mesh; }))), mean: sum / times.length, median: times[times.length >> 1], p95: times[Math.floor(times.length * 0.95)], max: times[times.length - 1], info: info };
+}
+</script></body></html>
