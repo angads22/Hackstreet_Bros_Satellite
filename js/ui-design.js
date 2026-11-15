@@ -118,6 +118,7 @@
     map: null,           // live map elements, while the map is showing
     reached: 0,          // furthest design step visited, as an index into DESIGN_STEPS
     bin: null,           // which parts bin is open on Build (null = the first one)
+    binFor: null,        // the design that bin was chosen for (a new design picks its bin again)
     hover: null,         // part id being previewed on Build
     hintOpen: false,
     avail: null,         // getAvailability(design) for the screen being drawn
@@ -1719,7 +1720,10 @@
   }
 
   function go(screen, bin) {
-    if (screen === "build" && state.screen !== "build" && state.design) state.bin = entryBin(state.design, bin);
+    if (screen === "build" && state.design && (state.screen !== "build" || state.binFor !== state.design || bin)) {
+      state.bin = entryBin(state.design, bin);
+      state.binFor = state.design;
+    }
     var i = DESIGN_STEPS.indexOf(screen);
     if (i > state.reached) state.reached = i;
     bumpReached();                         // a preset place counts as visited once the one before it is
