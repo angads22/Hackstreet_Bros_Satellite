@@ -846,6 +846,10 @@ body.is-home { background: var(--space); }
   clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
 }
 .mode-card.lead { background: var(--accent); color: var(--on-accent); }
+.mode-card { cursor: pointer; }
+.mode-card.off { cursor: default; }
+.mode-card .btn { cursor: pointer; }
+.mode-card.off .btn { cursor: default; }
 .mode-card:hover { background: var(--surface-2); }
 .mode-card.lead:hover { background: var(--accent-ink); }
 .mode-top { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; flex-wrap: wrap; }

@@ -2537,7 +2537,14 @@
   // A menu entry: the whole panel is its button (the button's hit area covers the panel), so the label, the name and
   // the state read as one choice. lead: the entry to play next, drawn solid.
   function modeEntry(key, M, lead, extra, go) {
-    return el("div", { class: "mode-card" + (lead ? " lead" : ""), "data-key": key }, [
+    // A click anywhere on the panel presses its button (the stretched hit area of the CSS is not trusted in every
+    // browser), except on another button in it (JOURNAL). The button stays the one real control for keyboard and
+    // screen readers; a disabled one ("COMING NEXT") does nothing.
+    var card = el("div", { class: "mode-card" + (lead ? " lead" : "") + (go && go.disabled ? " off" : ""), "data-key": key, onclick: function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest("button, a, .mode-go .btn")) return;
+      if (go && !go.disabled) go.click();
+    } }, [
       el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
       el("h2", { text: M.name }),
       window.StarlineStory ? window.StarlineStory.counter() : null,
@@ -2547,6 +2554,7 @@
           ifAny: true, back: function () { showDesignScreen("title"); }, key: "journal-" + key }) : null,
         el("div", { class: "mode-go" }, [go])])
     ]);
+    return card;
   }
 
   function part1Card(lead) {
