@@ -1622,7 +1622,8 @@
     node.className = "data-badge " + (["live", "partial", "snapshot", "loading"].indexOf(status) !== -1 ? status : "snapshot");
     node.textContent = status === "live" ? "LIVE DATA" : status === "partial" ? "PARTLY LIVE" : status === "loading" ? "CHECKING DATA" : "SNAPSHOT";
     var sources = list(live.sources).map(function (s) { return s.name + ": " + (s.ok ? "live" : "snapshot"); }).join(". ");
-    var title = status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
+    var title = status === "loading" ? "Checking for live NASA and NOAA data. The saved data is used until it answers."
+      : status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
       : sources + (live.fetched_at ? ". Fetched " + live.fetched_at.slice(0, 16).replace("T", " ") + " UTC." : "");
     node.title = title;
     node.setAttribute("aria-label", node.textContent + ". " + title);
@@ -2031,8 +2032,10 @@
           button([last ? (opts.doneLabel || "START") : "NEXT", " >"], function () { if (last) onDone(); else { at++; draw1(); } }, { primary: true })
         ])
       ]));
+      // Open at the top (the title page may have been scrolled), then focus NEXT without scrolling back down.
+      window.scrollTo(0, 0);
       var next = document.querySelector(".intro .btn.primary");
-      if (next) next.focus();
+      if (next) next.focus({ preventScroll: true });
     }
     draw1();
   }
