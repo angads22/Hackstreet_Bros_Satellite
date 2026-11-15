@@ -1,6 +1,8 @@
 // tests/debrief.js — how a mission ends and what the debrief tells the player to try next.
 // Run from the repo root:  node tests/debrief.js
 // 1. A battery-only satellite flies until its battery is spent; an event ends a mission only when it breaks a part.
+// 2. The knowledge paragraph: "first real look" only on a topic's first flight; none in a comeback.
+// 3. TRY THIS: always something the player can do with what the design has (Part 1, other eras, Part 2).
 var load = require("./load");
 var G = load();
 var passed = 0, failed = 0;
@@ -124,6 +126,148 @@ var RAD = ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf
   CB.recordResult(m);
   var db = CB.getDebrief(m);
   check("2 a comeback flight gets no first-look or saturated paragraph", db.knowledge_before === 0 && db.knowledge_paragraph === "", JSON.stringify(db.knowledge_paragraph));
+})();
+
+// ---- 3. TRY THIS is always something the player can do with what this design has
+// The change the advice asks for (limitingFactor's `change`) is applied to the flown design, and the result must clear
+// every blocker the change itself could cause (locks for the era or the research, the body, the rocket, power, thrust)
+// on the money this flight had at launch. The text is checked too.
+var IGNORE = ["budget", "no-contract", "contract-topic", "contract-orbit", "comeback-over", "no-comeback", "too-late"];
+function adviceOf(g, m) {
+  var t = m.launch_totals, o = g.getObjective(m.design.objective);
+  return g.limitingFactor(m, t, Math.min(1, m.science / (o ? o.science_target : 100)));
+}
+function adviceProblems(g, m, lim, label) {
+  var out = [], d = m.design, ch = lim.change, text = lim.suggestion;
+  if (/\bThe (a|an|the) /i.test(text)) out.push("article: " + text);
+  if (/\d\.\d{4,}/.test(text)) out.push("raw number: " + text);
+  if (/next tier/i.test(text) && (d.year || d.campaign)) out.push("next tier: " + text);
+  if (/research/i.test(text) && !(d.campaign && !d.comeback)) out.push("research outside the 1957 campaign: " + text);
+  if (/undefined|NaN|null/.test(text)) out.push("broken text: " + text);
+  d.parts.forEach(function (id) {   // never ask for a part already on board (tests/balance.js has the same rule)
+    var n = g.getPart(id).name.toLowerCase(), t = text.toLowerCase();
+    if (/(add|fit|fly) the /i.test(text) && t.indexOf("the " + n) !== -1 && t.indexOf("your " + n) === -1) out.push("fitted part asked for: " + text);
+  });
+  if (!ch) return out.map(function (x) { return label + ": " + x; });
+  if (ch.launcher && d.year && !d.campaign) out.push("a standalone (Part 1) flight told to change its rocket: " + text);
+  if (ch.orbit && m.contract && m.contract.orbit) out.push("a contract's orbit suggested away: " + text);
+  var v = g.variantOf(d, ch), blockers = g.runChecks(v).blockers.filter(function (b) { return IGNORE.indexOf(b.id) === -1; });
+  if (blockers.length) out.push("the change cannot launch (" + blockers.map(function (b) { return b.id; }).join(",") + "): " + text);
+  var budget = m.launch_totals.budget_musd;
+  if (budget !== null && g.getTotals(v).cost_musd > budget + 1e-9) out.push("the change costs more than this flight had: " + text);
+  var av = g.getAvailability(v);
+  (ch.add || []).forEach(function (id) { if (!av.parts[id].available) out.push(id + " is not available: " + text); });
+  if (ch.part && text.toLowerCase().indexOf(g.getPart(ch.part).name.toLowerCase()) === -1) out.push("the text does not name " + ch.part + ": " + text);
+  if (ch.orbit && text.toLowerCase().indexOf(g.getOrbit(ch.orbit).name.toLowerCase()) === -1) out.push("the text does not name the orbit: " + text);
+  return out.map(function (x) { return label + ": " + x; });
+}
+// Part 1: every launchable 1958 design, on each rocket, under each event choice; steps 1 and 2 preset the rocket.
+(function () {
+  var base = G.newDesign("training"); G.setEra(base, "igy");
+  var av = G.getAvailability(base);
+  var parts = Object.keys(av.parts).filter(function (k) { return av.parts[k].available; });
+  var rockets = Object.keys(av.launchers).filter(function (k) { return av.launchers[k].available; });
+  var problems = [], flights = 0, kinds = {};
+  for (var mask = 1; mask < (1 << parts.length); mask++) {
+    var ps = parts.filter(function (p, i) { return mask & (1 << i); });
+    G.ORBITS.forEach(function (orb) { rockets.forEach(function (l) {
+      var d = eraDesign("igy", "training", "radiation", orb.id, l, ps);
+      if (G.runChecks(d).blockers.length) return;
+      [0, 1, 2].forEach(function (choice) {
+        var m = fly(d, choice), lim = adviceOf(G, m);
+        flights++; kinds[lim.key] = (kinds[lim.key] || 0) + 1;
+        problems = problems.concat(adviceProblems(G, m, lim, ps.join("+") + " " + l + " choice " + choice));
+        if (lim.suggestion !== G.getDebrief(m).suggestion) problems.push("getDebrief and limitingFactor disagree");
+      });
+    }); });
+  }
+  check("3 Part 1: TRY THIS on every launchable 1958 flight can be done in 1958, with the rocket it flew", problems.length === 0 && flights >= 90,
+    flights + " flights, limited by " + JSON.stringify(kinds) + (problems.length ? "; " + problems.length + " problems: " + problems.slice(0, 3).join(" | ") : ""));
+})();
+// The bug reports' flights: no 1990 radio, no 1965 computer, no 51 kg battery in a 10 kg body.
+(function () {
+  var a = fly(eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket",
+    ["explorer-body", "spin-stabilised", "scintillation-counter", "silicon-cells", "minitrack-beacon", "command-timer"]), 1);
+  var la = adviceOf(G, a);
+  check("3 the data advice in 1958 names a change that exists in 1958 and readable units", !/X-band|0\.0000/.test(la.suggestion) && /kB/.test(la.suggestion) &&
+    adviceProblems(G, a, la, "").length === 0, la.suggestion);
+  var b = fly(eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket",
+    ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "silicon-cells", "minitrack-beacon", "command-timer"]), 0);
+  var lb = adviceOf(G, b);
+  check("3 the eclipse advice fits the Explorer body and the 1958 rocket", lb.key === "power" && !/silver-zinc/.test(lb.suggestion) &&
+    lb.change && adviceProblems(G, b, lb, "").length === 0, lb.suggestion);
+})();
+// The other eras (standalone): random designs, random choices. Nothing from a later year, nothing that cannot launch.
+(function () {
+  var seed = 99;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  var problems = [], flights = 0;
+  ["nimbus", "eos", "new-space"].forEach(function (era) {
+    var base = G.newDesign("training"); G.setEra(base, era);
+    var av = G.getAvailability(base);
+    var parts = Object.keys(av.parts).filter(function (k) { return av.parts[k].available; });
+    var rockets = Object.keys(av.launchers).filter(function (k) { return av.launchers[k].available; });
+    var topics = Object.keys(av.objectives).filter(function (k) { return av.objectives[k].available; });
+    for (var n = 0; n < 4000 && flights < 600 * (["nimbus", "eos", "new-space"].indexOf(era) + 1); n++) {
+      var byCat = {};
+      parts.forEach(function (p) { var c = G.getPart(p).category; (byCat[c] = byCat[c] || []).push(p); });
+      var ps = [];
+      Object.keys(byCat).forEach(function (c) { if (c !== "propulsion" || rnd() < 0.3) ps.push(byCat[c][Math.floor(rnd() * byCat[c].length)]); });
+      if (rnd() < 0.5) ps.push(parts[Math.floor(rnd() * parts.length)]);
+      var tier = G.TIERS[Math.floor(rnd() * 3)].id;
+      var d = eraDesign(era, tier, topics[Math.floor(rnd() * topics.length)], G.ORBITS[Math.floor(rnd() * 3)].id, rockets[Math.floor(rnd() * rockets.length)], ps);
+      if (G.runChecks(d).blockers.length) continue;
+      var m = fly(d, function (ev) { return Math.floor(rnd() * ev.choices.length); });
+      flights++;
+      problems = problems.concat(adviceProblems(G, m, adviceOf(G, m), era + " " + d.objective + " " + d.orbit + " " + d.launcher));
+    }
+  });
+  check("3 other eras: TRY THIS can be done in the design's own era", problems.length === 0 && flights > 300,
+    flights + " flights" + (problems.length ? "; " + problems.length + " problems: " + problems.slice(0, 3).join(" | ") : ""));
+})();
+// Part 2: comeback flights for contracts with and without a named orbit. The topic and a named orbit stay as the client set them.
+(function () {
+  var seed = 7;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  var problems = [], flights = 0, named = 0;
+  var all = G.PARTS.map(function (p) { return p.id; });
+  for (var n = 0; n < 3000 && flights < 500; n++) {
+    var g = CB;
+    if (n % 25 === 0) g.newComeback(G.TIERS[n % 3].id);
+    var c = g.getCampaign();
+    if (c.finished) { g.newComeback(G.TIERS[n % 3].id); c = g.getCampaign(); }
+    c.treasury_musd = 60; c.deadline_month = c.month + 600;   // room to fly many designs (the cash is the budget)
+    var topics = ["radiation", "solar", "weather", "wildfire", "sea-ice", "ionosphere"], topic = topics[Math.floor(rnd() * topics.length)];
+    var orbits = topic === "sea-ice" ? ["sso"] : topic === "ionosphere" ? ["leo", "sso"] : ["leo", "sso", "geo"];
+    var k = { id: "t-" + n, topic: topic, orbit: rnd() < 0.5 ? orbits[Math.floor(rnd() * orbits.length)] : null, client: "A test client", reason: "It tests things.",
+              min_science: 60, price_musd: 10, bonus_musd: 2.5, expires_month: c.month + 12, done: false, text: "A test contract." };
+    c.offers = (c.offers || []).concat([k]);
+    g.saveCampaign(c);
+    var d = g.newComebackDesign(k.id);
+    if (!d.orbit) g.setOrbit(d, orbits[Math.floor(rnd() * orbits.length)]);
+    var byCat = {};
+    all.forEach(function (p) { if (g.isPartAvailable(p, d)) { var cat = g.getPart(p).category; (byCat[cat] = byCat[cat] || []).push(p); } });
+    Object.keys(byCat).forEach(function (cat) { if (cat !== "propulsion" || rnd() < 0.5) g.addPart(d, byCat[cat][Math.floor(rnd() * byCat[cat].length)]); });
+    if (rnd() < 0.5) g.addPart(d, all[Math.floor(rnd() * all.length)]);
+    g.setLauncher(d, ["rideshare", "small", "heavy", "thor-agena"][Math.floor(rnd() * 4)]);
+    if (g.runChecks(d).blockers.length) continue;
+    var m = g.startMission(d), st;
+    do { st = g.stepMonth(m); if (st.event) g.chooseEvent(m, Math.floor(rnd() * st.event.choices.length)); } while (!st.ended);
+    g.recordResult(m);   // the debrief reads the advice after the flight is recorded, as the screen does
+    flights++; if (k.orbit) named++;
+    var lim = adviceOf(g, m);
+    problems = problems.concat(adviceProblems(g, m, lim, topic + "/" + (k.orbit || "any") + " " + d.orbit + " " + d.launcher));
+  }
+  check("3 Part 2: TRY THIS for a comeback flight can be done, keeps the contract's topic and named orbit, and never says research",
+    problems.length === 0 && flights > 200 && named > 50, flights + " flights, " + named + " with a named orbit" +
+    (problems.length ? "; " + problems.length + " problems: " + problems.slice(0, 3).join(" | ") : ""));
+})();
+// The last tier, and Part 1 (an era design): no "next tier".
+(function () {
+  var m = fly(eraDesign("new-space", "expert", "weather", "leo", "thor-able",
+    ["nimbus-bus", "reaction-wheels", "avcs-camera", "solar-small", "radio-sband", "obc-radtol", "prop-green-small"]), 0);
+  var lim = adviceOf(G, m);
+  check("3 a target reached on the last tier does not send the player to a next tier", lim.key === "none" && !/next tier/.test(lim.suggestion), lim.suggestion);
 })();
 
 console.log(passed + " passed, " + failed + " failed");
