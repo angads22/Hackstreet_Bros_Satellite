@@ -155,7 +155,10 @@ A step passes with 1 star or more. Each step is proven winnable with 1958 parts 
 - **Contracts** are the offers with a client and a reason (`data/contracts.js`). Three are open at a time. Each names a topic, sometimes an orbit, a minimum of data, a full price and a month it expires. A flight is paid in proportion to the data it returns, up to the full price at the minimum, plus a small bonus for 3 stars. New data only: a topic already fully known pays nothing.
 - **Cash** (the treasury) pays for parts and launches, and is the readiness review's budget. **Debt** grows by a small monthly interest. **Months:** each flight uses the design's development time plus a launch campaign, and the hub counts down to the deadline. **PAY BACK** moves cash to the debt at any time.
 - **Win:** the debt reaches 0 before the deadline. **Lose:** the deadline passes with debt left, or the cash can no longer buy any launchable design. There is no bail-out in this mode.
-- **Ending:** a short chronicle for a win ("the workshop is yours") or a loss (by time or by cash), with TRY AGAIN.
+- **Runs are short and replayable.** A sensible player wins in about 2 flights on Easy, 3 on Normal and 4 on Hard; a careless player loses. Every new comeback gets its own `seed`, so the contracts, clients and reasons differ each run.
+- **Motives are revealed as you play.** Short scenes between a debrief and the workshop, each shown once per run: the lenders and the workshop (start); his mum, who co-signed the loan with her house (after flight 1); the rival Iron Eclipse (after flight 2); Austin's last notebook page (later); a last push when the debt is nearly paid.
+- **The buyout.** After the second settled flight with debt left, Iron Eclipse offers to clear the whole debt in exchange for the workshop, the patents and Austin's notebook. SELL ends the run (SOLD OUT); REFUSE (once) plays on. Until the player answers, no new contract can be flown.
+- **Seven endings**, counted on the home page ("ENDINGS n / 7"): THE BOX (Part 1's epilogue), HIS NAME RESTORED (debt paid, average 2.5 stars or better), BACK IN BUSINESS (debt paid), BY A HAIR (debt paid with a tenth of the time or less left), SOLD OUT (the buyout), THE KEYS ARE TAKEN (the deadline passes), NOTHING LEFT TO LAUNCH (no cash for any launch). Each ending offers PLAY AGAIN at once.
 
 **New fields (approved by the user, November 15):**
 
@@ -163,8 +166,14 @@ A step passes with 1 star or more. Each step is proven winnable with 1958 parts 
 | --- | --- |
 | `data/campaign.js` | `CAMPAIGN.comeback`: per difficulty the starting cash, debt and deadline in months; the monthly interest; the launch campaign in months; the number of open contracts; a contract's length in months; the 3-star bonus. All game values. |
 | `data/contracts.js` (new) | One global, `CONTRACTS`: for each topic, a list of `{ client, reason }`. |
-| The campaign save | `mode`, `month`, `debt_musd`, `deadline_month`. The save version goes up, so an old 1957 save is discarded. |
+| The campaign save | `mode`, `month`, `debt_musd`, `deadline_month`; then `seed` (a per-run random number), `buyout` (`"none"`, `"offered"`, `"refused"` or `"accepted"`) and `start_debt_musd` (the debt the run began with). Saves are **upgraded in place and never discarded** (see "Existing players keep their saves"). |
+| `data/campaign.js` (story) | `CAMPAIGN.comeback.buyout_after_flights` (2), `legend_avg_stars` (2.5) and `close_share` (0.1). Game values. Yareem agreed these and the save fields above on November 15 ("yeah go ahead"). |
+| localStorage (front end) | `gravitron-walkthrough-v1` (Part 1 steps passed), `gravitron-endings-v1` (endings found), `gravitron-seen-v1` (story scenes already shown, per run). They hold no game numbers. |
 | A design | `contract`, the id of the contract it flies for. |
+
+### Existing players keep their saves (approved November 15)
+
+An update must never take away what a player has earned: their stars (`smdg-progress-v1`), their Part 1 steps (`gravitron-walkthrough-v1`) and a comeback in progress (`smdg-campaign`). Any change to the shape of a save ships **with an in-place migration** (`upgradeCampaign` in `js/mission.js`) that keeps every existing field and value and only adds the new ones; a save from a newer game, a corrupt one, or one with a wrong value is ignored and left untouched in storage, never deleted. Every such change is tested against a **real saved file written by the previous version** (`tests/fixtures/player-0.9.json`, `tests/migration.js`, `handoff/browser-tests/existing-player.js`). An old run keeps its own debt, cash, deadline and contracts even when the tuning of new runs changes. RESET EVERYTHING on the home page is the only thing that clears saves, and it asks first.
 
 ### The core loop (approved November 15)
 
@@ -1053,7 +1062,7 @@ Data feeds both logic files, each logic file feeds its own screens, and everythi
 
 The game carries a version number, and `CHANGELOG.md` at the top of the repo records what each version holds. Both live in version control, so anyone can see what a given build can and cannot do.
 
-- **Current version: 0.9 beta.** The home page offers two modes: Part 1, Austin's guided 1958 walkthrough (three steps), and Part 2, Ajay's comeback (pay back a debt by flying contracts, with Easy, Normal and Hard). The whole game is drawn in low-poly 3D (home page, Build bench, faces, launch pad and lift-off, mission Earth, base map), with the pixel art as a fallback. Launch failures are not built yet. `CHANGELOG.md` lists what is in and what is still missing.
+- **Current version: 1.0.** The home page offers two modes: Part 1, Austin's guided 1958 walkthrough (three steps, a dramatic story and its epilogue), and Part 2, Ajay's comeback (pay back a debt by flying contracts: Easy, Normal and Hard, motives revealed as you play, a buyout choice, seven endings, a different run every time). The whole game is drawn in low-poly 3D with a rustic 1958 look for Part 1 and a modern one for Part 2, animated text, an animated explainer for each of the 41 parts, and a launch that ends with your satellite in orbit. Existing players keep their saves. `CHANGELOG.md` lists what is in and what is still missing.
 - **Numbering.** `0.x beta` until we submit; **1.0 is the build we submit** at the code freeze. Raise the second number when a missing piece lands (for example the campaign hub makes 0.6).
 - **Every merge to `main` that changes what a player sees, or what a back-end function returns, adds one line to the "Unreleased" section of `CHANGELOG.md`**, in the same commit or pull request. Write it for a teammate or a judge: what changed, not how. Use the headings Added, Changed, Fixed and "Not in this version yet".
 - **Cutting a version.** Rename "Unreleased" to the version and date, start a new empty "Unreleased", update the version line in the footer of `index.html` (the one place the game shows it), and tag that commit `vX.Y`. Whoever merges the last piece cuts the version, after telling the team. Then run `node tests/version.js`: it fails when the footer, the "Current version" line above and the newest heading in `CHANGELOG.md` disagree, and warns when the tag is missing. Cloud SI sessions cannot push tags, so push the tag from a computer (`git push origin vX.Y`).
