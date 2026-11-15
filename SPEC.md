@@ -186,6 +186,10 @@ Two features need a server: a **global leaderboard** and a **quick 1v1 duel**. T
 - **Duel:** one player creates a room and gets a four-letter code; the other joins with it. Both get the **same seed**: the same contract and the same starting cash. Each designs and flies one flight; the figures are submitted; the higher science wins, ties go to the lower cost. The room lives about ten minutes. Nothing carries into the player's own comeback save.
 - **The server** is a separate, optional program in `server/` (plain Node, no dependencies, a JSON file for storage, a request limit per address, a cap on sizes). The README outlines the features, the off rule, the privacy line and how to host it. The game itself stays plain HTML, CSS and JavaScript with no build step.
 
+### Sound (approved November 15, version 2.0)
+
+Music and sound effects, **made for the game**: `js/audio.js` synthesises every sound in the browser with the Web Audio API (oscillators, filtered noise, a generated reverb tail). No recording, sample, library or downloaded file is used, so nothing needs a licence and `SOURCES.md` says so. Slow, chill ambient music (a warm, tape-worn mood for the 1958 look, a clean one for Part 2) and short effects for button presses, adding or removing a part, the launch countdown, lift-off and orbit, each star, the PAID stamp, a win or a loss, and events. The page asks for no sound before the player's first click or key; MUSIC and SOUNDS switches in the footer turn each off and are remembered (`localStorage` key `gravitron-audio-v1`); the sound pauses when the tab is hidden. The game works without it (no Web Audio, or both switches off). The file adds no data field and nothing is saved in a comeback.
+
 ### Two game modes (approved November 15, replaces tier select)
 
 The home page offers **only two modes**. The era grid, the three levels as a separate choice and the 1957 campaign leave the screen. Their code stays (the back-end tests still use it), but no player reaches them.
