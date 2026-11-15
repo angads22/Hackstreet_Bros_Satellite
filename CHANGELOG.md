@@ -24,6 +24,12 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Higher levels give less help before a problem.** Normal drops the hover preview's "Fixes" and "Causes" lines and the FIX links; Hard also drops the science forecast and the pay forecast (the contract's terms stay) and shows event risks as bands. Facts, blockers and the debrief's TRY THIS stay on every level. The Part 2 picker says what each level removes.
 - **Faster to open.** Desktop Lighthouse performance went from 64 to 75 (about 60 on the hosted game) to 94 to 99: the home page no longer jumps when the scripts run, the fonts are in the game instead of fetched from Google (the pixel type now works offline), and the scripts load without blocking. Same look.
 
+### Added
+
+- **Global leaderboard.** The best Part 2 runs, top 20, your own rank, a SUBMIT SCORE button on the ending; scores are self-reported (`getRunScore`).
+- **Quick 1v1 duel.** Create a room, share the four-letter code, both fly one flight with the same job and cash; the higher science wins, ties go to the lower cost. It never touches your saves.
+- **Online is off when you host it yourself.** The leaderboard and duel buttons are disabled, with the reason, when the game is opened from a file, localhost, a private address or with `?offline=1`, or when no server is set; nothing is sent. The optional server is in `server/`.
+
 ## 1.0 (November 15, 2026)
 
 The submission build. Two game modes with a dramatic story, a choice and seven endings; runs short enough to replay; every screen animated; an animated explainer for each of the 41 parts; a rustic 1958 look for Part 1 against a modern Part 2; a longer launch. Players who already have progress keep all of it.

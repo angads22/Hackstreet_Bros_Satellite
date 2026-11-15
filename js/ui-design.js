@@ -2461,6 +2461,7 @@
   // A preset choice: set by the step, so its place counts as visited and its cards are read-only.
   function isPreset(screen) {
     if (isComebackDesign(state.design)) return comebackPreset(screen, state.design);
+    if (state.design && state.design.duel) return screen === "briefing" || screen === "orbit";   // ONLINE-DUEL: the seed sets the topic and the orbit
     var cfg = walkStepOf(state.design) ? walkConfig(state.walk.step) : null;
     return !!(cfg && PRESET_FIELD[screen] && cfg[PRESET_FIELD[screen]]);
   }
@@ -2613,7 +2614,8 @@
       el("div", { class: "title-main" }, [
         logotype(String(STORY.title || "GRAVITRON").toUpperCase()),
         el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)])
+        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)]),
+        window.StarlineOnline ? window.StarlineOnline.homeRow() : null   // ONLINE (js/ui-online.js): LEADERBOARD and DUEL, quiet
       ]),
       el("div", { class: "title-foot" }, [button("RESET EVERYTHING", function () {
         if (!window.confirm("Erase everything? Your stars, your Part 1 steps and any comeback in progress will be gone.")) return;
@@ -2641,7 +2643,7 @@
     return card;
   }
   function presetNote(screen) {
-    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : "Set for this step." }) : null;
+    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : state.design && state.design.duel ? "Set for the duel." : "Set for this step." }) : null;
   }
 
   // ---------------------------------------------------------------- 1 Briefing

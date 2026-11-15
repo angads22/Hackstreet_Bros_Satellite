@@ -104,3 +104,87 @@
     }
   });
 })();
+
+// ---------------------------------------------------------------- online features (SPEC.md, "Online features")
+// A leaderboard and a quick 1v1 duel, both through the optional server in server/. Defined apart from the open-data
+// code above so they exist even when EARTH does not. onlineStatus() is the one rule for "on or off": it looks only at
+// the address the page was opened from and at ONLINE (data/online.js). When it says off, nothing here sends anything.
+// Every call returns a promise that always resolves: { ok: true, ... } or { ok: false, reason }.
+(function () {
+  var root = typeof window !== "undefined" ? window : globalThis;
+  var FAIL = "Server not reachable";
+  var REASONS = {
+    file: "Playing from a file.",
+    local: "Running on this computer.",
+    lan: "Running on a private network.",
+    flag: "Offline mode is on (?offline=1).",
+    none: "No server is set."
+  };
+
+  function config() { return typeof ONLINE === "object" && ONLINE ? ONLINE : { endpoint: "" }; }
+
+  // loc: { protocol, hostname, search } (default: the page's own address). cfg: ONLINE (default: the data file).
+  // Returns { on, reason }; reason is "" when on. The address is judged first and the missing endpoint last.
+  function onlineStatus(loc, cfg) {
+    loc = loc || (typeof location === "object" && location ? location : {});
+    cfg = cfg || config();
+    var proto = String(loc.protocol || "").toLowerCase();
+    var host = String(loc.hostname || "").toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+    var search = String(loc.search || "");
+    function off(key) { return { on: false, reason: REASONS[key] }; }
+    if (proto === "file:" || proto === "") return off("file");
+    if (host === "localhost" || host === "0.0.0.0" || host === "::1" || host === "::" || host === "" ||
+        /\.local$/.test(host) || /\.localhost$/.test(host) || /^127\.\d+\.\d+\.\d+$/.test(host)) return off("local");
+    var ip = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+    if (ip) {
+      var a = parseInt(ip[1], 10), b = parseInt(ip[2], 10);
+      if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254)) return off("lan");
+    }
+    // fd00::/8 and fe80::/10 are the private and link-local IPv6 ranges.
+    if (/^(fd[0-9a-f]{2}|fe[89ab][0-9a-f]):/.test(host)) return off("lan");
+    if (/(^|[?&])offline=1(&|$)/.test(search)) return off("flag");
+    if (!cfg || typeof cfg.endpoint !== "string" || !cfg.endpoint.trim()) return off("none");
+    return { on: true, reason: "" };
+  }
+
+  function base() { return String(config().endpoint || "").trim().replace(/\/+$/, ""); }
+
+  // One request. No network at all when the status is off. Never rejects.
+  function call(method, path, body) {
+    var st = onlineStatus();
+    if (!st.on) return Promise.resolve({ ok: false, off: true, reason: st.reason });
+    if (typeof fetch !== "function") return Promise.resolve({ ok: false, reason: FAIL });
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, config().request_timeout_ms || 6000);
+    var opts = { method: method, cache: "no-store", credentials: "omit" };
+    if (ctl) opts.signal = ctl.signal;
+    if (body !== undefined) { opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(body); }
+    return fetch(base() + path, opts).then(function (r) {
+      return r.json().then(function (j) { return { status: r.status, json: j }; }, function () { return { status: r.status, json: null }; });
+    }).then(function (x) {
+      clearTimeout(timer);
+      var j = x.json && typeof x.json === "object" ? x.json : null;
+      if (x.status >= 200 && x.status < 300 && j) { j.ok = true; return j; }
+      return { ok: false, status: x.status, reason: j && typeof j.reason === "string" && j.reason ? j.reason : FAIL };   // status: 404 means the room is gone
+    }, function () { clearTimeout(timer); return { ok: false, reason: FAIL }; });
+  }
+
+  function q(id) { return id ? "?id=" + encodeURIComponent(id) : ""; }
+  function code(c) { return encodeURIComponent(String(c || "").toUpperCase()); }
+
+  var online = {
+    // The best runs, newest ranking. id (optional) also returns the player's own best and rank as `you`.
+    leaderboard: function (id) { return call("GET", "/api/leaderboard" + q(id)); },
+    // entry: { id, nickname, score, won, stars, months_left, reputation } (self-reported).
+    submitScore: function (entry) { return call("POST", "/api/score", entry || {}); },
+    // who: { id, nickname }. Answers { code, seed }.
+    duelCreate: function (who) { return call("POST", "/api/duel", who || {}); },
+    duelJoin: function (c, who) { return call("POST", "/api/duel/" + code(c) + "/join", who || {}); },
+    // figures: { id, nickname, science, cost_musd, stars, score }.
+    duelResult: function (c, figures) { return call("POST", "/api/duel/" + code(c) + "/result", figures || {}); },
+    // id (optional): says which player is asking, so the answer can say `you`.
+    duelPoll: function (c, id) { return call("GET", "/api/duel/" + code(c) + q(id)); }
+  };
+
+  root.LiveData = { onlineStatus: onlineStatus, online: online, failure: FAIL };
+})();

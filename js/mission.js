@@ -54,6 +54,7 @@ function copyDesign(design) {
   if (design.campaign) copy.campaign = true;
   if (design.comeback) { copy.comeback = true; copy.contract = design.contract || null; }
   if (design.year) { copy.year = design.year; copy.era = design.era; }
+  if (design.duel) copy.duel = { seed: design.duel.seed };   // ONLINE-DUEL: a quick 1v1 flight, never part of a save
   return copy;
 }
 
@@ -934,6 +935,11 @@ function recordResult(mission) {
   if (mission.recorded) return mission.recorded;         // a second call changes nothing
   var tierId = mission.design.tier;
   var d = getDebrief(mission);
+  // ONLINE-DUEL: a duel flight is its own thing: it never moves the stars record, the eras or the comeback save.
+  if (mission.design.duel) {
+    mission.recorded = { stars: d.stars, best_stars: d.stars, unlocked: null, era_unlocked: null, duel: true };
+    return mission.recorded;
+  }
   var p = getProgress();
   var i = TIERS.map(function (t) { return t.id; }).indexOf(tierId);
   var nextId = TIERS[i + 1] ? TIERS[i + 1].id : null;
@@ -2602,4 +2608,45 @@ function getComebackEnding() {
     timeline: timeline,
     epilogue: epilogue
   };
+}
+
+// ------------------------------------------------------------------ online features (SPEC.md, "Online features")
+// A run's score for the global leaderboard: 500 for a win, plus 100 per star earned, plus 10 per month left on a win, plus
+// 5 per point of reputation. The numbers are ONLINE.run_score (data/online.js). Pure: it only reads the comeback (the saved
+// one, or the one passed in) and writes nothing. Null while there is no finished comeback.
+var RUN_SCORE_DEFAULT = { win: 500, per_star: 100, per_month_left: 10, per_reputation: 5 };
+function getRunScore(c) {
+  c = c || getCampaign();
+  if (!isComeback(c) || !c.finished) return null;
+  var k = typeof ONLINE !== "undefined" && ONLINE && ONLINE.run_score ? ONLINE.run_score : RUN_SCORE_DEFAULT;
+  var stars = (c.missions || []).reduce(function (t, m) { return t + (m.stars || 0); }, 0);
+  var won = !!c.won;
+  var left = won ? Math.max(0, c.deadline_month - c.month) : 0;
+  var rep = Math.max(0, reputationOf(c));
+  return { score: Math.round((won ? k.win : 0) + k.per_star * stars + k.per_month_left * left + k.per_reputation * rep),
+           won: won, stars: stars, months_left: left, reputation: rep, tier: c.tier };
+}
+
+// The quick 1v1 duel: both players get the same seed from the server, so the same setup (ONLINE.duel_setups): topic, orbit,
+// era and tier, and the same starting cash (the tier's budget). Null without a usable seed or setup.
+function getDuelSetup(seed) {
+  var list = typeof ONLINE !== "undefined" && ONLINE && ONLINE.duel_setups ? ONLINE.duel_setups : [];
+  var n = Number(seed);
+  if (!list.length || !isFinite(n) || n < 0 || n !== Math.floor(n)) return null;
+  var pick = list[Math.floor(makeRandom(n >>> 0)() * list.length)];
+  var tier = getTier(pick.tier), era = getEra(pick.era);
+  return { seed: n, objective: pick.objective, orbit: pick.orbit, era: pick.era, year: era ? era.year : null,
+           tier: pick.tier, tier_name: tier ? tier.name : pick.tier, cash_musd: tier ? tier.budget_musd : null };
+}
+// A fresh standalone design for a duel: the setup's topic, orbit, era and tier, marked as a duel flight. It never joins
+// the comeback or the stars record (recordResult skips it). Null when the seed gives no setup.
+function newDuelDesign(seed) {
+  var s = getDuelSetup(seed);
+  if (!s) return null;
+  var d = newDesign(s.tier);
+  setEra(d, s.era);
+  setObjective(d, s.objective);
+  setOrbit(d, s.orbit);
+  d.duel = { seed: s.seed };
+  return d;
 }
