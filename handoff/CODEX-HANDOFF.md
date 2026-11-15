@@ -1,3 +1,20 @@
+# Active continuation checkpoint — November 15, 2026
+
+The latest continuation fetched through `b58e88b` and preserved older, superseded local art work in git stash (`Preserve local standalone art and small UI fixes before newer Codex handoff`). Do not apply that stash over the newer implementation.
+
+**User constraint still active:** keep 3D integration and main updates pending the advisor. The tool is unavailable here. Existing integrated art from Claude is retained; this continuation does not authorize a release to main. No contributor credit or SI_USE rows.
+
+**Current work in the shared checkout (not yet all verified):**
+- Title screen redesigned around the existing hero, two compact mode menus and progress; `css/home.css`. Home browser checks pass.
+- Three requested polish fixes: single icon-spacing rule, part-card separators kept with values, distinct Rocket Yard silhouette. Instrument-card science labelled as an upper bound.
+- Mission/debrief edits in `js/ui-mission.js` plus `css/mission-polish.css`: cost/consequence labels, pause/fast states, accessible stars, success feedback and mobile layout. Needs full verification.
+- Backend edits in `js/mission.js`: actionable suggestions, battery-only event handling, preflight checkpoint/refund approach. Needs inspection and regression tests; parallel worker stopped at its usage limit.
+- Design-screen worker may have left partial changes in `js/ui-design.js`; inspect the diff and finish before claiming its findings fixed. `css/design-fixes.css` currently linked.
+
+Two parallel workers reported a usage limit; no remaining-usage meter is exposed to the parent. This checkpoint is intentionally written before starting further work. Continue by inspecting the diffs and running targeted tests, then update `handoff/HANDBACK.md` with actual results and commits before pushing completed work. Preserve the original handoff below as the task list.
+
+---
+
 # Handoff for Codex (November 15 2026, about 08:40 Eastern)
 
 The Claude session building this hit (or is about to hit) its usage limit. This file is everything you need; it does not depend on anything outside the repo. Read `SPEC.md` (the source of truth, especially "Two game modes") and `CLAUDE.md` first, then this.
