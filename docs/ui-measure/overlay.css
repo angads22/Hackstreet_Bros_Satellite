@@ -1,0 +1,46 @@
+/* docs/ui-measure/overlay.css: the "after" of docs/ui-review.md, as CSS only, written against the 1.0 DOM.
+   Loaded by measure.js with --overlay. It does not edit the game: the screens rebuild #app on every click, so only CSS
+   survives. It covers the density items of the review (what fits above the fold, what is in the way). The ledger strip,
+   the verdict gauges, the satellite's own warning states, audio, the walk-skip and any reordering of the debrief need
+   DOM changes and are NOT here. Each rule says which problem it answers. Tried and removed after checking 1.0: a
+   debrief reorder (1.0's debrief has a different structure, so it did nothing), a hard-coded red for contrast (axe
+   finds none on 1.0), hiding greyed-out cards (in Part 1 they are the history lesson: "Arrives in 1963"), and a
+   swipeable strip for the phone's bins (needs a real layout pass and a device). */
+
+/* 1. One instruction, not four. The team's speech line stays; the header's OBJECTIVE line goes, and so does the numbered
+      screen title on the design screens (Build, Rocket Yard, Readiness, Mission, Debrief, the map). The title stays in the
+      page for screen readers. Screens whose heading is a place name (the Part 2 workshop) keep it. */
+.objective { display: none !important; }
+.screen:has(> .workshop, > .pad, > .mission-head, > .ledger, > .map-layout) > .screen-head h1 {
+  height: 1px !important; margin: 0 !important; padding: 0 !important; overflow: hidden; font-size: 1px !important; line-height: 1px !important; opacity: 0; }
+.screen:has(> .workshop, > .pad, > .mission-head, > .ledger, > .map-layout) > .screen-head { min-height: 0; padding: 0; margin: 0; }
+
+/* 2. A shorter header. It is sticky from 930 px wide, so every pixel of it is taken from every screen. */
+.topbar { padding-top: 6px; padding-bottom: 4px; row-gap: 4px; }
+
+/* 3. The design screens' speech line is one short strip (a small face, the line). The story scenes use .say too and are
+      left alone: the selector is the screen's own .say, not the one inside a scene. */
+.screen > .say { padding-top: 4px; padding-bottom: 4px; }
+.screen > .say .portrait { width: 48px; height: 48px; }
+
+/* 4. The next step is always reachable: pinned to the bottom of the viewport, on the page's own background. */
+.nav-row { position: sticky; bottom: 0; z-index: 6; background: var(--bg); padding: 8px 0; margin-top: 0; }
+
+/* 5. Build: a shorter satellite. The side columns and the preview stay pinned (measured on 0.9: un-pinning them doubled
+      the scrolling at 1366x768 and hid the preview while a lower card was hovered). The pinned columns start under the
+      shorter header. */
+.bench canvas.sat { max-height: 24vh; object-fit: contain; }
+.workshop { --sticky-top: 108px !important; }
+
+/* Desktop: the small "Why" summaries reach the 24 px minimum. */
+summary { min-width: 24px; padding: 0 4px; }
+
+/* 5b. Phone: the four bars become a 2x2 block, the satellite is smaller, and the small controls are at least 44 px. */
+@media (max-width: 760px) {
+  .bars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; }
+  .bars .bar { min-width: 0; }
+  .bench canvas.sat { max-height: 18vh; }
+  summary, .nav-row .btn, .tab, .title-foot button, [data-key="part1-go"], [data-key="part2-go"], [data-key="reset-progress"], .blip { min-height: 44px !important; }
+  summary, .blip { min-width: 44px !important; }
+  summary { display: inline-flex; align-items: center; justify-content: center; }
+}

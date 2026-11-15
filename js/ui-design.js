@@ -149,8 +149,8 @@
   // and "epilogue". Keys: intro, step-open, step-close, epilogue, map, briefing, orbit, build, launcher, review,
   // mission-start, mission-end, debrief, closing, notebook, event-calibration. "closing" on a walkthrough step that
   // passed is that step's close beat. Part 2 adds: why (extra: the number of flights), hub (extra: "start", "paid",
-  // "halfway" or "late"), contract (extra: "paid", "part" or "nothing") and ending (extra: "won", "deadline" or
-  // "cash"; a list of beats). Call them with a comeback design, or with { comeback: true } outside the design screens.
+  // "halfway", "late", "loaned", "credit" or "name"), contract (extra: "paid", "part" or "nothing") and ending (extra: "won",
+  // "deadline", "cash", "seized" or "name"; a list of beats). Call them with a comeback design, or with { comeback: true } outside the design screens.
   // extra: debrief and closing take the getDebrief result; mission-end takes it too (or the chooseEvent
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
@@ -375,7 +375,10 @@
         start: "Three contracts on the table. Pick one you can actually deliver.",
         paid: "That one paid. Pay some debt, or fly again while the interest ticks.",
         halfway: "Halfway there. The lenders have stopped calling twice a day.",
-        late: "Clock's nearly out. Fly something cheap and sure."
+        late: "Clock's nearly out. Fly something cheap and sure.",
+        loaned: "Cash in hand. The lenders will remember this.",
+        credit: "Credit is thin. One more loan could cost everything.",
+        name: "Debt's clear. Now fly well and make them say our name."
       },
       // The debrief's last line: what the client says about the data (paid in full, in part, or not at all).
       contract: {
@@ -383,11 +386,13 @@
         part: "Not everything we asked for. We paid for what arrived.",
         nothing: "Nothing new in that data. We can't pay for it."
       },
-      // The ending: won, or lost by time or by cash.
+      // The ending: won, or lost by time, by cash, by the lenders seizing everything or by never making a name.
       ending: {
         won: [{ who: "partner", text: "Debt paid. The workshop is yours." }, { who: "notebook", text: "Well done, Ajay. Now build the next one." }],
         deadline: [{ who: "partner", text: "The deadline passed. The lenders took the keys." }, { who: "notebook", text: "Failure is a lesson. Try again." }],
-        cash: [{ who: "partner", text: "Nothing left to launch with. The lenders took the keys." }, { who: "notebook", text: "Build cheaper. Try again." }]
+        cash: [{ who: "partner", text: "Nothing left to launch with. The lenders took the keys." }, { who: "notebook", text: "Build cheaper. Try again." }],
+        seized: [{ who: "partner", text: "Credit gone. The lenders took everything." }, { who: "notebook", text: "Borrow less. Earn their trust first." }],
+        name: [{ who: "partner", text: "Debt paid. But nobody knows our name." }, { who: "notebook", text: "A name is earned one good flight at a time." }]
       },
       // Part 2's story scenes. Each interlude is shown once per run, between a debrief and the workshop. See the header
       // for which one comes when and what it reveals. The `offer` carries its buttons (set after this object).
@@ -1948,6 +1953,13 @@
 
   // ---------------------------------------------------------------- shell: header, objective line, minimap, hints
   function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
+  // How much the screens help before a problem happens (SPEC.md, "Difficulty: how much help"), from the level's
+  // existing `hints` value: "on" is full help, "request" some, "off" minimal. Facts (blockers, part numbers, what
+  // limited the flight) show on every level; what goes away is the game working out the answer for the player.
+  function assist(design) {
+    var t = byId(data("TIERS"), (design || state.design || {}).tier);
+    return t && t.hints === "off" ? "minimal" : t && t.hints === "request" ? "some" : "full";
+  }
   // What the header calls this mission: "PART 1 · STEP 2" for a walkthrough step, else the tier's name.
   function modeName() {
     if (isComebackDesign(state.design)) return "PART 2 · " + comebackLevel(state.design.tier);
@@ -1974,6 +1986,7 @@
       : sources + (live.fetched_at ? ". Fetched " + live.fetched_at.slice(0, 16).replace("T", " ") + " UTC." : "");
     node.title = title;
     node.setAttribute("aria-label", node.textContent + ". " + title);
+    node.tabIndex = 0;
   }
 
   function setStatus(text) {
@@ -2152,7 +2165,7 @@
     if (nextTo && gps !== state.screen) nextTo = gps;
     var next = byId(PLACES, nextTo);
     return el("div", { class: "nav-row" }, [
-      button(["< ", "MAP [M]"], openMap, { aria: "Map: back to the base map" }),
+      button(["< ", "MAP [M]"], openMap, { aria: "MAP [M]: back to the base map" }),
       next ? button(["GO TO " + next.name, " >"], function () { travel(nextTo); },
         { primary: true, disabled: !nextOk, aria: "Go to " + next.name.toLowerCase() }) : null
     ]);
@@ -2350,14 +2363,16 @@
     if (!p || !k) return null;
     var f = typeof previewProfit === "function" ? previewProfit(d) : null;
     if (p.topic_complete && !(p.new_data > 0)) {
-      return el("div", { class: "payout", "data-key": "contract-pay" }, [profitLine(f && f.profit_musd),
+      return el("div", { class: "payout", "data-key": "contract-pay" }, [assist(d) === "minimal" ? null : profitLine(f && f.profit_musd),
         el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." })]);
     }
+    var terms = assist(d) === "minimal";   // Hard: the contract's terms, not a forecast of what this design will earn (no PROFIT line either)
     var cost = f && isNum(f.cost_musd) ? f.cost_musd : null, estimate = !!(f && f.launch_estimated);
-    var bits = ["Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
+    var bits = [terms ? "Pays up to " + money(k.price_musd) + " for " + num(k.min_science, 0) + " points"
+        : "Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
       cost !== null ? "costs " + money(cost) + (estimate ? " with the cheapest rocket" : "") : "costs " + money(p.cost_musd) + " + a rocket",
       "3 stars +" + money(k.bonus_musd)];
-    return el("div", { class: "payout", "data-key": "contract-pay" }, [profitLine(f && f.profit_musd),
+    return el("div", { class: "payout", "data-key": "contract-pay" }, [terms ? null : profitLine(f && f.profit_musd),
       el("p", { class: "nasa-line payout-line" }, bits.join(" · "))]);
   }
   // Briefing: the contract card (js/ui-comeback.js) and the topic it sets. The topic cannot change here.
@@ -2867,8 +2882,10 @@
     var why = whyBox(state.design, state.hover);   // the part adds nothing to the job: say why, first
     if (why) box.appendChild(why);
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
-    ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
-    ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    if (assist() === "full") {   // above Easy the player works out what a part fixes or breaks
+      ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
+      ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    }
     // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
     var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
     if (story) box.insertBefore(story, box.children[why ? 3 : 2] || null);   // under the heading and the WHY box
@@ -3042,7 +3059,7 @@
       var locked = lockReason(avail.launchers, l.id);
       if (locked && d.launcher !== l.id) {
         return el("button", { type: "button", class: "card locked", disabled: true, "data-key": "rocket-" + l.id }, [
-          el("div", { class: "card-title" }, [el("h3", { text: l.name.toUpperCase() }), el("span", { class: "tag bad", text: locked.toUpperCase() })])
+          el("div", { class: "card-title" }, [el("h2", { text: l.name.toUpperCase() }), el("span", { class: "tag bad", text: locked.toUpperCase() })])
         ]);
       }
       var cap = orbit && l.capacity_kg ? l.capacity_kg[orbit.id] : null;
@@ -3057,7 +3074,7 @@
         "aria-pressed": d.launcher === l.id ? "true" : "false", "data-key": "rocket-" + l.id,
         onclick: function () { setLauncher(d, l.id); redraw(); }
       }, [
-        el("div", { class: "card-title" }, [el("h3", { text: l.name.toUpperCase() }), tag]),
+        el("div", { class: "card-title" }, [el("h2", { text: l.name.toUpperCase() }), tag]),
         facts([
           ["Price", money(l.cost_musd)],
           orbit ? ["Lifts", reach ? num(cap, 0) + " kg" : "no"] : null
@@ -3093,7 +3110,7 @@
     var rocket = byId(data("LAUNCHERS"), d.launcher);
     // The science this design should bring home if nothing goes wrong, against the job's target (previewScience),
     // shown before the one click that cannot be undone. Short of the target: amber, and the button says ANYWAY.
-    var sci = d.objective && d.orbit && typeof previewScience === "function" ? previewScience(d) : null;
+    var sci = assist(d) !== "minimal" && d.objective && d.orbit && typeof previewScience === "function" ? previewScience(d) : null;
     var short = !!sci && sci.target > 0 && sci.share < 1;
     var forecast = sci && sci.target > 0 ? bar("SCIENCE FORECAST", num(sci.total, 0) + " / " + num(sci.target, 0) + " PTS", sci.share,
       short ? " warn" : "", short ? "Short of the target" : null, "science") : null;
@@ -3110,7 +3127,7 @@
       // The one thing to do first: with nothing blocking, LAUNCH comes before the warnings (it was below the fold on a
       // laptop); while something blocks, the NO GO lines and their FIX buttons come first.
       blocked ? null : launchBtn,
-      checkList(d, { fix: true }),
+      checkList(d, { fix: assist(d) === "full" }),
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
         ["Orbit", orbit ? orbit.name : "not chosen"],
@@ -3486,7 +3503,7 @@
       var st = placeStatus(p.id);
       refs.markers[p.id].className = "blip " + st + refs.edge[p.id] + (state.player === p.id ? " here" : "");
       var line = st === "locked" ? lockedReason(p.id) : p.does + ".";
-      refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
+      refs.markers[p.id].setAttribute("aria-label", p.num + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
       refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
       refs.legend[p.id].status.textContent = STATUS_TEXT[st];
     });
@@ -3787,6 +3804,7 @@
     leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; markEra("hub"); },
     // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
     era: function (name) { markEra("era", name); },
+    assist: assist,
     mount: function (screen, node) {
       state.screen = screen;
       markHome(screen);

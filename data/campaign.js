@@ -22,9 +22,23 @@ const CAMPAIGN = {
   // before the failures and the six months, after the failures alone, after both; see CHANGELOG.md).
   comeback: {
     tiers: {                  // per difficulty (tier id): Easy, Normal and Hard
-      training: { cash_musd: 5, debt_musd: 22, deadline_months: 42 },   // GAME VALUES (was 36: six months more, for the extra flight a failed launch can cost)
-      standard: { cash_musd: 4, debt_musd: 28, deadline_months: 48 },   // GAME VALUES (was 42, same reason)
-      expert:   { cash_musd: 3, debt_musd: 34, deadline_months: 54 }    // GAME VALUES (was 48, same reason; and 3 events a flight, from data/tiers.js)
+      training: { cash_musd: 6, debt_musd: 30, deadline_months: 60, loan_cap_musd: 20, reputation_goal: 12 },   // GAME VALUES
+      standard: { cash_musd: 4, debt_musd: 40, deadline_months: 54, loan_cap_musd: 25, reputation_goal: 20 },   // GAME VALUES
+      expert:   { cash_musd: 3, debt_musd: 45, deadline_months: 54, loan_cap_musd: 30, reputation_goal: 28 }    // GAME VALUES (and 3 events a flight, from data/tiers.js)
+    },
+    // Loans, credit and a name (SPEC.md, "Loans, credit and a name"). All GAME VALUES.
+    credit: {
+      start: 100,                 // credit runs 0 to 100
+      seize: 30,                  // at or below this the lenders take everything and the comeback is lost
+      per_loan: 12,               // credit lost for each loan
+      per_late_month: 0.8,        // credit lost for each month that passes with the debt above the cash
+      per_lost_satellite: 10,     // credit lost when a satellite is lost before its mission ends
+      per_star: 2,                // credit gained for each star a flight earns
+      per_payment: 1,             // credit gained for a payment of at least min_payment_musd
+      min_payment_musd: 1,
+      loan_fee: 0.05,             // share of a loan added to the debt on top of the loan
+      interest_spread: 0.02,      // extra monthly interest at zero credit; it scales with the credit lost
+      reputation_per_star: 2      // reputation gained for each star a flight earns
     },
     interest_per_month: 0.005,    // GAME VALUE: the debt grows by this share every month, compounded (about 6% a year)
     launch_campaign_months: 2,    // GAME VALUE: months from a finished satellite to its data reaching the client
