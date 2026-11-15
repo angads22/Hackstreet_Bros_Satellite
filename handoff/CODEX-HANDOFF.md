@@ -33,62 +33,41 @@ The Claude session building this hit (or is about to hit) its usage limit. This 
   - `handoff/lowpoly/gallery.html` shows every model.
 - **Version:** `main` is at 0.8 beta. The next cut is **0.9 beta**, done at the end (below).
 
-## Work that was in flight when the limit hit
+## State at 10:45 Eastern (branch `claude/pensive-allen-ujtdag` on GitHub, commit `11f1511` or later)
 
-These ran in local git worktrees of the Claude session. **Only what was pushed to `claude/pensive-allen-ujtdag` survives.** Check `git log origin/claude/pensive-allen-ujtdag` and compare with the list below; redo what is missing.
+**Done and pushed:**
+- Part 2's screens.
+- The new **console-style home page**: a full-screen low-poly scene, a drawn GRAVITRON logo, and the two modes as a vertical menu. The user had asked for a better-looking home page.
+- The design-screen fixes, merged: the hover preview, phone Build, FIX targets, the readiness forecast, orbit wording, map words and bin text.
+- Most back-end fixes: battery-only satellites, save-code validation, a refund after a reload, the lab soft-lock, TRY THIS only suggesting doable things, event text, sunspots, unreachable orbits.
+- Part of the mission and debrief fixes: event choice costs, the log and debrief agreeing on the verdict, accessibility, the limiting-factor icons.
 
-1. **Part 2 screens: DONE and pushed** (in `1eb0b97` and before). The picker, the workshop hub, contract flights, the debrief money story, the ending, Ajay's story, and `handoff/browser-tests/comeback.js` (155 checks). Every browser and node test passed on it.
-2. **Back-end fixes** (were on a local branch `modes/fixbe`). Findings are in `handoff/notes/findings-backend.json`; each has repro, expected, actual and root cause. Redo any that are not on the branch:
-   - TRY THIS suggests impossible parts, parts too heavy for the body or rocket, or orbits no rocket reaches. Every suggestion must be something the player can actually do.
-   - A battery-only satellite is ended by the first event.
-   - Reloading during a flight loses the launch money and the flight.
-   - A save code with missing fields is accepted and breaks the game.
-   - Copy slips: "The a hurricane", raw numbers like 0.000025, events naming hardware the satellite does not carry, "Try the next tier" on the last tier.
-   - The solar topic shows 0 sunspots in 2026.
-   - The scintillation counter's promised science is wrong.
-3. **Design-screen fixes** (were on a local branch `modes/fixa`). Findings are in `handoff/notes/findings-fronta.json`:
-   - the hover preview is cut off, and appears off-screen on a phone;
-   - the phone Build screen is a scrolling chore;
-   - OVER BUDGET's FIX goes to the wrong place, and FIX for a missing part opens the wrong bin;
-   - the readiness review says GO for a weak science forecast (show the forecast);
-   - the orbit badge contradicts its own "In view" line;
-   - phone overflow on the Launch vehicle screen;
-   - map labels cut off, and the map repeats its instruction four times.
-4. **Home page redesign:** three design directions were being built on local branches `modes/hp1` (console title screen), `modes/hp2` (two eras side by side) and `modes/hp3` (mission poster), with a judge to pick one (see "Still to do", 1).
-5. **Mission and debrief fixes** (were on a local branch `modes/fixb`): the countdown on the lift-off, event costs on the choice buttons, the 3-star celebration, REDESIGN guidance, a11y and layout (see "Still to do", 2).
+Every node test and every browser script passed at `37f5ae0`. The home page passed its own checks at 1280, 390 and 1920, with the art blocked, and with saves.
+
+**In flight when this was written** (local worktrees of the Claude session; lost if not pushed):
+- Finishing the mission and debrief fixes: the lift-off countdown, the 3-star celebration, REDESIGN going to the named fix, what the next star needs, 200% zoom, 320 px. See `handoff/notes/findings-frontb.json`.
+- Finishing the back end: copy slips and raw numbers in the advice, the scintillation counter's numbers, "Try the next tier", mixed messages. See `handoff/notes/findings-backend.json`.
+
+If those are not on the branch, they are optional polish. Skip them if time is short.
 
 ## Still to do, in this order
 
-1. **Home page that looks good.**
-   - Make it a proper game title screen: a full-width low-poly scene (`LowPoly.scenes.title()` in `js/lp-earth.js`) behind a big GRAVITRON logotype, and two large menu buttons, PART 1 · 1958 and PART 2 · TODAY.
-   - Show each part's state on its button (Part 1's step stars, Part 2's CONTINUE), with almost no other text, and RESET as a quiet link.
-   - It must work at 390 px wide and with `js/lowpoly.js` blocked.
-   - Keep the hooks the tests use, and run `handoff/browser-tests/home.js` and `play.js`.
-2. **Mission and debrief engagement fixes** (`handoff/notes/findings-frontb.json`, in `js/ui-mission.js`):
-   - the T-MINUS never counts (make the lift-off count down);
-   - event choices hide the cost of the safe option;
-   - a 3-star win feels flat (celebrate it, and make unlock banners buttons);
-   - REDESIGN lands on Build with stale guidance;
-   - a11y: the pause button's name, fast-forward's on state, the star rating's label;
-   - the limiting-factor icon is a pencil for orbit, instrument and attitude;
-   - layout at 200% zoom and at 320 px wide.
-3. **Merge and test everything:**
-   - every browser script in `handoff/browser-tests/`: `node <script>.js [shotsdir]` from outside the repo, with `REPO` set to the repo path;
-   - every node test: `node tests/formulas.js`, `api.js`, `campaign.js`, `comeback.js`, `speed.js`, `version.js`, and `balance.js`, which takes about 10 minutes;
-   - then play both modes end to end at 1280 and 390 wide.
-4. **Cut 0.9 beta:**
-   - In `CHANGELOG.md`, rename "Unreleased" to "0.9 beta (date)", with a short summary and a "Not in this version yet" list, and start a new empty "Unreleased" above it.
-   - Set the footer in `index.html` to `GRAVITRON v0.9 beta`.
-   - Commit that and push it to `main`.
-   - Then change the "Current version" line in `SPEC.md`, in its own commit pushed to `main`; it must stop saying the low-poly art is not in the game.
+1. Run everything:
+   - every node test in `tests/` (`balance.js` takes about 10 minutes);
+   - every script in `handoff/browser-tests` (`node <script>.js <shotsdir>` from outside the repo with `REPO` set; `lowpoly.js` takes the repo path as its first argument);
+   - then play both modes end to end at 1280 and 390.
+2. **Cut 0.9 beta:**
+   - In `CHANGELOG.md`, rename "Unreleased" to "0.9 beta (date)", with a summary and a "Not in this version yet" list, and start a new empty "Unreleased" above it.
+   - Set the footer to `GRAVITRON v0.9 beta`, then commit.
+   - Change the `SPEC.md` "Current version" line in its own commit straight to `main`. It must stop saying the low-poly art is not in the game, and must describe the two modes.
    - Run `node tests/version.js`.
-   - The user pushes tags from their own computer, because cloud sessions cannot.
-5. Open a PR from `claude/pensive-allen-ujtdag` to `main`, and merge it when green if the user asked for that ("finalise the whole game").
-6. **Questions saved for the end** (ask the user once, all together):
-   - should RESET also clear a saved comeback?
-   - is the 0.8 calibration science value OK with Yareem?
-   - rideshare and heavy share one rocket outline (a data decision);
-   - should `handoff/` be deleted once everything has landed?
+3. Open a PR from `claude/pensive-allen-ujtdag` to `main` and merge it (the user asked to "finalise the whole game").
+4. Ask the user the saved questions in one go:
+   - should RESET clear a saved comeback?
+   - Yareem's OK on the 0.8 calibration value;
+   - rideshare and heavy share one rocket outline;
+   - should `handoff/` be deleted now?
+   - and the version tags, which the user must push from their own computer: v0.8 at `d4b1cf8`, and v0.9 at the cut.
 
 ## Useful facts
 
