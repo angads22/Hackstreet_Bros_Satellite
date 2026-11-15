@@ -138,11 +138,19 @@
       return UI.button(risk ? [el("span", { text: c.label }), el("span", { class: "odds", text: risk })] : c.label,
         function () { answer(i); }, { primary: i === 0 });
     });
+    // Who speaks is whoever opened the mission (the story's speaker); the plain director when there is no story.
+    var opener = UI.storyLine ? UI.storyLine("mission-start", run.design) : "";
+    var who = opener && opener.who ? opener.who : "";
+    var face = who && UI.speakerArt ? UI.speakerArt(who) : null;
+    var speaker = who && UI.speakerName ? UI.speakerName(who) : "";
+    // The calibration event also gets a line from Austin's notebook, for Ajay only (the story layer says "" otherwise).
+    var extra = event.id === "calibration-drift" && UI.storyLine ? UI.storyLine("event-calibration", run.design, "ask") : "";
     box.appendChild(el("div", { class: "dialogue", role: "alertdialog", "aria-labelledby": "event-title" }, [
-      UI.directorArt(),
+      face || UI.directorArt(),
       el("div", { class: "stack" }, [
-        el("div", { class: "speaker" }, [el("h2", { id: "event-title", text: event.title.toUpperCase() }), el("span", { text: "Mission director" })]),
+        el("div", { class: "speaker" }, [el("h2", { id: "event-title", text: event.title.toUpperCase() }), el("span", { text: speaker ? speaker.toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) : "Mission director" })]),
         el("p", { class: "speech", text: event.text }),
+        extra && extra.text ? el("p", { class: "speech note", text: (extra.who && UI.speakerName && UI.speakerName(extra.who) ? UI.speakerName(extra.who) + ": " : "") + extra.text }) : null,
         el("div", { class: "choices" }, choices)
       ])
     ]));
@@ -154,6 +162,10 @@
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
     log((out.title || "Event") + ": " + (out.label || ""), "");
+    if (out.id === "calibration-drift" || /calibration/i.test(out.title || "")) {   // the story's reply to the choice (Ajay only; "" otherwise)
+      var reply = UI.storyLine ? UI.storyLine("event-calibration", run.design, i) : "";
+      if (reply && reply.text) log((reply.who && UI.speakerName && UI.speakerName(reply.who) ? UI.speakerName(reply.who) + ": " : "") + reply.text, "");
+    }
     if (out.protected) log("A part on board protected you.", "good");
     if (out.failed_part) {
       var p = UI.byId(UI.data("PARTS"), out.failed_part);

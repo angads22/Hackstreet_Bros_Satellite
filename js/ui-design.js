@@ -109,17 +109,637 @@
     avail: null,         // getAvailability(design) for the screen being drawn
     seenHint: {},        // screens whose one-line hint has been shown in this page load
     introSeen: {},       // chapters whose story intro has been shown in this page load
+    change: null,        // { id, kind } of the part click that is about to be drawn (one draw only)
     touch: false,        // last press on a part card was a finger
     armed: false,        // that part was already previewed when the finger went down
     locked: false        // true from launch until the debrief buttons
   };
 
-  // STORY-BEGIN  (everything between these two markers is the director's lines; Story rewrites the text freely)
-  // storyLine(key, design, extra) -> one short line for the director to say, or "".
-  // Keys: intro (returns STORY.intro, a list of short beats), map, briefing, orbit, build,
-  // launcher, review, mission-start, mission-end, debrief (extra = the getDebrief result).
-  var STORY = { intro: [] };
-  function storyLine(key, design, extra) { return key === "intro" ? STORY.intro : ""; }
+  // STORY-BEGIN  (everything between these two markers is the story: Story rewrites the text freely)
+  // GRAVITRON, "The Gravitronical Odyssey". Two chapters use the same screens:
+  //   "austin": Austin Albert, a NASA engineer in the first satellite project (the tutorial, the FIRST tier).
+  //   "ajay":   Ajay Albert, his grandson, a small-business engineer on loans (every later tier).
+  //
+  // STORY holds ALL the words, so a writer can edit them without reading the code below it.
+  //   A line is a string, a list of strings (variants, one is chosen from the design), or
+  //   { who: "partner", text: "..." } to change the speaker. { early: line, late: line } picks by tier.
+  //   "{name}" at the start of a line becomes an instrument's name. Keep lines to 12 words and 70 characters.
+  //
+  // How to show a line (the code at the end of this block returns it):
+  //   var line = storyLine(key, design, extra);          // "" or { who: "partner", text: "..." }
+  //   if (line) { portrait = speakerArt(line.who); name = STORY.speakers[line.who]; text = line.text; }
+  // storyLine("intro", design) returns a list of such beats instead. Keys: intro, map, briefing, orbit,
+  // build, launcher, review, mission-start, mission-end, debrief, closing, notebook, event-calibration.
+  // extra: debrief and closing take the getDebrief result; mission-end takes it too (or the chooseEvent
+  // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
+  // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
+  var STORY = {
+    title: "GRAVITRON",
+    subtitle: "The Gravitronical Odyssey",
+    speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK" },
+
+    // ------------------------------------------------ Story 1: Austin Albert, the tutorial
+    austin: {
+      who: { map: "team", briefing: "team", orbit: "team", build: "team", launcher: "team", review: "team",
+             "mission-start": "team", "mission-end": "team", debrief: "team", closing: "notebook",
+             notebook: "notebook", "event-calibration": "notebook" },
+      intro: [
+        { who: "team", text: "Austin Albert, NASA engineer. You lead the world's first satellite project." },
+        { who: "team", text: "Your invention is bold. Today we make it a complete mission." },
+        { who: "team", text: "Iron Eclipse is racing to own the view of Earth." },
+        { who: "team", text: "NASA has invested heavily. It needs proof that satellite data serves the public." },
+        { who: "team", text: "Watch wildfires and Arctic sea ice. Bring back observations people can use." }
+      ],
+      map: {
+        start: ["Five stops, one mission. Begin at Mission Control.", "Begin at Mission Control. The gold route leads the way."],
+        design: ["Follow the gold route. Each stop builds on the last."],
+        ready: ["Everything is chosen. Check it at the Launch Pad."]
+      },
+      briefing: {
+        none: ["Decide the goal first. The hardware follows from it.", "Pick the goal before any hardware. Everything follows from it."],
+        chosen: ["Goal chosen. It decides which instruments count.", "Goal set. It names the instruments that will count."],
+        locked: ["That goal needs research first."]
+      },
+      orbit: {
+        none: ["Where we fly changes everything that follows."],
+        "orbit-fit": ["That orbit cannot see what the goal needs."],
+        leo: ["Low orbit is sharp and cheap, but ground contact is short.", "Close means sharp, but passes over the ground station are brief."],
+        sso: ["Polar orbit passes over every pole, but costs more to reach.", "Polar orbit sees all of Earth. Getting there costs more."],
+        geo: ["Geostationary never loses sight of one place, but detail blurs.", "Far away, so detail blurs. But it never loses the ground."]
+      },
+      build: {
+        checks: {
+          "no-objective": "Pick a goal first. Everything we build serves it.",
+          "no-orbit": "Choose an orbit first. Every number here depends on it.",
+          "empty-structure": "Every satellite needs a body to hold its parts.",
+          "empty-instrument": "Start with an instrument. It is the reason we fly.",
+          "empty-power": "Add power. The instrument, radio and computer all draw on it.",
+          "empty-comms": "Add a radio. Data that stays on board is worth nothing.",
+          "empty-computer": "Add a computer. Something must run the other parts.",
+          "empty-attitude": "Add attitude control so the instrument stays pointed.",
+          "body-count": "One satellite, one body. Remove the extra.",
+          "body-payload": "That body cannot carry this much. Lighten the load or change body.",
+          "body-slots": "That body has no room for another part of that kind.",
+          "part-locked": "Research that part before you can fit it.",
+          "too-late": "Too slow to build. Choose parts that are quicker to make.",
+          budget: "Over budget. Something has to go.",
+          power: "Parts draw more than the panels make. Add power or cut load.",
+          "delta-v": "This orbit needs fuel to move itself. Add propulsion or cut mass.",
+          mass: "Too heavy for the rocket. Cut mass or buy a bigger one.",
+          "mass-margin": "Almost no mass to spare. Problems will hit harder.",
+          "power-margin": "Power is tight. Solar cells weaken with age.",
+          battery: "The battery is too small for Earth's shadow. Instruments go dark.",
+          "battery-only": "No solar panel. The battery runs out, then the satellite goes silent.",
+          data: "The instrument makes more data than the radio can send home.",
+          smear: "A spinning satellite smears its pictures. Hold it steady.",
+          "no-match": "None of these instruments counts for your goal.",
+          "orbit-fit": "That orbit cannot see what the goal needs.",
+          resolution: "That instrument is too blurry from this orbit."
+        },
+        thinBudget: ["Budget is nearly spent. Keep some back for surprises."],
+        uncounted: ["{name}: it adds mass and cost, not science.", "{name}: our goal ignores it. Worth the mass?"],
+        good: ["Every part supports the goal. That is a complete mission.", "Instrument, power, radio, computer in balance. A complete mission."]
+      },
+      launcher: {
+        none: ["A bigger rocket carries more. It also costs more."],
+        locked: ["That rocket needs research first."],
+        reach: ["That rocket cannot reach this orbit. Try another."],
+        mass: ["Too heavy for the rocket. Cut mass or buy a bigger one."],
+        budget: ["Over budget. A cheaper rocket often saves more than cheaper parts."],
+        fits: ["It fits. A bigger rocket would only eat the budget.", "It fits. Take no more rocket than the mission needs."],
+        fitsThinMass: ["It fits, barely. Spare mass is what saves a mission."],
+        fitsThinBudget: ["It fits, but almost nothing is left in the budget."]
+      },
+      review: {
+        blocked: ["Not ready. Every red line must clear before launch."],
+        margins: ["Thin margins are a choice, not an accident."],
+        warnings: ["We can go, but every warning is a risk we chose."],
+        go: ["Every check is clear. Launch when you are ready.", "All systems go. This is a complete, useful mission."]
+      },
+      "mission-start": {
+        warned: ["We launched with warnings. Let us hope they stay quiet."],
+        clean: ["Launched. Now we learn what we did not plan for.", "Iron Eclipse is watching this launch."]
+      },
+      "mission-end": {
+        lost: ["We lost it in flight. We must learn why."],
+        done: ["The flight is over. Let us see what came home."]
+      },
+      debrief: {
+        ended: "We lost it in flight. Find out why before we fly again.",
+        mass: { good: "It flew, but the rocket was nearly full. Keep spare mass.", poor: "Mass was the limit. Every kilo asked something of the rocket." },
+        power: { good: "It worked, but power was the limit. Everything on board draws it.", poor: "Power ran short. The instrument, radio and computer all draw on it." },
+        budget: { good: "It flew, but we spent nearly everything. Keep a reserve.", poor: "Money was the limit. Every part had a price." },
+        data: { good: "The radio was the limit. We saw more than we sent home.", poor: "Data was the limit. What never reaches the ground is lost." },
+        event: { good: "An event cost us, but we survived it. Keep your margins.", poor: "Something we did not plan hurt us. Margins would have helped." },
+        design: { good: "Close, but the hardware and the goal did not quite match.", poor: "The hardware did not match the goal. Start from the goal." },
+        none: { good: "Nothing held us back. We met the goal.", poor: "We met the goal, but margins and money cost us stars." }
+      },
+      closing: {
+        success: ["Useful observations came home. Whatever comes next, I will write it down here.", "The data came home and people can use it. I write the lessons down."],
+        partial: ["Some observations came home, not enough. I write down what we missed."],
+        failure: ["The satellite failed. I write down why, for whoever builds the next one."]
+      },
+      notebook: {
+        briefing: "Everyone should see what the satellite sees, not only its owner.",
+        orbit: "Height decides what we see, and how long we can talk.",
+        build: "Every part I add costs mass, power and money.",
+        launcher: "The rocket sets the limit before the first bolt is turned.",
+        "review-margin": "Thin margins feel safe on paper. Space does not read paper.",
+        "mission-start": "Launch day. I have never been so sure, or so afraid."
+      }
+    },
+
+    // ------------------------------------------------ Story 2: Ajay Albert, every later tier
+    ajay: {
+      who: { map: "partner", briefing: "customer", orbit: "partner", build: "partner", launcher: "partner", review: "partner",
+             "mission-start": "partner", "mission-end": "partner", debrief: "partner", closing: "partner",
+             notebook: "notebook", "event-calibration": "notebook" },
+      intro: [
+        { who: "notebook", text: "Last entry. The mission failed. I leave these notes for whoever tries again." },
+        { who: "partner", text: "Decades later, you open them in your small workshop." },
+        { who: "partner", text: "His failure cost him his name. Rivals call his vision impractical." },
+        { who: "partner", text: "Your business secures the loans. The contract pays only for returned observations." },
+        { who: "customer", text: "Iron Eclipse charges too much. We need reliable observations we can afford." },
+        { who: "partner", text: "Redesign and simulate for free. The loan is spent only at launch." }
+      ],
+      map: {
+        start: ["Nothing costs money until launch. Try ideas freely."],
+        design: ["Test every idea here. After launch, nothing is free."],
+        ready: ["All chosen. Check it twice: launch spends the loan."]
+      },
+      briefing: {
+        none: ["Choose what to watch. Then think who will use it."],
+        locked: ["That topic needs research first."],
+        topics: {
+          wildfire: "Crews need to know where fires start, while there is still time.",
+          "sea-ice": "Ships and northern towns need ice maps through the polar night.",
+          radiation: "Satellite builders need to know where the radiation is worst.",
+          solar: "Power grids and airlines need warning before a solar flare hits.",
+          weather: "Forecasters need cloud pictures from places with no weather stations.",
+          ionosphere: "Radio operators need to know when the ionosphere will block them."
+        }
+      },
+      orbit: {
+        none: ["Pick the orbit your goal needs, not the one you know."],
+        "orbit-fit": ["That orbit cannot see your target. Is that deliberate?"],
+        leo: ["Low orbit is cheap and sharp. You pay in minutes of contact.", "Cheapest to reach. Short ground passes mean little data comes home."],
+        sso: ["Polar orbit sees everything. The fuel to come down costs mass.", "You see every pole, but you must carry fuel to come down."],
+        geo: ["Geostationary never looks away. Detail blurs, and launch costs more.", "Constant view and contact, but blurry detail and a big launch bill."]
+      },
+      build: {
+        checks: {
+          "no-objective": "You have no goal yet. Without one, nothing here has a purpose.",
+          "no-orbit": "No orbit chosen. These numbers will change once you pick one.",
+          "empty-structure": "It needs a body. Everything else bolts onto it.",
+          "empty-instrument": "Nothing aboard observes Earth yet. Start with the instrument.",
+          "empty-power": "No power. Every part you add will draw on it.",
+          "empty-comms": "No radio. The contract pays only for data that reaches us.",
+          "empty-computer": "No computer, so nothing coordinates the other parts.",
+          "empty-attitude": "It needs attitude control to point and hold steady.",
+          "body-count": "Two bodies. A satellite has one.",
+          "body-payload": "That body cannot carry this load. Lighter parts, or a bigger body?",
+          "body-slots": "That body has no free slot for another part of that kind.",
+          "part-locked": "You have not researched that part yet.",
+          "too-late": "It takes too long to build. The window closes before launch.",
+          budget: ["You are over budget. Which part earns its place?", "The loan does not stretch this far. Something has to go."],
+          power: "Parts draw more than the panels make. Something has to give.",
+          "delta-v": "Not enough thrust for this orbit. More fuel, or less mass?",
+          mass: "Too heavy. Cut mass, or pay for a bigger rocket.",
+          "mass-margin": "Almost no spare mass. One surprise could end the mission.",
+          "power-margin": "Thin power margin. Panels weaken over the years.",
+          battery: "Without a bigger battery, instruments go dark in Earth's shadow.",
+          "battery-only": "Batteries only. The satellite will go silent when they run out.",
+          data: "It records more than the radio can send. Lost data earns nothing.",
+          smear: "Spin smears the images. Reliable data needs steady pointing.",
+          "no-match": "None of these instruments counts for your goal.",
+          "orbit-fit": "This orbit cannot see your target. No instrument can fix that.",
+          resolution: "That instrument is too blurry from here. It will earn nothing."
+        },
+        thinBudget: ["Almost the whole budget is spent. Nothing left for surprises."],
+        uncounted: {
+          early: ["{name}: why is it aboard? The goal ignores it.", "{name}: for the goal, or for Austin's design?"],
+          late: ["{name}: you know my question by now."]
+        },
+        good: ["Every part serves the goal. That is what affordable means.", "It balances. Nothing here is there for show."]
+      },
+      launcher: {
+        none: ["Iron Eclipse sells at a high price. Your edge is wasting nothing.", "Rocket size, mass and money pull against each other. Pick your trade."],
+        locked: ["You have not researched that rocket yet."],
+        reach: ["It cannot reach this orbit. Another rocket, or another orbit?"],
+        mass: ["Too heavy. Cut mass, or pay for a bigger rocket."],
+        budget: ["That breaks the budget. Where is the cheapest place to cut?"],
+        fits: ["It fits. A bigger rocket would be money spent on nothing.", "It fits. Paying for more rocket than you need helps no one."],
+        fitsThinMass: ["It fits, but a full rocket leaves no room for surprises."],
+        fitsThinBudget: ["It fits. But the budget has almost nothing left."]
+      },
+      review: {
+        blocked: ["Not ready. Clear every red line. After launch, nothing can change."],
+        margins: ["Thin margins are a choice. Choose them on purpose.", "Thin margins are a choice. Are you choosing them?"],
+        warnings: ["Each warning is a risk you accept. After launch, it is real."],
+        go: ["All clear. Launch spends the loan, and the contract waits on data.", "Every check passes. Now the design has to earn the contract."]
+      },
+      "mission-start": {
+        warned: ["You launched with warnings. Now we see if they matter."],
+        clean: ["The loan is spent. Now the design has to earn it.", "Everything you could control is done. Now we watch."]
+      },
+      "mission-end": {
+        lost: ["We lost it. Let us find out why."],
+        done: ["That is the last signal. Let us see what it earned."]
+      },
+      debrief: {
+        ended: "It ended early. Austin knew that feeling. Find out why.",
+        mass: { good: "It flew, but the rocket was nearly full. Keep a reserve.", poor: "The rocket was too full. Spare mass is cheap insurance." },
+        power: { good: "Power was the tightest part. Give it more room next time.", poor: "Power ran short. Every part you add draws on it." },
+        budget: { good: "You spent nearly everything. It worked, but there was no cushion.", poor: "The budget ran out of room. Affordable means choosing." },
+        data: { good: "Data was the limit. You saw more than you could send.", poor: "Data decided this one. What never arrives earns nothing." },
+        event: { good: "An event cost you, but you recovered. Keep those margins.", poor: "Something unplanned broke it. Margins are how you survive that." },
+        design: { good: "The hardware nearly matched the goal. Close.", poor: "Hardware and goal did not match. Start from what people need." },
+        none: { good: "Nothing held it back. That is affordable engineering.", poor: "Target reached, but margins and money cost you stars." }
+      },
+      closing: {
+        success: {
+          early: [{ who: "partner", text: "Austin's notes showed the way. You tested every assumption in them." },
+                  { who: "customer", text: "People can use this, and afford it. That was Austin's hope." }],
+          late: [{ who: "partner", text: "His vision, now affordable. You honoured him by correcting him." }]
+        },
+        partial: {
+          early: ["Part of the contract is earned. Austin's notes still hold answers."],
+          late: ["Part of the contract is earned. You know where to look now."]
+        },
+        failure: {
+          early: ["The satellite is lost; the loan remains. Austin failed too, and learned from it."],
+          late: ["The satellite is lost, but the lesson is not. Write it down, as Austin did."]
+        }
+      },
+      notebook: {
+        briefing: "I built what I admired. I never asked who needed it.",
+        "orbit-bad": "I chose the orbit I knew. The target should have chosen it.",
+        "build-extra": "I loved every instrument. Only some of them served the goal.",
+        "build-margin": "I left no margin. Orbit punished me for it.",
+        launcher: "We had rocket to spare, so I never counted kilograms.",
+        review: "I accepted warnings because we were behind. They found me later.",
+        "mission-start": "The night before launch, I wrote: let the data be true.",
+        debrief: {
+          mass: "A mission with no spare mass has no second chances.",
+          power: "Power looked like a detail. It never was.",
+          budget: "Money you keep back is a margin too.",
+          data: "More measurements are not more information. I learned that late.",
+          event: "I never planned for the unplanned. Leave room for it.",
+          design: "A fine machine for the wrong question is still a failure.",
+          none: "This is the satellite I should have built."
+        }
+      },
+      // The data event "calibration-drift" cannot change by chapter, so this line is added after the choice.
+      // The keys are the choice index: 0 = pause and recalibrate, 1 = continue with reduced accuracy.
+      "event-calibration": {
+        ask: "The first sign of drift is easy to ignore. I ignored it.",
+        "0": "A month lost beats a year of doubtful data. I learned late.",
+        "1": "I kept collecting through the drift. More readings, less truth."
+      }
+    }
+  };
+
+  // ---- the code that picks a line (no text below this point) ----
+  // Every name here starts with "story" so it cannot clash with the rest of this file.
+  // PAL is only used inside speakerArt(): it is defined further down the file than this block.
+  var STORY_MAX_CHARS = 70;      // longest screen line
+  var STORY_MAX_WORDS = 12;
+  // Build lines go: first blocker, then the warnings, then an instrument that does not count, a thin budget and "all good".
+  // The data and battery warnings sit on screen in most unfinished builds, so the question about an instrument that
+  // does not count is rarely reached. Set this to true to ask it straight after the blockers instead.
+  var STORY_ASK_FIRST = false;
+  var STORY_THIN = 0.1;          // a margin under 10% is thin (the same limit the back end warns at)
+  var STORY_WARNING_ORDER = ["orbit-fit", "no-match", "resolution", "smear", "data", "battery-only", "battery",
+                             "power-margin", "mass-margin"];   // which warning the Build line talks about first
+  // Checks that belong to the Rocket screen, not Build (as in getHints).
+  var STORY_NOT_BUILD = ["no-launcher", "launcher-reach", "launcher-locked", "objective-locked"];
+
+  function storyHas(obj, key) {
+    return !!obj && typeof obj === "object" && typeof key === "string" && Object.prototype.hasOwnProperty.call(obj, key);
+  }
+
+  // "austin" for the first tier (the tutorial) or no design; "ajay" for every later tier.
+  function storyChapter(design) {
+    try {
+      var tiers = data("TIERS");
+      if (!design || !tiers.length || !byId(tiers, design.tier)) return "austin";   // an unknown tier plays as the first, as in newDesign
+      return design.tier === tiers[0].id ? "austin" : "ajay";
+    } catch (e) { return "austin"; }
+  }
+
+  // Ajay's growth: "early" in his first tier, "late" after that. Austin is always "early".
+  function storyStage(design) {
+    try {
+      var at = -1;
+      data("TIERS").forEach(function (t, i) { if (design && t && t.id === design.tier) at = i; });
+      return at >= 2 ? "late" : "early";
+    } catch (e) { return "early"; }
+  }
+
+  function storyHash(text) {
+    var h = 7;
+    for (var i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) % 1000003;
+    return h;
+  }
+  // The variant comes from the screen, the state and the tier, objective and orbit, never from the parts,
+  // so the wording does not shuffle every time a part is clicked.
+  function storySeed(key, state, design) {
+    return [key, state, design && design.tier, design && design.objective, design && design.orbit].join("|");
+  }
+
+  // Back-end checks as lists of ids. ok is false when they could not be run.
+  function storyChecks(design) {
+    var out = { ok: false, blockers: [], warnings: [] };
+    try {
+      if (typeof runChecks !== "function" || !design || !Array.isArray(design.parts)) return out;
+      var r = runChecks(design);
+      list(r && r.blockers).forEach(function (b) { if (b && typeof b.id === "string") out.blockers.push(b.id); });
+      list(r && r.warnings).forEach(function (w) { if (w && typeof w.id === "string") out.warnings.push(w.id); });
+      out.ok = true;
+    } catch (e) { out.ok = false; }
+    return out;
+  }
+  // "resolution-vidicon" and "smear-vidicon" are one kind of check each.
+  function storyKind(id) {
+    if (id.indexOf("resolution-") === 0) return "resolution";
+    if (id.indexOf("smear-") === 0) return "smear";
+    return id;
+  }
+  function storyHasCheck(checks, kind) {
+    return checks.blockers.concat(checks.warnings).some(function (id) { return storyKind(id) === kind; });
+  }
+
+  // First instrument in the design that does not count for the objective, or null.
+  function storyUncounted(design) {
+    var found = null;
+    try {
+      list(design && design.parts).forEach(function (id) {
+        var p = byId(data("PARTS"), id);
+        if (found || !p || p.category !== "instrument" || typeof getPartFacts !== "function") return;
+        var f = getPartFacts(design, id);
+        if (f && f.counts === false) found = p;
+      });
+    } catch (e) { found = null; }
+    return found;
+  }
+  // "Improved topside sounder (Alouette 2)" -> "Improved topside sounder"
+  function storyShortName(part) {
+    var name = part && typeof part.name === "string" ? part.name.replace(/\s*\([^)]*\)/g, "").replace(/^\s+|\s+$/g, "") : "";
+    return name || "This instrument";
+  }
+
+  // True when this margin (mass, power or budget) is under 10%.
+  function storyThin(design, which) {
+    try {
+      var m = getTotals(design).margins;
+      var limit = typeof LOW_MARGIN === "number" ? LOW_MARGIN : STORY_THIN;
+      return !!m && typeof m[which] === "number" && m[which] < limit;
+    } catch (e) { return false; }
+  }
+
+  // Turns a line (string, list, early/late, or { who, text }) into { who, text } or "".
+  function storySay(ctx, key, state, line, part) {
+    if (line && typeof line === "object" && !Array.isArray(line) && typeof line.text !== "string") {
+      line = storyHas(line, ctx.stage) ? line[ctx.stage] : line.early;
+    }
+    if (Array.isArray(line)) line = line.length ? line[storyHash(storySeed(key, state, ctx.design)) % line.length] : "";
+    var who = ctx.c.who[key];
+    var text = line;
+    if (line && typeof line === "object") { text = line.text; if (line.who) who = line.who; }
+    if (typeof text !== "string" || !text || !who) return "";
+    if (text.indexOf("{name}") !== -1) {
+      var full = text.replace("{name}", function () { return storyShortName(part); });
+      var fits = full.length <= STORY_MAX_CHARS && full.split(" ").length <= STORY_MAX_WORDS;
+      text = fits ? full : text.replace("{name}", function () { return "This instrument"; });
+    }
+    return { who: who, text: text };
+  }
+
+  function storyMap(ctx) {
+    var d = ctx.design;
+    var state = !d || !d.objective ? "start" : (d.orbit && d.launcher && list(d.parts).length ? "ready" : "design");
+    return storySay(ctx, "map", state, ctx.c.map[state]);
+  }
+
+  function storyBriefing(ctx) {
+    var d = ctx.design, t = ctx.c.briefing;
+    if (!d || !d.objective) return storySay(ctx, "briefing", "none", t.none);
+    if (!byId(data("OBJECTIVES"), d.objective)) return "";
+    if (storyHasCheck(storyChecks(d), "objective-locked")) return storySay(ctx, "briefing", "locked", t.locked);
+    if (t.topics) return storyHas(t.topics, d.objective) ? storySay(ctx, "briefing", d.objective, t.topics[d.objective]) : "";
+    return storySay(ctx, "briefing", "chosen", t.chosen);
+  }
+
+  function storyOrbit(ctx) {
+    var d = ctx.design, t = ctx.c.orbit;
+    if (!d || !d.orbit) return storySay(ctx, "orbit", "none", t.none);
+    if (!byId(data("ORBITS"), d.orbit)) return "";
+    if (storyHasCheck(storyChecks(d), "orbit-fit")) return storySay(ctx, "orbit", "orbit-fit", t["orbit-fit"]);
+    return storyHas(t, d.orbit) ? storySay(ctx, "orbit", d.orbit, t[d.orbit]) : "";
+  }
+
+  // Build: the first blocker, the warnings, an instrument that does not count, a thin budget, then "all good".
+  function storyBuild(ctx) {
+    var d = ctx.design, t = ctx.c.build, checks = storyChecks(d), i, kind;
+    if (!checks.ok) return "";
+    for (i = 0; i < checks.blockers.length; i++) {
+      if (STORY_NOT_BUILD.indexOf(checks.blockers[i]) !== -1) continue;
+      kind = storyKind(checks.blockers[i]);
+      if (storyHas(t.checks, kind)) return storySay(ctx, "build", kind, t.checks[kind]);
+    }
+    var odd = storyUncounted(d);
+    if (odd && STORY_ASK_FIRST) return storySay(ctx, "build", "uncounted", t.uncounted, odd);
+    for (i = 0; i < STORY_WARNING_ORDER.length; i++) {
+      kind = STORY_WARNING_ORDER[i];
+      if (storyHasCheck(checks, kind) && storyHas(t.checks, kind)) return storySay(ctx, "build", kind, t.checks[kind]);
+    }
+    if (odd) return storySay(ctx, "build", "uncounted", t.uncounted, odd);
+    if (storyThin(d, "budget")) return storySay(ctx, "build", "thin-budget", t.thinBudget);
+    return list(d.parts).length ? storySay(ctx, "build", "good", t.good) : "";
+  }
+
+  // Rocket: nothing chosen, cannot reach, too small, over budget, or fits.
+  function storyLauncher(ctx) {
+    var d = ctx.design, t = ctx.c.launcher;
+    if (!d || !d.launcher || !d.orbit) return storySay(ctx, "launcher", "none", t.none);
+    if (!byId(data("LAUNCHERS"), d.launcher)) return "";
+    var checks = storyChecks(d);
+    if (!checks.ok) return "";
+    var has = function (id) { return checks.blockers.indexOf(id) !== -1 || checks.warnings.indexOf(id) !== -1; };
+    if (has("launcher-locked")) return storySay(ctx, "launcher", "locked", t.locked);
+    if (has("launcher-reach")) return storySay(ctx, "launcher", "reach", t.reach);
+    if (has("mass")) return storySay(ctx, "launcher", "mass", t.mass);
+    if (has("budget")) return storySay(ctx, "launcher", "budget", t.budget);
+    if (has("mass-margin")) return storySay(ctx, "launcher", "fits-thin-mass", t.fitsThinMass);
+    if (storyThin(d, "budget")) return storySay(ctx, "launcher", "fits-thin-budget", t.fitsThinBudget);
+    return storySay(ctx, "launcher", "fits", t.fits);
+  }
+
+  // Readiness: blocked, warnings only, or all go.
+  function storyReview(ctx) {
+    var t = ctx.c.review, checks = storyChecks(ctx.design);
+    if (!checks.ok) return "";
+    if (checks.blockers.length) return storySay(ctx, "review", "blocked", t.blocked);
+    if (checks.warnings.length) {
+      var thin = checks.warnings.indexOf("mass-margin") !== -1 || checks.warnings.indexOf("power-margin") !== -1;
+      return thin ? storySay(ctx, "review", "margins", t.margins) : storySay(ctx, "review", "warnings", t.warnings);
+    }
+    return storySay(ctx, "review", "go", t.go);
+  }
+
+  function storyMissionStart(ctx) {
+    var warned = storyChecks(ctx.design).warnings.length > 0;
+    var t = ctx.c["mission-start"];
+    return storySay(ctx, "mission-start", warned ? "warned" : "clean", warned ? t.warned : t.clean);
+  }
+
+  // extra: the getDebrief result or the chooseEvent result; only ended_early is read.
+  function storyMissionEnd(ctx, extra) {
+    var lost = !!extra && typeof extra === "object" && !!extra.ended_early;
+    var t = ctx.c["mission-end"];
+    return storySay(ctx, "mission-end", lost ? "lost" : "done", lost ? t.lost : t.done);
+  }
+
+  // Debrief: one line by the limiting factor, and by stars (2 or more is "good").
+  function storyDebrief(ctx, extra) {
+    if (!extra || typeof extra !== "object") return "";
+    var t = ctx.c.debrief;
+    if (extra.ended_early) return storySay(ctx, "debrief", "ended", t.ended);
+    if (!storyHas(t, extra.limiting) || typeof t[extra.limiting] !== "object") return "";
+    var mood = typeof extra.stars === "number" && extra.stars >= 2 ? "good" : "poor";
+    return storySay(ctx, "debrief", extra.limiting + "-" + mood, t[extra.limiting][mood]);
+  }
+
+  // Closing text: success (2 or 3 stars), partial (1 star) or failure (0 stars or ended early).
+  function storyClosing(ctx, extra) {
+    if (!extra || typeof extra !== "object") return "";
+    if (!extra.ended_early && typeof extra.stars !== "number") return "";
+    var result = extra.ended_early || extra.stars <= 0 ? "failure" : extra.stars === 1 ? "partial" : "success";
+    return storySay(ctx, "closing", result, ctx.c.closing[result]);
+  }
+
+  // Austin's records: an excerpt tied to the decision on screen, or "" (they are occasional).
+  // extra is the screen name, or the getDebrief result for the debrief.
+  function storyNotebook(ctx, extra) {
+    var d = ctx.design, t = ctx.c.notebook, screen = typeof extra === "string" ? extra : (extra && typeof extra === "object" ? "debrief" : "");
+    if (!d) return "";
+    var checks = storyChecks(d), line;
+    switch (screen) {
+      case "briefing":
+        line = byId(data("OBJECTIVES"), d.objective) ? t.briefing : "";
+        break;
+      case "orbit":
+        if (!byId(data("ORBITS"), d.orbit)) return "";
+        line = storyHasCheck(checks, "orbit-fit") && storyHas(t, "orbit-bad") ? t["orbit-bad"] : t.orbit;
+        break;
+      case "build":
+        if (!list(d.parts).length) return "";
+        if (storyUncounted(d) || storyHasCheck(checks, "no-match")) line = t["build-extra"] || t.build;
+        else if (storyHasCheck(checks, "mass-margin") || storyHasCheck(checks, "power-margin")) line = t["build-margin"] || t.build;
+        else line = t.build;
+        break;
+      case "launcher":
+        line = byId(data("LAUNCHERS"), d.launcher) ? t.launcher : "";
+        break;
+      case "review":
+        if (!checks.ok || checks.blockers.length || !checks.warnings.length) return "";
+        line = (storyHasCheck(checks, "mass-margin") || storyHasCheck(checks, "power-margin")) && storyHas(t, "review-margin") ? t["review-margin"] : t.review;
+        break;
+      case "mission-start":
+        line = t["mission-start"];
+        break;
+      case "debrief":
+        line = storyHas(t.debrief, extra.limiting) ? t.debrief[extra.limiting] : "";
+        break;
+      default:
+        return "";
+    }
+    return storySay(ctx, "notebook", screen, line);
+  }
+
+  // The data event "calibration-drift" (data/events.js). Ajay only: he finds the warning in Austin's records.
+  function storyEvent(ctx, extra) {
+    var t = ctx.c["event-calibration"];
+    if (!t) return "";
+    var which = extra === 0 || extra === 1 ? String(extra) : "ask";
+    return storySay(ctx, "event-calibration", which, t[which]);
+  }
+
+  // storyLine(key, design, extra) -> "" or { who, text }; for "intro", a list of those. Never throws.
+  function storyLine(key, design, extra) {
+    try {
+      var chapter = storyChapter(design);
+      var ctx = { c: STORY[chapter], design: design || null, stage: storyStage(design) };
+      switch (key) {
+        case "intro":             return ctx.c.intro.map(function (b) { return { who: b.who, text: b.text }; });
+        case "map":               return storyMap(ctx);
+        case "briefing":          return storyBriefing(ctx);
+        case "orbit":             return storyOrbit(ctx);
+        case "build":             return storyBuild(ctx);
+        case "launcher":          return storyLauncher(ctx);
+        case "review":            return storyReview(ctx);
+        case "mission-start":     return storyMissionStart(ctx);
+        case "mission-end":       return storyMissionEnd(ctx, extra);
+        case "debrief":           return storyDebrief(ctx, extra);
+        case "closing":           return storyClosing(ctx, extra);
+        case "notebook":          return storyNotebook(ctx, extra);
+        case "event-calibration": return storyEvent(ctx, extra);
+        default:                  return "";
+      }
+    } catch (e) { return key === "intro" ? [] : ""; }
+  }
+
+  // speakerArt(who) -> a 16 x 16 pixel portrait (the same size and class as directorArt), or null for an unknown speaker.
+  // Four silhouettes: two colleagues, a bun and goggles, a wide-brimmed hat, and a book with no face.
+  function speakerArt(who) {
+    var P = PAL;
+    var rects, label;
+    if (who === "team") {
+      // Austin's NASA colleagues: one in a white shirt and red tie, one behind in a teal coat.
+      label = "Portrait of your NASA team: two colleagues in shirtsleeves";
+      rects = [
+        [0, 0, 16, 16, P.portrait],
+        [10, 3, 5, 2, P.hair], [10, 5, 5, 5, P.skin], [11, 6, 1, 1, P.sky], [13, 6, 1, 1, P.sky], [11, 8, 3, 1, P.mouth],
+        [11, 10, 3, 1, P.skin], [9, 11, 7, 5, P.blue], [12, 11, 3, 1, P.ink], [13, 12, 1, 1, P.ink],
+        [3, 2, 5, 2, P.sky], [2, 4, 7, 6, P.skin], [2, 3, 1, 3, P.sky], [3, 6, 1, 1, P.sky], [6, 6, 1, 1, P.sky],
+        [4, 8, 3, 1, P.mouth], [4, 10, 3, 1, P.skin],
+        [0, 11, 10, 5, P.ink], [4, 11, 3, 1, P.muted], [5, 12, 1, 4, P.red]
+      ];
+    } else if (who === "partner") {
+      // The engineering partner: hair in a bun, goggles pushed up, a red work shirt.
+      label = "Portrait of your engineering partner, goggles pushed up on the head";
+      rects = [
+        [0, 0, 16, 16, P.portrait],
+        [7, 1, 3, 2, P.hair], [5, 3, 7, 3, P.hair], [4, 4, 1, 4, P.hair], [12, 4, 1, 4, P.hair],
+        [5, 5, 2, 1, P.gold], [9, 5, 2, 1, P.gold], [7, 5, 2, 1, P.sky],
+        [5, 6, 7, 5, P.skin], [6, 7, 1, 1, P.sky], [10, 7, 1, 1, P.sky], [7, 9, 3, 1, P.mouth],
+        [7, 11, 3, 1, P.skin], [2, 12, 13, 4, P.red], [6, 12, 5, 1, P.ink], [1, 13, 2, 3, P.red],
+        [12, 13, 2, 2, P.line], [13, 12, 1, 1, P.gold]
+      ];
+    } else if (who === "customer") {
+      // The customer: a wide-brimmed field hat, a gold vest, a radio on the shoulder.
+      label = "Portrait of the customer in a field hat and vest";
+      rects = [
+        [0, 0, 16, 16, P.portrait],
+        [5, 1, 6, 3, P.blue], [5, 3, 6, 1, P.gold], [1, 4, 14, 2, P.navy],
+        [5, 6, 6, 4, P.skin], [6, 7, 1, 1, P.sky], [9, 7, 1, 1, P.sky], [7, 9, 2, 1, P.mouth],
+        [7, 10, 2, 1, P.skin], [3, 11, 10, 5, P.ink], [3, 11, 3, 5, P.gold], [10, 11, 3, 5, P.gold],
+        [12, 8, 1, 3, P.muted], [11, 11, 2, 3, P.sky], [11, 12, 1, 1, P.red]
+      ];
+    } else if (who === "notebook") {
+      // Austin's notebook, open: lines of notes on the left, a sketch of a satellite on the right, a pencil.
+      label = "Austin's open notebook, with a sketch of a satellite";
+      rects = [
+        [0, 0, 16, 16, P.portrait],
+        [1, 2, 14, 12, P.line], [2, 3, 6, 10, P.ink], [8, 3, 6, 10, P.ink], [7, 3, 2, 10, P.muted],
+        [3, 4, 4, 1, P.muted], [3, 6, 3, 1, P.muted], [3, 8, 4, 1, P.muted], [3, 10, 2, 1, P.muted],
+        [11, 4, 1, 1, P.gold], [9, 6, 1, 2, P.blue], [12, 6, 1, 2, P.blue], [10, 6, 2, 2, P.navy],
+        [9, 10, 1, 1, P.muted], [11, 10, 1, 1, P.muted], [13, 10, 1, 1, P.muted],
+        [7, 12, 2, 4, P.red], [10, 14, 5, 1, P.gold], [15, 14, 1, 1, P.red], [9, 14, 1, 1, P.sky]
+      ];
+    } else return null;
+    return art("0 0 16 16", rects, label, "portrait");
+  }
   // STORY-END
 
   // ---------------------------------------------------------------- small helpers
@@ -231,35 +851,478 @@
               hair: "--pal-hair", mouth: "--pal-mouth", portrait: "--pal-portrait", night: "--pal-night" };
 
   // SAT-BEGIN  (everything between these two markers draws the satellite)
-  // satelliteArt(design, change) -> an element showing the satellite built so far.
-  // `change` is optional: { id: partId, kind: "add" | "remove" }, the click that just happened.
-  // The satellite on the bench grows as each category gets a part.
-  function satelliteArt(design, change) {
-    var has = {};
-    list(design.parts).forEach(function (id) {
-      var p = byId(data("PARTS"), id);
-      if (p) has[p.category] = true;
+  // satelliteArt(design, change, size) -> an element showing the satellite built so far.
+  //   change: optional { id: partId, kind: "add" | "remove" }, the click that just happened.
+  //   size:   optional "small" (the Readiness review); the picture is the same, the frame is lighter.
+  // The picture is a front view. The body sits in the middle and shows its slots (the dark bays).
+  // Solar wings go at the sides, aerials and tall sensors on top, cameras and radar underneath,
+  // thrusters at the bottom. A part the body has no room for is set down on the bench below it.
+  // Every part has its own little drawing, chosen from its category, tags and fields (satKind).
+  // The animation lives in CSS: this function only sets the classes (is-new, is-gone) when it draws.
+
+  var SAT_W = 46, SAT_H = 35;   // the drawing grid: one unit is one art pixel (10 px on the Build bench)
+
+  // Letters used in the pixel maps below. Two colours are lighter or fainter variants: [token, opacity].
+  var SAT_COL = {
+    w: PAL.ink, m: PAL.muted, d: "--pal-metal-dark", f: PAL.line, k: PAL.sky, p: PAL.portrait,
+    g: PAL.gold, G: "--pal-gold-dark", r: PAL.red, b: PAL.blue, n: PAL.navy, c: "--pal-cell-light",
+    i: "--pal-ion", o: "--pal-flame", I: ["--pal-ion", 0.55], J: ["--pal-ion", 0.3]
+  };
+
+  // Rows of letters -> [x, y, w, 1, colour, opacity?] rects. "." is empty.
+  function satPix(rows) {
+    var out = [];
+    rows.forEach(function (row, y) {
+      var x = 0;
+      while (x < row.length) {
+        var ch = row.charAt(x), c = SAT_COL[ch], x2 = x + 1;
+        if (!c) { x++; continue; }
+        while (x2 < row.length && row.charAt(x2) === ch) x2++;
+        out.push(typeof c === "string" ? [x, y, x2 - x, 1, c] : [x, y, x2 - x, 1, c[0], c[1]]);
+        x = x2;
+      }
     });
-    var r = [];
-    // Body: an outline until a computer is in, then solid.
-    if (has.computer) {
-      r.push([9, 3, 6, 6, PAL.ink], [9, 8, 6, 1, PAL.muted], [14, 3, 1, 6, PAL.muted]);
-    } else {
-      r.push([9, 3, 6, 1, PAL.line], [9, 8, 6, 1, PAL.line], [9, 3, 1, 6, PAL.line], [14, 3, 1, 6, PAL.line]);
+    return out;
+  }
+  function satSpr(rows) {
+    var w = 0;
+    rows.forEach(function (r) { if (r.length > w) w = r.length; });
+    return { w: w, h: rows.length, r: satPix(rows) };
+  }
+  function satShift(rects, dx, dy) {
+    return rects.map(function (r) { var c = r.slice(); c[0] += dx; c[1] += dy; return c; });
+  }
+  function satMirror(rects) {   // flip across the middle of the whole drawing
+    return rects.map(function (r) { var c = r.slice(); c[0] = SAT_W - r[0] - r[2]; return c; });
+  }
+
+  // ---- the art. zone says where it is mounted: bay (inside the body), top, nadir (underneath),
+  // tail (the bottom), wing, cells (on the body skin), boom (long aerials from the corners).
+  var SAT_KINDS = {
+    // computers, batteries and attitude control: 6 x 5, they fill the bays
+    clock:   { zone: "bay", rows: [".mmmm.", "mwwkwm", "mwwkkm", "mwwwwm", ".mmmm."] },
+    tape:    { zone: "bay", rows: ["dddddd", "dwkdwk", "dwwdww", "dkkkkd", "mmmmmm"] },
+    board:   { zone: "bay", rows: ["nnnnnn", "bkkkgb", "bkkkbb", "bgbbrb", "nnnnnn"] },
+    shield:  { zone: "bay", rows: ["dddddd", "dgGGgd", "dGkkGd", "dgGGgd", "dddddd"] },
+    stack:   { zone: "bay", rows: ["bbbbbb", "bkkbkk", "nnnnnn", "bkkkkb", "rgrgrg"] },
+    batM:    { zone: "bay", rows: ["..gg..", "mmmmmm", "mwwwwm", "mwwwwm", "dddddd"] },
+    batS:    { zone: "bay", rows: [".g..g.", "wwwwww", "nnnnnn", "wwwwww", "mmmmmm"] },
+    batN:    { zone: "bay", rows: ["..gg..", "nnnnnn", "ncnncn", "nnnnnn", "dddddd"] },
+    batL:    { zone: "bay", rows: ["r....r", "kkkkkk", "kGGGGk", "kkkkkk", "rrrrrr"] },
+    wheels:  { zone: "bay", rows: [".mmm..", "mwkwm.", "mkwkmd", "mwkwm.", ".mmm.."] },
+    spin:    { zone: "bay", rows: ["..gggg", ".g..gg", "g.ww.g", "g.ww..", ".ggg.g"] },
+    generic: { zone: "bay", rows: ["mmmmmm", "mddddm", "mdmmdm", "mddddm", "mmmmmm"] },
+    // aerials on top
+    whip:    { zone: "top", rows: [".g.", ".m.", ".m.", ".m.", ".m.", ".m.", ".d.", "ddd"] },
+    coil:    { zone: "top", rows: [".m.", "m..", ".m.", "..m", ".m.", "m..", ".d.", "ddd"] },
+    dipole:  { zone: "top", rows: ["g.....g", ".m...m.", ".m...m.", "..m.m..", "..mdm..", "..ddd.."] },
+    pcm:     { zone: "top", rows: ["g.....g", ".m...m.", "..m.m..", "...m...", ".ddddd.", ".kgkgk.", ".ddddd."] },
+    patch:   { zone: "top", rows: ["mmmmmmm", "mgGgGgm", "mGgGgGm", "mgGgGgm", "mmmmmmm", "...d...", "..ddd.."] },
+    dish:    { zone: "top", rows: ["...g...", "...m...", "...m...", "m.....m", "mm...mm", ".mmmmm.", "..ddd..", "...d..."] },
+    // tall sensors on top
+    geiger:  { zone: "top", rows: ["..g..", ".mwm.", ".mkm.", ".mwm.", ".mkm.", ".mwm.", ".ddd.", "ddddd"] },
+    scint:   { zone: "top", rows: [".dkd.", ".dkd.", ".dkd.", ".ddd.", "wcccc", "ccccn", "nnnnn"] },
+    sun:     { zone: "top", rows: ["G.g.G", ".ggg.", "ggwgg", ".ggg.", "G.g.G", "..d.."] },
+    spectro: { zone: "top", rows: ["..g..", ".ggg.", "..g..", "ddddd", "rrgbb", "rrgbb", "ddddd"] },
+    // cameras and radar underneath: 6 wide, or 14 wide for the radar
+    optical: { zone: "nadir", rows: ["dmmmmd", ".dmmd.", ".dmmd.", ".dmmd.", ".GggG.", "..kk.."] },
+    thermal: { zone: "nadir", rows: ["d.dd.d", "dmmmmd", "mrrrrm", "mroorm", "dmmmmd", ".d..d."] },
+    camera:  { zone: "nadir", rows: ["mmmmmm", "mkkkkm", "mkggkm", "mkgwkm", "mkkkkm", "dmmmmd"] },
+    avcs:    { zone: "nadir", rows: ["mmmmmm", "kggkgg", "kgwkgw", "kggkgg", "mmmmmm", ".dmmd."] },
+    photo:   { zone: "nadir", rows: [".gg.gg", "gggggg", "mmmmmm", "dmmmmd"] },
+    sar:     { zone: "nadir", rows: ["mmmmmmmmmmmmmm", "mgGgGgGgGgGgGm", "mkkkkkkkkkkkkm", "mgGgGgGgGgGgGm", "dddddddddddddd"] },
+    // thrusters at the bottom
+    thrustS: { zone: "tail", rows: [".bbb.", ".bcb.", "..d..", ".dmd.", "dmmmd"] },
+    thrustL: { zone: "tail", rows: [".bbbbbbb.", "bcbbbbbcb", "..d...d..", ".dmd.dmd.", "dmmmdmmmd"] },
+    ion:     { zone: "tail", rows: [".mmmmm.", "mmmmmmm", "iiiiiii", ".IIIII.", "..JJJ.."] },
+    // made by code: solar wings (height), cells on the skin (style), long booms (reach, tee)
+    wingS:   { zone: "wing", wing: 8 },
+    wingL:   { zone: "wing", wing: 11 },
+    cellsA:  { zone: "cells", style: 0 },
+    cellsB:  { zone: "cells", style: 1 },
+    boomA:   { zone: "boom", reach: 12, tee: false },
+    boomB:   { zone: "boom", reach: 12, tee: true },
+    // a spare body found in the design: kept on the bench
+    spare:   { zone: "body", rows: ["mmmmmmmm", "mppkkppm", "mppkkppm", "mmmmmmmm"] }
+  };
+
+  // Which art a part gets. By id first; then by tags and fields, so a new part still draws.
+  var SAT_ID = {
+    "explorer-body": "cylinder", "drum-body": "drum", "smallsat-bus": "box", "nimbus-bus": "nimbus", "cubesat-12u": "cube",
+    "spin-stabilised": "spin", "reaction-wheels": "wheels",
+    "cosmic-ray-counter": "geiger", "scintillation-counter": "scint", "solar-xray-photometer": "sun", "oso-xray-spectrometer": "spectro",
+    "cloud-photocell": "photo", "vidicon-camera": "camera", "avcs-camera": "avcs", "optical-camera": "optical",
+    "thermal-imager": "thermal", "sar-radar": "sar", "topside-sounder": "boomA", "alouette-2-sounder": "boomB",
+    "mercury-battery": "batM", "silver-zinc-battery": "batS", "nicad-battery": "batN", "battery-28v": "batL",
+    "silicon-cells": "cellsA", "n-on-p-cells": "cellsB", "solar-small": "wingS", "solar-large": "wingL",
+    "minitrack-beacon": "whip", "vhf-telemetry": "dipole", "pcm-telemetry": "pcm",
+    "radio-uhf": "coil", "radio-sband": "patch", "radio-xband": "dish",
+    "command-timer": "clock", "tape-recorder": "tape", "obc-basic": "board", "obc-radtol": "shield", "obc-payload": "stack",
+    "prop-green-small": "thrustS", "prop-green-large": "thrustL", "prop-ion": "ion"
+  };
+  function satHas(p, tag) { return list(p.tags).indexOf(tag) !== -1; }
+  function satKind(p) {
+    if (SAT_ID[p.id]) return SAT_ID[p.id];
+    var n = function (v) { return isNum(v) ? v : 0; };
+    switch (p.category) {
+      case "structure": return n(p.payload_kg) > 0 && n(p.payload_kg) < 30 ? "cube" : "box";
+      case "attitude":  return satHas(p, "spin") ? "spin" : "wheels";
+      case "instrument":
+        if (satHas(p, "radiation")) return "geiger";
+        if (satHas(p, "solar")) return "sun";
+        if (satHas(p, "ionosphere")) return "boomA";
+        if (satHas(p, "radar")) return "sar";
+        if (satHas(p, "thermal")) return "thermal";
+        return "camera";
+      case "power":
+        if (n(p.battery_wh) > 0) return n(p.battery_wh) < 110 ? "batM" : n(p.battery_wh) < 300 ? "batN" : n(p.battery_wh) < 800 ? "batL" : "batS";
+        return n(p.panel_area_m2) && n(p.panel_area_m2) < 0.5 ? "cellsA" : n(p.panel_area_m2) < 0.9 ? "wingS" : "wingL";
+      case "comms":
+        return n(p.downlink_gb_day) < 0.05 ? "whip" : n(p.downlink_gb_day) < 5 ? "dipole" : n(p.downlink_gb_day) < 100 ? "patch" : "dish";
+      case "computer":
+        return n(p.storage_gb) >= 100 ? "stack" : n(p.storage_gb) >= 6 ? "shield" : n(p.storage_gb) >= 2 ? "board" : n(p.storage_gb) > 0 ? "tape" : "clock";
+      case "propulsion":
+        return n(p.isp_s) > 1000 ? "ion" : n(p.fuel_kg) > 3 ? "thrustL" : "thrustS";
+      default: return "generic";
     }
-    if (has.power) {
-      r.push([1, 4, 7, 4, PAL.blue], [16, 4, 7, 4, PAL.blue], [1, 4, 7, 1, PAL.cyan], [16, 4, 7, 1, PAL.cyan],
-             [3, 4, 1, 4, PAL.navy], [5, 4, 1, 4, PAL.navy], [18, 4, 1, 4, PAL.navy], [20, 4, 1, 4, PAL.navy],
-             [8, 5, 1, 2, PAL.muted], [15, 5, 1, 2, PAL.muted]);
+  }
+
+  // ---- code-made art: solar wings, cells on the skin, booms and the bodies
+  function satWingRows(h, big) {   // a left-hand wing, 8 wide: frame, cells in pairs, dark seams
+    var e = big ? "G" : "m", rows = [e + e + e + e + e + e + e + e];
+    for (var y = 1; y < h - 1; y++) {
+      var s = e;
+      for (var x = 1; x <= 6; x++) {
+        var seam = x === 3 || x === 6 || (y - 1) % 3 === 2;
+        s += seam ? "n" : ((x - 1) % 3 === 0 && (y - 1) % 3 === 0 ? "c" : "b");
+      }
+      rows.push(s + e);
     }
-    if (has.comms) r.push([11, 1, 1, 2, PAL.muted], [10, 0, 3, 1, PAL.gold]);
-    if (has.instrument) {
-      r.push([11, 5, 2, 2, PAL.sky], [10, 4, 4, 1, PAL.red], [10, 7, 4, 1, PAL.red], [10, 5, 1, 2, PAL.red], [13, 5, 1, 2, PAL.red]);
+    rows.push(rows[0]);
+    return rows;
+  }
+  function satCellRows(w, h, style) {   // style 0: blue silicon; 1: dark radiation-hard with gold wiring
+    var rows = [];
+    for (var y = 0; y < h; y++) {
+      var s = "";
+      for (var x = 0; x < w; x++) {
+        if (x % 3 === 2) s += style ? "g" : "n";
+        else s += style ? (y ? "n" : "b") : (y ? "b" : "c");
+      }
+      rows.push(s);
     }
-    if (has.propulsion) r.push([10, 9, 1, 2, PAL.muted], [13, 9, 1, 2, PAL.muted], [10, 11, 4, 1, PAL.line]);
-    var label = "Pixel drawing of your satellite: " +
-      categories().map(function (c) { return (has[c.id] ? "" : "no ") + c.name.toLowerCase(); }).join(", ");
-    return art("0 0 24 13", r, label, "sat");
+    return rows;
+  }
+  function satCellRects(zones, style) {
+    var out = [];
+    zones.forEach(function (z) { out = out.concat(satShift(satPix(satCellRows(z[2], z[3], style)), z[0], z[1])); });
+    return out;
+  }
+  function satBoomRects(ax, ay, dy, reach, tee) {   // from the body corner at (ax, ay), leaning outwards
+    var r = [], i, ex, ey;
+    reach = Math.min(reach, ax + 1);
+    for (i = 0; i < reach; i++) r.push([ax - i, ay + dy * Math.floor(i / 2), 1, 1, SAT_COL.m]);
+    ex = ax - reach + 1; ey = ay + dy * Math.floor((reach - 1) / 2);
+    r.push([ax - 1, dy < 0 ? ay - 1 : ay, 2, 2, SAT_COL.d]);                       // mount
+    r.push([ex, ey - (dy < 0 ? 1 : 0), 2, 2, SAT_COL.g]);                            // bead at the tip
+    if (tee) r.push([ex + 3, ey - 1, 1, 3, SAT_COL.g], [ex + 6, ey - 1, 1, 3, SAT_COL.g]);   // cross bars
+    return r;
+  }
+
+  // A body: rows of letters, with extras. The frame has two-row bands top and bottom (the cells go
+  // there), side posts, and a dark interior with room for the bays.
+  function satFrameRows(w, h, band, side, rivet) {
+    var rows = [], y, x, s, inner = "";
+    for (x = 0; x < w - 2 * side.length; x++) inner += "p";
+    for (y = 0; y < h; y++) {
+      s = "";
+      if (y < 2 || y >= h - 2) {
+        for (x = 0; x < w; x++) s += rivet && x % 4 === 2 && (y === 0 || y === h - 1) ? rivet : band;
+      } else s = side + inner + side.split("").reverse().join("");
+      rows.push(s);
+    }
+    return rows;
+  }
+  function satCut(rows, n) {   // knock n pixels off each corner: a rounded drum
+    return rows.map(function (r, y) {
+      var c = y < n ? n - y : y >= rows.length - n ? y - (rows.length - n - 1) : 0, a = r.split("");
+      for (var i = 0; i < c; i++) { a[i] = "."; a[a.length - 1 - i] = "."; }
+      return a.join("");
+    });
+  }
+  var SAT_COLLAR = ["GmmmmmmmmmmmmmmmmmmmmmmmmmmG", "gmkmmkmmkmmkmmkmmkmmkmmkmmg", "GGGGGGGGGGGGGGGGGGGGGGGGGGGG"];
+  var SAT_BAYS_3x2 = [[13, 10], [20, 10], [27, 10], [13, 16], [20, 16], [27, 16]];
+  // Each body: where it is (x, y, w, h) and its pixels (rows, extra), then where things mount:
+  // bays (6 x 5 slots inside), top (aerials and tall sensors rest on y), nadir (a row, or slots,
+  // hanging from y), tailY (where the thrusters hang when nothing is under the body), wing (inner edge,
+  // middle height and the room up and down), cells (skin bands), booms (corner anchors), pods
+  // (spare outside spots for bay items), solid (extra boxes nothing may touch).
+  var SAT_BODIES = {
+    box: {
+      x: 12, y: 8, w: 22, h: 15, rows: satFrameRows(22, 15, "m", "G", "d"), extra: [],
+      bays: SAT_BAYS_3x2, top: { x0: 8, x1: 38, y: 8 }, nadir: { x0: 9, x1: 37, y: 23 }, tailY: 23,
+      wing: { inner: 8, ym: 15.5, y0: 0, y1: SAT_H }, cells: [[12, 8, 22, 2], [12, 21, 22, 2]],
+      booms: [[11, 8, -1], [11, 22, 1]]
+    },
+    drum: {
+      x: 10, y: 8, w: 26, h: 15, rows: satCut(satFrameRows(26, 15, "m", "md", "d"), 2), extra: [],
+      bays: SAT_BAYS_3x2, top: { x0: 8, x1: 38, y: 8 }, nadir: { x0: 9, x1: 37, y: 23 }, tailY: 23,
+      wing: { inner: 10, ym: 15.5, y0: 0, y1: SAT_H }, cells: [[12, 8, 22, 2], [12, 21, 22, 2]],
+      booms: [[9, 8, -1], [9, 22, 1]]
+    },
+    nimbus: {
+      x: 12, y: 8, w: 22, h: 15, rows: satFrameRows(22, 15, "d", "m", "m"), extra: satShift(satPix(SAT_COLLAR), 9, 21),
+      bays: SAT_BAYS_3x2, top: { x0: 8, x1: 38, y: 8 }, nadir: { x0: 9, x1: 37, y: 24 }, tailY: 24,
+      wing: { inner: 8, ym: 15.5, y0: 0, y1: SAT_H }, cells: [[12, 8, 22, 2], [12, 21, 22, 2]],
+      booms: [[11, 8, -1], [8, 24, 1]], solid: [[9, 21, 28, 3]]
+    },
+    cube: {
+      x: 16, y: 8, w: 14, h: 16, rows: satFrameRows(14, 16, "m", "g", "d"), extra: [],
+      bays: [[17, 10], [23, 10], [17, 16], [23, 16]], top: { x0: 10, x1: 36, y: 8 }, nadir: { x0: 14, x1: 32, y: 24 }, tailY: 24,
+      wing: { inner: 16, ym: 16, y0: 0, y1: SAT_H }, cells: [[16, 8, 14, 2], [16, 22, 14, 2]],
+      booms: [[15, 8, -1], [15, 23, 1]]
+    },
+    cylinder: {
+      x: 18, y: 8, w: 10, h: 22, rows: ["...wwww...", "..wwwwww..", ".wwwwwwww."].concat(satFrameRows(10, 19, "w", "d", "m")), extra: [],
+      bays: [[20, 13], [20, 18], [20, 23]], pods: [[11, 22], [29, 22]],
+      top: { x0: 10, x1: 36, y: 8 }, nadir: { slots: [[11, 28], [29, 28]] }, tailY: 30,
+      wing: { inner: 18, ym: 15, y0: 0, y1: SAT_H }, cells: [[18, 11, 10, 2], [18, 28, 10, 2]],
+      booms: [[17, 10, -1], [17, 29, 1]]
+    }
+  };
+
+  // ---- laying the parts out
+  function satHit(boxes, taken) {   // do any of these [x, y, w, h] boxes overlap a taken one?
+    for (var i = 0; i < boxes.length; i++) {
+      var a = boxes[i];
+      for (var j = 0; j < taken.length; j++) {
+        var b = taken[j];
+        if (a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3]) return true;
+      }
+    }
+    return false;
+  }
+  function satBoxes(rects) { return rects.map(function (r) { return [r[0], r[1], r[2], r[3]]; }); }
+
+  // One thing to draw: a part, with its art and (once placed) its rects and boxes.
+  function satItem(p) {
+    var kind = satKind(p), k = SAT_KINDS[kind] || SAT_KINDS.spare;
+    var it = { part: p, kind: kind, k: k, zone: k.zone, rects: [], boxes: [], placed: false };
+    if (k.rows) { it.spr = k.spr || (k.spr = satSpr(k.rows)); it.shelf = it.spr; }
+    else if (k.wing) { it.spr = k.spr || (k.spr = satSpr(satWingRows(k.wing, k.wing > 10))); it.shelf = it.spr; }
+    else if (k.zone === "cells") it.shelf = k.spr || (k.spr = satSpr(satCellRows(8, 2, k.style)));
+    else if (k.zone === "boom") it.shelf = k.spr || (k.spr = satSpr(k.tee ? [".....g..g", "mmmmmmmgg", ".....g..g"] : ["mmmmmmmgg"]));
+    return it;
+  }
+
+  // Places every item on the body (spec), or sets it aside on the bench. Wings and rows are checked
+  // against everything already placed, so nothing overlaps.
+  function satLayout(spec, items) {
+    var taken = [[spec.x, spec.y, spec.w, spec.h]].concat(spec.solid || []), shelf = [];
+    var rowOf = { top: [], nadir: [], tail: [], cells: [] };
+    var st = { bay: 0, wings: 0, wTop: 0, wBottom: 0, booms: [], nadirBottom: spec.tailY };
+
+    function done(it, rects, boxes, claim) {
+      it.rects = rects; it.boxes = boxes; it.placed = true;
+      if (claim) taken = taken.concat(boxes);
+      return true;
+    }
+    // A row of things (top, nadir or tail): side by side with a one-pixel gap, centred as a group.
+    // Items past the end of the room, or touching something already placed, go to the bench.
+    function packRow(list, zone, yOf) {
+      var x, kept = list.slice();
+      function width() { return kept.reduce(function (a, it) { return a + it.spr.w; }, 0) + Math.max(0, kept.length - 1); }
+      while (kept.length && width() > zone.x1 - zone.x0) shelf.push(kept.pop());
+      x = Math.round((zone.x0 + zone.x1 - width()) / 2);
+      kept.forEach(function (it) {
+        var box = [x, yOf(it), it.spr.w, it.spr.h];
+        x += it.spr.w + 1;
+        if (satHit([box], taken)) shelf.push(it);
+        else done(it, satShift(it.spr.r, box[0], box[1]), [box], true);
+      });
+    }
+    function putSlot(it, slots) {
+      for (var i = 0; i < slots.length; i++) {
+        var box = [slots[i][0], slots[i][1], it.spr.w, it.spr.h];
+        if (!satHit([box], taken)) return done(it, satShift(it.spr.r, box[0], box[1]), [box], true);
+      }
+      return false;
+    }
+    function place(it) {
+      var box, i, y, tries, h, x;
+      switch (it.zone) {
+        case "bay":
+          if (st.bay < spec.bays.length) {
+            box = spec.bays[st.bay++];
+            return done(it, satShift(it.spr.r, box[0] + Math.floor((6 - it.spr.w) / 2), box[1] + Math.floor((5 - it.spr.h) / 2)), [[box[0], box[1], 6, 5]], false);
+          }
+          return spec.pods ? putSlot(it, spec.pods) : false;   // a slim body mounts its spare boxes on the outside
+        case "top": rowOf.top.push(it); return true;
+        case "nadir":
+          if (spec.nadir.slots) return putSlot(it, spec.nadir.slots);
+          rowOf.nadir.push(it);
+          return true;
+        case "wing":
+          h = it.k.wing; x = spec.wing.inner - 8;
+          if (!st.wings) tries = [Math.round(spec.wing.ym - h / 2)];
+          else if (st.wings % 2) tries = [st.wBottom + 1, st.wTop - 1 - h];
+          else tries = [st.wTop - 1 - h, st.wBottom + 1];
+          for (i = 0; i < tries.length; i++) {
+            y = tries[i];
+            if (y < spec.wing.y0 || y + h > spec.wing.y1) continue;
+            var left = satShift(it.spr.r, x, y), strut = spec.x - (x + 8);
+            var boxes = [[x, y, 8, h], [SAT_W - x - 8, y, 8, h]];
+            if (strut > 0) boxes.push([x + 8, y + Math.floor(h / 2), strut, 2], [spec.x + spec.w, y + Math.floor(h / 2), strut, 2]);
+            if (satHit(boxes, taken)) continue;
+            if (strut > 0) left.push([x + 8, y + Math.floor(h / 2), strut, 2, SAT_COL.d]);
+            st.wTop = st.wings ? Math.min(st.wTop, y) : y;
+            st.wBottom = st.wings ? Math.max(st.wBottom, y + h) : y + h;
+            st.wings++;
+            return done(it, left.concat(satMirror(left)), boxes, true);
+          }
+          return false;
+        case "boom":
+          for (i = 0; i < spec.booms.length; i++) {
+            if (st.booms[i]) continue;
+            var b = spec.booms[i], r = satBoomRects(b[0], b[1], b[2], it.k.reach, it.k.tee);
+            r = r.concat(satMirror(r));
+            if (satHit(satBoxes(r), taken)) continue;
+            st.booms[i] = true;
+            return done(it, r, satBoxes(r), true);
+          }
+          return false;
+        case "cells": rowOf.cells.push(it); return true;   // sorted out below, once we know how many
+        default: return false;
+      }
+    }
+    // Wings first, biggest in the middle. The tail goes last: it hangs below whatever the nadir row holds.
+    var wings = items.filter(function (it) { return it.zone === "wing"; }).sort(function (a, b) { return b.k.wing - a.k.wing; });
+    var rest = items.filter(function (it) { return it.zone !== "wing" && it.zone !== "tail"; });
+    var tails = items.filter(function (it) { return it.zone === "tail"; });
+    wings.concat(rest).forEach(function (it) { if (!place(it)) shelf.push(it); });
+    // Cells on the skin: one part covers both bands, two parts share them, a third has no skin left.
+    rowOf.cells.forEach(function (it, i) {
+      if (i > 1) { shelf.push(it); return; }
+      var zones = rowOf.cells.length > 1 ? [spec.cells[i]] : spec.cells;
+      done(it, satCellRects(zones, it.k.style), [[zones[0][0], zones[0][1], zones[0][2], zones[0][3]]], false);
+    });
+    packRow(rowOf.top, spec.top, function (it) { return spec.top.y - it.spr.h; });
+    if (spec.nadir.x0 !== undefined) {
+      packRow(rowOf.nadir, spec.nadir, function () { return spec.nadir.y; });
+      rowOf.nadir.forEach(function (it) { if (it.placed) st.nadirBottom = Math.max(st.nadirBottom, spec.nadir.y + it.spr.h); });
+    }
+    packRow(tails, { x0: 9, x1: 37 }, function () { return st.nadirBottom; });
+    return shelf;
+  }
+
+  // Items that found no place are set out in rows on the bench under the satellite.
+  function satBench(shelf) {
+    var x = 1, y = SAT_H + 2, rowH = 0, planks = [];
+    shelf.forEach(function (it) {
+      if (x + it.shelf.w > SAT_W - 1 && x > 1) { planks.push(y + rowH); x = 1; y += rowH + 3; rowH = 0; }
+      it.rects = satShift(it.shelf.r, x, y); it.boxes = [[x, y, it.shelf.w, it.shelf.h]]; it.placed = true;
+      x += it.shelf.w + 2; rowH = Math.max(rowH, it.shelf.h);
+    });
+    planks.push(y + rowH);
+    return { height: y + rowH + 2, planks: planks };
+  }
+
+  function satOutline(spec) {   // faint dashes where a body will go
+    var r = [], x, y, d = SAT_COL.d, e = spec.x + spec.w, b = spec.y + spec.h;
+    for (x = spec.x; x < e; x += 3) r.push([x, spec.y, Math.min(2, e - x), 1, d, 0.6], [x, b - 1, Math.min(2, e - x), 1, d, 0.6]);
+    for (y = spec.y + 2; y < b - 1; y += 3) r.push([spec.x, y, 1, Math.min(2, b - 1 - y), d, 0.6], [e - 1, y, 1, Math.min(2, b - 1 - y), d, 0.6]);
+    return r;
+  }
+  function satBodyRects(spec) {
+    var r = satShift(satPix(spec.rows), spec.x, spec.y).concat(spec.extra);
+    spec.bays.forEach(function (b) { r.push([b[0], b[1], 6, 5, SAT_COL.k]); });   // the empty slots
+    return r;
+  }
+
+  function satLabel(chosen) {
+    if (!chosen.length) return "Pixel drawing of your satellite: nothing on board yet, only a dashed outline.";
+    var cats = typeof getCategories === "function" ? list(getCategories()) : [];
+    var known = {}, bits = cats.map(function (c) {
+      known[c.id] = true;
+      var names = chosen.filter(function (p) { return p.category === c.id; }).map(function (p) { return p.name; });
+      return names.length ? c.name.toLowerCase() + ": " + names.join(", ") : "";
+    });
+    var other = chosen.filter(function (p) { return !known[p.category]; }).map(function (p) { return p.name; });
+    if (other.length) bits.push("other: " + other.join(", "));
+    return "Pixel drawing of your satellite. On board, " + bits.filter(Boolean).join("; ") + ".";
+  }
+
+  function satelliteArt(design, change, size) {
+    var ids = list(design && design.parts), parts = data("PARTS");
+    var chosen = ids.map(function (id) { return byId(parts, id); }).filter(Boolean);
+    var added = change && change.kind === "add" ? change.id : null;
+    var gone = change && change.kind === "remove" && ids.indexOf(change.id) === -1 ? byId(parts, change.id) : null;
+    var bodyPart = null, ghostBody = null, items = [];
+    chosen.forEach(function (p) {
+      if (p.category === "structure" && !bodyPart) bodyPart = p;
+      else items.push(satItem(p));
+    });
+    if (gone && gone.category === "structure" && !bodyPart) ghostBody = gone;
+    var shownBody = bodyPart || ghostBody;
+    var spec = SAT_BODIES[bodyPart ? satKind(bodyPart) : "box"] || SAT_BODIES.box;
+    var shelf = satLayout(spec, items), bench = shelf.length ? satBench(shelf) : null;
+    var height = bench ? bench.height : SAT_H;
+
+    // The ghost of a removed part is laid out as the design was just before the click (with the part
+    // last). It never moves anything real, and if it would have sat on the bench it is not drawn.
+    var ghost = null;
+    if (gone && !ghostBody) {
+      var before = [];
+      chosen.forEach(function (p) { if (p !== bodyPart) before.push(satItem(p)); });
+      ghost = satItem(gone);
+      satLayout(spec, before.concat(ghost));
+      if (!ghost.placed) ghost = null;
+    }
+
+    // Draw order: body, then parts, then the bench. Each part is its own group so CSS can animate it.
+    var groups = [];
+    if (!bodyPart) groups.push({ cls: "sat-outline", rects: satOutline(ghostBody ? SAT_BODIES[satKind(ghostBody)] || spec : spec) });
+    if (shownBody) {
+      var bspec = SAT_BODIES[satKind(shownBody)] || SAT_BODIES.box;
+      groups.push({ cls: "sat-p sat-body" + (added === shownBody.id ? " is-new" : "") + (ghostBody ? " is-gone" : ""), id: shownBody.id, rects: satBodyRects(bspec) });
+    }
+    if (ghost) groups.push({ cls: "sat-p is-gone", id: ghost.part.id, rects: ghost.rects });
+    items.forEach(function (it) {
+      groups.push({ cls: "sat-p" + (it.part.id === added ? " is-new" : ""), id: it.part.id, rects: it.rects });
+    });
+    if (bench) {
+      var planks = bench.planks.map(function (y) { return [0, y, SAT_W, 1, SAT_COL.f]; });
+      groups.unshift({ cls: "sat-plank", rects: planks });
+    }
+
+    var svg = art("0 0 " + SAT_W + " " + height, [], satLabel(chosen), "sat");
+    groups.forEach(function (g) {
+      var node = document.createElementNS("http://www.w3.org/2000/svg", "g"), tmp = art("0 0 1 1", g.rects, null);
+      node.setAttribute("class", g.cls);
+      if (g.id) node.setAttribute("data-part", g.id);
+      while (tmp.firstChild) node.appendChild(tmp.firstChild);
+      svg.appendChild(node);
+    });
+
+    // The "+ NAME" tag rises from where the new part landed. It is decoration: the label says it all.
+    var tag = null;
+    if (added) {
+      var newPart = byId(parts, added), top = null, left = 0, right = SAT_W;
+      if (shownBody && shownBody.id === added) { var bs = SAT_BODIES[satKind(shownBody)]; top = bs.y; left = bs.x; right = bs.x + bs.w; }
+      items.forEach(function (it) {
+        if (it.part.id !== added || !it.boxes.length) return;
+        top = Math.min.apply(null, it.boxes.map(function (b) { return b[1]; }));
+        left = Math.min.apply(null, it.boxes.map(function (b) { return b[0]; }));
+        right = Math.max.apply(null, it.boxes.map(function (b) { return b[0] + b[2]; }));
+      });
+      if (newPart && top !== null) {
+        // The tag sits just above the part and slides along with its position, so it stays in the picture.
+        var mid = Math.max(0, Math.min(100, (left + right) / 2 / SAT_W * 100));
+        tag = el("div", { class: "sat-tag", "aria-hidden": "true", style: "top:" + Math.min(95, Math.max(top, 4) / height * 100).toFixed(1) + "%;--x:" + mid.toFixed(1) + "%" },
+          [el("span", { text: "+ " + String(newPart.name).replace(/\s*\(.*?\)/g, "").toUpperCase() })]);
+      }
+    }
+    return el("div", { class: "sat-bench" + (size === "small" ? " sat-small" : "") }, [svg, tag]);
   }
   // SAT-END
 
@@ -618,21 +1681,31 @@
     go("map");
   }
 
-  // The story's opening: a few short beats with a START button, once per chapter in a page load.
-  // storyLine("intro") returns a list of beats; an empty list (or no story block) skips it.
+  // The story's opening: a few short beats, one at a time (NEXT, or SKIP), once per chapter in a page load.
+  // storyLine("intro") returns a list of { who, text } beats; an empty list (or no story block) skips it.
   function showIntro() {
     var beats = typeof storyLine === "function" ? list(storyLine("intro", state.design)) : [];
     var chapter = typeof storyChapter === "function" ? storyChapter(state.design) : "story";
     if (!beats.length || state.introSeen[chapter]) return false;
     state.introSeen[chapter] = true;
     var title = typeof STORY === "object" && STORY.title ? STORY.title : "";
-    mount("intro", el("section", { class: "screen intro" }, [
-      title ? el("h1", { class: "big-title small", text: String(title).toUpperCase() }) : null,
-      el("div", { class: "intro-beats" }, beats.map(sayElement)),
-      el("div", { class: "nav-row" }, [el("span"), button(["START", " >"], function () { go("map"); }, { primary: true, aria: "Start" })])
-    ]));
-    var go1 = document.querySelector(".intro .btn.primary");
-    if (go1) go1.focus();
+    var sub = typeof STORY === "object" && STORY.subtitle ? STORY.subtitle : "";
+    var at = 0;
+    function draw1() {
+      var last = at >= beats.length - 1;
+      mount("intro", el("section", { class: "screen intro" }, [
+        el("div", { class: "kicker", text: (chapter === "ajay" ? "PART 2 · " : "PART 1 · ") + String(sub || title).toUpperCase() }),
+        el("div", { class: "intro-beats", "aria-live": "polite" }, [sayElement(beats[at])]),
+        el("p", { class: "bar-note", text: (at + 1) + " / " + beats.length }),
+        el("div", { class: "nav-row" }, [
+          button("SKIP", function () { go("map"); }, { aria: "Skip the introduction" }),
+          button([last ? "START" : "NEXT", " >"], function () { if (last) go("map"); else { at++; draw1(); } }, { primary: true })
+        ])
+      ]));
+      var next = document.querySelector(".intro .btn.primary");
+      if (next) next.focus();
+    }
+    draw1();
     return true;
   }
 
@@ -686,8 +1759,8 @@
     }).join("   ") });
 
     return el("section", { class: "title" }, [
-      el("div", { class: "kicker", text: "A SPACE MISSION DESIGN GAME" }),
-      el("h1", { class: "big-title", text: "STARLINE" }),
+      el("div", { class: "kicker", text: String(typeof STORY === "object" && STORY.subtitle ? STORY.subtitle : "A space mission design game").toUpperCase() }),
+      el("h1", { class: "big-title", text: String(typeof STORY === "object" && STORY.title ? STORY.title : "GRAVITRON").toUpperCase() }),
       el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
       el("h2", { class: "subhead", text: eras.length ? "CHOOSE AN ERA AND A LEVEL" : "CHOOSE A LEVEL" }),
       tiers.length ? grid : el("p", { class: "empty", text: "No tiers in the data yet." }),
@@ -827,6 +1900,7 @@
       onclick: function () {
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
         if (state.touch && !state.armed) { preview(); state.armed = true; return; }
+        state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
       },
@@ -931,10 +2005,11 @@
     })));
 
     var built = cats.filter(function (c) { return count[c.id]; }).length;
+    var chg = state.change; state.change = null;   // the drop-in animation runs on this draw only
     var bench = el("div", { class: "bench" }, [
       el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
         el("span", { text: list(d.parts).length + " parts · " + built + " of " + cats.length + " systems" })]),
-      satelliteArt(d),
+      satelliteArt(d, chg),
       drawPreview()
     ]);
 
@@ -1041,7 +2116,7 @@
       head("5 · READINESS REVIEW"),
       sayLine("review"),
       el("div", { class: "pad" }, [
-        el("div", { class: "stack" }, [padArt(!blocked), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])]),
+        el("div", { class: "stack" }, [padArt(!blocked), satelliteArt(d, null, "small"), el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d)])]),
         control
       ]),
       navRow(null)
@@ -1471,6 +2546,10 @@
     el: el, art: art, facts: facts, button: button, num: num, money: money, starsText: starsText,
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
+    storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
+    speakerArt: function (who) { return typeof speakerArt === "function" ? speakerArt(who) : null; },
+    speakerName: function (who) { return typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : ""; },
+    satelliteArt: satelliteArt,
     setStep: setStep, setHint: setHint, setStatus: setStatus,
     lock: function () { state.locked = true; },
     bar: bar,
