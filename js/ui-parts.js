@@ -3,7 +3,8 @@
 //   PartExplainer.element(partId, opts)  a <figure class="explainer"> with a small looping animation (flat SVG,
 //                                        decoration only, aria-hidden) and a <figcaption> with the part's hook (bold),
 //                                        what it does and its catch, all plain DOM text. null for an unknown part.
-//                                        opts.compact: the small variant the Build screen's preview uses.
+//                                        opts.compact: the small variant the Build screen's preview uses: the picture and ONE
+//                                        short line (the first sentence of what the part does), no hook and no catch.
 //   PartExplainer.has(partId)            true when the part has a story and a picture
 //   PartExplainer.kinds                  the animation kinds, in order
 //
@@ -385,6 +386,12 @@ var PartExplainer = (function () {
     var s = story(id);
     return !!(s && typeof s.kind === "string" && DRAW[s.kind]);
   }
+  // One short line from `does`: its first sentence, cut at the first comma when the sentence runs past 12 words.
+  function firstSentence(text) {
+    var m = /^[^.!?]*[.!?]/.exec(String(text)), t = m ? m[0] : String(text), c = t.indexOf(",");
+    if (t.split(/\s+/).length > 12 && c > 0 && t.slice(0, c).split(/\s+/).length >= 4) t = t.slice(0, c) + ".";
+    return t;
+  }
   function line(cls, label, text) {
     var p = document.createElement("span");
     p.className = cls;
@@ -400,12 +407,17 @@ var PartExplainer = (function () {
       fig.className = "explainer ex-fig ex-kind-" + s.kind + (opts && opts.compact ? " ex-compact" : "");
       fig.setAttribute("data-part", id);
       fig.appendChild(holder.firstChild);
-      var hook = document.createElement("strong");
-      hook.className = "ex-hook";
-      hook.textContent = s.hook;
-      cap.appendChild(hook);
-      cap.appendChild(line("ex-does", "", s.does));
-      cap.appendChild(line("ex-trade", "The catch: ", s.trade));
+      if (opts && opts.compact) {
+        // The Build screen's preview: the picture and one short line, what the part does (the first sentence of `does`).
+        cap.appendChild(line("ex-does", "", firstSentence(s.does)));
+      } else {
+        var hook = document.createElement("strong");
+        hook.className = "ex-hook";
+        hook.textContent = s.hook;
+        cap.appendChild(hook);
+        cap.appendChild(line("ex-does", "", s.does));
+        cap.appendChild(line("ex-trade", "The catch: ", s.trade));
+      }
       fig.appendChild(cap);
       return fig;
     } catch (e) { return null; }

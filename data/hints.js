@@ -4,78 +4,78 @@
 const HINTS = {
   screens: {
     hub: [
-      "Money is spent at launch; the payout comes back for what you learn.",
-      "A topic you know well pays less each time. A fresh topic pays the most.",
-      "Research needs more than money: some of it asks you to prove a best practice in flight first."
+      "Money goes out at launch. Payout comes back for what you learn.",
+      "Known topics pay less. Fresh topics pay most.",
+      "Some research needs a best practice proven in flight first."
     ],
     briefing: [
-      "Decide what you want to learn before you choose any hardware.",
-      "Check which instrument types count for the topic: the first type counts fully, the others half."
+      "Decide what to learn before any hardware.",
+      "The first instrument type counts fully, the others half."
     ],
     orbit: [
-      "Low orbit is close and cheap, but passes over a ground station only a few minutes at a time.",
-      "Every orbit spends part of each lap in Earth's shadow, where only a battery keeps instruments running."
+      "Low orbit is cheap, but passes over a station only for minutes.",
+      "Every orbit has a shadow. Only a battery works there."
     ],
     build: [
-      "Every part costs something in all four bars: mass, power, money and data.",
-      "Hover over a part to see what it would change before you add it.",
-      "Keep at least 10% spare in mass and power: thin margins make every problem worse."
+      "Every part costs mass, power, money and data.",
+      "Hover a part to see what it changes.",
+      "Keep 10% spare in mass and power."
     ],
     launch: [
-      "A bigger rocket solves a mass problem but eats the budget.",
-      "Check that the rocket can reach your orbit at all: some cannot."
+      "A bigger rocket fixes mass but eats budget.",
+      "Some rockets cannot reach your orbit."
     ],
     readiness: [
-      "Red items stop the launch. Amber items are risks you may choose to accept.",
-      "Every warning you accept now is a problem that can find you in orbit."
+      "Red stops the launch. Amber is a risk you may accept.",
+      "Every accepted warning can find you in orbit."
     ],
     mission: [
-      "Each choice shows its real odds. A safe choice that costs a month can save the whole mission.",
-      "A spare part keeps the mission alive when one fails."
+      "Each choice shows its real odds.",
+      "A spare part keeps the mission alive."
     ],
     debrief: [
-      "Read what limited the mission first: it tells you the one change most worth making.",
-      "Change one thing and fly again. The same design replays the same luck outside a campaign, so you can see exactly what your change did."
+      "Read what limited you first: it names the change to make.",
+      "Change one thing and fly again."
     ]
   },
 
   tutorial: {
-    hub: "This is your space programme. Pick a topic, build a satellite, launch it, and earn money for what it discovers.",
-    briefing: "Choose what your satellite will study. Everything else follows from this.",
-    orbit: "Choose where it will fly. Each orbit trades detail, contact time and lifetime.",
-    build: "Add parts until every required column has one and the four bars stay out of the red.",
-    launch: "Choose a rocket that can carry your satellite to its orbit.",
+    hub: "Pick a topic, build, launch, earn.",
+    briefing: "Pick what your satellite studies.",
+    orbit: "Pick where it flies.",
+    build: "Keep the four bars out of red.",
+    launch: "Pick a rocket that reaches your orbit.",
     readiness: "Fix every red item, then launch.",
-    mission: "Your satellite is flying. When something happens, you decide what to do.",
-    debrief: "Here is what your satellite achieved, what held it back, and the one change to try next."
+    mission: "When something happens, you decide.",
+    debrief: "What you achieved, what held you back, one change to try."
   },
 
   // One tip per runChecks id (resolution-<partId> uses "resolution").
   checks: {
-    "no-objective": "Go back to the Briefing and choose a topic.",
+    "no-objective": "Go back and choose a topic.",
     "no-orbit": "Go back and choose an orbit.",
-    "no-launcher": "Choose a rocket on the next screen. If none reaches your orbit, pick another orbit.",
-    "empty": "Every satellite needs a body, an instrument, a power part, a radio, a computer and attitude control.",
-    "launcher-reach": "This rocket cannot reach that orbit. Choose another rocket, or another orbit.",
-    "mass": "Too heavy for this rocket: drop a part or choose a bigger rocket.",
-    "mass-margin": "You are close to the rocket's limit. Real teams keep a reserve for the mass that always creeps in.",
-    "budget": "Too expensive: a cheaper rocket often saves more than a cheaper instrument.",
-    "power": "Your parts draw more than your solar cells make. Add or enlarge a panel, or drop a power-hungry part.",
-    "power-margin": "Power is tight. Solar cells weaken with age, so leave some spare.",
-    "battery": "Your battery cannot carry the satellite through Earth's shadow, so instruments switch off there.",
-    "battery-only": "No solar cells: like Sputnik 1, your satellite will fall silent when the batteries run down.",
-    "delta-v": "This orbit needs the satellite to change its own speed, at least to come down safely at the end. Add a thruster, or pick an orbit that needs none.",
-    "data": "Your instruments make more data than your radio can send down. Fit a faster radio or carry fewer data-hungry instruments.",
-    "no-match": "None of your instruments counts for this topic. Look at the Briefing to see which types do.",
+    "no-launcher": "Choose a rocket. None reaches your orbit? Change orbit.",
+    "empty": "Needs a body, instrument, power, radio, computer and attitude control.",
+    "launcher-reach": "This rocket cannot reach that orbit. Change rocket or orbit.",
+    "mass": "Too heavy: drop a part or pick a bigger rocket.",
+    "mass-margin": "Close to the rocket's limit. Keep a reserve.",
+    "budget": "Too expensive. A cheaper rocket often saves more than a cheaper instrument.",
+    "power": "Parts draw more than the cells make. Add cells or drop a part.",
+    "power-margin": "Power is tight. Solar cells weaken with age.",
+    "battery": "The battery cannot last the shadow, so instruments switch off there.",
+    "battery-only": "No solar cells: like Sputnik 1, it falls silent when the batteries run down.",
+    "delta-v": "This orbit needs a thruster, at least to come down safely. Or pick an orbit that needs none.",
+    "data": "More data than the radio can send. Faster radio, or fewer data-hungry instruments.",
+    "no-match": "No instrument counts for this topic. See the Briefing.",
     "orbit-fit": "From this orbit the satellite cannot see what this topic needs.",
-    "resolution": "This instrument is too blurry from this orbit. A lower orbit or a bigger lens would help.",
-    "part-locked": "This part needs research first. Open the research list on the hub.",
+    "resolution": "Too blurry from this orbit. Fly lower or use a bigger lens.",
+    "part-locked": "Needs research first.",
     "launcher-locked": "This rocket needs research first.",
     "objective-locked": "This topic needs research first.",
-    "smear": "A spinning satellite smears cameras, thermal imagers and radar. Three-axis control holds it steady.",
-    "body-count": "A satellite has one body. Keep the one that fits your parts.",
-    "body-payload": "Your parts are too heavy for this body. Choose a bigger body or lighter parts.",
-    "body-slots": "This body has no room for another part of that kind. A bigger body has more slots.",
-    "too-late": "This satellite takes too long to build: it would miss the end of the programme. Use parts that are quicker to build."
+    "smear": "Spinning smears cameras, imagers and radar. Three-axis control holds steady.",
+    "body-count": "One body only. Keep the one that fits.",
+    "body-payload": "Too heavy for this body. Pick a bigger body or lighter parts.",
+    "body-slots": "No room for another part of that kind. A bigger body has more slots.",
+    "too-late": "Takes too long to build; it would miss the programme's end. Use quicker parts."
   }
 };

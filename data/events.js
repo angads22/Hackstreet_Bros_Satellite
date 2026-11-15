@@ -14,30 +14,30 @@ const EVENTS = [
     id: "counter-silence",
     objectives: ["radiation"],
     title: "The counter goes silent",
-    text: "High over the Earth your counter suddenly reads zero, then starts again lower down. Is it broken, or is something up there so intense it swamps the counter?",
+    text: "High up, your counter reads zero, then recovers lower down. Broken, or swamped?",
     choices: [
-      { label: "Assume it is broken and discard those passes", effect: { science_mult: 0.6 } },
-      { label: "Trust the instrument: the silence is data",   effect: {} }
+      { label: "Discard those passes", effect: { science_mult: 0.6 } },
+      { label: "Trust the data",   effect: {} }
     ]
   },
   {
     id: "spin-wobble",
     objectives: ["weather"],
-    title: "A wobbling satellite",
-    text: "The spent rocket stage bumped your satellite as it separated, and now it wobbles. Your cloud pictures are smeared.",
+    title: "Satellite wobbles",
+    text: "The rocket stage bumped you. Your cloud pictures are smeared.",
     choices: [
-      { label: "Live with the smeared data",           effect: { science_mult: 0.6 } },
-      { label: "Try to damp the wobble by command",    effect: { fail_chance: 0.3, fails: "instrument" } }
+      { label: "Live with it",           effect: { science_mult: 0.6 } },
+      { label: "Damp it",    effect: { fail_chance: 0.3, fails: "instrument" } }
     ]
   },
   {
     id: "xray-flare",
     objectives: ["solar"],
-    title: "A great solar flare",
-    text: "The Sun has erupted in one of the largest flares ever seen. Your instrument could catch it, but the burst of particles that follows may damage it.",
+    title: "Great solar flare",
+    text: "A huge flare. Watching it could damage the instrument.",
     choices: [
-      { label: "Keep watching through the flare",  effect: { science_mult: 1.3, fail_chance: 0.25, fails: "instrument" } },
-      { label: "Protect the instrument and wait",  effect: { lose_months: 1 } }
+      { label: "Keep watching",  effect: { science_mult: 1.3, fail_chance: 0.25, fails: "instrument" } },
+      { label: "Protect it",  effect: { lose_months: 1 } }
     ]
   },
 
@@ -45,9 +45,9 @@ const EVENTS = [
     id: "solar-storm",
     orbit_weight: { leo: 1, sso: 1.5, geo: 2 },   // poles and GEO are less shielded by Earth's magnetic field
     title: "Solar storm",
-    text: "The Sun has flung a cloud of charged particles toward Earth. Electronics left running could be scrambled.",
+    text: "Charged particles are coming. Running electronics could be scrambled.",
     choices: [
-      { label: "Shut instruments down", effect: { lose_months: 1 } },
+      { label: "Shut down", effect: { lose_months: 1 } },
       { label: "Keep observing",        effect: { fail_chance: 0.4, fails: "computer" } }
     ]
   },
@@ -55,64 +55,64 @@ const EVENTS = [
     id: "debris",
     orbit_weight: { leo: 1.5, sso: 2, geo: 0.3 },   // the 700-900 km band is the most crowded
     title: "Debris warning",
-    text: "Tracking stations warn that a piece of old rocket will pass within 200 metres. A hit would be catastrophic.",
+    text: "Old rocket debris passes within 200 metres. A hit would be fatal.",
     choices: [
-      { label: "Pay the team to plan a dodge", effect: { cost_musd: 0.3 } },
+      { label: "Pay to dodge", effect: { cost_musd: 0.3 } },
       { label: "Trust the odds",               effect: { fail_chance: 0.2, fails: "instrument" } }
     ]
   },
   {
     id: "ground-outage",
-    title: "Ground station outage",
-    text: "A storm has damaged your ground station's dish. Repairs will take weeks.",
+    title: "Ground station down",
+    text: "A storm wrecked your dish. Repairs take weeks.",
     choices: [
-      { label: "Rent time on another network", effect: { cost_musd: 0.5 } },
-      { label: "Wait for repairs",              effect: { lose_months: 2 } }
+      { label: "Rent another network", effect: { cost_musd: 0.5 } },
+      { label: "Wait",              effect: { lose_months: 2 } }
     ]
   },
   {
     id: "stuck-hinge",
-    title: "A power fault",
-    text: "A short in the power system is cutting the power your instruments get.",
+    title: "Power fault",
+    text: "A short is cutting the power your instruments get.",
     choices: [
-      { label: "Switch circuits to clear it", effect: { fail_chance: 0.3, fails: "power" } },
-      { label: "Live with less power",          effect: { science_mult: 0.8 } }
+      { label: "Switch circuits", effect: { fail_chance: 0.3, fails: "power" } },
+      { label: "Live with less",          effect: { science_mult: 0.8 } }
     ]
   },
   {
     id: "software-bug",
     title: "Software bug",
-    text: "A bug makes the computer reboot every few days. A fix is ready but has barely been tested.",
+    text: "The computer reboots every few days. The fix is barely tested.",
     choices: [
-      { label: "Upload the fix now",            effect: { fail_chance: 0.2, fails: "computer" } },
-      { label: "Test it first in safe mode",    effect: { lose_months: 1 } }
+      { label: "Upload the fix",            effect: { fail_chance: 0.2, fails: "computer" } },
+      { label: "Test it first",    effect: { lose_months: 1 } }
     ]
   },
   {
     id: "contamination",
     title: "Outgassing",
-    text: "Gas from the spacecraft's own materials is settling on the instrument, and its readings are getting worse.",
+    text: "Gas from the craft's own materials is fogging the instrument.",
     choices: [
-      { label: "Bake it off with heaters", effect: { lose_months: 1 } },
-      { label: "Live with poorer data",     effect: { science_mult: 0.85 } }
+      { label: "Bake it off", effect: { lose_months: 1 } },
+      { label: "Live with it",     effect: { science_mult: 0.85 } }
     ]
   },
   {
     id: "budget-cut",
     title: "Budget cut",
-    text: "The agency is short of money and wants your mission to save some.",
+    text: "The agency wants your mission to save money.",
     choices: [
-      { label: "Shrink the operations team", effect: { science_mult: 0.9 } },
-      { label: "Find the money elsewhere",   effect: { cost_musd: 1 } }
+      { label: "Shrink the team", effect: { science_mult: 0.9 } },
+      { label: "Find the money",   effect: { cost_musd: 1 } }
     ]
   },
   {
     id: "calibration-drift",
-    title: "Instrument calibration problem",
-    text: "An instrument's readings have begun to drift away from the truth. A demonstration is coming, and recalibrating means pausing observations.",
+    title: "Calibration drift",
+    text: "Readings are drifting. Fixing it means pausing observations.",
     choices: [
-      { label: "Pause and recalibrate",          effect: { lose_months: 1 } },
-      { label: "Continue with reduced accuracy", effect: { science_mult: 0.8 } }   // GAME VALUE: to be agreed with the Simulation owner
+      { label: "Pause and fix",          effect: { lose_months: 1 } },
+      { label: "Keep going", effect: { science_mult: 0.8 } }   // GAME VALUE: to be agreed with the Simulation owner
     ]
   },
 
@@ -120,110 +120,110 @@ const EVENTS = [
   {
     id: "ion-antennas",
     objectives: ["ionosphere"],
-    title: "The long antennas",
-    text: "Your sounder's antennas, like Alouette's, are 45 metres from tip to tip, rolled up like tape measures. One refuses to unroll all the way, and the echoes come back lopsided.",
+    title: "Stuck antenna",
+    text: "One arm of the 45 m antenna will not fully unroll. Echoes come back lopsided.",
     choices: [
-      { label: "Command it to extend again, and risk a jam", effect: { fail_chance: 0.3, fails: "instrument" } },
-      { label: "Fly with one short antenna",                  effect: { science_mult: 0.75 } }
+      { label: "Try again", effect: { fail_chance: 0.3, fails: "instrument" } },
+      { label: "Fly one short",                  effect: { science_mult: 0.75 } }
     ]
   },
   {
     id: "ion-aurora",
     objectives: ["ionosphere"],
-    title: "Roar over the auroral zone",
-    text: "Over the polar stations the sounder hears a roar of natural radio noise that drowns the echoes. Canadian scientists realise the noise is itself new science.",
+    title: "Auroral roar",
+    text: "Natural radio noise drowns the echoes. It may be science too.",
     choices: [
-      { label: "Ask the stations to record the noise too ($0.3M)", effect: { cost_musd: 0.3, science_mult: 1.15 } },
-      { label: "Filter it out and keep only clean echoes",          effect: { science_mult: 0.85 } }
+      { label: "Record the noise", effect: { cost_musd: 0.3, science_mult: 1.15 } },
+      { label: "Filter it out",          effect: { science_mult: 0.85 } }
     ]
   },
   {
     id: "ion-blizzard",
     objectives: ["ionosphere"],
     title: "Blizzard at Resolute Bay",
-    text: "Resolute Bay, the busiest of the ground stations that listen for your sounder, loses its dish in a blizzard. It heard about one sounding in five.",
+    text: "Your busiest station loses its dish. It heard about one in five soundings.",
     choices: [
-      { label: "Lease lines and re-route to Fairbanks ($0.4M)", effect: { cost_musd: 0.4 } },
-      { label: "Wait for the dish to be rebuilt",                effect: { lose_months: 1 } }
+      { label: "Re-route to Fairbanks", effect: { cost_musd: 0.4 } },
+      { label: "Wait for rebuild",                effect: { lose_months: 1 } }
     ]
   },
   {
     id: "rad-rival",
     objectives: ["radiation"],
-    title: "A rival reports the same belts",
-    text: "Another satellite's counters report the same strange radiation. You can publish now, on partial data, or wait for a full analysis and risk being second.",
+    title: "Rival sees the belts",
+    text: "Another satellite reports the same radiation. Publish now, or verify first?",
     choices: [
-      { label: "Hold a press conference now ($0.5M); more stations volunteer to listen", effect: { cost_musd: 0.5, science_mult: 1.2 } },
-      { label: "Wait for the full analysis",                                              effect: {} }
+      { label: "Publish now", effect: { cost_musd: 0.5, science_mult: 1.2 } },
+      { label: "Verify first",                                              effect: {} }
     ]
   },
   {
     id: "rad-belt",
     objectives: ["radiation"],
-    title: "The belt is bigger than predicted",
-    text: "Your counter's readings keep climbing, past anything the team expected, and its electronics are warming up.",
+    title: "Belt bigger than predicted",
+    text: "Readings climb past every forecast. The counter is warming up.",
     choices: [
-      { label: "Switch the counter off for the worst passes", effect: { science_mult: 0.7 } },
-      { label: "Keep it on: this is the discovery",           effect: { science_mult: 1.3, fail_chance: 0.25, fails: "instrument" } }
+      { label: "Skip worst passes", effect: { science_mult: 0.7 } },
+      { label: "Keep it on",           effect: { science_mult: 1.3, fail_chance: 0.25, fails: "instrument" } }
     ]
   },
   {
     id: "wx-hurricane",
     objectives: ["weather"],
-    title: "A hurricane under the camera",
-    text: "A hurricane is crossing the Atlantic right below your orbit. Nobody has ever seen one whole.",
+    title: "Hurricane under the camera",
+    text: "A hurricane sits right under your orbit. Nobody has seen one whole.",
     choices: [
       { label: "Shoot every pass",                         effect: { science_mult: 1.3, fail_chance: 0.2, fails: "computer" } },
-      { label: "Keep the usual schedule",                  effect: {} }
+      { label: "Usual schedule",                  effect: {} }
     ]
   },
   {
     id: "wx-tape",
     objectives: ["weather"],
-    title: "The picture store jams",
-    text: "The computer that holds the pictures between ground passes keeps jamming. Without it you can only send pictures live.",
+    title: "Picture store jams",
+    text: "The computer holding pictures keeps jamming. Without it, only live pictures.",
     choices: [
-      { label: "Reset it and hope",                        effect: { fail_chance: 0.3, fails: "computer" } },
-      { label: "Send live pictures over stations only",    effect: { science_mult: 0.7 } }
+      { label: "Reset and hope",                        effect: { fail_chance: 0.3, fails: "computer" } },
+      { label: "Live pictures only",    effect: { science_mult: 0.7 } }
     ]
   },
   {
     id: "sol-spots",
     objectives: ["solar"],
-    title: "A giant sunspot group",
-    text: "A sunspot group bigger than Jupiter rotates into view. A flare may follow within days.",
+    title: "Giant sunspot group",
+    text: "A sunspot group bigger than Jupiter rotates into view. A flare may follow.",
     choices: [
-      { label: "Retarget everything at it ($0.3M of ground time)", effect: { cost_musd: 0.3, science_mult: 1.25 } },
-      { label: "Stay on the planned programme",                     effect: {} }
+      { label: "Retarget now", effect: { cost_musd: 0.3, science_mult: 1.25 } },
+      { label: "Stay the course",                     effect: {} }
     ]
   },
   {
     id: "fire-smoke",
     objectives: ["wildfire"],
     title: "Smoke over the target",
-    text: "A huge fire has thrown a pall of smoke over the region you were watching. Ordinary cameras see only grey.",
+    text: "Smoke from a huge fire hides the region. Ordinary cameras see grey.",
     choices: [
-      { label: "Wait for clear air",                         effect: { lose_months: 1 } },
-      { label: "Keep observing through the smoke",           effect: { science_mult: 0.85 } }
+      { label: "Wait it out",                         effect: { lose_months: 1 } },
+      { label: "Observe anyway",           effect: { science_mult: 0.85 } }
     ]
   },
   {
     id: "ice-edge",
     objectives: ["sea-ice"],
     title: "The ice edge moves",
-    text: "A winter storm has broken up the pack. The coast guard asks for an urgent map of the new ice edge.",
+    text: "A storm broke up the pack. The coast guard wants a map now.",
     choices: [
-      { label: "Retask the satellite to map it now ($0.4M)", effect: { cost_musd: 0.4, science_mult: 1.25 } },
-      { label: "Keep to the schedule",                        effect: {} }
+      { label: "Map it now", effect: { cost_musd: 0.4, science_mult: 1.25 } },
+      { label: "Keep schedule",                        effect: {} }
     ]
   },
   {
     id: "rare-alignment",
     title: "A rare alignment",
-    text: "For a few days the Sun, Moon and your orbit line up in a way that lets you observe more than planned. It needs extra commanding from the ground.",
+    text: "Sun, Moon and orbit align for a few days. Extra commands needed.",
     choices: [
-      { label: "Do it, with extra commands",  effect: { science_mult: 1.3, fail_chance: 0.2, fails: "computer" } },
-      { label: "Skip it and stay safe",        effect: {} }
+      { label: "Do it",  effect: { science_mult: 1.3, fail_chance: 0.2, fails: "computer" } },
+      { label: "Skip it",        effect: {} }
     ]
   }
 ];

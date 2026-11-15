@@ -33,14 +33,14 @@
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
     title:    "",
-    map:      "Tap or click a place to walk there. Or walk with the arrow keys or WASD and press E to go in. The gold route leads to your next job.",
-    briefing: "Decide the goal before the hardware. The objective says which instruments count.",
-    orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
-    build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
-    launcher: "A bigger rocket solves mass and eats the budget.",
-    review:   "Blockers stop the launch. Warnings do not, but thin margins make events hit harder.",
-    mission:  "Designs get tested by things you did not plan. Pick one answer per event.",
-    debrief:  "Change the one thing that limited you, then fly the same design again."
+    map:      "Tap a place to walk there. Arrow keys or WASD walk; E goes in. The gold route is your next job.",
+    briefing: "Pick the goal first. It decides which instruments count.",
+    orbit:    "Orbit sets detail, ground contact, lifetime and launch cost.",
+    build:    "Every part costs in all four bars. Hover one to preview.",
+    launcher: "A bigger rocket fixes mass but eats budget.",
+    review:   "Red stops the launch. Amber is a risk.",
+    mission:  "Pick one answer per event.",
+    debrief:  "Fix the one thing that limited you, then fly again."
   };
 
   // This file's screen names -> the screen names getHints uses.
@@ -74,18 +74,18 @@
   var EDGES = [["gate", "j1"], ["j1", "j2"], ["j2", "j3"], ["j1", "briefing"], ["j1", "build"],
                ["j2", "orbit"], ["j2", "launcher"], ["j3", "review"], ["j3", "ground"]];
   var GO_TEXT = {
-    briefing: "Go to Mission Control and pick a job.",
-    orbit:    "Go to the Tracking Station and choose an orbit.",
-    build:    "Go to the Workshop and build the satellite.",
-    launcher: "Go to the Rocket Yard and pick a rocket.",
-    review:   "Go to the Launch Pad for the readiness review."
+    briefing: "Go to Mission Control.",
+    orbit:    "Go to the Tracking Station.",
+    build:    "Go to the Workshop.",
+    launcher: "Go to the Rocket Yard.",
+    review:   "Go to the Launch Pad."
   };
   var DO_TEXT = {
-    briefing: "Pick a job for the satellite.",
-    orbit:    "Choose an orbit that can see the target.",
-    build:    "Fit a body, an instrument, power, a radio, a computer and attitude control.",
-    launcher: "Pick a rocket that can lift your satellite.",
-    review:   "Clear every NO GO line, then launch."
+    briefing: "Pick a job.",
+    orbit:    "Pick an orbit that sees the target.",
+    build:    "Fill every required column.",
+    launcher: "Pick a rocket that can lift it.",
+    review:   "Clear every NO GO, then launch."
   };
   // Part 1, Austin's walkthrough: three standalone missions in the 1958 era, Training tier (hints on).
   // A field set here is preset: that place counts as visited and its cards are read-only for the step.
@@ -170,6 +170,10 @@
   //     `start` repeats `intro` (the same six beats); show only one of them.
   //   STORY.ajay.endings = { legend, comeback, close, sold, timeout, broke }, each { title, kicker, beats, line }.
   //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), mum.
+  //   STORY.journal = { title, part1, part2, next, locked }: the STORY SO FAR screen. part1 and part2 are lists of
+  //     { id, who, text, when }: one or two short lines each. `when` names the moment that unlocks the entry (js/ui-story.js
+  //     decides when it has come: start, step-1, step-2, step-3, offer, refused, sold, after-1, after-3). `next` holds the
+  //     few words for what to do now. No game number is written there: the debt and the months come from getComeback().
   var STORY = {
     title: "GRAVITRON",
     subtitle: "The Gravitronical Odyssey",
@@ -619,6 +623,44 @@
   STORY.ajay.interludes.offer.sell_hint = "The whole debt is cleared. The workshop and the notebook are gone.";
   STORY.ajay.interludes.offer.refuse_hint = "The debt stays. The workshop and the notebook stay yours.";
   STORY.ajay.interludes.start = STORY.ajay.intro.map(function (b) { return { who: b.who, text: b.text }; });
+
+  // The journal (STORY SO FAR): what the player has learned so far, one or two short lines per entry. An entry shows
+  // as "???" until its moment has come. Same voice as the scenes above; no digits, no money.
+  STORY.journal = {
+    title: "STORY SO FAR",
+    locked: "???",
+    part1: [
+      { id: "setup", who: "team", when: "start", text: "Sputnik beeps over our roof. Someone else got there first." },
+      { id: "rule-1", who: "notebook", when: "step-1", text: "Rule one: no power, no signal. Cells keep it alive." },
+      { id: "rule-2", who: "notebook", when: "step-2", text: "Rule two: every orbit has a night. The battery carries us." },
+      { id: "rule-3", who: "notebook", when: "step-2", text: "Rule three: data that never comes home proves nothing." },
+      { id: "discovery", who: "notebook", when: "step-3", text: "At the top, the counter went silent. Radiation, all round the Earth." },
+      { id: "voss", who: "team", when: "step-3", text: "Voss took the credit. Then he blamed Austin for the loss." },
+      { id: "box", who: "notebook", when: "step-3", text: "Austin shut the notebook in a box. His grandson opens it." }
+    ],
+    part2: [
+      { id: "lenders", who: "partner", when: "start", text: "The lenders want the debt back, or they take Grandpa's workshop." },
+      { id: "mum", who: "mum", when: "after-1", text: "Mum co-signed the loan with the house. Our house." },
+      { id: "iron-eclipse", who: "rival", when: "offer", text: "Iron Eclipse bought your patents for almost nothing." },
+      { id: "offer", who: "rival", when: "offer", text: "It will clear the debt, for the workshop and the notebook." },
+      { id: "refused", who: "partner", when: "refused", text: "You said no. Now you have to win it." },
+      { id: "sold", who: "rival", when: "sold", text: "You said yes. The debt is gone. So is the workshop." },
+      { id: "last-page", who: "notebook", when: "after-3", text: "His design was right. Voss changed it, then founded Iron Eclipse." }
+    ],
+    // What to do now, in a few words. Part 1 adds the step's name (from austin.steps) after "next".
+    next: {
+      part1: "Fly the next step.",
+      "part1-done": "Part one is done. On to the comeback.",
+      "part2-none": "Start the comeback from the home page.",
+      start: "Pick a contract. Fly it.",
+      fly: "Fly a contract. Data pays the debt.",
+      offer: "Answer Iron Eclipse first.",
+      late: "Time is short. Fly something cheap and sure.",
+      won: "Debt paid. Play again?",
+      sold: "Sold out. Play again for the other road.",
+      lost: "The keys are gone. Try again."
+    }
+  };
 
   // ---- the code that picks a line (no text below this point) ----
   // Every name here starts with "story" so it cannot clash with the rest of this file.
@@ -1965,7 +2007,7 @@
     var mini = document.getElementById("minimap");
     var text = "";
     if (screen === "mission") text = "Keep the satellite alive.";
-    else if (screen === "debrief") text = "Read what limited you, then fly again.";
+    else if (screen === "debrief") text = "Fix what limited you, then fly again.";
     else if (state.design && screen !== "title" && screen !== "hub" && screen !== "intro") {
       var next = waypoint();
       text = next === screen ? doText(screen) : GO_TEXT[next];
@@ -2298,25 +2340,34 @@
     });
     return best;
   }
-  // Build and Rocket Yard: "Pays $X · costs $Y with the cheapest rocket · net $Z · 3 stars +$B". Before a rocket is
+  // PROFIT, one line: "PROFIT +$6.8M" in the good colour, "PROFIT -$1.2M" in the bad one. The number is the back end's
+  // (previewProfit before the flight, flightProfit after it). Null when there is no number yet.
+  function profitLine(v, key) {
+    if (!isNum(v)) return null;
+    var text = (v < 0 ? "-" : "+") + money(Math.abs(v));
+    return el("p", { class: "profit " + (v > 0 ? "pos" : v < 0 ? "neg" : "zero"), "data-key": key || "profit-line", "data-musd": String(v) }, [
+      el("span", { class: "profit-label", text: "PROFIT" }), " ", el("strong", { class: "profit-amount", text: text })]);
+  }
+  // Build and Rocket Yard: "PROFIT +$6.8M", then "Pays $X · costs $Y with the cheapest rocket · 3 stars +$B". Before a rocket is
   // chosen, the cost counts the cheapest rocket that lifts it, so the line never shows a profit the launch would eat.
+  // Every number is previewProfit()'s (pay, cost, profit) or the contract's own price and bonus.
   function comebackPayLine(d) {
     var p = typeof previewPayout === "function" ? previewPayout(d) : null;
     var k = p && p.contract;
     if (!p || !k) return null;
+    var f = typeof previewProfit === "function" ? previewProfit(d) : null;
     if (p.topic_complete && !(p.new_data > 0)) {
-      return el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." });
+      return el("div", { class: "payout", "data-key": "contract-pay" }, [assist(d) === "minimal" ? null : profitLine(f && f.profit_musd),
+        el("p", { class: "nasa-line payout-line", text: "Nothing new is left to collect on this topic: the client pays nothing." })]);
     }
-    var t = getTotals(d), rocket = d.launcher ? null : cheapestRocketFor(d, t.mass_kg);
-    var cost = Math.round((p.cost_musd + (rocket ? rocket.cost_musd : 0)) * 1000) / 1000;
-    var net = Math.round((p.expected_payout_musd - cost) * 1000) / 1000;
-    var terms = assist(d) === "minimal";   // Hard: the contract's terms, not a forecast of what this design will earn
+    var terms = assist(d) === "minimal";   // Hard: the contract's terms, not a forecast of what this design will earn (no PROFIT line either)
+    var cost = f && isNum(f.cost_musd) ? f.cost_musd : null, estimate = !!(f && f.launch_estimated);
     var bits = [terms ? "Pays up to " + money(k.price_musd) + " for " + num(k.min_science, 0) + " points"
         : "Pays " + money(p.expected_payout_musd) + (k.met ? "" : " of " + money(k.price_musd) + " (needs " + num(k.min_science, 0) + " points)"),
-      "costs " + money(cost) + (rocket ? " with the cheapest rocket" : d.launcher ? "" : " + a rocket"),
-      !terms && (d.launcher || rocket) ? "net " + (net < 0 ? "-" : "") + money(Math.abs(net)) : null,
+      cost !== null ? "costs " + money(cost) + (estimate ? " with the cheapest rocket" : "") : "costs " + money(p.cost_musd) + " + a rocket",
       "3 stars +" + money(k.bonus_musd)];
-    return el("p", { class: "nasa-line payout-line", "data-key": "contract-pay" }, bits.filter(Boolean).join(" · "));
+    return el("div", { class: "payout", "data-key": "contract-pay" }, [terms ? null : profitLine(f && f.profit_musd),
+      el("p", { class: "nasa-line payout-line" }, bits.join(" · "))]);
   }
   // Briefing: the contract card (js/ui-comeback.js) and the topic it sets. The topic cannot change here.
   function comebackBriefing(d) {
@@ -2499,7 +2550,11 @@
       el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
       el("h2", { text: M.name }),
       window.StarlineStory ? window.StarlineStory.counter() : null,
-      el("div", { class: "mode-foot" }, [extra.state || el("span"), el("div", { class: "mode-go" }, [go])])
+      el("div", { class: "mode-foot" }, [extra.state || el("span"),
+        // JOURNAL (js/ui-story.js): only when this part has something in it, and absent when that file is.
+        window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ part: key === "mode-part1" ? 1 : 2,
+          ifAny: true, back: function () { showDesignScreen("title"); }, key: "journal-" + key }) : null,
+        el("div", { class: "mode-go" }, [go])])
     ]);
   }
 
@@ -2685,6 +2740,15 @@
   }
 
   // ---------------------------------------------------------------- 3 Build
+  // WHY: a small flat box for an instrument that adds nothing to the job: what the job wants against what the part is.
+  // The words are partWhy()'s (js/mission.js, from the objective's wants and the part's tags); null when the part counts.
+  function whyBox(design, partId, withName) {
+    var w = typeof partWhy === "function" ? partWhy(design, partId) : null;
+    if (!w) return null;
+    var p = byId(data("PARTS"), partId);
+    return el("p", { class: "part-why", "data-key": "why-" + partId, role: "note" }, [
+      el("span", { class: "part-why-chip", text: "WHY?" }), " ", withName && p ? el("strong", { text: p.name + ": " }) : null, w.text]);
+  }
   function partStats(p) {
     var bits = [];
     function stat(kind, text) {
@@ -2692,7 +2756,8 @@
       if (bits.length) bits.push(" ");
       bits.push(el("span", { class: "part-stat" }, [separator, icon(kind), text]));
     }
-    if (p.mass_kg) stat("mass", num(p.mass_kg) + " kg");
+    // A body leads with what it CARRIES (partCard); its own mass is what it WEIGHS.
+    if (p.mass_kg) stat("mass", (p.category === "structure" && p.payload_kg ? "WEIGHS " + num(p.mass_kg) + " KG" : num(p.mass_kg) + " kg"));
     if (p.power_draw_w) stat("power", fine(p.power_draw_w) + " W draw");
     if (p.data_gb_day) stat("data", dataText(p.data_gb_day) + "/d made");
     if (p.downlink_gb_day) stat("comms", dataText(p.downlink_gb_day) + "/d sent");
@@ -2738,7 +2803,8 @@
       onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
-      el("span", { class: "part-stats" }, partStats(p)),
+      p.category === "structure" && p.payload_kg ? el("span", { class: "part-carry", "data-key": "carries-" + p.id }, [icon("mass"), "CARRIES " + num(p.payload_kg, 0) + " KG"]) : null,
+      el("span", { class: "part-stats" + (p.category === "structure" && p.payload_kg ? " small" : "") }, partStats(p)),
       extra.length ? el("span", { class: "part-stats" }, extra.reduce(function (bits, text, i) {
         if (i) bits.push(" ");
         bits.push(el("span", { class: "part-stat", text: (i ? "· " : "") + text }));
@@ -2788,6 +2854,7 @@
     }
     var dl = t.delta || {};
     var bits = [];
+    if (p.category === "structure" && isNum(p.payload_kg) && t.adding) bits.push("carries " + num(p.payload_kg, 0) + " kg");   // the same two numbers as the card: CARRIES, then what it weighs
     if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
     if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
     if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
@@ -2798,6 +2865,8 @@
     if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
     var ch = checkChanges(state.design, state.hover);
     box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
+    var why = whyBox(state.design, state.hover);   // the part adds nothing to the job: say why, first
+    if (why) box.appendChild(why);
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
     if (assist() === "full") {   // above Easy the player works out what a part fixes or breaks
       ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
@@ -2805,7 +2874,7 @@
     }
     // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
     var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
-    if (story) box.insertBefore(story, box.children[2] || null);
+    if (story) box.insertBefore(story, box.children[why ? 3 : 2] || null);   // under the heading and the WHY box
     else if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
@@ -2849,7 +2918,7 @@
       el("h2", { text: "SCIENCE PREVIEW" }),
       el("p", { class: "science-total", text: num(s.total, 0) + " / " + num(s.target, 0) + " pts" }),
       rows.length ? el("dl", { class: "facts" }, rows) : null
-    ]);
+    ].concat(list(s.instruments).map(function (i) { return whyBox(design, i.id, true); })));
   }
 
   // The satellite's body: what it can carry (payload) against what is fitted. All numbers from getTotals().body.
@@ -2858,7 +2927,7 @@
     var over = body.payload_used_kg > body.payload_kg;
     return el("div", { class: "body-card" }, [
       el("h2", { class: "divided", text: "BODY: " + String(body.name || "").toUpperCase() }),
-      bar("PAYLOAD", num(body.payload_used_kg) + " / " + num(body.payload_kg, 0) + " KG",
+      bar("CARRIES", num(body.payload_used_kg) + " / " + num(body.payload_kg, 0) + " KG",
           body.payload_kg > 0 ? body.payload_used_kg / body.payload_kg : 0, over ? " bad" : "")
     ]);
   }
@@ -3369,6 +3438,9 @@
           // M and Esc go back into the place you stand at.
           el("div", { class: "keys-box" }, [el("h2", { class: "divided", text: "KEYS" }),
             el("p", { class: "keys" }, [el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " back inside"])]),
+          // The journal (js/ui-story.js): absent when that file is. Walking stops first so a walk cannot swap the screen under it.
+          window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ design: state.design,
+            before: stopWalking, back: function () { showDesignScreen("map"); }, key: "map-journal" }) : null,
           el("div", null, [isComebackDesign(state.design)
             ? button("BACK TO THE WORKSHOP", function () { window.showComebackHub(); }, { key: "map-workshop" })
             : inCampaign()
@@ -3689,7 +3761,7 @@
 
   window.showDesignScreen = showDesignScreen;
   window.StarlineUI = {
-    el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, starsText: starsText,
+    el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, profitLine: profitLine, starsText: starsText,
     byId: byId, data: data, list: list, directorArt: directorArt,
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
@@ -3725,6 +3797,7 @@
     // debrief, keeps the best stars of a step that passed and returns { step, passed, kept, best_stars, last } (null
     // for any other design; kept: this flight fell short but the step had passed before). startWalkStep(n) starts step n; showEpilogue() follows step 3.
     walkStep: walkStepOf,
+    walkStars: walkStars,   // read-only: the best stars of a passed Part 1 step, or null (the journal)
     walkResult: walkResult,
     startWalkStep: startWalkStep,
     showEpilogue: showEpilogue,
