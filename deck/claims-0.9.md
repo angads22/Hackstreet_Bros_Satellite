@@ -24,6 +24,9 @@ Built from `origin/main` at **32b41e9** (version 0.9 beta). Nothing was committe
 | 6 | Part 2: Ajay opens the notebook and tries again, flying satellites for paying customers to clear a debt | `CHANGELOG.md` 0.9 beta "Part 2"; `shots2/12-intro-notebook.png`; `js/ui-design.js` |
 | 6 | Workshop: debt meter, cash, months left, three contracts; Easy, Normal, Hard set cash, debt, deadline | `shots2/13-workshop.png`, `shots2/10-levels.png`; `CHANGELOG.md` 0.9 beta |
 | 6 | One short line on every screen from team, partner, customer or notebook | `CHANGELOG.md` Unreleased 0.7-0.8 "The Gravitron story"; every screenshot |
+| 5 | The launch cinematic then months, an event, the debrief (one animation) | `gifs/mission.gif` from `capture2.js` frames (`launch`, `mission`); the launch is shown slower in the GIF, the game's own cinematic is unchanged |
+| 6 | Borrow when you must: each loan costs credit, low credit makes interest dearer, at zero credit the lenders take everything; to win, clear the debt and make a name | `SPEC.md` "Loans, credit and a name"; `CHANGELOG.md` Unreleased; `js/mission.js` (`borrow`, `comebackLoss`); `shots2/13-workshop.png`, `shots2/13b-borrow.png`. On the branch of PR 13, not yet in `main` when built. The seize line, fee, 12 and other numbers are game values and not on a slide |
+| 7 | Tests: comeback 90 (was 75 on main) | `node tests/comeback.js` on the PR 13 branch; balance 53 (3 known gaps) rerun on that branch |
 | 7 | 15 data files, one global each | `ls data/*.js` on 32b41e9; `CLAUDE.md` |
 | 7 | `js/game.js`, `js/mission.js`, `index.html`, `js/ui-*.js`; no framework, no build step | `index.html`; `CLAUDE.md` |
 | 7 | Tests: formulas 16, api 121, campaign 61, comeback 75, debrief 23, saves 32, speed 6, version 8, balance 53 (3 known gaps) | Run with `node tests/<name>.js` on 32b41e9; all passed. `simulate.js`, `play.js`, `redteam` not run |
