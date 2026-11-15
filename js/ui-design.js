@@ -2230,7 +2230,7 @@
     var note = f.counts === false ? "Does not count for this objective"
       : f.sharp_enough === false ? "Too blurry from this orbit" : null;
     function preview() { state.hover = p.id; refreshPreview(); }
-    return el("button", {
+    var card = el("button", {
       type: "button", class: "part" + (note ? " dim" : ""), "aria-pressed": on ? "true" : "false", "data-key": "part-" + p.id,
       onpointerdown: function (e) {
         // Read before the tap focuses the card (focus also previews).
@@ -2239,15 +2239,15 @@
       },
       onclick: function () {
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
-        if (state.touch && !state.armed) { preview(); state.armed = true; return; }
+        if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
       },
       onfocus: preview,
       // Real mouse only: a phone tap also fires mouse enter/leave, which would undo the tap preview.
-      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); },
-      onpointerleave: function (e) { if (e.pointerType === "mouse") { state.hover = null; refreshPreview(); } }
+      // Leaving a card keeps its preview, so the pointer can move onto the preview and scroll it.
+      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
       el("span", { class: "part-stats" }, partStats(p)),
@@ -2255,20 +2255,47 @@
       note ? el("span", { class: "part-note", text: note }) : null,
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
     ]);
+    if (state.touch && state.hover === p.id) markArmed(card, on);
+    return card;
+  }
+  // A finger's first tap on a card: the card says that a second tap adds (or removes) it. One card at a time.
+  function markArmed(card, on) {
+    Array.prototype.slice.call(document.querySelectorAll(".part.armed")).forEach(function (n) {
+      n.classList.remove("armed");
+      var old = n.querySelector(".part-tap");
+      if (old) old.parentNode.removeChild(old);
+    });
+    card.classList.add("armed");
+    card.appendChild(el("span", { class: "part-tap", text: on ? "TAP AGAIN TO REMOVE" : "TAP AGAIN TO ADD" }));
   }
 
-  // What clicking the hovered part would change (previewToggle), drawn in place.
+  // What clicking the hovered part would change (previewToggle). There is one preview box: a redraw moves the box
+  // already on the page into the new screen and a hover refills it, so its aria-live text is announced, not replaced.
   function drawPreview() {
-    var box = el("div", { class: "panel preview", id: "preview", "aria-live": "polite" }, [el("h2", { text: "IF YOU CLICK" })]);
-    if (!state.hover) {
-      box.appendChild(el("p", { class: "preview-empty", text: "Point at a part to see what it would change." }));
-      return box;
+    var box = document.getElementById("preview") || el("div", { class: "panel preview", id: "preview", "aria-live": "polite" });
+    fillPreview(box);
+    return box;
+  }
+  function refreshPreview() {
+    var box = document.getElementById("preview");
+    if (box) fillPreview(box);
+  }
+  function touchScreen() { return !!(window.matchMedia && window.matchMedia("(hover: none)").matches); }
+
+  // The most useful lines first: the change to the bars, then what it fixes and causes; the part's story last.
+  function fillPreview(box) {
+    while (box.firstChild) box.removeChild(box.firstChild);
+    box.scrollTop = 0;
+    box.appendChild(el("h2", { text: state.touch ? "IF YOU TAP AGAIN" : "IF YOU CLICK" }));
+    var p = state.hover ? byId(data("PARTS"), state.hover) : null;
+    var t = p ? previewToggle(state.design, state.hover) : null;
+    if (!t) {
+      box.appendChild(el("p", { class: "preview-empty", text: (touchScreen() ? "Tap" : "Point at") + " a part to see what it would change." }));
+      return;
     }
-    var p = byId(data("PARTS"), state.hover);
-    var t = previewToggle(state.design, state.hover);
     var dl = t.delta || {};
     var bits = [];
-    if (dl.mass_kg) bits.push(signed(dl.mass_kg) + " kg");
+    if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
     if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
     if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
     if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
@@ -2276,17 +2303,43 @@
     if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
     if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
     if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
-    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + (p ? p.name.toUpperCase() : "") }));
-    if (p && p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
+    var ch = checkChanges(state.design, state.hover);
+    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
-    list(t.fixes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
-    list(t.causes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
-    return box;
+    ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
+    ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
-  function refreshPreview() {
-    var old = document.getElementById("preview");
-    if (old) old.parentNode.replaceChild(drawPreview(), old);
+  // What a click would fix and cause: runChecks on the design and on a full copy of it with the part toggled (every
+  // field kept, so the era's rules still apply). One check id can appear more than once (a BODY FULL line for each
+  // kind of part), so lines that share an id are matched by their text. Checks only: every number is the back end's.
+  function toggledCopy(d, partId) {
+    var a = {};
+    Object.keys(d).forEach(function (k) { a[k] = d[k]; });
+    a.parts = list(d.parts).slice();
+    if (a.parts.indexOf(partId) === -1) addPart(a, partId); else removePart(a, partId);
+    return a;
+  }
+  function checkChanges(d, partId) {
+    function all(r) { return list(r.blockers).concat(list(r.warnings)); }
+    var before = all(runChecks(d)), after = all(runChecks(toggledCopy(d, partId)));
+    // The lines of `from` that `to` no longer has: per id, as many as `to` has fewer, unmatched texts first.
+    function gone(from, to) {
+      var out = [], seen = {};
+      from.forEach(function (c) {
+        if (seen[c.id]) return;
+        seen[c.id] = true;
+        var mine = from.filter(function (x) { return x.id === c.id; });
+        var theirs = to.filter(function (x) { return x.id === c.id; }).map(function (x) { return x.text; });
+        var n = mine.length - theirs.length;
+        if (n <= 0) return;
+        var unmatched = mine.filter(function (x) { return theirs.indexOf(x.text) === -1; });
+        out = out.concat((unmatched.length >= n ? unmatched : mine).slice(0, n));
+      });
+      return out;
+    }
+    return { fixes: gone(before, after), causes: gone(after, before) };
   }
 
   function sciencePanel(design) {
@@ -2335,7 +2388,7 @@
         : n ? n + " on board" : c.sub;
       return el("button", {
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
-        onclick: function () { state.bin = c.id; state.hover = null; redraw(); }
+        onclick: function () { state.bin = c.id; state.hover = null; redraw(); showShelf(); }
       }, [
         icon(c.id) || art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
         el("span", { class: "bin-text" }, [
@@ -2370,16 +2423,26 @@
       shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
         : el("p", { class: "empty", text: "No parts in this bin yet." })
     ]);
+    // The preview sits on top of the shelf and stays in view while you scroll through the parts (CSS sticky).
+    var picker = el("div", { class: "picker", id: "picker" }, [drawPreview(), shelf]);
 
     return el("section", { class: "screen" }, [
       head("3 · BUILD"),
       sayLine("build"),
-      // The shelf sits under the satellite, in the same grid as the side panels, and the side
-      // panels stay in view while you scroll: you always see what a click did to the bars.
-      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, drawPreview(), payoutLine(d), shelf]),
+      // On a wide screen the shelf sits under the satellite, and the side panels stay in view while you scroll: you
+      // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
+      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
         el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
       navRow("launcher", true)
     ]);
+  }
+
+  // A narrow screen stacks the Build screen: after a bin is picked, bring its parts (and the preview) into view.
+  function showShelf() {
+    var box = document.getElementById("picker");
+    if (!box || !(window.matchMedia && window.matchMedia("(max-width: 929px)").matches)) return;
+    var top = box.getBoundingClientRect().top;
+    if (top > window.innerHeight * 0.5 || top < 0) window.scrollTo(0, window.pageYOffset + top);
   }
 
   // ---------------------------------------------------------------- 4 Launch vehicle

@@ -311,9 +311,12 @@ button:disabled { cursor: not-allowed; }
   padding: 10px;
 }
 
-/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. */
-.preview { height: 190px; overflow-y: auto; }
-@media (min-width: 930px) { .bench-col > .preview { position: sticky; top: var(--sticky-top, 8px); z-index: 3; align-self: stretch; } }
+/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. It lists the
+   change to the bars and what it fixes and causes before the part's story, and keeps the last part when the pointer
+   leaves the card, so the pointer can move onto it to scroll. It stays on top of the shelf while the parts scroll by. */
+.preview { height: clamp(190px, 36vh, 320px); overflow-y: auto; gap: 4px; }
+.picker { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.picker > .preview { position: sticky; top: var(--sticky-top, 0px); z-index: 3; }
 .bench-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .workshop > .bins, .workshop > .stack { position: sticky; top: var(--sticky-top, 8px); align-self: start; max-height: calc(100vh - var(--sticky-top, 8px) - 8px); overflow-y: auto; }
 @media (min-width: 930px) { .workshop { --sticky-top: 140px; } }   /* just under the sticky header */
@@ -321,7 +324,7 @@ button:disabled { cursor: not-allowed; }
 .workshop .sat-bench { max-width: 320px; }
 .workshop .shelf { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .preview h3 { font-size: 20px; color: var(--accent-ink); }
-.preview-line { font-size: 20px; }
+.preview-line { font-size: 19px; }
 .preview-line.fix { color: var(--info-ink); }
 .preview-line.cause { color: var(--bad); }
 .preview-empty { color: var(--text-dim); font-size: 20px; }
@@ -339,6 +342,8 @@ button:disabled { cursor: not-allowed; }
 }
 .part:hover, .part:focus-visible { border-color: var(--text-dim); }
 .part[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); }
+.part.armed { border-color: var(--accent); }   /* a finger's first tap: the next tap adds or removes it */
+.part-tap { align-self: flex-start; padding: 0 8px; background: var(--accent); color: var(--on-accent); font-size: 18px; }
 .part-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; align-items: baseline; }
 .part-name { font-size: 24px; line-height: 1; }
 .part-cost { color: var(--accent-ink); white-space: nowrap; }
@@ -645,6 +650,11 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 @media (max-width: 929px) {
   .workshop { grid-template-columns: 1fr; }
   .workshop > .bins, .workshop > .stack { position: static; max-height: none; }
+  /* One column: the bins, then the preview and the shelf, then the satellite and the bars. */
+  .workshop > .bench-col { display: contents; }
+  .workshop > .bins { order: -2; }
+  .workshop .picker { order: -1; }
+  .preview { height: clamp(120px, 30vh, 190px); }
 }
 
 @media (max-width: 760px) {
