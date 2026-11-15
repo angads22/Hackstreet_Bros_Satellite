@@ -12,6 +12,8 @@ function check(name, ok, detail) {
 }
 function near(a, b, tol) { return Math.abs(a - b) <= (tol || 1e-9); }
 var CB = G.CAMPAIGN.comeback;
+// Every comeback below starts from a fixed seed, so a run is the same on every machine (the seed tests are in section 16).
+function NC(tier, seed) { return G.newComeback(tier, seed === undefined ? 7 : seed); }
 
 // A radiation counter on a 12U CubeSat: cheap, quick, and well above a radiation contract's minimum.
 var RAD = ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf", "command-timer", "spin-stabilised", "cubesat-12u"];
@@ -25,6 +27,7 @@ function addContract(fields) {
   return k;
 }
 function design(contractId, orbit, launcher, parts) {
+  if (G.getComeback() && G.getComeback().offer) G.refuseBuyout();   // Iron Eclipse's offer waits after the second flight (section 17)
   var d = G.newComebackDesign(contractId);
   if (!d) return null;
   G.setOrbit(d, orbit); G.setLauncher(d, launcher);
@@ -53,7 +56,7 @@ check("1 every difficulty has its cash, debt and deadline", G.TIERS.every(functi
 // ---- 2. Start, per difficulty.
 G.TIERS.forEach(function (t) {
   G.resetCampaign();
-  var h = G.newComeback(t.id), x = CB.tiers[t.id];
+  var h = NC(t.id), x = CB.tiers[t.id];
   check("2 " + t.id + ": a new comeback starts with its cash, debt and deadline",
     h && h.mode === "comeback" && h.tier === t.id && h.tier_name === t.name && h.cash_musd === x.cash_musd && h.debt_musd === x.debt_musd &&
     h.start_debt_musd === x.debt_musd && h.deadline_month === x.deadline_months && h.month === 0 && h.months_left === x.deadline_months &&
@@ -70,18 +73,18 @@ G.TIERS.forEach(function (t) {
     }), topics.join(","));
 });
 G.resetCampaign();
-check("2 an unknown difficulty starts a Normal comeback", G.newComeback("nonsense").tier === "standard");
+check("2 an unknown difficulty starts a Normal comeback", NC("nonsense").tier === "standard");
 check("2 a named orbit is one a rocket reaches for less than the contract pays", (function () {
   var ok = true;
   for (var i = 0; i < 12; i++) {
-    G.resetCampaign(); G.newComeback(G.TIERS[i % 3].id);
+    G.resetCampaign(); NC(G.TIERS[i % 3].id, i + 1);
     G.getComeback().contracts.forEach(function (k) { if (k.orbit && !(G.cheapestRocketTo(k.orbit) < k.price_musd)) ok = false; });
   }
   return ok;
 })());
 
 // ---- 3. Today's parts; no research and no lab; standalone designs unaffected.
-G.resetCampaign(); G.newComeback("standard");
+G.resetCampaign(); NC("standard");
 var k3 = addContract();
 var d3 = G.newComebackDesign(k3.id);
 check("3 a comeback design flies for its contract, with the topic preset", d3.campaign && d3.comeback && d3.contract === k3.id && d3.objective === "radiation");
@@ -208,7 +211,7 @@ check("8 a flight with no new data is paid nothing, not even the bonus", m8.scie
 check("8 and the known topic gets no new contracts", G.getComeback().contracts.every(function (k) { return k.topic !== "radiation"; }));
 
 // ---- 9. Paying back: the limits, and a win.
-G.resetCampaign(); G.newComeback("standard");
+G.resetCampaign(); NC("standard");
 var h9 = G.getComeback();
 check("9 safe_pay_max keeps the cheapest launch for an open contract", h9.cheapest_launch_musd > 0 &&
   near(h9.safe_pay_max_musd, Math.max(0, G.round(h9.cash_musd - h9.cheapest_launch_musd, 3))) && h9.safe_pay_max_musd < h9.cash_musd,
@@ -238,7 +241,7 @@ check("9 the ending of a win", e9.won && e9.lost_reason === null && e9.title && 
   e9.timeline.length === 2 && e9.timeline.every(function (x) { return "month" in x && x.title && x.text; }), JSON.stringify(e9.totals));
 
 // ---- 10. Losing on time.
-G.resetCampaign(); G.newComeback("standard");
+G.resetCampaign(); NC("standard");
 var c10 = G.getCampaign(); c10.month = c10.deadline_month - 2; G.saveCampaign(c10);
 var k10 = addContract();
 var r10 = G.recordResult(fly(design(k10.id, "leo", "rideshare", RAD)));
@@ -251,7 +254,7 @@ check("10 the ending of a loss by time", !e10.won && e10.lost_reason === "deadli
 check("10 a finished comeback flies nothing more", G.newComebackDesign(k10.id) === null && !G.payDebt(1).ok);
 
 // ---- 11. Losing on cash, and no bail-out.
-G.resetCampaign(); G.newComeback("expert");
+G.resetCampaign(); NC("expert");
 var k11 = addContract();
 var d11 = design(k11.id, "leo", "rideshare", ["cloud-photocell", "solar-small", "radio-uhf", "obc-basic", "spin-stabilised", "explorer-body"]);   // the wrong instrument: no data
 var c11 = G.getCampaign(); c11.treasury_musd = G.getTotals(d11).cost_musd; G.saveCampaign(c11);
@@ -261,13 +264,13 @@ check("11 no bail-out: an empty treasury stays empty", m11.science === 0 && r11.
 check("11 cash that cannot buy any launchable design loses", h11.finished && !h11.won && h11.lost_reason === "cash" && r11.lost_reason === "cash" &&
   r11.comeback_over, "cheapest " + h11.cheapest_launch_musd);
 check("11 the ending of a loss by cash", G.getComebackEnding().lost_reason === "cash" && !G.getComebackEnding().won);
-G.resetCampaign(); G.newComeback("expert");
+G.resetCampaign(); NC("expert");
 var c11b = G.getCampaign(); c11b.treasury_musd = c11b.debt_musd; G.saveCampaign(c11b);
 G.recordResult(fly(design(addContract().id, "leo", "rideshare", RAD)));
 check("11 no cash loss while the cash covers the debt", !G.getComeback().finished || G.getComeback().won);
 
 // ---- 12. The save survives a reload, and an old save is discarded.
-G.resetCampaign(); G.newComeback("training");
+G.resetCampaign(); NC("training");
 var k12 = addContract();
 G.recordResult(fly(design(k12.id, "leo", "rideshare", RAD)));
 G.payDebt(G.round(Math.min(1, G.getComeback().safe_pay_max_musd), 3));
@@ -298,7 +301,7 @@ check("13 a 1957 flight is paid by the knowledge curve and the grant, with no co
   r13.grant_musd === G.CAMPAIGN.grant_musd && typeof r13.payout_musd === "number" && !("contract_id" in r13) && !("debt_musd" in r13) &&
   G.getCampaign().year === G.CAMPAIGN.start_year + 1 && !("month" in G.getCampaign()) && !("debt_musd" in G.getCampaign()));
 check("13 the 1957 lab still works", G.getLab().upgrades.length > 0 && G.buyResearch("no-such").reason === "No such research.");
-G.resetCampaign(); G.newComeback("standard");
+G.resetCampaign(); NC("standard");
 var cross = design(addContract().id, "leo", "rideshare", RAD);
 G.newCampaign("training");
 check("13 a comeback design never flies in a 1957 campaign", G.startMission(cross) === null &&
@@ -307,7 +310,7 @@ var d13b = G.newCampaignDesign();
 G.setObjective(d13b, "radiation"); G.setOrbit(d13b, "leo"); G.setLauncher(d13b, "juno-1");
 ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer", "explorer-body", "spin-stabilised"].forEach(function (p) { G.addPart(d13b, p); });
 var ok13b = G.runChecks(d13b).blockers.length === 0;
-G.newComeback("standard");
+NC("standard");
 check("13 a 1957 design that could launch never flies in a comeback", ok13b && G.startMission(d13b) === null &&
   G.runChecks(d13b).blockers.some(function (x) { return x.id === "no-contract"; }));
 
@@ -338,11 +341,12 @@ function cheapestFor(k) {
   }); });
   return (cheapMemo[key] = best ? { orbit: best.orbit, launcher: best.launcher, parts: best.parts, cost: G.round(bestCost, 3) } : null);
 }
-var ALL = G.PARTS.map(function (p) { return p.id; }), locks = [], unended = 0, flights14 = 0, endings = { won: 0, deadline: 0, cash: 0 };
+var ALL = G.PARTS.map(function (p) { return p.id; }), locks = [], unended = 0, flights14 = 0, endings = {};
 for (var run = 0; run < 24; run++) {
-  G.resetCampaign(); G.newComeback(G.TIERS[run % 3].id);
+  G.resetCampaign(); NC(G.TIERS[run % 3].id, run + 1);
   for (var guard = 0; guard < 40 && !G.getComeback().finished; guard++) {
     var h = G.getComeback();
+    if (h.offer) { if (rnd14() < 0.3) G.acceptBuyout(); else G.refuseBuyout(); continue; }   // a careless player answers by chance
     if (h.cash_musd >= h.debt_musd) { G.payDebt(h.debt_musd); break; }
     var flyable = h.contracts.filter(function (k) { var x = cheapestFor(k); return x && x.cost <= h.cash_musd; });
     if (!flyable.length) { locks.push("month " + h.month + ", cash " + h.cash_musd + ", contracts " + h.contracts.map(function (k) { return k.topic; })); break; }
@@ -369,14 +373,14 @@ for (var run = 0; run < 24; run++) {
     G.recordResult(m14); flights14++;
   }
   var end14 = G.getComeback();
-  if (!end14.finished) unended++; else endings[end14.won ? "won" : end14.lost_reason]++;
+  if (!end14.finished) unended++; else endings[end14.ending_id] = (endings[end14.ending_id] || 0) + 1;
 }
 check("14 no soft lock: careless comebacks always end, and a running one can always fly a contract", locks.length === 0 && unended === 0,
   flights14 + " flights; " + JSON.stringify(endings) + (locks.length ? "; " + locks[0] : ""));
 check("14 the cash-loss line agrees with a design search", (function () {
   var ok = true;
   for (var i = 0; i < 9; i++) {
-    G.resetCampaign(); G.newComeback(G.TIERS[i % 3].id);
+    G.resetCampaign(); NC(G.TIERS[i % 3].id, i + 1);
     var hh = G.getComeback(), mine = Math.min.apply(null, hh.contracts.map(function (k) { var x = cheapestFor(k); return x ? x.cost : Infinity; }));
     if (!near(hh.cheapest_launch_musd, mine, 1e-6)) ok = false;
   }
@@ -387,13 +391,159 @@ check("14 the cash-loss line agrees with a design search", (function () {
 var worst15 = 0;
 for (var i15 = 0; i15 < 12; i15++) {
   G.resetCampaign(); G.run("cheapestCache = {}");
-  var t15 = process.hrtime.bigint(); G.newComeback(G.TIERS[i15 % 3].id); G.getComeback();
+  var t15 = process.hrtime.bigint(); NC(G.TIERS[i15 % 3].id, i15 + 1); G.getComeback();
   worst15 = Math.max(worst15, Number(process.hrtime.bigint() - t15) / 1e6);
 }
 var t15b = process.hrtime.bigint(); for (var j15 = 0; j15 < 50; j15++) G.getComeback();
 var hub15 = Number(process.hrtime.bigint() - t15b) / 1e6 / 50;
 check("15 a new comeback opens in under 100 ms, and the hub refreshes in under 10 ms", worst15 < 100 && hub15 < 10,
   "new " + worst15.toFixed(1) + " ms, hub " + hub15.toFixed(2) + " ms");
+
+// ---- 16. The run's seed: the same seed plays the same run, a new seed plays differently.
+function sketch(h) { return h.contracts.map(function (k) { return [k.id, k.topic, k.orbit, k.client, k.reason, k.price_musd].join("|"); }).join(";"); }
+G.resetCampaign();
+var seedA = NC("standard", 12345), seedA2 = (G.resetCampaign(), NC("standard", 12345)), seedB = (G.resetCampaign(), NC("standard", 54321));
+check("16 newComeback(tier, seed) keeps the seed, in the hub and in the save", seedA.seed === 12345 && seedB.seed === 54321 && G.getCampaign().seed === 54321 &&
+  G.getCampaign().buyout === "none" && Number.isInteger(seedB.seed));
+check("16 the same seed deals the same contracts (clients, reasons, topics, orbits)", sketch(seedA) === sketch(seedA2), sketch(seedA).slice(0, 100));
+check("16 a different seed deals different contracts", sketch(seedA) !== sketch(seedB));
+var variety = { clients: {}, topics: {}, orbits: {}, reasons: {}, sets: {} };
+for (var sd = 1; sd <= 60; sd++) {
+  G.resetCampaign();
+  var hh = NC(G.TIERS[sd % 3].id, sd * 7919);
+  variety.sets[hh.contracts.map(function (k) { return k.topic + ":" + k.client + ":" + k.orbit; }).join(",")] = 1;
+  hh.contracts.forEach(function (k) { variety.clients[k.client] = 1; variety.topics[k.topic] = 1; variety.orbits[k.orbit || "none"] = 1; variety.reasons[k.reason] = 1; });
+}
+check("16 sixty seeds give sixty different first hands, every topic, several orbits and many clients and reasons",
+  Object.keys(variety.sets).length >= 58 && Object.keys(variety.topics).length === G.OBJECTIVES.length && Object.keys(variety.orbits).length >= 3 &&
+  Object.keys(variety.clients).length >= 20 && Object.keys(variety.reasons).length >= 20,
+  Object.keys(variety.sets).length + " hands, " + Object.keys(variety.clients).length + " clients, " + Object.keys(variety.orbits).join("/"));
+var afterA = [], afterA2 = [];
+[afterA, afterA2].forEach(function (out) {
+  G.resetCampaign(); NC("standard", 99);
+  var kk = addContract({ id: "t-seed" });
+  G.recordResult(fly(design(kk.id, "leo", "rideshare", RAD)));
+  out.push(sketch(G.getComeback()));
+});
+check("16 the later contracts, after a flight, are the same for the same seed", afterA[0] === afterA2[0]);
+var u1 = (G.resetCampaign(), NC("standard", undefined)), u2 = (G.resetCampaign(), G.newComeback("standard")), u3 = (G.resetCampaign(), G.newComeback("standard"));
+check("16 with no seed a random one is drawn (a whole 32-bit number), and the runs differ", [u2, u3].every(function (h) { return Number.isInteger(h.seed) && h.seed >= 0 && h.seed <= 4294967295; }) &&
+  (u2.seed !== u3.seed || sketch(u2) !== sketch(u3)), u2.seed + " " + u3.seed);
+check("16 a seed that is not a whole number is made one", (G.resetCampaign(), G.newComeback("standard", -7.9)).seed === 7 && (G.resetCampaign(), G.newComeback("standard", 4294967296 + 5)).seed === 5 &&
+  Number.isInteger((G.resetCampaign(), G.newComeback("standard", NaN)).seed) && Number.isInteger((G.resetCampaign(), G.newComeback("standard", "abc")).seed));
+
+// ---- 17. getComeback() for the story screens, the buyout offer, accept and refuse.
+function flyOne() {   // one real flight on a test contract; returns the recorded result
+  var kk = addContract({ id: "t-story-" + G.getCampaign().missions.length });
+  var d = design(kk.id, "leo", "rideshare", RAD);
+  return G.recordResult(fly(d));
+}
+G.resetCampaign(); NC("standard", 21);
+var h17 = G.getComeback();
+check("17 a fresh comeback: act 1, no last flight, the whole debt left, no offer, not ended", h17.act === 1 && h17.last_flight === null && h17.debt_share_left === 1 &&
+  h17.buyout === "none" && h17.offer === null && h17.ending_id === null && h17.seed === 21);
+var r17 = flyOne(), h17b = G.getComeback(), lf = h17b.last_flight, m17 = G.getCampaign().missions[0];
+check("17 after one settled flight: act 2, last_flight says what happened, no offer yet", h17b.act === 2 && h17b.offer === null && h17b.buyout === "none" && !!lf &&
+  lf.stars === m17.stars && lf.paid_musd === m17.payout_musd && lf.new_data === m17.new_data && lf.ended_early === m17.ended_early &&
+  lf.topic === "radiation" && lf.topic_name === G.getObjective("radiation").name &&
+  ["stars", "paid_musd", "new_data", "ended_early", "topic", "topic_name"].every(function (f) { return f in lf; }) && Object.keys(lf).length === 6, JSON.stringify(lf));
+check("17 debt_share_left is the debt over the starting debt, 0..1, two decimals", h17b.debt_share_left > 0 && h17b.debt_share_left <= 1 &&
+  h17b.debt_share_left === G.round(Math.min(1, h17b.debt_musd / h17b.start_debt_musd), 2));
+var r17b = flyOne(), h17c = G.getComeback();
+check("17 after the second settled flight the debt stands: act 3 and Iron Eclipse's offer is open", h17c.act === 3 && h17c.buyout === "offered" && h17c.offer && h17c.offer.id === "buyout" &&
+  Object.keys(h17c.offer).length === 1 && !h17c.finished && h17c.ending_id === null && G.getCampaign().buyout === "offered", JSON.stringify(h17c.offer));
+check("17 the open offer blocks the next design until it is answered", G.newComebackDesign(h17c.contracts[0].id) === null);
+var stale = (function () { var c = G.getCampaign(), keep = c.buyout; c.buyout = "none"; G.saveCampaign(c);
+  var d = G.newComebackDesign(h17c.contracts[0].id); G.setOrbit(d, "leo"); G.setLauncher(d, "rideshare"); RAD.forEach(function (p) { G.addPart(d, p); });
+  c = G.getCampaign(); c.buyout = keep; G.saveCampaign(c); return d; })();
+check("17 and a design made before the offer cannot launch while it is open", G.startMission(stale) === null && G.runChecks(stale).blockers.some(function (x) { return x.id === "buyout-open"; }));
+check("17 the offer survives a reload", (function () { var G2 = load({ storage: store }); var h = G2.getComeback(); return h.offer && h.offer.id === "buyout" && h.buyout === "offered" && h.seed === 21; })());
+var ref = G.refuseBuyout(), h17d = G.getComeback();
+check("17 refuseBuyout: ok, the offer closes for good, play goes on", ref.ok && ref.reason === null && Object.keys(ref).length === 2 && h17d.buyout === "refused" && h17d.offer === null && !h17d.finished &&
+  G.newComebackDesign(h17d.contracts[0].id) !== null);
+check("17 a refused offer cannot be answered again, accepted or refused", !G.refuseBuyout().ok && !G.acceptBuyout().ok && G.getComeback().buyout === "refused" && !G.getComeback().finished);
+flyOne(); flyOne();
+check("17 a refused offer is never made again", G.getComeback().buyout === "refused" && G.getComeback().offer === null);
+G.resetCampaign(); NC("expert", 22);
+check("17 nothing to answer before the offer: accept and refuse are refused", !G.acceptBuyout().ok && !G.refuseBuyout().ok && /offering/.test(G.acceptBuyout().reason) && !G.getComeback().finished);
+flyOne(); flyOne();
+check("17 the offer is made on the second flight on every difficulty",
+  G.getComeback().offer !== null && [["training", 31], ["standard", 32]].every(function (t) {
+    G.resetCampaign(); NC(t[0], t[1]); flyOne(); var before = G.getComeback().offer; flyOne(); var after = G.getComeback();
+    return before === null && (after.finished ? after.won : after.offer !== null); }));
+G.resetCampaign(); NC("standard", 23); flyOne(); flyOne();
+var acc = G.acceptBuyout(), h17e = G.getComeback(), e17 = G.getComebackEnding();
+check("17 acceptBuyout: ok, the comeback ends, not won, not lost, sold", acc.ok && acc.reason === null && Object.keys(acc).length === 2 && h17e.finished && !h17e.won &&
+  h17e.lost_reason === null && h17e.ending_id === "sold" && h17e.buyout === "accepted" && h17e.offer === null, JSON.stringify(h17e.ending_id));
+check("17 after the sale nothing more can be flown, paid or answered", G.newComebackDesign("x") === null && !G.payDebt(1).ok && !G.acceptBuyout().ok && !G.refuseBuyout().ok);
+check("17 the sold ending has its chronicle", e17.ending_id === "sold" && !e17.won && e17.lost_reason === null && e17.title && e17.headline && e17.text && e17.epilogue &&
+  e17.totals.flights === 2 && e17.timeline.length === 2, e17.title);
+check("17 the sale survives a reload", (function () { var G2 = load({ storage: store }); return G2.getComeback().ending_id === "sold" && G2.getComebackEnding().ending_id === "sold"; })());
+G.resetCampaign(); NC("standard", 24);
+check("17 an offer is not made on the first flight, nor to a debt that is paid", (function () {
+  flyOne(); var c = G.getCampaign(), a = c.buyout; c.treasury_musd = c.debt_musd; G.saveCampaign(c); G.payDebt(c.debt_musd);
+  return a === "none" && G.getComeback().won && G.getComeback().offer === null; })());
+
+// ---- 18. Every ending id.
+function finish(seed, tier, setup) {   // a comeback with two real flights, shaped by setup(c), then won by paying the debt
+  G.resetCampaign(); NC(tier || "standard", seed); flyOne(); flyOne();
+  var c = G.getCampaign(); setup && setup(c); G.saveCampaign(c);
+  if (G.getComeback().offer) G.refuseBuyout();
+  c = G.getCampaign(); c.treasury_musd = c.debt_musd; G.saveCampaign(c);
+  G.payDebt(c.debt_musd);
+  return G.getComeback();
+}
+var ids = {};
+ids.legend = finish(41, "standard", function (c) { c.missions.forEach(function (m) { m.stars = 3; }); c.month = 20; }); var e18a = G.getComebackEnding();
+check("18 legend: a win averaging 2.5 stars a flight or more", ids.legend.won && ids.legend.finished && ids.legend.ending_id === "legend" && e18a.ending_id === "legend" && e18a.won, ids.legend.ending_id);
+ids.comeback = finish(42, "standard", function (c) { c.missions.forEach(function (m) { m.stars = 2; }); c.month = 20; });
+check("18 comeback: a win below that, with time to spare", ids.comeback.ending_id === "comeback" && G.getComebackEnding().ending_id === "comeback");
+ids.close = finish(43, "standard", function (c) { c.missions.forEach(function (m) { m.stars = 2; }); c.month = c.deadline_month - 3; });
+check("18 close: a win with a tenth of the deadline or less left", ids.close.ending_id === "close" && ids.close.months_left <= 0.1 * ids.close.deadline_month && G.getComebackEnding().ending_id === "close", "months left " + ids.close.months_left);
+var edge = finish(44, "standard", function (c) { c.missions.forEach(function (m) { m.stars = 2; }); c.month = c.deadline_month - Math.floor(CB.close_share * c.deadline_month); });
+var edge2 = finish(45, "standard", function (c) { c.missions.forEach(function (m) { m.stars = 2; }); c.month = c.deadline_month - Math.floor(CB.close_share * c.deadline_month) - 1; });
+check("18 the close line is a tenth of the deadline, to the month", edge.ending_id === "close" && edge2.ending_id === "comeback", edge.months_left + " and " + edge2.months_left + " months left of " + edge.deadline_month);
+var edgeStars = finish(46, "standard", function (c) { c.missions[0].stars = 3; c.missions[1].stars = 2; c.month = 20; });
+var edgeStars2 = finish(47, "standard", function (c) { c.missions[0].stars = 3; c.missions[1].stars = 1; c.month = 20; });
+check("18 legend is 2.5 stars a flight exactly, not less", edgeStars.ending_id === "legend" && edgeStars2.ending_id === "comeback");
+var both = finish(48, "standard", function (c) { c.missions.forEach(function (m) { m.stars = 3; }); c.month = c.deadline_month - 1; });
+check("18 a legend that also won with no time left is still a legend", both.ending_id === "legend");
+G.resetCampaign(); NC("standard", 49); flyOne(); flyOne(); G.acceptBuyout();
+check("18 sold: the buyout accepted", G.getComeback().ending_id === "sold" && G.getComebackEnding().ending_id === "sold");
+G.resetCampaign(); NC("standard", 50);
+var c18 = G.getCampaign(); c18.month = c18.deadline_month - 2; G.saveCampaign(c18);
+G.recordResult(fly(design(addContract().id, "leo", "rideshare", RAD)));
+check("18 timeout: the deadline passes with debt left", G.getComeback().ending_id === "timeout" && G.getComebackEnding().ending_id === "timeout" && G.getComeback().lost_reason === "deadline");
+G.resetCampaign(); NC("expert", 51);
+var k18 = addContract(), d18 = design(k18.id, "leo", "rideshare", ["cloud-photocell", "solar-small", "radio-uhf", "obc-basic", "spin-stabilised", "explorer-body"]);
+c18 = G.getCampaign(); c18.treasury_musd = G.getTotals(d18).cost_musd; G.saveCampaign(c18);
+G.recordResult(fly(d18));
+check("18 broke: no cash left to launch anything", G.getComeback().ending_id === "broke" && G.getComebackEnding().ending_id === "broke" && G.getComeback().lost_reason === "cash");
+G.resetCampaign(); NC("standard", 52);
+check("18 a running comeback has no ending id, in the hub or the chronicle", G.getComeback().ending_id === null && G.getComebackEnding().ending_id === null);
+
+// ---- 19. Old saves are discarded; the 1957 campaign and standalone designs are unchanged.
+G.resetCampaign(); NC("standard", 61);
+var cur = JSON.parse(store.getItem("smdg-campaign"));
+check("19 the save version went up for the seed and the buyout", G.CAMPAIGN.save_version >= 5 && cur.version === G.CAMPAIGN.save_version && cur.seed === 61 && cur.buyout === "none");
+[["a version 4 comeback", function (o) { o.version = 4; delete o.seed; delete o.buyout; }],
+ ["a comeback with no seed", function (o) { delete o.seed; }],
+ ["a comeback with no buyout", function (o) { delete o.buyout; }],
+ ["a comeback with a buyout that is not one", function (o) { o.buyout = "maybe"; }],
+ ["a comeback with a seed that is not a number", function (o) { o.seed = "7"; }]].forEach(function (t) {
+  var o = JSON.parse(JSON.stringify(cur)); t[1](o); store.setItem("smdg-campaign", JSON.stringify(o));
+  var G4 = load({ storage: store });
+  check("19 " + t[0] + " is discarded", G4.getCampaign() === null && G4.getComeback() === null);
+});
+store.setItem("smdg-campaign", JSON.stringify(cur));
+G.resetCampaign();
+var c19 = G.newCampaign("training");
+check("19 a 1957 campaign has no seed and no buyout, and still starts as before", c19.mode === "campaign" && !("seed" in c19) && !("buyout" in c19) && G.getComeback() === null &&
+  c19.year === G.CAMPAIGN.start_year && c19.treasury_musd === G.getTier("training").budget_musd && !G.acceptBuyout().ok && !G.refuseBuyout().ok);
+check("19 a 1957 save code round-trips", (function () { var code = G.exportSave(); G.resetCampaign(); return G.importSave(code).ok && G.getCampaign().mode === "campaign"; })());
+G.resetCampaign(); NC("standard", 62);
+var code19 = G.exportSave(); G.resetCampaign();
+check("19 a comeback save code keeps its seed and its offer", G.importSave(code19).ok && G.getComeback().seed === 62 && G.getComeback().buyout === "none");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

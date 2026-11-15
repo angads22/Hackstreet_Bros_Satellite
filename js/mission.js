@@ -770,7 +770,7 @@ function variantOf(design, change) {
 }
 // Could the changed design launch? Only what the change itself affects counts: the contract (already flown) and
 // the calendar do not, and money is judged against what this flight had to spend at launch.
-var ADVICE_IGNORES = ["budget", "no-contract", "contract-topic", "contract-orbit", "comeback-over", "no-comeback", "too-late"];
+var ADVICE_IGNORES = ["budget", "no-contract", "contract-topic", "contract-orbit", "comeback-over", "no-comeback", "buyout-open", "too-late"];
 function canFly(mission, v) {
   if (runChecks(v).blockers.some(function (b) { return ADVICE_IGNORES.indexOf(b.id) === -1; })) return false;
   var budget = mission.launch_totals ? mission.launch_totals.budget_musd : budgetFor(v);
@@ -1504,7 +1504,8 @@ function validCampaign(c) {
       !isOptional(c.offers, function (l) { return isListOf(l, function (o) { return validOffer(o, comeback); }); })) return false;
   if (!comeback) return true;
   var cfg = comebackConfig();
-  return !!(cfg && cfg.tiers[c.tier]) && isNumber(c.month) && isNumber(c.deadline_month) && isNumber(c.debt_musd);
+  return !!(cfg && cfg.tiers[c.tier]) && isNumber(c.month) && isNumber(c.deadline_month) && isNumber(c.debt_musd) &&
+    isCount(c.seed) && c.seed <= 4294967295 && BUYOUT_STATES.indexOf(c.buyout) !== -1;
 }
 
 // ------------------------------------------------------------------ research tree and lessons
@@ -1781,6 +1782,8 @@ var CONTRACT_PRICE_PER_MONTH = 0.56; // GAME VALUE:   plus this ($M) per month i
 var CONTRACT_MIN_SHARE = 0.6;        // GAME VALUE: full price needs this share of the topic's science target
 var CONTRACT_ORBIT_CHANCE = 0.4;     // GAME VALUE: how often a client names the orbit
 
+var BUYOUT_STATES = ["none", "offered", "refused", "accepted"];   // Iron Eclipse's offer: not made, open, refused, taken
+
 function comebackConfig() { return typeof CAMPAIGN !== "undefined" && CAMPAIGN.comeback ? CAMPAIGN.comeback : null; }
 function isComeback(c) { return !!(c && c.mode === "comeback"); }
 function comebackStartYear() {
@@ -1830,7 +1833,8 @@ function makeContracts(c) {
   var open = all.filter(function (k) { return !k.done && k.expires_month > c.month; });
   var done = all.filter(function (k) { return k.done; });
   var salt = TIERS.map(function (t) { return t.id; }).indexOf(c.tier) + 1;
-  var rand = makeRandom((c.month * 7919 + (c.flights || 0) * 104729 + salt * 15485863 + 101) >>> 0);
+  // The run's seed (newComeback) makes every comeback draw different clients, topics and orbits; the same seed repeats.
+  var rand = makeRandom(((c.seed || 0) ^ Math.imul((c.month * 7919 + (c.flights || 0) * 104729 + salt * 15485863 + 101) >>> 0, 2654435761)) >>> 0);
   var topics = OBJECTIVES.filter(function (o) {
     return isObjectiveAvailable(o.id) && (c.knowledge_science[o.id] || 0) < dataCap(o) &&
       typeof CONTRACTS !== "undefined" && CONTRACTS[o.id] && CONTRACTS[o.id].length;
@@ -1943,9 +1947,9 @@ function checkComebackEnd(c) {
   if (!(c.debt_musd > 0)) { c.debt_musd = 0; c.finished = true; c.won = true; return; }
   if (comebackLoss(c)) { c.finished = true; c.won = false; }
 }
-// The reason a finished comeback was lost: the deadline if it came, else the cash.
+// The reason a finished comeback was lost: the deadline if it came, else the cash (never for a sold company).
 function lostReason(c) {
-  if (!isComeback(c) || !c.finished || c.won) return null;
+  if (!isComeback(c) || !c.finished || c.won || c.buyout === "accepted") return null;
   return c.month >= c.deadline_month ? "deadline" : "cash";
 }
 
@@ -1958,6 +1962,7 @@ function comebackChecks(design, t) {
     return out;
   }
   if (c.finished) { out.blockers.push({ id: "comeback-over", text: "The comeback is over." }); return out; }
+  if (c.buyout === "offered") { out.blockers.push({ id: "buyout-open", text: "Answer Iron Eclipse's offer first." }); return out; }
   var k = design.comeback ? openContract(c, design.contract) : null;   // a 1957 design has no contract
   if (!k) {
     out.blockers.push({ id: "no-contract", text: design.contract ? "That contract is no longer open: pick another on the hub."
@@ -1981,9 +1986,12 @@ function comebackChecks(design, t) {
 
 // ---- the API for the screens
 // Starts and saves a new comeback (replacing any saved campaign); returns getComeback().
-function newComeback(tierId) {
+// seed (optional, a whole number, kept to 32 bits): the contracts, clients and reasons come from it, so the same seed
+// plays the same run and a new one plays differently. With none, a random seed is drawn. getComeback().seed says which.
+function newComeback(tierId, seed) {
   var cfg = comebackConfig();
   if (!cfg) return null;
+  seed = typeof seed === "number" && isFinite(seed) ? Math.floor(Math.abs(seed)) % 4294967296 : Math.floor(Math.random() * 4294967296);
   var tier = getTier(tierId) && cfg.tiers[tierId] ? getTier(tierId) : (getTier("standard") || TIERS[0]);
   var t = cfg.tiers[tier.id];
   var knowledge = {};
@@ -1992,6 +2000,8 @@ function newComeback(tierId) {
     version: campaignVersion(),
     mode: "comeback",
     tier: tier.id,
+    seed: seed,                     // 32-bit: what this run's contracts are drawn from
+    buyout: "none",                 // Iron Eclipse's offer: "none" | "offered" | "refused" | "accepted"
     year: comebackStartYear(),
     month: 0,                       // months since the comeback started
     deadline_month: t.deadline_months,
@@ -2020,8 +2030,11 @@ function getComeback() {
   var c = getCampaign();
   if (!isComeback(c)) return null;
   var cfg = comebackConfig(), tier = getTier(c.tier), cheapest = comebackCheapest(c);
+  var missions = c.missions || [], last = missions[missions.length - 1] || null, lastTopic = last ? getObjective(last.objective) : null;
+  var startD = startDebt(c);
   return {
     mode: "comeback",
+    seed: c.seed,
     tier: c.tier,
     tier_name: tier ? tier.name : c.tier,
     year: c.year,
@@ -2040,14 +2053,65 @@ function getComeback() {
     missions: c.missions || [],
     finished: !!c.finished,
     won: !!c.won,
-    lost_reason: lostReason(c)
+    lost_reason: lostReason(c),
+    // For the story screens (js/ui-story.js): which act of the run this is, what the last flight did, and the offer.
+    act: missions.length >= 2 ? 3 : missions.length + 1,       // 1 before any flight is settled, 2 after one, 3 after two or more
+    last_flight: last ? { stars: last.stars || 0, paid_musd: last.payout_musd || 0, new_data: last.new_data || 0,
+                          ended_early: !!last.ended_early, topic: last.objective, topic_name: lastTopic ? lastTopic.name : last.objective } : null,
+    debt_share_left: c.won || !(c.debt_musd > 0) ? 0 : startD > 0 ? Math.max(0.01, round(Math.min(1, c.debt_musd / startD), 2)) : 1,   // 0..1, for choosing beats only
+    buyout: c.buyout || "none",                                 // "none" | "offered" | "refused" | "accepted"
+    offer: c.buyout === "offered" && !c.finished ? { id: "buyout" } : null,   // open until acceptBuyout() or refuseBuyout()
+    ending_id: comebackEndingId(c)                              // null until finished
   };
+}
+
+// Iron Eclipse's offer: once CAMPAIGN.comeback.buyout_after_flights flights are settled and the debt stands, it
+// offers to clear the whole debt for the workshop, the patents and Austin's notebook. Made once; it blocks the next
+// design (newComebackDesign returns null) until the player answers.
+function maybeOfferBuyout(c) {
+  var cfg = comebackConfig();
+  if (!cfg || c.finished || c.buyout !== "none" || !(c.debt_musd > 0)) return;
+  if ((c.missions || []).length >= cfg.buyout_after_flights) c.buyout = "offered";
+}
+function acceptBuyout() {
+  var c = getCampaign();
+  if (!isComeback(c)) return { ok: false, reason: "No comeback is running." };
+  if (c.finished) return { ok: false, reason: "The comeback is over." };
+  if (c.buyout !== "offered") return { ok: false, reason: "Nobody is offering to buy Albert Orbital." };
+  c.buyout = "accepted";
+  c.finished = true;
+  c.won = false;
+  saveCampaign(c);
+  return { ok: true, reason: null };
+}
+function refuseBuyout() {
+  var c = getCampaign();
+  if (!isComeback(c)) return { ok: false, reason: "No comeback is running." };
+  if (c.finished) return { ok: false, reason: "The comeback is over." };
+  if (c.buyout !== "offered") return { ok: false, reason: "Nobody is offering to buy Albert Orbital." };
+  c.buyout = "refused";
+  saveCampaign(c);
+  return { ok: true, reason: null };
+}
+
+// How a finished comeback ended, or null while it runs: legend | comeback | close | sold | timeout | broke.
+// A win is "legend" with an average of CAMPAIGN.comeback.legend_avg_stars or more a flight, else "close" with
+// close_share of the deadline or less left, else "comeback".
+function comebackEndingId(c) {
+  if (!isComeback(c) || !c.finished) return null;
+  if (c.buyout === "accepted") return "sold";
+  if (!c.won) return lostReason(c) === "deadline" ? "timeout" : "broke";
+  var cfg = comebackConfig() || {}, missions = c.missions || [];
+  var stars = missions.reduce(function (t, m) { return t + (m.stars || 0); }, 0);
+  if (missions.length && stars / missions.length >= (cfg.legend_avg_stars || 2.5)) return "legend";
+  if (Math.max(0, c.deadline_month - c.month) <= (cfg.close_share || 0.1) * c.deadline_month) return "close";
+  return "comeback";
 }
 
 // A design that flies for one open contract: the topic (and the orbit, when the client names one) is preset.
 function newComebackDesign(contractId) {
   var c = getCampaign();
-  if (!isComeback(c) || c.finished) return null;
+  if (!isComeback(c) || c.finished || c.buyout === "offered") return null;   // an open offer must be answered first
   var k = openContract(c, contractId);
   if (!k) return null;
   var d = newDesign(c.tier);
@@ -2114,6 +2178,7 @@ function settleComeback(c, mission, debrief, result) {
   saveCampaign(c);
   makeOffers(c);
   checkComebackEnd(c);
+  maybeOfferBuyout(c);
   saveCampaign(c);
 
   result.offers_claimed = [];
@@ -2174,7 +2239,13 @@ function getComebackEnding() {
   timeline = timeline.map(function (e, i) { return { e: e, i: i }; })
     .sort(function (a, b) { return a.e.month - b.e.month || a.i - b.i; }).map(function (x) { return x.e; });
   var title, headline, text, epilogue = null;
-  if (c.won) {
+  if (c.buyout === "accepted") {
+    title = "Sold out";
+    headline = "Iron Eclipse buys Albert Orbital, workshop and all";
+    text = "Ajay flew " + missions.length + (missions.length === 1 ? " satellite" : " satellites") + " and earned " + money(earned) +
+      ", then sold the workshop, the patents and Austin's notebook to clear what was owed.";
+    epilogue = "The debt is gone. So is the workshop, and the notebook is in Iron Eclipse's vault with Marcus Voss's name on the door.";
+  } else if (c.won) {
     title = "The workshop is yours";
     headline = "Albert Orbital clears its debt in " + months(c.month);
     text = "Ajay flew " + missions.length + (missions.length === 1 ? " satellite" : " satellites") + " for paying clients, earned " +
@@ -2195,7 +2266,7 @@ function getComebackEnding() {
     text = missions.length + (missions.length === 1 ? " flight" : " flights") + " so far, " + money(earned) + " earned and " + money(paid) + " paid back.";
   }
   return {
-    won: !!c.won, lost_reason: lost, title: title, headline: headline, text: text,
+    won: !!c.won, lost_reason: lost, ending_id: comebackEndingId(c), title: title, headline: headline, text: text,
     totals: { flights: missions.length, stars: stars, earned_musd: earned, paid_musd: paid, interest_musd: interest, months: c.month },
     timeline: timeline,
     epilogue: epilogue
