@@ -222,7 +222,7 @@ Questions to settle first:
 2. Do trips cost months as well as money?
 3. Is a part bought for good in a campaign, or once per mission?
 4. Who sources each part's country? Every row needs a page a human opened, like `source`.
-5. Out of scope above lists "3D graphics or animated launches". The art is moving to faceted low-poly and the animations are small, so that line needs rewording first.
+5. Settled: the Out of scope list now allows the faceted low-poly art and short animations (assembly, shipping, launch), as long as they only show numbers the rules computed.
 
 ## Content choices
 
@@ -777,7 +777,7 @@ Tier select -> Base map -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle 
 ```
 
 - **One design object.** Create it with `newDesign(tierId)` at tier select. Every screen edits the same object. Going back never clears a choice; if an earlier change breaks a later one (for example a new orbit the chosen rocket cannot reach), the Readiness review reports it.
-- **A base map** is the hub between the five design screens (Design screens owns it, in `js/ui-design.js`). It is a pixel map of a space centre with one numbered place per screen: 1 Mission Control (Briefing), 2 Tracking Station (Orbit), 3 Workshop (Build), 4 Rocket Yard (Launch vehicle), 5 Launch Pad (Readiness). The player walks between places with the arrow keys or WASD and presses E to go in, or clicks a place and walks there. Each place is marked next, done, open or locked; Mission Control is open from the start, the Tracking Station opens once a job is picked, the Workshop once an orbit is chosen, and each later place once the one before it has been visited; every place already visited stays open before launch. A gold route and an "OBJECTIVE" line point to the next place with work left, judged from `runChecks` (for example back to the Workshop while a NO GO there remains). Inside a place, the header shows the objective and a minimap; M, Esc or a click on the minimap opens the map, and "GO TO <place>" walks to the place the gold route points at, which can be an earlier one. From launch on, the map is locked until the Debrief.
+- **A base map** is the hub between the five design screens (Design screens owns it, in `js/ui-design.js`). It is a map of a space centre, drawn low-poly (`LowPoly.scenes.base`, with the older flat SVG map as the fallback), with one numbered place per screen: 1 Mission Control (Briefing), 2 Tracking Station (Orbit), 3 Workshop (Build), 4 Rocket Yard (Launch vehicle), 5 Launch Pad (Readiness). The player walks between places with the arrow keys or WASD and presses E to go in, or clicks a place and walks there. Each place is marked next, done, open or locked; Mission Control is open from the start, the Tracking Station opens once a job is picked, the Workshop once an orbit is chosen, and each later place once the one before it has been visited; every place already visited stays open before launch. A gold route and an "OBJECTIVE" line point to the next place with work left, judged from `runChecks` (for example back to the Workshop while a NO GO there remains). Inside a place, the header shows the objective and a minimap; M, Esc or a click on the minimap opens the map, and "GO TO <place>" walks to the place the gold route points at, which can be an earlier one. From launch on, the map is locked until the Debrief.
 - **The four resource bars** (mass, power, budget, data) appear from Build onward, on Build, Launch vehicle and Readiness. Refresh them after every change with `getTotals(design)`.
 - **Hints** follow the tier's `hints` field: `"on"` shows a hint on each screen and a short tutorial on the first visit; `"request"` shows a hint button; `"off"` shows nothing. Call `getHints(screen, design)`; the text lives in `data/hints.js`.
 
@@ -803,7 +803,8 @@ Tier select -> Base map -> 1 Briefing -> 2 Orbit -> 3 Build -> 4 Launch vehicle 
 
 | Element | Source | Behaviour |
 | --- | --- | --- |
-| One card per tier | `TIERS`: `name`, `budget_musd`, `events` | Locked cards are greyed out with "Earn 2 stars on the previous tier". |
+| Hero picture | `LowPoly.scenes.title` (`js/lp-earth.js`) | A low-poly Earth with a satellite above the cards. If it cannot draw, the page works without it. |
+| One card per tier | `TIERS`: `name`, `budget_musd`, `events` | Locked cards are greyed out and say only LOCKED; the rule ("Earn 2 stars on the previous tier") is the screen's one hint and the card's accessible name, not text repeated on every card. |
 | Lock state | `isTierUnlocked(tier.id)` | Only unlocked cards can be clicked. |
 | Best result | `getProgress().best_stars[tier.id]` | Show 0 to 3 stars on the card. |
 | Click a card | `design = newDesign(tier.id)` | Go to the base map, standing at the main gate, with Mission Control (Briefing) next. |
@@ -1028,7 +1029,7 @@ Times are local. Submissions open Saturday at 9:00 AM and close Sunday at 11:59 
 We are not building any of these, even if an AI offers to:
 
 - Online or networked multiplayer
-- 3D graphics or animated launches
+- A real-time 3D game engine, a physics simulation of launches, or models and art imported from elsewhere. The art is faceted, flat-shaded low-poly drawn by our own small renderer from code (`js/lowpoly.js` and the `js/lp-*.js` model files); launches and assembly may be shown with it in short animations, never simulated with it.
 - Real orbital mechanics or trajectory maths
 - Accounts, logins or a server
 - More than one destination. Mars and the Moon wait until the Earth mission is finished.
