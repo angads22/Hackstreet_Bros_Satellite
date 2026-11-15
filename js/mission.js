@@ -149,8 +149,10 @@ function isProtected(design, eventId) {
 }
 
 // A required category with no working parts ends the mission.
+function isGenerator(p) { return p.category === "power" && solarPowerW(p) > 0; }
 function missingRequired(mission) {
-  var working = designParts(mission.design).filter(function (p) {
+  var parts = designParts(mission.design);
+  var working = parts.filter(function (p) {
     return mission.broken.indexOf(p.id) === -1;
   });
   var req = requiredCategories();
@@ -158,8 +160,10 @@ function missingRequired(mission) {
     var cat = req[i];
     if (!working.some(function (p) { return p.category === cat; })) return cat;
   }
-  // A battery alone cannot keep a spacecraft alive: it needs a working generator.
-  if (!working.some(function (p) { return p.category === "power" && solarPowerW(p) > 0; })) return "power";
+  // A satellite that launched with solar cells dies when the last of them fails: the battery alone
+  // cannot keep it alive for long. A battery-only satellite was never relying on cells: it flies on
+  // until its battery is spent (its lifetime, set at launch).
+  if (parts.some(isGenerator) && !working.some(isGenerator)) return "power";
   return null;
 }
 
@@ -427,7 +431,7 @@ function chooseEvent(mission, choice) {
     mission.lost.event += rate.per_month * mission.science_mult * (mission.lifetime_months - mission.month);
     mission.ended = true;
     mission.ended_early = true;
-    mission.end_reason = { event: event.id, title: event.title, category: missing };
+    mission.end_reason = { event: event.id, title: event.title, category: missing, part: record.failed_part };
   } else if (mission.month >= mission.lifetime_months) {
     mission.ended = true;
     if (mission.battery_limited) mission.end_cause = "batteries";
