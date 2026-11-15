@@ -992,3 +992,29 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .launch-show .launch-clock .countdown { font-size: clamp(40px, 8vw, 64px); }
 .launch-show[data-phase="liftoff"] .launch-word { color: var(--info-ink); }
 .launch-show .lp-launch { width: min(100%, 960px, calc((100vh - 190px) * 4 / 3)); }
+/* The debrief's stars land one by one, the way Part 2's PAID stamp lands (upright: their own keyframes). */
+.panel.paper { overflow: hidden; }   /* a star lands from larger: it must not widen the page while it does */
+.stamp { border-radius: 8px; white-space: nowrap; }
+.stamp-star { display: inline-block; }
+.stamp-star.on { animation: star-land 0.45s ease-out both; animation-delay: calc(0.2s + var(--i, 0) * 0.35s); }
+@keyframes star-land { from { opacity: 0; transform: scale(1.8); } to { opacity: 1; transform: none; } }
+.next-star { color: var(--paper-muted); font-size: 20px; }
+/* A win (3 stars, a step passed, a contract paid): a big result moment, then the real mission it is closest to, open. */
+.win-moment { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 14px 18px; overflow: hidden;
+  background: var(--surface); border: 4px solid var(--info); border-radius: 12px; }
+.win-stars { flex: none; white-space: nowrap; font-family: var(--pixel); font-weight: 700; font-size: clamp(48px, 9vw, 84px); line-height: 1; color: var(--info-ink); }
+.win-stars .stamp-star + .stamp-star { margin-left: 10px; }
+.win-discovery { display: flex; flex-direction: column; gap: 4px; flex: 1 1 320px; min-width: 0; }
+.win-discovery h2 { font-size: 22px; color: var(--info-ink); overflow-wrap: anywhere; }
+.win-discovery p { font-size: 24px; }
+/* A standalone flight that opened a tier or an era: its button leads, above REDESIGN. */
+.unlocks { display: flex; flex-direction: column; gap: 10px; }
+.unlocks .btn { border-radius: 8px; box-shadow: none; }
+@media (max-width: 480px) {
+  .win-moment { padding: 10px 12px; }
+  .win-discovery h2 { font-size: 19px; }
+  .win-discovery p { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp-star.on { animation: none; }
+}

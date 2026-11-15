@@ -287,8 +287,9 @@
     var paper = el("div", { class: "panel paper" }, [
       el("div", { class: "ledger-head" }, [
         el("h1", { text: "MISSION REPORT" }),
-        el("span", { class: "stamp" + (d.stars > 0 ? " pass" : ""), role: "img", text: UI.starsText(d.stars), "aria-label": d.stars + " of 3 stars" })
-      ])
+        starStamp(d.stars)
+      ]),
+      nextStarLine(d)
     ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
     ]));
@@ -299,13 +300,17 @@
         e.title + ": " + e.label + (p ? " (" + p.name + " failed)" : e.protected ? " (protected)" : ""));
     });
 
+    // A standalone flight that opened a tier or an era: a button that starts a mission there (none in Part 1 or 2).
+    var unlocks = !walk && !done.design.campaign && !comeback && result ? unlockButtons(done, result) : null;
+    // A win (3 stars, a Part 1 step passed, or a Part 2 contract PAID in full): the result moment above the report
+    // shows the stars landing and the real discovery, open, so the side panel does not repeat it.
+    var win = d.stars >= 3 || !!(walk && walk.passed) || outcome === "paid";
     var side = el("div", { class: "panel limit" }, [
       comeback ? comebackBlock(done, d, result, landed, outcome) : null,
       walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
         text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
-      // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them.
-      result && result.unlocked && !done.design.campaign && !walk ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
-      result && result.era_unlocked && !walk && !comeback ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
+      // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them. A standalone
+      // flight that opens one gets a button that starts it (unlockButtons, under the advice).
       el("h2", null, [UI.icon(limitIcon(d)) || UI.icon(d.limiting), limitingHeading(d)]),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
@@ -313,7 +318,7 @@
       d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
         el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
       segmentRows(d),
-      closestLine(d),
+      win && closestMoment(d) ? (d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null) : closestLine(d),
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
       walk ? walkButtons(walk, done.design)
@@ -327,20 +332,29 @@
               if (again) window.showDesignScreen("build", again); else window.showCampaignHub();
             })
           ])
-        : el("div", { class: "choices" }, [
-            UI.button(["REDESIGN", " >"], function () { window.showDesignScreen("build", done.design); }, { primary: true }),
-            UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
-            UI.button("HOME", function () { window.showDesignScreen("title"); })
-          ])
+        : unlocks ? el("div", { class: "stack" }, [unlocks, standaloneButtons(done, false)]) : standaloneButtons(done, true)
     ]);
 
     UI.mount("debrief", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
       teamLine(done.design, d),
+      win ? winMoment(d) : null,
       el("div", { class: "ledger" }, [paper, side]),
       comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null
     ]));
+    // A passed step points on, not back at "what limited you".
+    if (walk && walk.passed) objectiveLine(walk.last ? "On to the epilogue." : "On to the next step.");
     run = null;
+  }
+
+  // Standalone flights (not reached from the home page): REDESIGN, NEW MISSION, HOME. REDESIGN leads unless a tier or
+  // an era just opened, whose button leads instead.
+  function standaloneButtons(done, lead) {
+    return el("div", { class: "choices" }, [
+      UI.button(lead ? ["REDESIGN", " >"] : "REDESIGN", function () { window.showDesignScreen("build", done.design); }, { primary: lead }),
+      UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
+      UI.button("HOME", function () { window.showDesignScreen("title"); })
+    ]);
   }
 
   // ---- One verdict everywhere. The story's lines read ended_early and the stars; a flight lost after it earned a star
@@ -358,6 +372,57 @@
       if (line && line.who) return UI.sayEl({ who: line.who, text: "Goal met before we lost it." });
     }
     return UI.say ? UI.say("debrief", d) : null;
+  }
+
+  // ---- The stars. The stamp is one image named "N of 3 stars"; its filled stars land one by one, like Part 2's PAID stamp.
+  function starStamp(stars) {
+    var glyphs = UI.starsText(stars).split("").map(function (g, i) {
+      return el("span", { class: "stamp-star" + (i < stars ? " on" : ""), style: "--i: " + i, text: g });
+    });
+    return el("span", { class: "stamp" + (stars > 0 ? " pass" : ""), role: "img", "aria-label": stars + " of 3 stars" }, glyphs);
+  }
+  // Two stars and a missed science target: the third star needs the target, whatever the score (no number on screen).
+  function nextStarLine(d) {
+    if (!(d.stars === 2 && d.science < d.science_target)) return null;
+    return el("p", { class: "next-star", text: "Third star: reach the science target." });
+  }
+  // The result moment of a win: big stars (the ones earned land one by one), then the real mission yours is closest
+  // to, open (its discovery is the reward). The stamp in the report already names the stars, so these are hidden.
+  function winMoment(d) {
+    var stars = el("div", { class: "win-stars", "aria-hidden": "true" }, UI.starsText(d.stars).split("").map(function (g, i) {
+      return el("span", { class: "stamp-star" + (i < d.stars ? " on" : ""), style: "--i: " + i, text: g });
+    }));
+    return el("div", { class: "win-moment", "data-key": "win-moment" }, [stars, closestMoment(d)]);
+  }
+  function closestMoment(d) {
+    var c = d.closest_mission;
+    if (!c || !c.name || !c.blurb) return null;
+    var shared = UI.list(c.shared).join("; ");
+    return el("div", { class: "win-discovery" }, [
+      el("h2", { text: "LIKE " + String(c.name).toUpperCase() + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" }),
+      el("p", { text: c.blurb + (shared ? " Like yours: " + shared + "." : "") })
+    ]);
+  }
+  // A tier or an era this flight opened, as a button that starts a new design there.
+  function unlockButtons(done, result) {
+    var btns = [];
+    if (result.unlocked) btns.push(UI.button(["PLAY " + tierLabel(result.unlocked), " >"], function () {
+      var d = newDesign(result.unlocked);
+      if (done.design.era && typeof setEra === "function") setEra(d, done.design.era);
+      window.showDesignScreen("map", d);
+    }, { primary: btns.length === 0, key: "play-tier" }));
+    if (result.era_unlocked) btns.push(UI.button(["PLAY " + eraLabel(result.era_unlocked), " >"], function () {
+      var d = newDesign(done.design.tier);
+      if (typeof setEra === "function") setEra(d, result.era_unlocked);
+      window.showDesignScreen("map", d);
+    }, { primary: btns.length === 0, key: "play-era" }));
+    return btns.length ? el("div", { class: "unlocks" }, btns) : null;
+  }
+  function objectiveLine(text) {
+    var line = document.getElementById("objective");
+    if (!line) return;
+    line.textContent = "OBJECTIVE: " + text;
+    line.hidden = false;
   }
 
   // ---- Part 2: a contract flight. The money story adds up: the cash before the launch, the launch, what the client
