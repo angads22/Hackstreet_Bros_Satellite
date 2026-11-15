@@ -702,10 +702,17 @@ function getProgress() {
   try {
     if (typeof localStorage !== "undefined") {
       var raw = localStorage.getItem(PROGRESS_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) return repairProgress(JSON.parse(raw));
     }
-  } catch (e) { /* storage blocked: fall through to memory */ }
-  return memoryProgress || emptyProgress();
+  } catch (e) { /* storage blocked or unreadable: fall through to memory */ }
+  return memoryProgress ? repairProgress(memoryProgress) : emptyProgress();
+}
+// A record read back from the browser keeps every part that is well formed; a broken part starts empty,
+// so a damaged record can never stop the title screen from drawing.
+function repairProgress(p) {
+  p = isRecord(p) ? p : {};
+  return { best_stars: isNumberMap(p.best_stars) ? p.best_stars : {}, best_score: isNumberMap(p.best_score) ? p.best_score : {},
+           best_stars_by_era: isNumberMap(p.best_stars_by_era) ? p.best_stars_by_era : {} };
 }
 
 function saveProgress(p) {
@@ -760,12 +767,17 @@ var cheapestCache = {};
 
 function campaignVersion() { return typeof CAMPAIGN !== "undefined" ? CAMPAIGN.save_version : 1; }
 
+var checkedRaw = null;   // the last saved text that passed validCampaign (it is read very often)
 function getCampaign() {
   var c = null;
   try {
     if (typeof localStorage !== "undefined") {
       var raw = localStorage.getItem(CAMPAIGN_KEY);
-      if (raw) c = JSON.parse(raw);
+      if (raw) {
+        c = JSON.parse(raw);
+        // A save of the wrong shape (an old bug, or a hand-edited browser store) is ignored like an old version.
+        if (raw !== checkedRaw) { if (!validCampaign(c)) return null; checkedRaw = raw; }
+      }
     }
   } catch (e) { c = null; }
   if (!c) c = memoryCampaign;
@@ -1082,7 +1094,7 @@ function ratingFor(c, K) {
 
 function flightHeadline(m, o, orbitName) {
   var topic = o ? o.name : m.objective;
-  if (m.ended_early) return "Satellite lost after " + m.months + (m.months === 1 ? " month" : " months");
+  if (m.ended_early) return "Satellite lost" + (isCount(m.months) ? " after " + m.months + (m.months === 1 ? " month" : " months") : "");
   if (m.new_data <= 0) return "Old news: " + topic + " measured again";
   if (m.first_look && m.stars >= 2) return topic + ": the first data comes home";
   if (m.stars === 3) return "Flawless flight adds to the record on " + topic;
@@ -1251,15 +1263,75 @@ function importSave(code) {
     var body = fromBase64(parts[1]);
     if (checksum(body) !== parts[2]) return { ok: false, reason: "The code is damaged or incomplete." };
     var data = JSON.parse(body);
+    if (!isRecord(data)) return { ok: false, reason: "The code could not be read." };
     if (data.v !== campaignVersion()) return { ok: false, reason: "The code is from another version of the game." };
     if (data.campaign && data.campaign.version !== campaignVersion()) return { ok: false, reason: "The campaign is from another version." };
-    if (!data.progress || typeof data.progress.best_stars !== "object") return { ok: false, reason: "The code has no progress in it." };
-    saveProgress(data.progress);
+    if (!isRecord(data.progress)) return { ok: false, reason: "The code has no progress in it." };
+    // Every field is checked before anything is saved: a code that is well formed but incomplete never replaces a good save.
+    var progress = cleanProgress(data.progress);
+    if (!progress || (data.campaign !== null && data.campaign !== undefined && !validCampaign(data.campaign))) {
+      return { ok: false, reason: "The code could not be read." };
+    }
+    saveProgress(progress);
     if (data.campaign) { saveCampaign(data.campaign); cheapestCache = {}; } else resetCampaign();
     return { ok: true, reason: null };
   } catch (e) {
     return { ok: false, reason: "The code could not be read." };
   }
+}
+
+// ---- the shape of a save: checked on import, and when a save is read back from the browser
+function isRecord(x) { return !!x && typeof x === "object" && !Array.isArray(x); }
+function isNumber(x) { return typeof x === "number" && isFinite(x); }
+function isText(x) { return typeof x === "string"; }
+function isFlag(x) { return typeof x === "boolean"; }
+function isTextOrNull(x) { return x === null || isText(x); }
+function isCount(x) { return isNumber(x) && x >= 0 && Math.floor(x) === x; }
+function isNumberMap(x) { return isRecord(x) && Object.keys(x).every(function (k) { return isNumber(x[k]); }); }
+function isListOf(x, test) { return Array.isArray(x) && x.every(function (v) { return test(v); }); }
+function isOptional(x, test) { return x === undefined || test(x); }
+
+// Tier progress: { best_stars, best_score, best_stars_by_era }, each { id: number }. An older record without
+// best_stars_by_era gets an empty one. Returns the clean record, or null when it cannot be used.
+function cleanProgress(p) {
+  if (!isRecord(p) || !isNumberMap(p.best_stars) || !isNumberMap(p.best_score) || !isOptional(p.best_stars_by_era, isNumberMap)) return null;
+  return { best_stars: p.best_stars, best_score: p.best_score, best_stars_by_era: p.best_stars_by_era || {} };
+}
+
+// One flight, as settleCampaign and settleComeback save it.
+function validFlight(m) {
+  return isRecord(m) && isText(m.id) && isText(m.objective) && isText(m.orbit) && isNumber(m.year) && isNumber(m.science) &&
+    isNumber(m.stars) && isNumber(m.payout_musd) && isNumber(m.spent_musd) &&
+    isOptional(m.flight, isCount) && isOptional(m.new_data, isNumber) && isOptional(m.first_look, isFlag) &&
+    isOptional(m.months, isCount) && isOptional(m.ended_early, isFlag) && isOptional(m.limiting, isTextOrNull) &&
+    isOptional(m.parts, isCount) && isOptional(m.month, isNumber) && isOptional(m.contract, isTextOrNull) &&
+    isOptional(m.real, function (r) { return r === null || (isRecord(r) && isText(r.name) && isNumber(r.year)); });
+}
+// A yearly offer (the 1957 campaign) or a contract (the comeback).
+function validOffer(o, comeback) {
+  if (!isRecord(o) || !isText(o.id) || !isText(o.topic) || !isTextOrNull(o.orbit) || !isText(o.client) || !isText(o.text) ||
+      !isFlag(o.done) || !isNumber(o.min_science) || !isNumber(o.bonus_musd)) return false;
+  return comeback ? isText(o.reason) && isNumber(o.price_musd) && isNumber(o.expires_month)
+                  : isNumber(o.year_to) && isNumber(o.bonus_sci) && isOptional(o.year_from, isNumber);
+}
+// The log: research and upgrades bought, payments to the lenders, and flights launched but not yet recorded.
+function validLogEntry(e) {
+  if (!isRecord(e) || !isText(e.kind) || !isNumber(e.year)) return false;
+  if (e.kind === "payment") return isNumber(e.musd) && isNumber(e.month);
+  if (e.kind === "launch") return isText(e.id) && isNumber(e.musd) && isCount(e.flight);
+  return isText(e.id);
+}
+function validCampaign(c) {
+  if (!isRecord(c) || c.version !== campaignVersion() || (c.mode !== "campaign" && c.mode !== "comeback") || !getTier(c.tier)) return false;
+  var comeback = c.mode === "comeback";
+  if (!isNumber(c.year) || !isNumber(c.treasury_musd) || !isNumber(c.science_pts) || !isCount(c.flights) ||
+      !isFlag(c.finished) || !isFlag(c.won) || !isNumberMap(c.knowledge_science) ||
+      !isListOf(c.research, isText) || !isListOf(c.upgrades, isText) || !isListOf(c.lessons, isText) ||
+      !isListOf(c.missions, validFlight) || !isOptional(c.log, function (l) { return isListOf(l, validLogEntry); }) ||
+      !isOptional(c.offers, function (l) { return isListOf(l, function (o) { return validOffer(o, comeback); }); })) return false;
+  if (!comeback) return true;
+  var cfg = comebackConfig();
+  return !!(cfg && cfg.tiers[c.tier]) && isNumber(c.month) && isNumber(c.deadline_month) && isNumber(c.debt_musd);
 }
 
 // ------------------------------------------------------------------ research tree and lessons
