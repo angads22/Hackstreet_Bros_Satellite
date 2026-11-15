@@ -252,7 +252,7 @@
     var c = info();
     UI.leaveMission();
     UI.setStatus(title());
-    var kind = e.won ? "won" : e.lost_reason === "cash" ? "cash" : "deadline";
+    var kind = e.won ? "won" : (e.lost_reason === "cash" || e.lost_reason === "seized") ? "cash" : "deadline";   // the story has a beat set per kind; the headline and epilogue say the rest
     var t = e.totals || {};
     var scene = e.won && UI.lpCanvas ? UI.lpCanvas(function (L) {
       return typeof L.scenes.title === "function" ? L.scenes.title({}) : null;
@@ -264,7 +264,7 @@
         el("h1", { text: String(e.title).toUpperCase() })]),
       el("div", { class: "panel cb-end " + kind }, [
         scene ? scene.canvas : null,
-        el("p", { class: "cb-stamp " + (e.won ? "pass" : "fail"), text: e.won ? "PAID OFF" : "KEYS TAKEN" }),
+        el("p", { class: "cb-stamp " + (e.won ? "pass" : "fail"), text: e.won ? "PAID OFF" : e.lost_reason === "name" ? "NO NAME" : "KEYS TAKEN" }),
         el("h2", { class: "cb-headline", text: e.headline }),
         el("div", { class: "chron-stats" }, [
           stat(num(t.flights, 0), "FLIGHTS"), stat(money(t.earned_musd), "EARNED"),

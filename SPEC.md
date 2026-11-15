@@ -154,8 +154,22 @@ A step passes with 1 star or more. Each step is proven winnable with 1958 parts 
 - **A mode of the existing campaign** (`mode: "comeback"`), so it reuses the offers, the chronicle and the money rules. Present-day parts (the 2026 era), no research and no lab in this mode.
 - **Contracts** are the offers with a client and a reason (`data/contracts.js`). Three are open at a time. Each names a topic, sometimes an orbit, a minimum of data, a full price and a month it expires. A flight is paid in proportion to the data it returns, up to the full price at the minimum, plus a small bonus for 3 stars. New data only: a topic already fully known pays nothing.
 - **Cash** (the treasury) pays for parts and launches, and is the readiness review's budget. **Debt** grows by a small monthly interest. **Months:** each flight uses the design's development time plus a launch campaign, and the hub counts down to the deadline. **PAY BACK** moves cash to the debt at any time.
-- **Win:** the debt reaches 0 before the deadline. **Lose:** the deadline passes with debt left, or the cash can no longer buy any launchable design. There is no bail-out in this mode.
+- **Win:** the debt reaches 0 **and** Ajay has made a name (reputation at the difficulty's goal) before the deadline. **Lose:** credit falls to the seize line (the lenders take everything), the deadline passes with debt left, the debt is paid but the deadline passes with no name, or the cash can no longer buy any launchable design even with a loan. There is no bail-out in this mode. See "Loans, credit and a name" below.
 - **Ending:** a short chronicle for a win ("the workshop is yours") or a loss (by time or by cash), with TRY AGAIN.
+
+### Loans, credit and a name (approved by the user, November 15)
+
+Ajay can borrow more, but the lenders' trust is not free. Every number below is a GAME VALUE in `CAMPAIGN.comeback` (`data/campaign.js`) and tuned by simulation.
+
+- **Credit** runs from 0 to 100 and starts at 100. **Interest** is the base monthly rate plus a spread that grows as credit falls: `rate = base + spread x (100 - credit) / 100`. So credit only ever makes money dearer.
+- **Credit goes down** by 8 for every loan, by 0.5 for every month that passes with the debt above the cash, and by 10 when a satellite is lost before its mission ends. **It goes up** by 2 for every star a flight earns and by 1 for a payment of at least $1M.
+- **BORROW** (`borrow(amountMusd)`): the cash rises by the amount; the debt rises by the amount plus a 5% fee; credit drops. The most the lenders will lend is the difficulty's loan cap times credit/100, less what was already borrowed (`max_borrow_musd`). A loan that would drop credit to the seize line is refused, so a loan never ends the game by itself.
+- **Seized:** at credit 20 or below, with debt left, the lenders take everything: the cash goes to 0 and the comeback is lost (`lost_reason: "seized"`).
+- **A name:** each star a flight earns adds 2 to reputation. Paying the debt to 0 does not win by itself: reputation must also reach the difficulty's goal (Easy 12, Normal 20, Hard 28). With the debt at 0 and no name, the comeback goes on; if the deadline passes, or nothing left can launch and no loan helps, it is lost as `lost_reason: "name"`.
+- **Why this shape:** the player trades cash now for a dearer, riskier future, and cannot just buy the win: it takes good flights (stars) to earn both a name and the trust to keep borrowing.
+- **Screens:** the back end is done and tested (`tests/comeback.js`, test 16). The workshop still needs a BORROW control, a credit meter next to the debt meter, the reputation bar and the current interest rate; until then the new endings show through the existing ending screen.
+
+**New fields for loans (approved by the user, November 15):** `CAMPAIGN.comeback.credit` (start, seize, per_loan, per_late_month, per_lost_satellite, per_star, per_payment, min_payment_musd, loan_fee, interest_spread, reputation_per_star); each tier gains `loan_cap_musd` and `reputation_goal`; the comeback save gains `credit`, `reputation`, `borrowed_musd`, `seized`, `seized_musd` (a save without them starts at full credit and no name, so no save version bump); a `loan` entry in the log; `getComeback()` gains `credit`, `seize_credit`, `max_borrow_musd`, `loan_fee`, `borrowed_musd`, `reputation`, `reputation_goal`, `base_interest_per_month` (and `interest_per_month` is now the rate right now); `recordResult` gains `credit`, `credit_change`, `reputation`, `reputation_goal`; new function `borrow`.
 
 **New fields (approved by the user, November 15):**
 

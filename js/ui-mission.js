@@ -413,7 +413,9 @@
       ]),
       why ? el("p", { class: "part-note", text: why }) : null,
       result.comeback_over ? el("p", { class: "banner", role: "alert",
-        text: result.lost_reason === "cash" ? "OUT OF CASH: THE COMEBACK IS OVER" : "THE DEADLINE HAS PASSED: THE COMEBACK IS OVER" }) : null,
+        text: result.lost_reason === "cash" ? "OUT OF CASH: THE COMEBACK IS OVER" :
+        result.lost_reason === "seized" ? "THE LENDERS TOOK EVERYTHING: THE COMEBACK IS OVER" :
+        result.lost_reason === "name" ? "THE DEADLINE CAME WITHOUT A NAME: THE COMEBACK IS OVER" : "THE DEADLINE HAS PASSED: THE COMEBACK IS OVER" }) : null,
       typeof cashBefore === "number" ? ledger("cash-ledger", [
         ["CASH BEFORE LAUNCH", cashBefore],
         ["LAUNCH", -launch],
