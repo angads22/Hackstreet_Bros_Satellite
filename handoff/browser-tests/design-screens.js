@@ -49,13 +49,22 @@ const barText = (p, name) => p.evaluate(n => { const x = [...document.querySelec
   await card.hover();
   ok(JSON.stringify(before) === JSON.stringify(await card.boundingBox()), 'hovering a card does not move it');
   const order = await p.evaluate(() => [...document.querySelectorAll('#preview > *')].map(n => n.className || n.tagName).join(','));
-  ok(/cause.*blurb$/.test(order), 'the preview lists Causes before the part\'s story: ' + order);
+  // The part's animated explainer (js/ui-parts.js) now tells the story, above the effect lines, and replaces the blurb line.
+  ok(/^H2,H3,explainer[^,]*(,preview-line( fix| cause)?)+$/.test(order) && /cause/.test(order) && !/blurb/.test(order), 'the preview lists the explainer, then Fixes and Causes (the blurb is dropped): ' + order);
   const box = await p.locator('#preview').boundingBox();
   await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 12 });
-  ok(/ADD SYNTHETIC APERTURE RADAR/.test(await text(p, '#preview')), 'moving the pointer onto the preview keeps it');
+  const kept = await text(p, '#preview');
+  ok(/ADD SYNTHETIC APERTURE RADAR/.test(kept), 'moving the pointer onto the preview keeps it: ' + kept.slice(0, 60));
   await p.mouse.wheel(0, 300); await p.waitForTimeout(150);
   const sc = await p.evaluate(() => { const n = document.getElementById('preview'); return { top: n.scrollTop, room: n.scrollHeight - n.clientHeight }; });
   ok(sc.room <= 0 || sc.top > 0, 'the wheel scrolls the preview to its hidden lines');
+  // Without the module the old order stands: Causes, then the part's story last.
+  await p.evaluate(() => { window.__pe = PartExplainer; window.PartExplainer = undefined; });
+  await p.hover('[data-key="part-optical-camera"]');
+  const order2 = await p.evaluate(() => [...document.querySelectorAll('#preview > *')].map(n => n.className || n.tagName).join(','));
+  ok(/cause.*blurb$/.test(order2), 'without PartExplainer the preview lists Causes before the part\'s story: ' + order2);
+  await p.evaluate(() => { window.PartExplainer = window.__pe; });
+  await card.hover();
   await card.click();
   ok(await live.evaluate(n => n.isConnected && n === document.getElementById('preview')), 'one preview box (its aria-live region) survives hovers and the redraw after a click');
 

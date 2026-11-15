@@ -2786,7 +2786,10 @@
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
     ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
     ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
-    if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
+    // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
+    var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
+    if (story) box.insertBefore(story, box.children[2] || null);
+    else if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
   // What a click would fix and cause: runChecks on the design and on a full copy of it with the part toggled (every
