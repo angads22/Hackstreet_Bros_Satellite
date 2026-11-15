@@ -154,10 +154,27 @@
   // extra: debrief and closing take the getDebrief result; mission-end takes it too (or the chooseEvent
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
+  //
+  // THE ARC (fiction; Voss, Austin, Ajay, Priya and Iron Eclipse are invented, and no line below states a game number).
+  //   Part 1: Austin hears Sputnik beep over his workshop, builds three satellites by the rules in his notebook, and
+  //   his counter falls silent at altitude (the discovery). His rival Marcus Voss takes the credit, blames him when
+  //   the bigger satellite is lost on the pad, leaves to found Iron Eclipse. The notebook goes into a box.
+  //   Part 2: Ajay opens the box. His motives arrive as the run goes on: the lenders and the workshop (start), Mum's
+  //   house (after-1), Iron Eclipse and the buyout (offer, refused), Austin's last page and his name (after-3),
+  //   the stakes restated (final). `why` is read by the number of flights, so it follows the same order.
+  //
+  // NEW KEYS (read by js/ui-story.js; every beat is { who, text }, one sentence, a scene is at most six beats):
+  //   STORY.austin.endings.box = { title, kicker, beats, line }
+  //   STORY.ajay.interludes = { start, "after-1", offer, refused, "after-3", final }: lists of beats. `offer` is a list
+  //     that also carries .sell, .refuse, .sell_hint and .refuse_hint (the labels and one-line hints of its two buttons).
+  //     `start` repeats `intro` (the same six beats); show only one of them.
+  //   STORY.ajay.endings = { legend, comeback, close, sold, timeout, broke }, each { title, kicker, beats, line }.
+  //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), mum.
   var STORY = {
     title: "GRAVITRON",
     subtitle: "The Gravitronical Odyssey",
-    speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK" },
+    speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK",
+                rival: "IRON ECLIPSE", mum: "MUM" },
 
     // The home page: one card per mode. No game numbers here (every number on screen comes from the back end).
     modes: {
@@ -172,32 +189,55 @@
       who: { map: "team", briefing: "team", orbit: "team", build: "team", launcher: "team", review: "team",
              "mission-start": "team", "mission-end": "team", debrief: "team", closing: "notebook",
              notebook: "notebook", "event-calibration": "notebook" },
-      // Shown once, before step 1 of the walkthrough (then the step's own opening beats).
+      // Shown once, before step 1 of the walkthrough, in the same scene as step 1's opening beats: together they stay
+      // within six beats. The year is spelled out (no digits in story text).
       intro: [
-        { who: "team", text: "1958. You are Austin Albert, NASA engineer, building the first satellites." }
+        { who: "team", text: "October, nineteen fifty-seven. A radio on the bench will not stop beeping." },
+        { who: "team", text: "Sputnik, passing over our roof. Someone else got there first." },
+        { who: "team", text: "You are Austin Albert, a young rocket engineer. Marcus Voss runs the programme." },
+        { who: "team", text: "The money pays for one launch window. Miss it, and we never fly." }
       ],
-      // Part 1, the walkthrough: three short missions in 1958, one idea each. name is the step's label on the
-      // home page; open is shown before the step (one or two beats); close is the debrief's last line once it passes.
+      // Part 1, the walkthrough: three short missions, one idea each. name is the step's label on the home page;
+      // open is shown before the step; close is the debrief's last line once it passes. The opening beats double as the
+      // how-to-play hints, so each rule of the notebook says what to do.
       steps: {
         "1": { name: "THE BASICS",
-               open: [{ who: "team", text: "The rocket and the orbit are set. You build the satellite." },
-                      { who: "team", text: "One of each part. Fit solar cells: batteries alone soon run down." }],
-               close: { who: "notebook", text: "It works. The counter heard radiation nobody expected." } },
+               open: [{ who: "team", text: "Tonight we build. A body, a counter for cosmic rays, power, a radio, a computer." },
+                      { who: "notebook", text: "Rule one: no power, no signal. Fit solar cells, or the batteries die." }],
+               close: { who: "notebook", text: "It beeps from orbit, and the counter heard something nobody expected." } },
         "2": { name: "POWER AND DATA",
-               open: [{ who: "team", text: "Vanguard is smaller. You choose the orbit, then build." },
-                      { who: "team", text: "Cells go dark in Earth's shadow. Data must reach the ground." }],
-               close: { who: "notebook", text: "Power through the shadow, and data home. It keeps talking." } },
+               open: [{ who: "team", text: "Another window, a smaller rocket. This time you choose the orbit, then build." },
+                      { who: "notebook", text: "Rule two: every orbit has a night. The cells go dark and the battery carries us." },
+                      { who: "notebook", text: "Rule three: data that never comes home proves nothing. Voss will ask for proof." }],
+               close: { who: "notebook", text: "It talks through the dark. Voss is reading our data over my shoulder." } },
         "3": { name: "YOUR MISSION",
-               open: [{ who: "team", text: "Your mission now: the job, the orbit, the parts, the rocket." }],
-               close: { who: "notebook", text: "Every choice was mine, and it flew. I write it all down." } }
+               open: [{ who: "team", text: "Voss wants a launch for the cameras. The job, orbit, parts and rocket are yours." },
+                      { who: "notebook", text: "My name goes on this design. If it fails, it fails on my page." },
+                      { who: "team", text: "Listen at the top of the climb. Nobody knows what the counter will say." }],
+               close: { who: "notebook", text: "At the top, the counter went silent. Not broken: drowned. Radiation, all round the Earth." } }
       },
-      // After step 3 passes. Name no real launch here unless SOURCES.md has a page for it.
+      // After step 3 passes (six beats, the last one fixed). Fiction: no real launch is named here.
       epilogue: [
-        { who: "team", text: "His biggest satellite is lost on the launch pad, as many of the first rockets were." },
-        { who: "team", text: "The programme is cut. Rivals call his vision impractical." },
-        { who: "notebook", text: "His notebook goes into a box." },
+        { who: "team", text: "Voss walks up to the cameras and says the discovery is his." },
+        { who: "team", text: "Nineteen sixty. Austin's biggest satellite is lost on the pad, as many early rockets were." },
+        { who: "team", text: "Voss tells the board the design was Austin's fault. The programme is cut." },
+        { who: "team", text: "Voss leaves with the credit and starts a company. He calls it Iron Eclipse." },
+        { who: "notebook", text: "Austin writes one last page, shuts the notebook, and puts it in a box." },
         { who: "notebook", text: "Decades later, his grandson Ajay opens it." }
       ],
+      // The ending screen of Part 1, shown after the epilogue: it looks forward, it does not recap.
+      endings: {
+        box: {
+          title: "THE BOX",
+          kicker: "AUSTIN'S STORY ENDS HERE",
+          beats: [
+            { who: "notebook", text: "Every rule he learned is in that book, in his own hand." },
+            { who: "notebook", text: "The credit went to Voss. The truth went into a cardboard box." },
+            { who: "notebook", text: "The workshop falls quiet. The years pass. The tape on the lid goes yellow." }
+          ],
+          line: "Someone has to open it."
+        }
+      },
       map: {
         start: ["Five stops, one mission. Begin at Mission Control.", "Begin at Mission Control. The gold route leads the way."],
         design: ["Follow the gold route. Each stop builds on the last."],
@@ -306,22 +346,23 @@
       who: { map: "partner", briefing: "customer", orbit: "partner", build: "partner", launcher: "partner", review: "partner",
              "mission-start": "partner", "mission-end": "partner", debrief: "partner", closing: "partner",
              notebook: "notebook", "event-calibration": "notebook", why: "partner", hub: "partner", contract: "customer" },
-      // Shown once, when a comeback starts (after the difficulty), then the workshop.
+      // Shown once, when a comeback starts (after the difficulty), then the workshop. interludes.start repeats it.
       intro: [
         { who: "partner", text: "Ajay Albert. Last year you borrowed a fortune to start Albert Orbital." },
         { who: "partner", text: "It never flew. The money went on a launch party, a logo and an office with a slide." },
         { who: "partner", text: "The lenders want it back by the deadline, or they take your grandfather's workshop." },
         { who: "notebook", text: "To whoever opens this: build it cheap, build it right, and bring the data home." },
-        { who: "customer", text: "Iron Eclipse charges a fortune for data. Bring it cheaper and we will pay." },
-        { who: "partner", text: "Pick a contract. Every satellite that delivers pays down the debt." }
+        { who: "customer", text: "Iron Eclipse sells data for a fortune. Bring it cheaper and we will pay." },
+        { who: "partner", text: "Pick a contract. Every satellite that delivers pays the debt down." }
       ],
-      // The workshop (the hub): why Ajay keeps going, one line, chosen by the number of flights so far.
+      // The workshop (the hub): why Ajay keeps going, one line, chosen by the number of flights so far. The order is the
+      // order of the story: the lenders, Mum, Iron Eclipse, Austin's name, then the lines that repeat.
       why: [
-        "The lenders don't want satellites. They want their money.",
-        "Your mum co-signed the loan with her house. No pressure.",
+        "The lenders don't want satellites. They want the workshop.",
+        "Mum co-signed the loan with her house. No pressure.",
         "Iron Eclipse bought your patents for pocket change. They're laughing.",
-        "Your grandfather was right about all of this. Somebody has to prove it.",
-        "Albert Orbital was a joke. Albert Orbital 2 doesn't have to be.",
+        "Grandpa's name belongs on that door. Put it back.",
+        "Albert Orbital was a joke. Albert Orbital Two doesn't have to be.",
         "Customers are tired of Iron Eclipse prices. That's your opening."
       ],
       // The workshop's situation lines: before the first flight, after a paid one, under half the debt, and when a
@@ -340,9 +381,109 @@
       },
       // The ending: won, or lost by time or by cash.
       ending: {
-        won: [{ who: "partner", text: "Debt paid. The workshop is yours." }, { who: "notebook", text: "Well done. Now build the next one." }],
+        won: [{ who: "partner", text: "Debt paid. The workshop is yours." }, { who: "notebook", text: "Well done, Ajay. Now build the next one." }],
         deadline: [{ who: "partner", text: "The deadline passed. The lenders took the keys." }, { who: "notebook", text: "Failure is a lesson. Try again." }],
         cash: [{ who: "partner", text: "Nothing left to launch with. The lenders took the keys." }, { who: "notebook", text: "Build cheaper. Try again." }]
+      },
+      // Part 2's story scenes. Each interlude is shown once per run, between a debrief and the workshop. See the header
+      // for which one comes when and what it reveals. The `offer` carries its buttons (set after this object).
+      interludes: {
+        start: [],   // filled from `intro` after this object
+        "after-1": [
+          { who: "mum", text: "Ajay? A man from the bank came to the house today. He was very polite." },
+          { who: "mum", text: "I signed that loan with you, love. With the house. Our house." },
+          { who: "partner", text: "You did tell her it was safe, right?" },
+          { who: "mum", text: "I believe in you. Please don't make me regret it." }
+        ],
+        offer: [
+          { who: "rival", text: "Ajay Albert. Iron Eclipse has been watching your little flights." },
+          { who: "rival", text: "We bought your old patents for almost nothing. Now we will clear your whole debt." },
+          { who: "rival", text: "In return: the workshop, and your grandfather's notebook. Every page." },
+          { who: "partner", text: "Nobody wanted that old notebook until you started winning. Ask yourself why." }
+        ],
+        refused: [
+          { who: "rival", text: "Suit yourself. We will see who owns that workshop at the deadline." },
+          { who: "partner", text: "Good. Now you have to actually win. Pick a contract." }
+        ],
+        "after-3": [
+          { who: "notebook", text: "If you reached this page, you have flown farther than I was allowed to." },
+          { who: "notebook", text: "My first design was right. Marcus Voss changed it the night before launch." },
+          { who: "notebook", text: "I let him. Don't let them bury it. Put my name back on the door." },
+          { who: "partner", text: "Voss founded Iron Eclipse. This was never only about the debt, Ajay. It is his name." }
+        ],
+        final: [
+          { who: "partner", text: "Almost there. The workshop, Mum's house and Austin's name ride on one more flight." }
+        ]
+      },
+      // The seven endings are Part 1's `box` (STORY.austin.endings) and these six. Each stands alone: `sold` can come
+      // before the last page is found, `legend` can come on Easy before it, and `broke` before Mum has called.
+      endings: {
+        legend: {
+          title: "HIS NAME, RESTORED",
+          kicker: "THE DEBT IS PAID. THE WORKSHOP IS YOURS.",
+          beats: [
+            { who: "partner", text: "The last payment clears. The lenders go quiet. The workshop is yours." },
+            { who: "notebook", text: "The last page, folded small: his design was right. Marcus Voss changed it." },
+            { who: "mum", text: "Your grandfather would have cried, love. Then he would have asked what is next." },
+            { who: "partner", text: "Fresh paint over the workshop door: AUSTIN ALBERT, ROCKET ENGINEER." }
+          ],
+          line: "Voss took the credit. You took it back."
+        },
+        comeback: {
+          title: "BACK IN BUSINESS",
+          kicker: "THE DEBT IS PAID",
+          beats: [
+            { who: "partner", text: "The last payment clears. The lenders send a very polite letter." },
+            { who: "mum", text: "The house is safe, love. Please, no more launch parties." },
+            { who: "customer", text: "Another contract? Iron Eclipse is starting to notice you." },
+            { who: "notebook", text: "Well done, Ajay. Now build the next one." }
+          ],
+          line: "The workshop lights stay on. Albert Orbital is open for business."
+        },
+        close: {
+          title: "BY A HAIR",
+          kicker: "THE LAST DAY",
+          beats: [
+            { who: "partner", text: "The last payment lands with hours to spare. The lenders' van is already outside." },
+            { who: "mum", text: "I had started packing the kitchen, love. Then your message came." },
+            { who: "partner", text: "They drive off empty-handed. The whole street watches from its windows." },
+            { who: "notebook", text: "Margins. It is the first thing I wrote and the last thing you learned." }
+          ],
+          line: "You made it by a hair. Next time, leave more room."
+        },
+        sold: {
+          title: "SOLD OUT",
+          kicker: "THE DEBT IS GONE",
+          beats: [
+            { who: "rival", text: "Debt cleared, as promised. The workshop, the patents and the notebook are ours now." },
+            { who: "rival", text: "We will thank your grandfather in the small print. Very small." },
+            { who: "mum", text: "You saved the house, love. I know what it cost you." },
+            { who: "partner", text: "The van pulls away with the box. You watch until the street is empty." }
+          ],
+          line: "There was one page at the bottom of the box. Nobody will ever read it."
+        },
+        timeout: {
+          title: "THE KEYS ARE TAKEN",
+          kicker: "THE DEADLINE PASSED",
+          beats: [
+            { who: "partner", text: "The deadline passes. The lenders do not wait for your next launch." },
+            { who: "partner", text: "Two men in grey coats change the lock on your grandfather's workshop." },
+            { who: "mum", text: "My name is on that loan, love. So is the house. We will manage." },
+            { who: "notebook", text: "The calendar never read my notebook either." }
+          ],
+          line: "The calendar won. Next time, so will you."
+        },
+        broke: {
+          title: "NOTHING LEFT TO LAUNCH",
+          kicker: "THE CASH IS GONE",
+          beats: [
+            { who: "partner", text: "The account is empty. There is no rocket left that you can pay for." },
+            { who: "partner", text: "The lenders have a word for this: default. They say it very politely." },
+            { who: "mum", text: "My name is on that loan, love, and so is the house. Please don't say sorry." },
+            { who: "notebook", text: "Every part costs money and weight. I wrote that on page one." }
+          ],
+          line: "Build cheaper, build right, and try again."
+        }
       },
       map: {
         start: ["Nothing costs money until launch. Try ideas freely."],
@@ -471,6 +612,13 @@
       }
     }
   };
+
+  // The `offer` interlude carries its two buttons, and `start` is the intro again (one source for the words).
+  STORY.ajay.interludes.offer.sell = "SELL";
+  STORY.ajay.interludes.offer.refuse = "REFUSE";
+  STORY.ajay.interludes.offer.sell_hint = "The whole debt is cleared. The workshop and the notebook are gone.";
+  STORY.ajay.interludes.offer.refuse_hint = "The debt stays. The workshop and the notebook stay yours.";
+  STORY.ajay.interludes.start = STORY.ajay.intro.map(function (b) { return { who: b.who, text: b.text }; });
 
   // ---- the code that picks a line (no text below this point) ----
   // Every name here starts with "story" so it cannot clash with the rest of this file.
@@ -1661,19 +1809,22 @@
     try {
       if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.has !== "function" || !LowPoly.has("person", who) ||
           !LowPoly.scenes || typeof LowPoly.scenes.portrait !== "function" || typeof LowPoly.render !== "function") return null;
-      if (!FACES[who]) {
+      var fk = who + "|" + (document.documentElement.dataset.era || "");   // each era's palette draws its own picture
+      if (!FACES[fk]) {
         var ps = LowPoly.scenes.portrait({ who: who, aspect: 1 });
         var c = document.createElement("canvas");
         c.width = 280; c.height = 280;
         if (!LowPoly.render(c, ps.scene)) return null;
-        FACES[who] = { src: c.toDataURL("image/png"), alt: ps.label || "Portrait" };
+        FACES[fk] = { src: c.toDataURL("image/png"), alt: ps.label || "Portrait" };
       }
-      return el("img", { class: "portrait lp-face", src: FACES[who].src, alt: FACES[who].alt, width: 140, height: 140 });
+      return el("img", { class: "portrait lp-face", src: FACES[fk].src, alt: FACES[fk].alt, width: 140, height: 140 });
     } catch (e) { return null; }
   }
   // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
   // else null (the caller then shows the director).
+  var FACE_OF = { rival: "director", mum: "partner" };   // speakers drawn with another speaker's bust
   function speakerFace(who) {
+    who = FACE_OF[who] || who;
     return lpFace(who) || (typeof speakerArt === "function" ? speakerArt(who) : null);
   }
 
@@ -1813,7 +1964,8 @@
       text = next === screen ? doText(screen) : GO_TEXT[next];
     }
     if (line) {
-      line.textContent = text ? "OBJECTIVE: " + text : "";
+      while (line.firstChild) line.removeChild(line.firstChild);
+      if (text) { line.appendChild(el("span", { class: "objective-key", text: "OBJECTIVE " })); line.appendChild(document.createTextNode(text)); }
       line.hidden = !text;
     }
     if (mini) {
@@ -1856,14 +2008,28 @@
   // body.is-home while the home page is up: it hides the header and the pixel ground strip, and lets the title fill the screen.
   function markHome(screen) { if (document.body) document.body.classList.toggle("is-home", screen === "title"); }
 
-  function mount(screen, node) {
+  // The era look (css/style.css, body[data-era]): "1958" in Part 1 (a walkthrough step, or any design set in the igy era),
+  // "today" in Part 2 and everywhere else, "home" on the title screen. Set on <body> and on <html>: the low-poly art
+  // reads its --lp-* colours from the page, and a picture drawn before it is on the page reads them from <html>.
+  // The story beats ("intro") keep the era they were opened with (markEra(name) forces one: the epilogue is 1958).
+  function eraOfDesign(d) { return d && (walkStepOf(d) > 0 || d.era === "igy") ? "1958" : "today"; }
+  function markEra(screen, forced) {
+    var era = forced || (screen === "title" ? "home" : screen === "intro" ? null : eraOfDesign(state.design));
+    if (!era || !document.body) return;
+    if (document.body.dataset.era !== era) document.body.dataset.era = era;
+    if (document.documentElement.dataset.era !== era) document.documentElement.dataset.era = era;
+  }
+
+  function mount(screen, node, sayKey) {
     state.screen = screen;
     markHome(screen);
+    markEra(screen);
     var app = document.getElementById("app");
     while (app.firstChild) app.removeChild(app.firstChild);
     app.appendChild(node);
     setStep(screen);
     setHint(screen);
+    if (window.GravMotion) GravMotion.mounted(app, screen, sayKey);   // entry animations only when the screen changes
   }
 
   // Redraws the current screen and keeps keyboard focus on the same control.
@@ -1901,6 +2067,7 @@
   }
 
   function draw(screen) {
+    markEra(screen === "title" || !state.design ? "title" : screen);   // before the screen's pictures are drawn
     if (screen === "title" || !state.design) return mount("title", drawTitle());
     state.screen = screen;   // set first: the check list reads it while drawing
     setStatus(designStatus());
@@ -2271,8 +2438,10 @@
     state.walk = null;
     state.design = null;
     state.locked = false;
-    showBeats(list(storyLine("epilogue", null)), STORY.modes.part1.kicker + " · " + STORY.modes.part1.name, toPart2,
-      { doneLabel: "CONTINUE TO PART 2", skipToEnd: true, home: true });
+    var box = window.StarlineStory && typeof window.StarlineStory.showBox === "function";   // js/ui-story.js: THE BOX ending first
+    showBeats(list(storyLine("epilogue", null)), STORY.modes.part1.kicker + " · " + STORY.modes.part1.name,
+      box ? function () { window.StarlineStory.showBox(toPart2); } : toPart2,
+      { doneLabel: box ? "OPEN THE BOX" : "CONTINUE TO PART 2", skipToEnd: true, home: true, era: "1958" });
   }
 
   // A few short story beats, one at a time (NEXT, or SKIP), then onDone. An empty list goes straight to onDone.
@@ -2284,6 +2453,7 @@
     if (!beats.length) return onDone();
     setStatus(modeName() || "Space Mission Design Game");   // not the last mission's score
     var at = 0;
+    markEra("intro", opts.era || eraOfDesign(state.design));   // Part 1 step beats: the step's design; Ajay's: no design, today
     function draw1() {
       var last = at >= beats.length - 1;
       mount("intro", el("section", { class: "screen intro" }, [
@@ -2295,7 +2465,7 @@
             : button("SKIP", function () { if (opts.skipToEnd) { at = beats.length - 1; draw1(); } else onDone(); }, { aria: "Skip the story" }),
           button([last ? (opts.doneLabel || "START") : "NEXT", " >"], function () { if (last) onDone(); else { at++; draw1(); } }, { primary: true })
         ])
-      ]));
+      ]), "intro:" + at);
       // Open at the top (the title page may have been scrolled), then focus NEXT without scrolling back down.
       window.scrollTo(0, 0);
       var next = document.querySelector(".intro .btn.primary");
@@ -2319,6 +2489,7 @@
     return el("div", { class: "mode-card" + (lead ? " lead" : ""), "data-key": key }, [
       el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
       el("h2", { text: M.name }),
+      window.StarlineStory ? window.StarlineStory.counter() : null,
       el("div", { class: "mode-foot" }, [extra.state || el("span"), el("div", { class: "mode-go" }, [go])])
     ]);
   }
@@ -2372,6 +2543,7 @@
         if (typeof resetProgress === "function") resetProgress();
         if (typeof resetCampaign === "function") resetCampaign();
         walkForget();
+        if (window.StarlineStory) window.StarlineStory.forget();   // the endings found and the interludes seen
         draw("title");
       }, { quiet: true, key: "reset-progress" })])
     ]);
@@ -2620,7 +2792,10 @@
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
     ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
     ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
-    if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
+    // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
+    var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
+    if (story) box.insertBefore(story, box.children[2] || null);
+    else if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
   // What a click would fix and cause: runChecks on the design and on a full copy of it with the part toggled (every
@@ -3359,16 +3534,48 @@
     }
   }
 
-  // The lift-off: the design's rocket leaves the low-poly pad for a moment, then done() opens the mission
-  // screen. At most LAUNCH_SHOW_MS; a click or a key skips it. It only delays the screen change: the
-  // design is locked at the click and nothing can change it before done(). With reduced motion, with no
-  // rocket chosen or without the 3D art, done() runs at once and nothing is shown.
-  var LAUNCH_SHOW_MS = 2300, launchShowing = false;
+  // The lift-off, about 14 s: T-MINUS 5 counts down to zero over the design's rocket on the low-poly pad (the arms
+  // swing clear, the engines start, smoke billows), it lifts off on zero, climbs with the camera following, and leaves
+  // the frame. Then the camera pulls up and away over the Earth, the satellite lets go of its spent stage, and the
+  // player's OWN satellite (the model the Build bench shows) orbits along the chosen orbit's ring for about 4 s, more
+  // than one lap, the status line IN ORBIT with the orbit's name; then done() opens the mission screen. A click or any key skips it (a SKIP button stays on screen the
+  // whole time). It only delays the screen change: the design is locked at the click and nothing can change it before
+  // done(). With reduced motion, with no rocket chosen or without the 3D art, done() runs at once and nothing is shown.
+  // The count is the show's clock, not the game's. The pad scene (js/lp-pad.js) has its own launch clock: 0 on the pad,
+  // about 0.4 ignition, 3 lift-off, then the climb. It plays at its natural speed through the count, so lift-off lands
+  // on zero; only the climb is a little faster than natural. The finale is the Earth scene (js/lp-earth.js) on the same
+  // canvas, driven by this clock: its own time 0 is the end of the climb; the stage lets go at LAUNCH_SEP_S.
+  var LAUNCH_COUNT = 5, LAUNCH_TICK_MS = 800, LAUNCH_HOLD_MS = 1000, LAUNCH_LIFTOFF_MS = 2000, LAUNCH_CLIMB_MS = 2600;
+  var LAUNCH_SCENE_LIFTOFF = 3, LAUNCH_SCENE_END = 9.8, LAUNCH_FOLLOW_UNTIL = 5, LAUNCH_FOLLOW_EASE = 2;
+  var LAUNCH_FINALE_MS = 6000, LAUNCH_LAP_S = 3.4, LAUNCH_ORBIT_AT_MS = 2000;   // the orbit starts 2 s into the finale
+  var LAUNCH_PAD_MS = LAUNCH_COUNT * LAUNCH_TICK_MS + LAUNCH_LIFTOFF_MS + LAUNCH_CLIMB_MS, launchShowing = false;
+  // What the status line says from each moment (ms into the show). The finale adds ABOVE THE ATMOSPHERE, SEPARATION and
+  // IN ORBIT with the orbit's name (data/orbits.js) when it is shown.
+  var LAUNCH_STATUS = [[0, "ALL SYSTEMS GO"], [1400, "ENGINES START"], [LAUNCH_COUNT * LAUNCH_TICK_MS, "CLEAR OF THE TOWER"],
+    [LAUNCH_COUNT * LAUNCH_TICK_MS + LAUNCH_LIFTOFF_MS, "CLIMBING"]];
   function launchShow(done) {
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var row = chosenLauncher();
     if (reduce || !row || typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.pad !== "function") return done();
-    var finished = false, box = null, timer = null;
+    var finished = false, box = null, timer = null, ticker = null, count = null, status = null, word = null;
+    var countMs = LAUNCH_COUNT * LAUNCH_TICK_MS, climbAt = countMs + LAUNCH_LIFTOFF_MS, finaleAt = LAUNCH_PAD_MS;
+    // The finale: the player's own satellite in the Earth scene, on the chosen orbit. Without an orbit, the 3D Earth or
+    // the satellite model the show ends when the climb does.
+    var finale = null, showMs = LAUNCH_PAD_MS, d0 = state.design;
+    try {
+      var flat = d0 && d0.orbit && typeof LowPoly.scenes.earth === "function" && typeof LowPoly.scenes.satellite === "function" &&
+        typeof LowPoly.scenes.satellite.flat === "function" ? LowPoly.scenes.satellite.flat({ parts: list(d0.parts), data: data("PARTS") }) : null;
+      if (flat) finale = LowPoly.scenes.earth({ orbitId: d0.orbit, objectiveId: d0.objective, spin: 6, lap: LAUNCH_LAP_S, mesh: flat.mesh, size: 2.3, finale: true });
+      if (finale && !finale.orbit) finale = null;
+    } catch (e0) { finale = null; }
+    if (finale) {
+      showMs = LAUNCH_PAD_MS + LAUNCH_FINALE_MS;
+      var orb = byId(data("ORBITS"), d0.orbit), orbName = orb && orb.name ? String(orb.name).replace(/\s*\(.*?\)/g, "").toUpperCase() : "";
+      LAUNCH_STATUS = LAUNCH_STATUS.slice(0, 4).concat([[finaleAt, "ABOVE THE ATMOSPHERE"], [finaleAt + finale.finale.sep * 1000, "SEPARATION"],
+        [finaleAt + LAUNCH_ORBIT_AT_MS, "IN ORBIT" + (orbName ? " · " + orbName : "")]]);
+    } else LAUNCH_STATUS = LAUNCH_STATUS.slice(0, 4);
+    var now = function () { return window.performance && performance.now ? performance.now() : Date.now(); };
+    var start = now();
     function onKeyShow(e) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault();
@@ -3379,27 +3586,78 @@
       if (finished) return;
       finished = true;
       clearTimeout(timer);
+      clearInterval(ticker);
       document.removeEventListener("keydown", onKeyShow, true);
       if (box && box.parentNode) box.parentNode.removeChild(box);
       launchShowing = false;
       done();
     }
+    // T-MINUS 00:00:05 ... 01, then 00:00:00 and LIFT-OFF; the status line follows the sequence.
+    function showCount() {
+      if (!count || !box) return;
+      var ms = now() - start;
+      var left = Math.max(0, Math.ceil(LAUNCH_COUNT - ms / LAUNCH_TICK_MS));
+      var text = "00:00:0" + left;
+      if (count.textContent !== text) count.textContent = text;
+      var phase = left > 0 ? "count" : ms < climbAt ? "liftoff" : ms < finaleAt || !finale ? "climb" : "orbit";
+      if (box.getAttribute("data-phase") !== phase) box.setAttribute("data-phase", phase);
+      var say = "";
+      LAUNCH_STATUS.forEach(function (s) { if (ms >= s[0]) say = s[1]; });
+      if (status.textContent !== say) status.textContent = say;
+      var w = left > 0 ? "T-MINUS" : "LIFT-OFF";
+      if (word.textContent !== w) word.textContent = w;
+    }
+    // The pad scene's clock for a moment of the show: held on the pad for a second, its natural speed through the count
+    // (lift-off at zero) and the lift-off, then the climb.
+    function sceneAt(ms) {
+      if (ms <= LAUNCH_HOLD_MS) return 0;
+      if (ms <= countMs) return (ms - LAUNCH_HOLD_MS) / (countMs - LAUNCH_HOLD_MS) * LAUNCH_SCENE_LIFTOFF;
+      if (ms <= climbAt) return LAUNCH_SCENE_LIFTOFF + (ms - countMs) / LAUNCH_LIFTOFF_MS * (LAUNCH_FOLLOW_UNTIL - LAUNCH_SCENE_LIFTOFF);
+      return LAUNCH_FOLLOW_UNTIL + Math.min(1, (ms - climbAt) / LAUNCH_CLIMB_MS) * (LAUNCH_SCENE_END - LAUNCH_FOLLOW_UNTIL);
+    }
     launchShowing = true;
-    timer = setTimeout(finish, LAUNCH_SHOW_MS);   // armed first: a hidden tab or a drawing error cannot hold the player here
+    timer = setTimeout(finish, showMs);   // armed first: a hidden tab or a drawing error cannot hold the player here
     try {
       var lp = lpCanvas(function (L) { return L.scenes.pad({ launcherId: row.id, launcher: row, ready: true }); }, "lp-launch");
       if (!lp) return finish();
-      var t0 = null;
-      // About six seconds of the launch in 2.3: the arms swing clear, ignition, smoke, lift-off and the climb.
-      lp.view.onFrame(function (t) {
-        if (t0 === null) t0 = t;
-        lp.wrap.setTime(0.4 + (t - t0) * 2.6);
+      var cam = lp.wrap.scene.camera, followed = null, swapped = false;
+      lp.wrap.setTime(0);
+      lp.view.onFrame(function () {
+        var ms = now() - start;
+        if (finale && ms >= finaleAt) {
+          // The same canvas now shows the Earth. The view is given the scene without its update(): this clock drives it.
+          if (!swapped) {
+            swapped = true;
+            lp.view.set({ scene: finale.scene, label: finale.label });
+            lp.canvas.classList.add("lp-fadein");
+          }
+          finale.fit(lp.canvas.clientWidth, lp.canvas.clientHeight);
+          finale.pose((ms - finaleAt) / 1000);
+          return;
+        }
+        var T = sceneAt(ms);
+        lp.wrap.setTime(T);
+        // The scene's camera follows the rocket up. From LAUNCH_FOLLOW_UNTIL it slows to a stop over LAUNCH_FOLLOW_EASE
+        // seconds, so the rocket climbs out of the top of the frame instead of staying in it.
+        if (T > LAUNCH_FOLLOW_UNTIL && cam.target) {
+          if (followed === null) followed = { y: cam.target[1], T: T, v: 0 };
+          var tau = Math.min(T - LAUNCH_FOLLOW_UNTIL, LAUNCH_FOLLOW_EASE);
+          if (followed.v === 0) followed.v = (cam.target[1] - followed.y) / Math.max(1e-3, T - followed.T);
+          cam.target = [cam.target[0], followed.y + followed.v * (tau - tau * tau / (2 * LAUNCH_FOLLOW_EASE)), cam.target[2]];
+        } else followed = null;
       });
+      word = el("span", { class: "launch-word", text: "T-MINUS" });
+      count = el("span", { class: "countdown", "data-key": "launch-count", text: "00:00:0" + LAUNCH_COUNT });
+      status = el("p", { class: "launch-status", "data-key": "launch-status", text: LAUNCH_STATUS[0][1] });
       var skip = el("button", { type: "button", class: "btn launch-skip" }, "SKIP");
-      box = el("div", { class: "launch-show", role: "dialog", "aria-modal": "true", "aria-label": "Lift-off. Click or press any key to skip." }, [lp.canvas, skip]);
+      box = el("div", { class: "launch-show", role: "dialog", "aria-modal": "true", "data-phase": "count",
+        "aria-label": "Countdown and lift-off. Click, or press any key, to skip." }, [
+        el("div", { class: "launch-clock", "aria-hidden": "true" }, [word, count]), status,
+        lp.canvas, skip]);
       box.addEventListener("click", finish);
       document.addEventListener("keydown", onKeyShow, true);
       document.body.appendChild(box);
+      ticker = setInterval(showCount, 50);   // its own timer: the count goes on even if the canvas stops drawing
       state.swappedAt = Date.now();   // the second click of a double click on LAUNCH must not skip it at once
       skip.focus();
     } catch (e) { finish(); }
@@ -3425,6 +3683,7 @@
     say: sayLine, more: more, firstSentence: firstSentence,
     storyLine: function (key, design, extra) { return typeof storyLine === "function" ? storyLine(key, design || state.design, extra) : ""; },
     speakerArt: speakerFace,
+    story: function () { return STORY; },   // read-only, for js/ui-story.js (interludes and endings)
     speakerName: function (who) { return typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : ""; },
     satelliteArt: satelliteArt,
     lpCanvas: lpCanvas,
@@ -3432,16 +3691,20 @@
     lock: function () { state.locked = true; },
     bar: bar,
     // Leaving the design and mission screens for the Campaign hub: no design in hand, nothing locked.
-    leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; },
+    leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; markEra("hub"); },
+    // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
+    era: function (name) { markEra("era", name); },
     mount: function (screen, node) {
       state.screen = screen;
       markHome(screen);
+      markEra(screen);
       state.swappedAt = Date.now();
       var app = document.getElementById("app");
       while (app.firstChild) app.removeChild(app.firstChild);
       app.appendChild(node);
       setStep(screen);
       setHint(screen);
+      if (window.GravMotion) GravMotion.mounted(app, screen);
       app.focus();
       window.scrollTo(0, 0);
     },

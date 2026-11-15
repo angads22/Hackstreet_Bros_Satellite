@@ -4,8 +4,38 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
-- Icons use one spacing rule, part-card separators stay with their values, and the Rocket Yard has its own rocket icon. Instrument-card science says "up to" to distinguish its potential from the flight forecast.
-- Readiness says READY or HOLD instead of showing a countdown that never moves. The debrief explains the science requirement for a third star; full stars get a success banner and an expanded real-mission comparison.
+## 1.0 (November 15, 2026)
+
+The submission build. Two game modes with a dramatic story, a choice and seven endings; runs short enough to replay; every screen animated; an animated explainer for each of the 41 parts; a rustic 1958 look for Part 1 against a modern Part 2; a longer launch. Players who already have progress keep all of it.
+
+### Added
+
+- **A dramatic story.** Part 1 opens in October 1957: a workshop listens to Sputnik beep over the radio and there is one launch window. Austin's notebook gives the rules (power, data, orbit), the third step's launch is the discovery (the counter went silent because the radiation was too strong), and the epilogue closes the box that Ajay opens. In Part 2 Ajay's motives are revealed as the run goes on: the lenders and the workshop, his mum's house, Iron Eclipse, and Austin's last notebook page.
+- **A choice and seven endings.** After the second flight, Iron Eclipse offers to clear the debt for the workshop, the patents and Austin's notebook: SELL or REFUSE. The seven endings (THE BOX, HIS NAME RESTORED, BACK IN BUSINESS, BY A HAIR, SOLD OUT, THE KEYS ARE TAKEN, NOTHING LEFT TO LAUNCH) are counted on the home page and on each ending screen ("ENDINGS n / 7"), and each offers PLAY AGAIN at once.
+- **Short, replayable runs.** A sensible player wins in about 2 flights on Easy, 3 on Normal and 4 on Hard. Every new comeback has its own seed, so the contracts, clients and reasons differ each run.
+- **Existing players keep their saves.** A comeback saved by 0.9 is upgraded in place (cash, debt, months, contracts and flights unchanged); the stars and the Part 1 steps are untouched; a save from a newer game or a corrupt one is ignored and never deleted. Tested against real saves written by 0.9. The page's scripts and styles carry the version, so a returning player's browser never mixes old and new files.
+- **A rustic look for Part 1.** Typewriter and stencil type, kraft, rust and olive colours, paper-tape panels, stamp tags and grain, with a faded warm palette on the 3D art. Part 2 stays clean and modern.
+- **Animated text.** Story lines type in word by word (with a typewriter cursor in Part 1); screens enter in a stagger; stars land one by one and a PAID or PASSED stamp slams in; changed numbers flash and bars grow. All of it is off under reduced motion, the text is always in the page, and nothing replays on a click.
+- **An animated explainer for every part.** Hover, focus or tap any of the 41 parts on Build: a short looping drawing of what it does, a hook line, what it does for your mission, and its catch.
+- **A longer launch that ends in orbit.** About fifteen seconds: a 5-to-0 countdown with a status line, ignition, a climb with the camera following and a spent stage falling away, then your own satellite (the one you built) is deployed and flies its orbit round the Earth, with IN ORBIT and the orbit's name. The small Earth on the mission screen keeps the same satellite orbiting for the whole flight, faster in fast-forward and still when paused. SKIP stays on screen and any key skips it.
+- **The debrief is a result moment.** A win (3 stars, a Part 1 step passed, a contract PAID) lands its stars one by one, shows the discovery open, and points to what is next; under 3 stars it says what the next star needs; REDESIGN opens the screen where the fix belongs.
+
+### Changed
+
+- **RESET EVERYTHING** (was RESET PROGRESS) clears the stars, Part 1 and a comeback in progress, and says so first.
+- **Advice you can follow.** TRY THIS only suggests parts, rockets and orbits the design can use. The scintillation counter's card shows the science it will really deliver. The debrief and chronicle read cleanly ("Goal met, then lost after 34 months", "under 1%", capitals kept on names).
+- **The readiness review** says READY or HOLD, and a flight that ends the run says "That was the last flight: see how it ends." Icons share one spacing rule and the Rocket Yard has its own icon (Codex's polish pass).
+- The docs say SI, not AI (the submission form's field is Use of Super Intelligence).
+
+### Fixed
+
+- A flight lost early gave its launch money back more than once while it was being recorded.
+
+### Not in this version yet
+
+- The laptop and desktop layout pass (Build, the Readiness review, the map, the Mission and Debrief screens laid out for 1366x768) is built and saved but not merged: it arrives after 4 pm.
+- **Launch failures** are planned and not built.
+- **Suppliers, countries and travel costs** are a proposal in `SPEC.md`, not agreed.
 
 ## 0.9 beta (November 15, 2026)
 

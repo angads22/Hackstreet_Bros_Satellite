@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part explainers gallery</title>
+<!-- All 41 part explainers (js/ui-parts.js) in a grid, for a human to review. Open from file://.
+     Not loaded by the game. ?compact shows the small variant the Build preview uses; ?paused freezes the loops at a moment:
+     ?paused&at=0.4 (a fraction of each loop). -->
+<link rel="stylesheet" href="../../css/style.css">
+<style>
+  body { padding: 16px; font-size: 18px; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  .gal { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-top: 12px; }
+  .gal-item { background: var(--surface); border: 3px solid var(--border); padding: 8px; min-width: 0; }
+  .gal-id { display: block; color: var(--accent-ink); font-size: 16px; margin-bottom: 4px; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<h1>GRAVITRON part explainers</h1>
+<p>Every part, with its animation and its words. Kind, then part id, above each one.</p>
+<div class="gal" id="gal"></div>
+<script src="../../data/parts.js"></script>
+<script src="../../js/part-story.js"></script>
+<script src="../../js/ui-parts.js"></script>
+<script>
+(function () {
+  var out = document.getElementById("gal"), q = location.search, compact = /[?&]compact\b/.test(q);
+  PARTS.forEach(function (p) {
+    var box = document.createElement("div"), id = document.createElement("span"), fig = PartExplainer.element(p.id, { compact: compact });
+    box.className = "gal-item"; id.className = "gal-id";
+    id.textContent = (PART_STORY[p.id] ? PART_STORY[p.id].kind : "?") + " | " + p.id;
+    box.appendChild(id);
+    if (fig) box.appendChild(fig); else box.appendChild(document.createTextNode("MISSING EXPLAINER"));
+    out.appendChild(box);
+  });
+  var m = /[?&]paused\b/.test(q), at = /[?&]at=([0-9.]+)/.exec(q);
+  if (m) {
+    var f = at ? parseFloat(at[1]) : 0.4;
+    setTimeout(function () {
+      document.getAnimations().forEach(function (a) {
+        a.pause();
+        var t = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+        if (t && t.duration) a.currentTime = (t.delay || 0) + t.duration * f;
+      });
+    }, 50);
+  }
+})();
+</script>
+</body>
+</html>

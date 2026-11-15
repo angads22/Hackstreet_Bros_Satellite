@@ -1,0 +1,77 @@
+/* css/story.css — owned by the story front end (js/ui-story.js): the found-endings counter, the offer's two answers
+   and the endings screen. Flat look: rounded corners, no gradients, no shadows. Colours come from the :root tokens in
+   css/style.css only, so a new colour scheme there reaches this file too. */
+
+/* ---------------------------------------------------------------- the counter (home cards and every ending) */
+.story-count { font-size: 20px; letter-spacing: 2px; color: var(--text-dim); }
+.mode-card .story-count { font-size: 18px; letter-spacing: 2px; margin-top: 0; }
+.mode-card.lead .story-count { color: var(--on-accent); }
+
+/* ---------------------------------------------------------------- the offer: two answers side by side */
+.story-offer { gap: 16px; }
+.story-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.story-choices .btn { flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; min-height: 104px; padding: 10px 18px; border-radius: 12px; }
+.story-choice-label { font-family: var(--pixel); font-weight: 700; font-size: 34px; line-height: 1; }
+.story-choice-hint { font-size: 20px; line-height: 1.1; white-space: normal; }
+.story-offer .cb-note { font-size: 22px; }
+
+/* ---------------------------------------------------------------- the endings screen */
+.cb-ending { gap: 12px; }
+.cb-ending .screen-head h1 { font-size: clamp(26px, 3.2vw, 34px); }
+.story-end { align-items: stretch; text-align: left; overflow: clip; border-radius: 14px; }
+.story-end.sombre { border-color: var(--border); }
+.story-end.bright { border-color: var(--info); }
+.cb-end-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); grid-template-areas: "art body" "side body"; gap: 12px 24px; align-items: start; }
+.story-end:not(.has-scene) .cb-end-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "body" "side"; }
+.cb-end-art { grid-area: art; min-width: 0; }
+.cb-end-body { grid-area: body; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+.cb-end-side { grid-area: side; min-width: 0; }
+.story-end .cb-scene { aspect-ratio: 3 / 2; border-radius: 10px; }
+.story-scene.sombre { filter: saturate(0.55) brightness(0.8); }
+
+.cb-end-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: clamp(28px, 3.6vw, 44px); line-height: 1; color: var(--text); overflow-wrap: anywhere; }
+.story-new { font-size: 18px; letter-spacing: 1px; }
+.cb-end-kicker { font-size: 22px; letter-spacing: 2px; color: var(--info-ink); text-transform: uppercase; }
+.story-beats { display: flex; flex-direction: column; gap: 8px; }
+.story-beat { padding-left: 12px; border-left: 6px solid var(--border); font-size: 24px; line-height: 1.08; max-width: 52ch; }
+.story-beat-who { display: block; font-size: 16px; letter-spacing: 1px; color: var(--accent-ink); }
+.cb-end-line { font-family: var(--pixel); font-weight: 700; font-size: 26px; line-height: 1.1; color: var(--accent-ink); max-width: 40ch; }
+.story-end .cb-headline { font-size: 22px; color: var(--text-dim); max-width: none; }
+.story-end .chron-stats strong { font-size: 30px; }
+
+/* One beat after the other, then the closing line. Everything is on the page from the start (a screen reader and a
+   test read it at once); only the eye is paced. */
+.story-beat, .cb-end-line { animation: story-in 0.6s ease-out both; animation-delay: calc(0.4s + var(--i, 0) * 0.9s); }
+@keyframes story-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* the seven endings: the title once found, "???" before */
+.story-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
+.story-chip { padding: 2px 10px; border: 3px solid var(--border); border-radius: 8px; font-size: 17px; line-height: 1.15; color: var(--text-dim); }
+.story-chip.unseen { letter-spacing: 3px; }
+.story-chip.found { color: var(--text); border-color: var(--info); }
+.story-chip.now { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+/* The counter and the buttons: pinned to the foot of the window, so PLAY AGAIN and HOME are always in view. */
+.cb-end-bar { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 10px 0 12px; background: var(--bg); border-top: 4px solid var(--border); }
+.cb-end-bar .story-count { font-size: 24px; color: var(--accent-ink); }
+.cb-end-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.cb-end-buttons .btn { border-radius: 10px; }
+
+@media (max-width: 760px) {
+  .story-choices { grid-template-columns: 1fr; }
+  .story-choices .btn { min-height: 84px; }
+  .cb-end-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "art" "body" "side"; }
+  .story-end .cb-scene { aspect-ratio: 16 / 6; }
+  .story-beat { font-size: 21px; }
+  .cb-end-line { font-size: 23px; }
+  .story-chip { font-size: 15px; padding: 1px 8px; }
+  .cb-end-bar { padding: 8px 0 10px; }
+  .cb-end-bar .story-count { font-size: 20px; }
+  .cb-end-buttons { flex: 1 1 100%; }
+  .cb-end-buttons .btn { flex: 1 1 auto; min-height: 44px; padding: 0 14px; font-size: 22px; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-beat, .cb-end-line { animation: none; }
+}
