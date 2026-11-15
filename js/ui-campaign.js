@@ -282,7 +282,7 @@
       ]),
       UI.list(info.offers).length ? el("div", { class: "panel" }, [
         el("h2", { text: "OPEN OFFERS" }),
-        el("p", { class: "nasa-line", text: "Meet one on a flight and the customer pays a bonus in money and science, even if the data is not new." }),
+        el("p", { class: "nasa-line", text: "Meet one on a flight that brings home new data, and the customer pays a bonus in money and science." }),
         el("ul", { class: "log" }, UI.list(info.offers).map(function (o) {
           return el("li", { class: "good", text: o.text + " (" + (o.year_to - info.year) + (o.year_to - info.year === 1 ? " year left)" : " years left)") });
         }))

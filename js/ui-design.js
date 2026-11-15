@@ -1695,9 +1695,9 @@
     if (!p) return null;
     var line = el("p", { class: "nasa-line payout-line", text: "Expected payout " + money(p.expected_payout_musd) +
       ", cost " + money(p.cost_musd) + ", net " + (p.net_musd < 0 ? "-" : "") + money(Math.abs(p.net_musd)) +
-      (p.topic_complete ? ". Nothing new is left to collect here: no reward." : "") });
+      (p.topic_complete && !(p.new_data > 0) ? ". Nothing new is left to collect here: no reward." : "") });
     var offers = list(p.offers).map(function (o) {
-      return el("p", { class: "nasa-line payout-line", text: "Offer: " + o.text + (o.met ? " This design meets it." : " This design falls short of " + num(o.min_science, 0) + " points.") });
+      return el("p", { class: "nasa-line payout-line", text: "Offer: " + o.text + (o.met ? " This design meets it." : " This design falls short of it (" + num(o.min_science, 0) + " points of new data).") });
     });
     return offers.length ? el("div", null, [line].concat(offers)) : line;
   }

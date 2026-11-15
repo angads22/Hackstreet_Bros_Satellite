@@ -871,7 +871,7 @@ function settleCampaign(mission, debrief, result) {
   c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + newData;
   c.treasury_musd = round(c.treasury_musd + debrief.payout_musd + grant - mission.extra_cost_musd, 3);
   var yearFlown = c.year;
-  var offersClaimed = claimOffers(c, mission, yearFlown);
+  var offersClaimed = claimOffers(c, mission, yearFlown, newData);
   var yearsPassed = missionYears(mission.design);
   c.year += yearsPassed;   // time as a resource: long builds cost years
   // Science points: this flight's data, plus a share of the whole archive for every year that passed.
@@ -939,7 +939,7 @@ function archivePerYear(c) {
 
 // ------------------------------------------------------------------ yearly offers
 // Customers ask for something specific (SPEC.md, "Offers"): a topic, sometimes from a given orbit, by a year.
-// Any flight that returns enough data for it claims the bonus, whether or not that data is new. Generated from the
+// Any flight that returns enough data for it, and some of it new, claims the bonus. Generated from the
 // topics, orbits and rockets the programme can use now; nothing here is a data file.
 var OFFER_COUNT = 2;      // open offers at any time
 var OFFER_YEARS = 2;      // years to deliver
@@ -960,7 +960,8 @@ function offerText(o, topic, orbit) {
 function makeOffers(c) {
   var rand = makeRandom((c.year * 7919 + (c.flights || 0) * 104729 + 17) >>> 0);
   var open = (c.offers || []).filter(function (o) { return !o.done && o.year_to >= c.year; });
-  var topics = OBJECTIVES.filter(function (o) { return isObjectiveAvailable(o.id); });
+  // Only topics with something new left to collect: a customer cannot ask for what is already known.
+  var topics = OBJECTIVES.filter(function (o) { return isObjectiveAvailable(o.id) && (c.knowledge_science[o.id] || 0) < dataCap(o); });
   for (var guard = 0; open.length < OFFER_COUNT && topics.length && guard < 30; guard++) {
     var o = topics[Math.floor(rand() * topics.length)];
     if (open.some(function (x) { return x.topic === o.id; })) continue;
@@ -985,8 +986,9 @@ function makeOffers(c) {
 }
 
 // Claims every open offer this flight meets; returns what was claimed.
-function claimOffers(c, mission, yearFlown) {
+function claimOffers(c, mission, yearFlown, newData) {
   var claimed = [];
+  if (!(newData > 0)) return claimed;   // no new data, no reward: offers follow the same rule as everything else
   (c.offers || []).forEach(function (o) {
     if (o.done || o.topic !== mission.design.objective || yearFlown > o.year_to) return;
     if (o.orbit && o.orbit !== mission.design.orbit) return;
@@ -1013,7 +1015,7 @@ function offersList(c) {
 // The story of one campaign, built from what the player actually did and the real missions in
 // data/missions.js (SPEC.md, "The ending"). Works for a campaign in progress and for a finished one.
 var RATINGS = [
-  { id: "architects", name: "Architects of the space age", min: 2.6, needs_win: true,
+  { id: "architects", name: "Architects of the space age", min: 3.0, needs_win: true,
     text: "Your programme did what the first agencies did together: it mapped the belts, watched the weather and read the Sun, and it left behind a method others could follow." },
   { id: "pioneers", name: "Pioneers", min: 0, needs_win: true,
     text: "You reached the goal you were set. Few programmes of the time could say as much." },
@@ -1172,7 +1174,7 @@ function previewPayout(design) {
   var k = payoutFor(objective, before, previewScience(design).total);
   var sci = previewScience(design).total;
   var offers = c ? offersList(c).filter(function (o) { return o.topic === design.objective && (!o.orbit || o.orbit === design.orbit); })
-    .map(function (o) { return { text: o.text, bonus_musd: o.bonus_musd, bonus_sci: o.bonus_sci, min_science: o.min_science, met: sci >= o.min_science }; }) : [];
+    .map(function (o) { return { text: o.text, bonus_musd: o.bonus_musd, bonus_sci: o.bonus_sci, min_science: o.min_science, met: sci >= o.min_science && k.new_data > 0 }; }) : [];
   return { offers: offers, expected_payout_musd: k.payout_musd, knowledge_before: k.knowledge_before,
            knowledge_after: k.knowledge_after, novelty: k.novelty,
            new_data: k.new_data, data_left: k.data_left, topic_complete: k.topic_complete,

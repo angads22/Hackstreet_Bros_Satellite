@@ -136,11 +136,11 @@ Start poor (small budget, basic parts)
 
 ### Offers: customers ask for something specific (proposed, November 15, branch only)
 
-Each campaign year the hub shows up to two **open offers**: a customer (the National Academy of Sciences, the Weather Bureau, the coast guard, Canada's Defence Research Telecommunications Establishment...) wants a topic, sometimes from a particular orbit, by a year. Any flight that returns enough data for it claims the bonus in money and science points, **even if the data is not new** (the customer wants their own observation). Offers give the player a choice each year and a reason to use different orbits and topics.
+Each campaign year the hub shows up to two **open offers**: a customer (the National Academy of Sciences, the Weather Bureau, the coast guard, Canada's Defence Research Telecommunications Establishment...) wants a topic, sometimes from a particular orbit, by a year. Any flight that returns enough data for it, **and some of it new**, claims the bonus in money and science points (offers follow the core loop: no new data, no reward). A topic already at its data cap gets no offers. Offers give the player a choice each year and a reason to use different orbits and topics.
 
 - Generated in code (`makeOffers` in `js/mission.js`) from the topics, orbits and rockets the programme can use now, with a seed from the year and flight count. No data file and no new data fields; the bonus is `0.2 x value_musd` and `0.3 x min_science`, the minimum is 60% of the topic's target, and the customer's name comes from a small table in the code.
 - `getHubInfo().offers`: `[{ id, topic, topic_name, orbit, orbit_name, min_science, bonus_musd, bonus_sci, year_to, client, text }]`.
-- `previewPayout(design).offers`: the open offers this design's topic and orbit match, `[{ text, bonus_musd, bonus_sci, min_science, met }]`; `met` is true when the preview science reaches the minimum.
+- `previewPayout(design).offers`: the open offers this design's topic and orbit match, `[{ text, bonus_musd, bonus_sci, min_science, met }]`; `met` is true when the preview science reaches the minimum and some of it would be new data.
 - `recordResult(m).offers_claimed`: `[{ text, client, topic, bonus_musd, bonus_sci }]`, and `best_next_topic` as before.
 - Saved as `offers` in the campaign; older saves without it get fresh offers at the next flight.
 
@@ -470,7 +470,7 @@ Checks and formulas live in `js/game.js`, owned by Rules. The simulation, events
 - Total mass is over the launcher's `capacity_kg` for the chosen orbit.
 - Total cost of parts plus launcher is over the tier's budget.
 - Total `power_draw_w` is over total `power_gen_w`.
-- A category is empty. The spacecraft needs at least one instrument, power, comms and computer part.
+- A category is empty. The spacecraft needs at least one body, instrument, power, comms, computer and attitude part (structure and attitude since the switch-over; the five-part rule before it).
 
 **Warnings** let the launch go ahead and cost points:
 

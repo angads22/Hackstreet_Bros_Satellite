@@ -234,7 +234,7 @@ check("12 the chronicle lists flights and research in year order",
 check("12 it names the topics flown and what history says", ch12.topics.length === 1 && ch12.topics[0].id === "radiation" && /Explorer/.test(ch12.topics[0].real_mission));
 check("12 every flight has a headline and its real twin", ch12.timeline.filter(function (e) { return e.kind === "flight"; }).every(function (e) { return e.title && /real twin/.test(e.text); }));
 check("12 an unfinished campaign has no epilogue yet", ch12.finished === false && ch12.epilogue === null && ch12.rating.name);
-var c12b = G.getCampaign(); c12b.finished = true; c12b.won = true; c12b.knowledge_science.radiation = 450; c12b.knowledge_science.solar = 500; c12b.knowledge_science.weather = 450; G.saveCampaign(c12b);
+var c12b = G.getCampaign(); c12b.finished = true; c12b.won = true; c12b.knowledge_science.radiation = 450; c12b.knowledge_science.solar = 500; c12b.knowledge_science.weather = 450; c12b.knowledge_science.ionosphere = 450; G.saveCampaign(c12b);
 var ch12b = G.getChronicle();
 check("12 a won campaign with broad knowledge rates highest", ch12b.won && ch12b.rating.id === "architects" && /^By /.test(ch12b.epilogue), ch12b.rating.id);
 var c12c = G.getCampaign(); delete c12c.log; c12c.missions.forEach(function (m) { delete m.real; delete m.flight; }); G.saveCampaign(c12c);
@@ -266,6 +266,17 @@ G.recordResult(fly(campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmi
 check("13 expired offers are replaced by new ones", G.getHubInfo().offers.length >= 1 && G.getHubInfo().offers.every(function (o) { return o.year_to >= G.getHubInfo().year; }));
 var c13d = G.getCampaign(); delete c13d.offers; G.saveCampaign(c13d);
 check("13 a save without offers still works", Array.isArray(G.getHubInfo().offers));
+
+// 13b. Offers follow the core loop: a topic at its cap gets no offers, and a flight with no new data claims nothing.
+var c13e = G.getCampaign();
+c13e.knowledge_science.radiation = G.getObjective("radiation").knowledge_scale * G.CAMPAIGN.cap_scales; c13e.offers = [
+  { id: "t-cap", topic: "radiation", orbit: null, min_science: 5, bonus_musd: 4, bonus_sci: 20, year_from: c13e.year, year_to: c13e.year + 2, client: "a test", done: false, text: "a test wants radiation data" }];
+G.saveCampaign(c13e);
+var dcap = campaignDesign("radiation", "leo", "vanguard-rocket", ["cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"]);
+check("13 the preview says the offer is not met when nothing would be new", G.previewPayout(dcap).offers.every(function (o) { return o.met === false; }));
+var rcap = G.recordResult(fly(dcap));
+check("13 a flight with no new data claims no offer", rcap.nothing_new && rcap.offers_claimed.length === 0 && G.getCampaign().offers.some(function (o) { return o.id === "t-cap" && !o.done; }));
+check("13 a topic at its cap gets no new offers", G.getHubInfo().offers.every(function (o) { return o.topic !== "radiation" || o.id === "t-cap"; }));
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;
