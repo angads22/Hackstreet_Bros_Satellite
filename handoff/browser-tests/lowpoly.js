@@ -22,7 +22,7 @@ async function open(viewport, mode) {
   // With the engine blocked on purpose, its own failed request is expected; nothing else is.
   page.on('console', m => { const u = (m.location() || {}).url || ''; if (m.type() === 'error' && !IGNORE.test(u) && !(mode === 'block' && /\/js\/lowpoly\.js$/.test(u))) errors.push(m.text()); });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
-  if (mode === 'block') await page.route(/\/js\/lowpoly\.js$/, r => r.abort());
+  if (mode === 'block') await page.route(/\/js\/lowpoly\.js(\?.*)?$/, r => r.abort());
   await page.goto(url);
   await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
   await page.reload();

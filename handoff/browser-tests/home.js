@@ -18,7 +18,7 @@ const KEY = 'gravitron-walkthrough-v1';
     const p = await b.newPage({ viewport });
     const errors = T.watchErrors(p, /lowpoly\.js/);
     await T.noFonts(p);
-    await p.route(/\/js\/lowpoly\.js$/, r => r.abort());
+    await p.route(/\/js\/lowpoly\.js(\?.*)?$/, r => r.abort());
     await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
     ok(await p.evaluate(() => typeof LowPoly === 'undefined'), 'LowPoly is missing');
     ok(await p.locator('canvas.lp-hero').count() === 0, 'no hero canvas');
@@ -71,7 +71,7 @@ const KEY = 'gravitron-walkthrough-v1';
   const h = await b.newPage({ viewport: { width: 1280, height: 800 } });
   const hErrors = T.watchErrors(h, /ui-comeback\.js/);
   await T.noFonts(h);
-  await h.route(/\/js\/ui-comeback\.js$/, r => r.abort());
+  await h.route(/\/js\/ui-comeback\.js(\?.*)?$/, r => r.abort());
   await h.goto(url); await h.evaluate(() => localStorage.clear()); await h.reload();
   ok(await h.locator('[data-key="part2-go"]').isDisabled() && /COMING NEXT/.test(await h.locator('[data-key="part2-go"]').innerText()),
     'no Part 2 screens: the button is disabled and reads COMING NEXT');

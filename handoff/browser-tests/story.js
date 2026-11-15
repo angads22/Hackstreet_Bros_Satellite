@@ -272,7 +272,7 @@ async function noArt() {
   const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = T.watchErrors(p, /lowpoly|lp-[a-z-]+\.js/);
   await T.noFonts(p);
-  await p.route(/\/js\/(lowpoly|lp-[a-z-]+)\.js$/, r => r.abort());
+  await p.route(/\/js\/(lowpoly|lp-[a-z-]+)\.js(\?.*)?$/, r => r.abort());
   await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
   await p.evaluate(() => { newComeback('standard', 5); const real = getComebackEnding; window.getComebackEnding = () => Object.assign(real(), { ending_id: 'legend', won: true }); window.showComebackEnding(); });
   ok(await p.locator('.cb-end.end-legend').count() === 1 && await p.locator('[data-key="end-again"]').count() === 1, 'no art: the legend ending still draws, with PLAY AGAIN');
@@ -341,7 +341,7 @@ async function more() {
   const q = await b.newPage({ viewport: { width: 1366, height: 768 } });
   const qErrors = T.watchErrors(q, /ui-story\.js/);
   await T.noFonts(q);
-  await q.route(/\/js\/ui-story\.js$/, r => r.abort());
+  await q.route(/\/js\/ui-story\.js(\?.*)?$/, r => r.abort());
   await q.goto(url); await q.evaluate(() => localStorage.clear()); await q.reload();
   ok(await q.locator('.story-count').count() === 0, 'no story file: the home page draws without the counter');
   await q.click('[data-key="part2-go"]'); await q.click('[data-key="level-standard"]');
