@@ -2,15 +2,15 @@
 
 ## Handoff (read this, then stop reading)
 
-Measured on the **1.0 build** (`main` at `f48eea9`), at 1920x1080, 1366x768 and 390x844. Code freeze is today, 14:00 Eastern.
+Measured on the merged build (1.0 plus Angad's loans, credit and name work) at 1920x1080, 1366x768 and 390x844. Angad's agents were out of usage, so Yareem's session did the work below and put it on `main`.
 
-1. **What to do before the freeze:** copy the rules in `docs/ui-measure/overlay.css` into `css/style.css` (CSS only; seven small rules, each commented with the problem it answers). Do not copy rule 5b's phone layout idea: it was tried and left out.
-2. **What it buys, measured on 1.0:** Build page 1.84 -> 1.46 screens at 1366x768 (1.35 -> 1.08 at 1920x1080); the next button is on screen at laptop size on Part 1 Build, Build, the Rocket Yard and the workshop (not yet on the debrief); Part 1 step 1 needs 0 scrolls instead of 3 (laptop); the debrief's verdict, limit, advice and money are reachable in 1 scroll, not 2; six small "Why" buttons grow past 24 px.
-3. **Check after copying:** `node docs/ui-measure/measure.js --repo . --label after --out after.json --axe <axe.min.js>` then `node docs/ui-measure/report.js before.json after.json`; and `words.js`, `design-screens.js`, `home.js`, `assist.js` in `handoff/browser-tests`.
-4. **Fails that CSS cannot fix (DOM work, after the freeze):** the minimap and map-marker buttons' `aria-label` does not contain their visible text ("Map: back to the base map" vs "MAP [M]"; 2 to 5 nodes per screen); `#hint` sits outside any landmark; a card's `h3` skips a heading level on the Rocket Yard; the live-data badge's explanation is a `title` only (no keyboard, no tap); the pinned side columns on a 768 px screen become a scroll region that cannot take focus.
-5. **Not solved:** the phone. Build is 3.1 to 3.5 screens tall and a design takes about 16 scrolls to build and read. That needs a real layout (a swipeable bin strip and a pinned verdict), tested on a device.
-6. **A claim in this review that the measurement corrected:** the sticky side columns I added overnight are worth keeping. Un-pinning them doubled the scrolling at 1366x768 (6 -> 12).
-7. **Everything else in this file is a proposal.** Sections 1 to 8 are the review; section 9 has the measured numbers; section 10 says how the measuring was done and what it cannot show.
+1. **Done and on `main`:** the density rules are in `css/style.css` (block "Density pass"; the same rules are in `docs/ui-measure/overlay.css` for re-measuring). Header shorter, one instruction per screen, the next button pinned to the bottom, a shorter satellite on Build, 44 px touch targets on phones. The browser suite passes except for failures that were already on the base tree (`comeback` "same flight in Node", `modern`) and `live` when offline.
+2. **Also done (DOM, from the old "CSS cannot fix" list):** the minimap and map-marker labels now start with their visible text; the hint box is a labelled landmark; Rocket Yard card titles are `h2`; the data badge takes keyboard focus. axe finds none of those on the merged build.
+3. **What it bought, measured on the merged build** (section 9): Build 1.87 -> 1.73 screens at 1366x768 (1.38 -> 1.32 at 1920x1080); the pinned next button puts Part 1 step 1 at 1 scroll instead of 3 on a laptop and the Rocket Yard at 0 instead of 1. The gains are **smaller than the first draft's numbers**: those were measured on a build without the loans panel and with CSS that is no longer all in use.
+4. **Worse or unchanged, stated plainly:** on a phone, "build a design and read whether it is good" went from 17 to 18 scrolls; the workshop is taller than on 1.0 (the loans panel; 1.86 screens at 1366x768); the debrief still needs 2 scrolls at 1366x768.
+5. **New finding, not fixed:** axe reports 7 `color-contrast` failures on the Part 2 workshop (the loans and credit panel). Needs a colour change by whoever owns the new theme.
+6. **Not built (DOM or logic, proposals only):** the ledger strip, the verdict gauges, the satellite's warning states, audio, the walk-skip, a reordered debrief, a swipeable bin strip and pinned verdict for the phone. The phone is the biggest remaining cost (about 18 scrolls to build and read a design).
+7. **Everything else in this file is a proposal.** Sections 1 to 8 are the review; section 9 has the measured numbers; section 10 says how the measuring was done.
 
 Written November 15, 2026 on branch `yarmee/vibrant-galileo-gw37wj`. The review's first draft was written from the 0.9 build; every number in section 9 is from 1.0. Where a `~` estimate in section 1 disagrees with section 9, section 9 wins. Every proposal names a job for an area of the screen, not a pixel position, so it survives a restyle.
 
@@ -241,71 +241,141 @@ Questionnaire (1 to 5): I always knew what to do next. I could tell if my design
 
 ---
 
-## 9. Screen density and scroll cost (measured on 1.0)
+## 9. Screen density and scroll cost (measured on the merged build)
 
-Method and limits are in section 10. "After" is `docs/ui-measure/overlay.css` applied to the live page: a CSS-only stand-in for the density items. The ledger strip, the gauges, the satellite's own warning states, audio and the walk-skip are proposed in section 3 and **not measured**.
+"Before" is the merged build with the density block removed from `css/style.css`; "after" is `main`. Method and limits are in section 10. Only the density rules and the accessibility fixes are measured; the items the handoff lists as not built are not.
 
-### What the measurements said about the review
-
-- **Build is 1.84 screens tall at 1366x768** (3.1 on a phone). Its next button, part cards and science preview are off screen at 1366x768 until you scroll. The first draft guessed this; it is now measured.
-- **The pinned preview takes 36% of a 768 px screen** (30% at 1080 px, 23% on a phone) while it is open. It never covered the card being acted on, but it is the largest single block on Build. Reducing it needs a DOM change (put it beside the satellite, not under it).
-- **Part 1 step 1 needs 3 scrolls on a laptop** to build and go on. After: 0.
-- **Words on screen at scroll 0 are fewer than the page total:** Build shows 172 words at 1366x768 and 242 at 1920x1080, against the 280 that Angad's `words.js` counts on the whole page. The rest is below the fold.
-- **Nothing shifts:** layout shift while hovering and clicking was 0 at all three sizes. Hover, keyboard focus and the "Why" and "?" buttons all open correctly by keyboard.
-- **A measured mistake I made and fixed:** a first overlay un-pinned the side columns on short screens. That raised "build a design and read whether it is good" from 6 to 12 scrolls at 1366x768 and was dropped. The overnight design (columns pinned) was right.
-
-### Scroll depth (page height / viewport height; 1.0 = no scrolling)
+#### Scroll depth (page height / viewport height; 1.0 means no scrolling)
 
 | screen | 1920x1080 | 1366x768 | 390x844 |
 | --- | --- | --- | --- |
-| Part 1 step 1 Build (empty) | 1.31 -> 1.23 | 1.77 -> 1.73 | 3.66 -> 2.86 |
-| Part 1 step 1 Build (full) | 1.50 -> 1.02 | 2.04 -> 1.44 | 3.91 -> 2.85 |
-| Workshop | 1.02 -> 1.00 | 1.43 -> 1.35 | 2.29 -> 2.21 |
-| Build (empty) | 1.29 -> 1.16 | 1.75 -> 1.63 | 3.47 -> 3.05 |
-| Build (full) | 1.35 -> 1.08 | 1.84 -> 1.46 | 3.09 -> 2.58 |
-| Rocket Yard | 1.00 | 1.23 -> 1.16 | 2.17 -> 1.94 |
-| Readiness | 1.23 -> 1.17 | 1.72 -> 1.64 | 1.96 -> 1.68 |
-| Event | 1.00 | 1.25 -> 1.15 | 1.61 -> 1.45 |
-| Debrief | 1.68 -> 1.58 | 2.36 -> 2.22 | 3.37 -> 3.18 |
+| home | 1 | 1 | 1 |
+| part1_build_empty | 1.31 -> 1.26 | 1.77 -> 1.65 | 3.66 -> 3.49 |
+| part1_build_full | 1.5 -> 1.45 | 2.04 -> 1.92 | 3.91 -> 3.69 |
+| picker | 1 | 1 | 1.21 |
+| workshop | 1.33 -> 1.31 | 1.86 -> 1.83 | 2.79 -> 2.78 |
+| map | 1 | 1.33 -> 1.24 | 1.31 -> 1.18 |
+| build_empty | 1.31 -> 1.25 | 1.77 -> 1.64 | 3.5 -> 3.3 |
+| build_full | 1.38 -> 1.32 | 1.87 -> 1.73 | 3.12 -> 2.86 |
+| rocket | 1 | 1.29 -> 1.21 | 2.26 -> 2.09 |
+| readiness | 1.23 -> 1.17 | 1.72 -> 1.64 | 1.96 -> 1.78 |
+| mission | 1 | 1 | 1 |
+| event | 1 | 1.27 -> 1.17 | 1.63 -> 1.52 |
+| debrief | 1.68 -> 1.58 | 2.36 -> 2.22 | 3.37 -> 3.26 |
 
-### Always-visible elements off screen without scrolling (before -> after)
+#### Always-visible elements that are NOT on screen without scrolling
 
-| screen, viewport | before | after |
-| --- | --- | --- |
-| Part 1 step 1 Build, 1366x768 | part cards, next button | none |
-| Build, 1366x768 | part cards, science preview, next button | science preview |
-| Build (full), 1366x768 | satellite, next button | satellite |
-| Rocket Yard, 1366x768 | next button | none |
-| Workshop, 1366x768 | first FLY THIS | none |
-| Debrief, 1920x1080 | TRY THIS, next button | next button |
-| Debrief, 1366x768 | what limited you, TRY THIS, next button | unchanged (the receipt is first in the column) |
-| any Build screen, 390x844 | 5 to 6 items | 4 to 5 items |
+| screen | viewport | before | after |
+| --- | --- | --- | --- |
+| part1_build_empty | 1920x1080 | next button | - |
+| part1_build_empty | 1366x768 | part cards, next button | part cards |
+| part1_build_empty | 390x844 | part cards, four bars, next button | part cards, four bars |
+| part1_build_full | 1366x768 | part cards, four bars | - |
+| part1_build_full | 390x844 | status, part bins, part cards | status, part bins, part cards |
+| picker | 390x844 | back | - |
+| workshop | 1366x768 | first FLY THIS | first FLY THIS |
+| workshop | 390x844 | first FLY THIS | first FLY THIS |
+| build_empty | 1920x1080 | science preview, next button | science preview |
+| build_empty | 1366x768 | part cards, science preview, next button | part cards, science preview |
+| build_empty | 390x844 | satellite, part cards, pay line, four bars, science preview, next button | satellite, part cards, pay line, four bars, science preview |
+| build_full | 1920x1080 | next button | - |
+| build_full | 1366x768 | satellite, next button | satellite |
+| build_full | 390x844 | status (cash/debt), part bins, satellite, part cards, pay line | status (cash/debt), part bins, satellite, part cards |
+| rocket | 1366x768 | next button | - |
+| rocket | 390x844 | next button | - |
+| debrief | 1920x1080 | TRY THIS, back/next button | back/next button |
+| debrief | 1366x768 | what limited you, TRY THIS, back/next button | what limited you, TRY THIS, back/next button |
+| debrief | 390x844 | what limited you, TRY THIS, result / money box, back/next button | what limited you, TRY THIS, result / money box, back/next button |
 
-### Task cost (scrolls / clicks / hovers; one scroll = one wheel gesture of 0.8 viewport heights)
+#### Task cost (scrolls / clicks / hovers)
 
 | task | 1920x1080 | 1366x768 | 390x844 |
 | --- | --- | --- | --- |
-| Part 1 step 1: build and go on | 1/12/0 -> 0/12/0 | 3/12/0 -> 0/12/0 | 7/12/0 |
-| Part 2: read the contracts, take one | 0/1/0 | 1/1/0 -> 0/1/0 | 2/1/0 |
-| Part 2: build a design and read whether it is good | 3/17/1 -> 1/17/1 | 5/17/1 -> 4/17/1 | 16/17/1 |
-| Part 2: pick the rocket and go on | 0/2/0 | 1/2/0 -> 0/2/0 | 3/2/0 -> 1/2/0 |
-| Part 2: readiness verdict and launch | 0/1/0 | 0/1/0 | 0/1/0 |
-| Part 2: answer an event | 0/1/0 | 0/1/0 | 0/1/0 |
-| Part 2: debrief verdict, limit, advice, money, next button into view | 1/0/0 | 2/0/0 -> 1/0/0 | 3/0/0 -> 2/0/0 |
+| P1 step 1: build the satellite and go on | 1/12/0 -> 0/12/0 | 3/12/0 -> 1/12/0 | 7/12/0 -> 8/12/0 |
+| P2: read the contracts and take one | 0/1/0 | 1/1/0 | 2/1/0 |
+| P2: build a design and read whether it is good | 3/17/1 | 6/17/1 | 17/17/1 -> 18/17/1 |
+| P2: pick the rocket and go on | 0/2/0 | 1/2/0 -> 0/2/0 | 3/2/0 -> 1/2/0 |
+| P2: read the readiness verdict and launch | 0/1/0 | 0/1/0 | 0/1/0 |
+| P2: answer an event | 0/1/0 | 0/1/0 | 0/1/0 |
+| P2: bring the debrief's verdict, limit, advice, money and next button into view | 1/0/0 | 2/0/0 | 3/0/0 |
 
-The phone is where the cost is: 16 scrolls and 17 clicks to build and read one design, with the overlay unchanged at 16. A design needs seven bins opened and ten to twelve parts picked, each far from the next and from the bars that show the result.
+#### Words on screen at scroll 0, and where the first control sits
 
-### Targets, overlap, hover and accessibility (1.0, before; "after" where it changed)
+| screen | 1920x1080 words | 1366x768 words | 390x844 words |
+| --- | --- | --- | --- |
+| home | 53 | 53 | 53 |
+| part1_build_empty | 219 -> 231 | 147 -> 154 | 75 -> 85 |
+| part1_build_full | 271 -> 285 | 269 -> 243 | 75 -> 140 |
+| picker | 63 | 63 | 59 -> 61 |
+| workshop | 182 -> 186 | 109 -> 140 | 70 -> 74 |
+| map | 92 -> 83 | 79 -> 77 | 58 -> 61 |
+| build_empty | 238 -> 247 | 172 -> 180 | 77 -> 76 |
+| build_full | 245 -> 243 | 223 -> 221 | 82 |
+| rocket | 152 -> 143 | 139 -> 141 | 71 -> 76 |
+| readiness | 81 -> 86 | 65 -> 64 | 65 -> 64 |
+| mission | 53 -> 48 | 53 -> 48 | 53 -> 48 |
+| event | 110 -> 105 | 102 -> 103 | 67 |
+| debrief | 196 -> 192 | 143 -> 145 | 102 |
 
-| check | result |
-| --- | --- |
-| Targets under the minimum (24 px desktop, 44 px touch) | "Why" `summary` 22x25 on every Build and Readiness screen (6 of them): 0 after. On a phone: the mode buttons and RESET (97 to 147 x 32 px), the five map markers (32x32; their hit area is larger than the box, so this overstates it), "Why" (32x25) |
-| Overlaps | home and map: the 3D picture is under the title and markers on purpose. Build, Rocket Yard, Readiness, event and debrief: none |
-| Hover and focus | hovering or focusing a card opens the preview; the first tap on a phone previews without adding (it read `false` in one run and `true` in the other: check by hand); "Why" and "?" open by keyboard |
-| axe-core at 1366x768 | contrast: none on 1.0. `label-content-name-mismatch` (serious): minimap and map-marker buttons, 2 to 5 per screen. `region`: the hint box. `heading-order`: Rocket Yard card titles. `scrollable-region-focusable`: the pinned side columns on Part 1 step 1 (full). Page errors: 0 |
-| Title-only tooltips | the LIVE DATA / SNAPSHOT badge explains itself only through `title`: no keyboard, no tap |
+#### Targets under the minimum size (24 px desktop, 44 px touch) and overlaps
 
-Side-by-side screenshots are in `docs/ui-measure/` only as the harness's output (they are not committed); rerun the harness to regenerate them.
+| screen | 1920x1080 small targets | 1366x768 small targets | 390x844 small targets | 1920x1080 overlaps | 1366x768 overlaps | 390x844 overlaps |
+| --- | --- | --- | --- | --- | --- | --- |
+| home | 0 | 0 | 4 -> 1 | 13 | 13 | 13 |
+| part1_build_empty | 0 | 0 | 7 -> 1 | 0 | 0 | 0 |
+| part1_build_full | 0 | 0 | 2 -> 1 | 0 | 0 | 0 |
+| picker | 0 | 0 | 1 | 0 | 0 | 0 |
+| workshop | 0 | 0 | 1 | 0 | 0 | 0 |
+| map | 0 | 0 | 6 -> 1 | 5 | 5 | 5 |
+| build_empty | 6 -> 0 | 6 -> 0 | 7 -> 1 | 0 | 0 | 0 |
+| build_full | 0 | 0 | 1 | 0 | 0 | 0 |
+| rocket | 0 | 0 | 1 | 0 | 0 | 0 |
+| readiness | 0 | 0 | 1 | 0 | 0 | 0 |
+| mission | 0 | 0 | 1 | 0 | 0 | 0 |
+| event | 0 | 0 | 1 | 0 | 0 | 0 |
+| debrief | 0 | 0 | 3 -> 1 | 1 | 1 | 2 |
+
+Examples of small targets: 1920x1080: summary 22x25; 1366x768: summary 22x25; 390x844: data-badge 67x24; 390x844: part1-go 97x32; 390x844: part2-go 97x32; 390x844: reset-progress 147x32; 390x844: data-badge 93x24; 390x844: summary 32x25; 390x844: blip-briefing 32x32; 390x844: blip-orbit 32x32; 390x844: blip-build 32x32; 390x844: blip-launcher 32x32
+
+Examples of overlaps (before): 1920x1080 home: lp x big-title; 1920x1080 home: lp x tagline; 1920x1080 home: lp x tag; 1920x1080 home: lp x H2; 1920x1080 map: map-lp x blip-briefing; 1920x1080 map: map-lp x blip-orbit; 1920x1080 map: map-lp x blip-build; 1920x1080 map: map-lp x blip-launcher; 1920x1080 debrief: card-blurb x divided; 1366x768 home: lp x big-title
+
+#### Hover, focus and tap behaviour on Build
+
+| check | 1920x1080 | 1366x768 | 390x844 |
+| --- | --- | --- | --- |
+| hover opens the preview | true | true | n/a (touch) |
+| keyboard focus opens it | true | true | n/a |
+| first tap previews, does not add | n/a | n/a | false |
+| preview fully on screen (while hovering a card) | true | true | true |
+| preview share of the viewport height | 0.3 | 0.36 | 0.23 |
+| card the player is acting on is covered at the pointer | false | false | false |
+| "Why" opens by keyboard | true | true | true |
+| "?" opens by keyboard | true | true | true |
+| layout shift while hovering and clicking (CLS) | 0 | 0 | 0 |
+| title-only tooltips (no keyboard or tap) | 1 panel:An estimate over 36 mont | 1 panel:An estimate over 36 mont | 1 panel:An estimate over 36 mont |
+
+#### axe-core violations at 1366x768 (id: nodes)
+
+| screen | before | after |
+| --- | --- | --- |
+| home | none | none |
+| part1_build_empty | none | none |
+| part1_build_full | scrollable-region-focusable(s):1 | scrollable-region-focusable(s):1 |
+| picker | none | none |
+| workshop | color-contrast(s):7 | color-contrast(s):7 |
+| map | none | none |
+| build_empty | none | none |
+| build_full | none | none |
+| rocket | none | none |
+| readiness | none | none |
+| mission | none | none |
+| event | none | none |
+| debrief | none | none |
+
+Page errors: 0, 0, 0
+
+
+Side-by-side screenshots are not committed; the harness regenerates them (`--shots`).
 
 ---
 
@@ -313,7 +383,7 @@ Side-by-side screenshots are in `docs/ui-measure/` only as the harness's output 
 
 - **Harness:** `docs/ui-measure/measure.js` starts its own static server on the repo, loads the real fonts and waits for them, blocks the three live-data hosts so each run draws the same events, and uses Part 2 on Normal with the test seed and Part 1 step 1. It takes `--repo`, `--overlay`, `--axe`, `--shots` and `--only`. `report.js` turns two runs into the tables above.
 - **Scrolls are counted by the script:** Playwright scrolls silently, so each target is checked against the viewport first, with `elementFromPoint` (so the sticky header counts as covering), and the script scrolls one wheel gesture at a time. A bug in my first version counted 28 scrolls where 2 were real; it is fixed and the definition is in the file header.
-- **The debrief task is order-free:** it counts the scrolls needed to bring all five items into view in any order, because the overlay deliberately reorders them.
+- **The debrief task is order-free:** it counts the scrolls needed to bring all five items into view in any order, so the measure does not depend on screen order.
 - **Bits are not claimed.** "Information density" is reported as words on screen at scroll 0 and as the share of Build's words below the fold, not as an entropy estimate.
 - **The overlay is CSS only:** the screens rebuild the page on every click, so only CSS survives. It cannot move DOM, add the ledger strip or gauges, or change what a hover shows. Those proposals are unmeasured.
 - **Not covered:** a real phone or tablet (the 390x844 run is a desktop browser with touch on), a screen reader pass beyond axe, real players, and the Part 1 steps 2 and 3, the story scenes and the seven endings.
