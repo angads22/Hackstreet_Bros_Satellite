@@ -1244,12 +1244,24 @@ function buyResearch(id) {
   if (c.research.indexOf(id) !== -1) return { ok: false, reason: "Already owned." };
   var missing = researchMissing(r, c);
   if (missing.length) return { ok: false, reason: missing.map(function (m) { return m.text; }).join(" ") };
+  var undo = JSON.stringify(c);
   c.treasury_musd = round(c.treasury_musd - r.cost_musd, 3);
   c.science_pts = round((c.science_pts || 0) - (r.cost_sci || 0), 1);
   c.research.push(id);
   (c.log = c.log || []).push({ year: c.year, kind: "research", id: id });
   saveCampaign(c);
-  return { ok: true, reason: null };
+  return keepsLaunchable(c, undo);
+}
+
+// Never soft-locked (SPEC.md, "Scoring"): only a flight brings the grants, so a lab purchase that would leave
+// less money than the cheapest launchable design is refused and undone. Called just after the purchase is
+// saved, because what can launch depends on what is owned.
+function keepsLaunchable(c, undo) {
+  var cheapest = cheapestLaunchCost(c);
+  if (!isFinite(cheapest) || c.treasury_musd >= cheapest) return { ok: true, reason: null };
+  var left = c.treasury_musd;
+  saveCampaign(JSON.parse(undo));
+  return { ok: false, reason: "That would leave $" + round(left, 2) + "M, less than the cheapest launch ($" + round(cheapest, 2) + "M). Fly first." };
 }
 
 // What a design would earn if it flies as planned (for the Build screen).
@@ -1503,13 +1515,14 @@ function buyUpgrade(id) {
   if ((c.upgrades || []).indexOf(id) !== -1) return { ok: false, reason: "Already owned." };
   var missing = upgradeMissing(p, c);
   if (missing.length) return { ok: false, reason: missing.map(function (m) { return m.text; }).join(" ") };
+  var undo = JSON.stringify(c);
   c.treasury_musd = round(c.treasury_musd - p.upgrade.cost_musd, 3);
   c.science_pts = round((c.science_pts || 0) - p.upgrade.cost_sci, 1);
   c.upgrades = (c.upgrades || []).concat([id]);
   (c.log = c.log || []).push({ year: c.year, kind: "upgrade", id: id });
   saveCampaign(c);
   cheapestCache = {};
-  return { ok: true, reason: null };
+  return keepsLaunchable(c, undo);
 }
 
 // Longest chain of prerequisites, so a tree screen can put each node in a column.
