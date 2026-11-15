@@ -80,5 +80,51 @@ var batSafe = finish(forced(eraDesign("nimbus", "training", "radiation", "leo", 
 check("1 the safe choice keeps it flying to the end of its battery", !batSafe.ended_early && batSafe.month === batSafe.lifetime_months,
   "month " + batSafe.month + " of " + batSafe.lifetime_months);
 
+// ---- 2. The knowledge paragraph: "first real look" only on the first flight of a topic
+(function () {
+  var C = load({ storage: load.memoryStorage() });
+  C.newCampaign("training");
+  var BASIC = ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "mercury-battery", "minitrack-beacon", "command-timer"];
+  var texts = [];
+  for (var i = 0; i < 3; i++) {
+    var d = C.newCampaignDesign(); C.setObjective(d, "radiation"); C.setOrbit(d, "leo");
+    BASIC.forEach(function (p) { C.addPart(d, p); }); C.setLauncher(d, "juno-1");
+    var m = C.startMission(d), st;
+    do { st = C.stepMonth(m); if (st.event) C.chooseEvent(m, 0); } while (!st.ended);
+    C.recordResult(m);
+    var db = C.getDebrief(m), saved = C.getCampaign().missions[i];
+    texts.push({ before: db.knowledge_before, kp: db.knowledge_paragraph, first: saved.first_look });
+  }
+  check("2 the first flight of a topic is its first real look", texts[0].kp === C.DEBRIEF.breakthrough && texts[0].first, JSON.stringify(texts[0]));
+  check("2 the second and third flights are not called a first look", texts.slice(1).every(function (t) { return t.kp !== C.DEBRIEF.breakthrough && !t.first; }),
+    JSON.stringify(texts.slice(1)));
+  check("2 the first-look paragraph makes no claim about the payout's size", !/large/.test(C.DEBRIEF.breakthrough));
+})();
+// A comeback client pays by the contract, not by the knowledge curve: neither paragraph applies there.
+var CB = load({ storage: load.memoryStorage() });
+CB.newComeback("standard");
+// A test contract, added to the open ones the way tests/comeback.js does.
+function cbContract(fields) {
+  var c = CB.getCampaign();
+  var k = Object.assign({ id: "t-rad", topic: "radiation", orbit: null, client: "A test client", reason: "It tests things.",
+                          min_science: 60, price_musd: 10, bonus_musd: 2.5, expires_month: c.month + 12, done: false, text: "A test contract." }, fields || {});
+  c.offers = (c.offers || []).filter(function (x) { return x.id !== k.id; }).concat([k]);
+  CB.saveCampaign(c);
+  return k;
+}
+function cbDesign(k, orbit, launcher, parts) {
+  var d = CB.newComebackDesign(k.id); CB.setOrbit(d, orbit); CB.setLauncher(d, launcher);
+  parts.forEach(function (p) { CB.addPart(d, p); });
+  return d;
+}
+var RAD = ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf", "command-timer", "spin-stabilised", "cubesat-12u"];
+(function () {
+  var m = CB.startMission(cbDesign(cbContract(), "leo", "rideshare", RAD)), st;
+  do { st = CB.stepMonth(m); if (st.event) CB.chooseEvent(m, 0); } while (!st.ended);
+  CB.recordResult(m);
+  var db = CB.getDebrief(m);
+  check("2 a comeback flight gets no first-look or saturated paragraph", db.knowledge_before === 0 && db.knowledge_paragraph === "", JSON.stringify(db.knowledge_paragraph));
+})();
+
 console.log(passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

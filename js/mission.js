@@ -482,8 +482,11 @@ function getDebrief(mission) {
   if (mission.campaign_flight) {
     if (k.nothing_new && cpay) kp = "Nothing new: this topic's data has already been collected, so the client paid nothing. Take a contract on another topic.";
     else if (k.nothing_new) kp = "Nothing new: this topic's data has already been collected, so the flight earned no money and no science points. Try another mission type.";
+    // The 1957 campaign pays by the knowledge curve; a comeback client pays by the contract, so these two lines do not apply there.
+    else if (mission.comeback) kp = "";
     else if (k.novelty < 0.15) kp = DEBRIEF.saturated || "";
-    else if (k.novelty > 0.6 && k.knowledge_before < 0.2) kp = DEBRIEF.breakthrough || "";
+    // Only the first real look at a topic (as settleCampaign's first_look): later flights add less.
+    else if (k.knowledge_before < 0.05 && k.new_data > 0) kp = DEBRIEF.breakthrough || "";
   }
   return {
     score: score,
