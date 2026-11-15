@@ -33,7 +33,7 @@
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
     title:    "",
-    map:      "Walk with the arrow keys or WASD, press E to go in. Or click a marker and you walk there yourself. The gold route leads to your next job.",
+    map:      "Tap or click a place to walk there. Or walk with the arrow keys or WASD and press E to go in. The gold route leads to your next job.",
     briefing: "Decide the goal before the hardware. The objective says which instruments count.",
     orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
     build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
@@ -2834,10 +2834,13 @@
     if (lpMap) board.appendChild(lpMap);
     board.appendChild(refs.svg);
 
+    refs.edge = {};
     PLACES.forEach(function (p) {
       var at = pct(NODES[p.id]);
+      // A marker near the map's left or right edge hangs its name towards the middle, so a phone shows all of it.
+      refs.edge[p.id] = NODES[p.id].x < MAP_W * 0.3 ? " edge-l" : NODES[p.id].x > MAP_W * 0.7 ? " edge-r" : "";
       var b = el("button", {
-        type: "button", class: "blip", "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
+        type: "button", class: "blip" + refs.edge[p.id], "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
         onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }), el("span", { class: "blip-name", text: p.name })]);
       refs.markers[p.id] = b;
@@ -2856,23 +2859,23 @@
 
     refs.promptText = el("span", { class: "map-prompt-text" });
     refs.enter = el("button", { type: "button", class: "btn primary", onclick: act, "data-key": "map-enter" }, "ENTER [E]");
-    // Below the map, never on top of it, so it cannot cover a marker.
+    // Below the map, never on top of it, so it cannot cover a marker. The one instruction on the map is the header's
+    // OBJECTIVE line; this box is its button ("GO TO WORKSHOP"), or what the place you stand at is for.
     refs.prompt = el("div", { class: "map-prompt", "aria-live": "polite" }, [refs.promptText, refs.enter]);
 
+    // Names and NEXT / DONE / LOCKED only; why a place is locked is said when you pick it.
     var legend = el("ul", { class: "legend" }, PLACES.map(function (p) {
       var status = el("span", { class: "tag" });
-      var does = el("span", { class: "legend-does", text: p.does });
       // No aria-label: the button's name is its visible text, which updateMap keeps current.
       var item = el("li", null, [el("button", {
         type: "button", class: "legend-item", "data-key": "legend-" + p.id, onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }),
-          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name]), does]),
+          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name])]),
           status])]);
-      refs.legend[p.id] = { status: status, does: does };
+      refs.legend[p.id] = { status: status };
       return item;
     }));
 
-    refs.objective = el("p", { class: "map-objective" });
     state.map = refs;
     return el("section", { class: "screen" }, [
       head("BASE MAP"),
@@ -2880,11 +2883,11 @@
       el("div", { class: "map-layout" }, [
         el("div", { class: "stack" }, [board, refs.prompt]),
         el("aside", { class: "panel" }, [
-          el("h2", { text: "OBJECTIVE" }), refs.objective,
-          el("h2", { class: "divided", text: "PLACES" }), legend,
-          el("h2", { class: "divided", text: "KEYS" }),
-          el("p", { class: "keys", "aria-label": "Arrow keys or WASD walk. E or Enter goes in, or follows the gold route. Click a marker to walk there. M or Esc: back inside." }, [
-            el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " map"]),
+          el("h2", { text: "PLACES" }), legend,
+          // The keys, for a keyboard (hidden on a touch screen, where the hint says to tap a place). On the map,
+          // M and Esc go back into the place you stand at.
+          el("div", { class: "keys-box" }, [el("h2", { class: "divided", text: "KEYS" }),
+            el("p", { class: "keys" }, [el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " back inside"])]),
           el("div", null, [inCampaign()
             ? button("BACK TO THE HUB", function () { window.showCampaignHub(); })
             : button("HOME", function () { showDesignScreen("title"); }, { key: "map-home" })])
@@ -2916,15 +2919,13 @@
     var next = waypoint();
     PLACES.forEach(function (p) {
       var st = placeStatus(p.id);
-      refs.markers[p.id].className = "blip " + st + (state.player === p.id ? " here" : "");
+      refs.markers[p.id].className = "blip " + st + refs.edge[p.id] + (state.player === p.id ? " here" : "");
       var line = st === "locked" ? lockedReason(p.id) : p.does + ".";
       refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
-      refs.legend[p.id].does.textContent = st === "locked" ? lockedReason(p.id) : st === "next" ? p.does : "";
       refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
       refs.legend[p.id].status.textContent = STATUS_TEXT[st];
     });
     refs.route.setAttribute("points", routePoints(route(state.player, next)));
-    refs.objective.textContent = GO_TEXT[next];
 
     var here = byId(PLACES, state.player);
     var openHere = !!here && placeOpen(here.id);
@@ -2934,9 +2935,13 @@
     else if (state.walking) text = "Walking...";
     else if (openHere) text = here.name + ": " + here.does + ".";
     else if (here) text = here.name + " is locked. " + lockedReason(here.id);
-    else text = "Follow the gold route. " + GO_TEXT[next];
+    else text = "";   // at the gate or a crossing: the button says where the gold route goes
     refs.promptText.textContent = text;
-    refs.enter.textContent = canEnter ? "ENTER [E]" : "FOLLOW ROUTE [E]";
+    refs.promptText.hidden = !text;
+    // Two parts, like the GO TO buttons inside a place: a long name wraps, and the key stays on the right.
+    while (refs.enter.firstChild) refs.enter.removeChild(refs.enter.firstChild);
+    refs.enter.appendChild(el("span", { text: canEnter ? "ENTER" : "GO TO " + byId(PLACES, next).name }));
+    refs.enter.appendChild(el("span", { text: "[E]" }));
     // Never disabled while walking: that would drop keyboard focus to the page.
     refs.enter.disabled = !!here && !openHere && here.id === next;
     setStep("map");

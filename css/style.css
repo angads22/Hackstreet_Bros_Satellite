@@ -553,13 +553,22 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   font-weight: 700;
   font-size: 20px;
 }
+/* The name hangs under its marker (the marker's box is the number alone, centred on the door). Near the map's left or
+   right edge it starts or ends at the marker instead of being centred, so it is never cut off on a phone. */
 .blip-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
   padding: 0 6px;
   background: var(--bg);
   color: var(--text);
   font-size: 18px;
   white-space: nowrap;
 }
+.blip.edge-l .blip-name { left: 0; transform: none; }
+.blip.edge-r .blip-name { left: auto; right: 0; transform: none; }
 .blip.done .blip-num { background: var(--info); border-color: var(--info); color: var(--on-info); }
 .blip.next .blip-num { background: var(--accent); border-color: var(--text); color: var(--on-accent); animation: pulse 1s steps(2) infinite; }
 .blip.next .blip-name { color: var(--accent-ink); }
@@ -608,7 +617,6 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 }
 .map-prompt-text { font-size: 22px; }
 .map-prompt .btn { min-height: 44px; font-size: 22px; padding: 0 14px; }
-.map-objective { color: var(--accent-ink); font-size: 24px; }
 
 /* NASA data lines: the orbit cards, each mission month and the debrief comparison. */
 .nasa-line { margin: 0; color: var(--info-ink); font-size: 20px; }
@@ -632,7 +640,8 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 .legend-item:hover { border-color: var(--accent); }
 .legend-item .blip-num { width: 28px; height: 28px; font-size: 18px; flex: none; }
 .legend-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1; }
-.legend-does { font-size: 18px; color: var(--text-dim); }
+.keys-box { display: flex; flex-direction: column; gap: 10px; }
+@media (hover: none) { .keys-box { display: none; } }   /* a touch screen: the hint says to tap a place */
 
 @media (prefers-reduced-motion: reduce) {
   .blip.next .blip-num { animation: none; box-shadow: 0 0 0 4px var(--accent); }
