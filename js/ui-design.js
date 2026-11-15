@@ -1803,12 +1803,18 @@
     var massRight = t.capacity_kg ? num(t.mass_kg) + " / " + num(t.capacity_kg, 0) + " KG" : num(t.mass_kg) + " KG";
     var dataLost = t.data_gb_day > t.data_returned_gb_day;
     var du = dataUnit(Math.max(t.data_gb_day || 0, t.data_returned_gb_day || 0));
+    // No limit yet: no rocket, no orbit, or a rocket that cannot reach this orbit (its capacity there is 0).
+    var rocket = design.launcher ? byId(data("LAUNCHERS"), design.launcher) : null;
+    var massNote = t.capacity_kg ? null : !rocket ? "Pick a rocket to see the limit"
+      : !design.orbit ? "Pick an orbit to see the limit" : rocket.name + " cannot reach this orbit";
+    // Batteries and no panel: a warning, not a fault (runChecks warns "battery-only"). The bar says how long they last.
+    var batteryOnly = !(t.power_gen_w > 0) && t.battery_wh > 0 && t.power_draw_w > 0;
+    var power = isNum(m.power) ? { fill: 1 - m.power, cls: barClass(m.power), note: null }
+      : batteryOnly ? { fill: 1, cls: " warn", note: batteryNote(design) }
+      : { fill: t.power_draw_w > 0 ? 1 : 0, cls: t.power_draw_w > 0 ? " bad" : "", note: "Nothing makes power yet" };
     return el("div", { class: "bars" }, [
-      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass),
-          t.capacity_kg ? null : "Pick a rocket to see the limit", "mass"),
-      bar("POWER", fine(t.power_draw_w) + " / " + fine(t.power_gen_w) + " W",
-          isNum(m.power) ? 1 - m.power : (t.power_draw_w > 0 ? 1 : 0), isNum(m.power) ? barClass(m.power) : (t.power_draw_w > 0 ? " bad" : ""),
-          t.power_gen_w ? null : "Nothing makes power yet", "power"),
+      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass), massNote, "mass"),
+      bar("POWER", fine(t.power_draw_w) + " / " + fine(t.power_gen_w) + " W", power.fill, power.cls, power.note, "power"),
       bar("BUDGET", money(t.cost_musd) + " / " + money(t.budget_musd), isNum(m.budget) ? 1 - m.budget : null, barClass(m.budget), null, "budget"),
       // For data a full bar is good: it is the share of data that reaches the ground.
       bar("DATA HOME", fine(t.data_returned_gb_day * du[1]) + " / " + fine(t.data_gb_day * du[1]) + " " + du[0].toUpperCase() + "/DAY",
@@ -1816,6 +1822,14 @@
           dataLost ? (t.data_returned_gb_day > 0 ? " warn" : " bad") : "",
           !design.orbit ? "Pick an orbit to see ground contact" : null, "data")
     ]);
+  }
+
+  // "Battery only: runs out in about 2.2 months", from previewScience (its months stop when the battery is spent).
+  function batteryNote(design) {
+    var s = typeof previewScience === "function" ? previewScience(design) : null;
+    var orbit = byId(data("ORBITS"), design.orbit);
+    if (!s || !orbit || !isNum(s.months) || !(s.months < orbit.lifetime_months)) return "Battery only";
+    return "Battery only: runs out in about " + fine(s.months) + " months";
   }
 
   // A short label for each readiness check; the back end's full sentence stays one tap away ("Why").
