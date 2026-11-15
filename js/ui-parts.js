@@ -149,7 +149,7 @@ var PartExplainer = (function () {
     var cloud = C(0, 0, 14, "ex-f-white") + C(16, 4, 11, "ex-f-white") + C(-16, 5, 10, "ex-f-white") + R(-24, 4, 48, 11, "ex-f-white");
     return bg() + sun(28, 26, 9) + L(34, 38, 100, 86, "ex-s-light", "stroke-dasharray:3 5", 2) +
       earth(112) + sat(120, 28, 0.8, { inner: C(0, 11, 3, "ex-f-light") }) + P("M112 40 L96 100 M128 40 L144 100", "ex-s-light", "stroke-dasharray:3 4", 2) +
-      G(G(cloud, "", "", "translate(0 0)"), an("ex-pass ex-slow"), d("dx", "90px") + d("dy", "0px"), "translate(120 102)") +
+      G(G(cloud, an("ex-pass ex-slow"), d("dx", "90px") + d("dy", "0px")), "", "", "translate(120 102)") +
       meter(196, 34, 22, 84, "ex-f-light", "ex-cloudbar", 1, true) + R(196, 122, 22, 4, "ex-f-dim");
   };
 
@@ -207,7 +207,7 @@ var PartExplainer = (function () {
   DRAW.thermal = function () {
     var g = "", r, c, heat = { "2,3": "ex-f-light", "2,2": "ex-f-accent", "3,2": "ex-f-red", "3,3": "ex-f-accent", "2,4": "ex-f-light", "1,3": "ex-f-light", "3,4": "ex-f-light" }, k, i = 0;
     for (r = 0; r < 5; r++) for (c = 0; c < 8; c++) g += R(106 + c * 14, 40 + r * 14, 12, 12, "ex-f-celld");
-    g += G(C(0, 0, 18, "ex-f-dim") + C(22, 4, 14, "ex-f-dim") + C(-20, 6, 12, "ex-f-dim") + R(-26, 4, 56, 14, "ex-f-dim"), an("ex-pass ex-slow ex-smoke"), d("dx", "36px") + d("dy", "0px"), "translate(150 76)");
+    g += G(G(C(0, 0, 18, "ex-f-dim") + C(22, 4, 14, "ex-f-dim") + C(-20, 6, 12, "ex-f-dim") + R(-26, 4, 56, 14, "ex-f-dim"), an("ex-pass ex-slow ex-smoke"), d("dx", "36px") + d("dy", "0px")), "", "", "translate(150 76)");
     for (k in heat) if (Object.prototype.hasOwnProperty.call(heat, k)) {
       r = +k.split(",")[0]; c = +k.split(",")[1];
       g += R(106 + c * 14, 40 + r * 14, 12, 12, heat[k] + " " + an("ex-pop"), d("dl", (-0.3 * (i++)) + "s"));

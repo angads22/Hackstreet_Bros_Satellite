@@ -49,7 +49,15 @@ const barText = (p, name) => p.evaluate(n => { const x = [...document.querySelec
   await card.hover();
   ok(JSON.stringify(before) === JSON.stringify(await card.boundingBox()), 'hovering a card does not move it');
   const order = await p.evaluate(() => [...document.querySelectorAll('#preview > *')].map(n => n.className || n.tagName).join(','));
-  ok(/cause.*blurb$/.test(order), 'the preview lists Causes before the part\'s story: ' + order);
+  // The part's animated explainer (js/ui-parts.js) now tells the story, above the effect lines, and replaces the blurb line.
+  ok(/^H2,H3,explainer[^,]*(,preview-line( fix| cause)?)+$/.test(order) && /cause/.test(order) && !/blurb/.test(order), 'the preview lists the explainer, then Fixes and Causes (the blurb is dropped): ' + order);
+  // Without the module the old order stands: Causes, then the part's story last.
+  await p.evaluate(() => { window.__pe = PartExplainer; window.PartExplainer = undefined; });
+  await p.hover('[data-key="part-optical-camera"]');
+  const order2 = await p.evaluate(() => [...document.querySelectorAll('#preview > *')].map(n => n.className || n.tagName).join(','));
+  ok(/cause.*blurb$/.test(order2), 'without PartExplainer the preview lists Causes before the part\'s story: ' + order2);
+  await p.evaluate(() => { window.PartExplainer = window.__pe; });
+  await card.hover();
   const box = await p.locator('#preview').boundingBox();
   await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 12 });
   ok(/ADD SYNTHETIC APERTURE RADAR/.test(await text(p, '#preview')), 'moving the pointer onto the preview keeps it');

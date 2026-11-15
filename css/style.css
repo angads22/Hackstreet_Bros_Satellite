@@ -1002,8 +1002,11 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .explainer.ex-compact .ex-hook { font-size: 18px; }
 .explainer.ex-compact .ex-does, .explainer.ex-compact .ex-trade { font-size: 17px; margin-top: 2px; }
 @media (max-width: 760px) {
-  .explainer.ex-compact { flex-direction: column; gap: 4px; }
-  .explainer.ex-compact .ex-svg { flex: none; width: 140px; }
+  /* a phone: the picture shrinks beside the words, so the hook and what the part does show without scrolling the preview */
+  .explainer.ex-compact { gap: 8px; }
+  .explainer.ex-compact .ex-svg { flex: 0 0 108px; width: 108px; border-width: 2px; }
+  .explainer.ex-compact .ex-hook { font-size: 17px; }
+  .explainer.ex-compact .ex-does, .explainer.ex-compact .ex-trade { font-size: 16px; }
 }
 /* colours: fills (ex-f-) and strokes (ex-s-) */
 .ex-f-metal { fill: var(--pal-metal, #c4b396); } .ex-s-metal { stroke: var(--pal-metal, #c4b396); }
