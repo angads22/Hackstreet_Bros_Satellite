@@ -107,6 +107,9 @@
       return s.month_name + ": " + num(r.ice_extent_mkm2, 1) + " million km\u00b2 of Arctic ice" +
         (r.daylight_share === 0 ? ", polar night" : "") + " (NSIDC " + r.year + ")";
     }
+    if (typeof r.soundings === "number") {
+      return s.month_name + ": Alouette heard " + num(r.soundings, 0) + " soundings (Canadian Space Agency)";
+    }
     if (typeof r.sunspots === "number") {
       return s.month_name + (s.year ? " " + s.year : "") + ": sunspot number " + num(r.sunspots, 0) + " (SILSO)";
     }
@@ -323,6 +326,10 @@
       next ? el("p", { class: "nasa-line", text: "Try a new topic: " + next.name + "." }) : null,
       lessons.length ? el("p", { class: "nasa-line", text: "Shown in flight: " + lessons.join("; ") + "." }) : null,
       result.bailout ? el("p", { class: "part-note", text: "An emergency grant of " + UI.money(result.bailout_musd) + " topped up the treasury." }) : null,
+      typeof result.science_pts_earned === "number"
+        ? el("p", { class: "nasa-line science-earned", text: "Science points: +" + UI.num(result.science_pts_earned, 1) +
+            (result.archive_sci ? ", +" + UI.num(result.archive_sci, 1) + " from the archive" : "") +
+            (typeof result.science_pts === "number" ? ", now " + UI.num(result.science_pts, 1) : "") }) : null,
       el("p", { class: "bar-note", text: "Treasury now " + UI.money(result.treasury_musd) + ", year " + result.year + "." })
     ]);
   }

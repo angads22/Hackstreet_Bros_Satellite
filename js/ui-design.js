@@ -323,7 +323,8 @@
     var totals = getTotals(state.design);
     if (inCampaign()) {
       var info = hubInfo();
-      return "CAMPAIGN" + (info ? " · " + info.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
+      return "CAMPAIGN" + (info ? " · " + info.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd) +
+        (info && isNum(info.science_pts) ? " · SCIENCE " + num(info.science_pts, 1) : "");
     }
     return t.name.toUpperCase() + (state.design.year ? " · " + state.design.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
   }
@@ -670,9 +671,12 @@
   // (The badge beside it is about how often the orbit looks, which is a different thing.)
   function inViewText(objectiveId, share) {
     var e = typeof EARTH !== "undefined" && EARTH ? EARTH[objectiveId] : null;
-    var what = objectiveId === "wildfire" ? "of the world's fire detections" : objectiveId === "sea-ice" ? "of the Arctic sea ice" : "of the target";
-    var src = e && e.source ? " (" + (objectiveId === "wildfire" ? "NASA FIRMS" : objectiveId === "sea-ice" ? "NSIDC Sea Ice Index" : "NASA data") + (e.year ? " " + e.year : "") + ")" : "";
-    return "In view: " + Math.round(share * 100) + "% " + what + src;
+    var KINDS = { "wildfire": ["of the world's fire detections", "NASA FIRMS"],
+                  "sea-ice": ["of the Arctic sea ice", "NSIDC Sea Ice Index"],
+                  "ionosphere": ["of Alouette's soundings", "Canadian Space Agency"] };
+    var kind = KINDS[objectiveId] || ["of the target", "NASA data"];
+    var src = e && e.source ? " (" + kind[1] + (e.year ? " " + e.year : "") + ")" : "";
+    return "In view: " + Math.round(share * 100) + "% " + kind[0] + src;
   }
   function drawOrbit() {
     var d = state.design;
