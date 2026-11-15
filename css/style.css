@@ -1119,3 +1119,4 @@ body[data-era="1958"] .tag { transform: rotate(-2deg); }
 body[data-era="1958"] .stamp { transform: rotate(-3deg); }
 body[data-era="1958"] .banner { font-weight: normal; }
 body[data-era="1958"] .say-text p { line-height: 1.1; }
+@media (max-width: 760px) { body[data-era="1958"] .say-text p { font-size: 22px; } }   /* a typed line wraps more than a pixel one: a phone gets a size down */
