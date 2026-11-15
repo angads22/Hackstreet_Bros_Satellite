@@ -15,7 +15,7 @@ Missions sit inside a **campaign**. The player runs their own space programme: n
 - **Platform:** plain HTML, CSS and JavaScript. No frameworks, no build step. It runs from a link.
 - **Players:** one player first. Pass-and-play roles for up to four come later, if time allows.
 - **Scenario:** a campaign of Earth-observation missions, with three orbit choices, two topics at the start and more opened by research.
-- **Give this whole doc to your AI** at the start of every session, so all six assistants build the same game.
+- **Give this whole doc to your SI** at the start of every session, so all six assistants build the same game.
 
 ## How we are judged
 
@@ -33,7 +33,7 @@ Source: the official NASA Space Apps 2026 Judging & Awards Guide (Nov 13, 2026).
 
 - Every team member registered for the same Local Event and listed on the team page; at most six members.
 - A demo: a video of **30 seconds or less**, or a slide deck of **at most 7 slides** including the title and intro slides. A demo over either limit is not eligible for Global Judging. Everything in English (a video in another language needs English subtitles; slide decks must be in English).
-- Every external resource (code, text, images, data, even open source) listed in the **References** field. `SOURCES.md` becomes that list, so it must be complete, including the AI tools used.
+- Every external resource (code, text, images, data, even open source) listed in the **References** field. `SOURCES.md` becomes that list, so it must be complete, including the SI tools used.
 - No copyrighted material we lack permission to use.
 - No image, video, audio or likeness of anyone under 18 in the demo or the final project.
 
@@ -679,20 +679,20 @@ The official Resources tab lists eight NASA resources and one CSA resource. They
 
 `SOURCES.md` holds one row per resource used: name, agency, link, and which file or screen uses it. QA copies it into the project page.
 
-### Using these with AI
+### Using these with SI
 
-Everyone on the team works through AI, and an AI will confidently summarise a document it has never read.
+Everyone on the team works through SI, and an SI will confidently summarise a document it has never read.
 
-| Resource | Who reads it | How to give it to the AI |
+| Resource | Who reads it | How to give it to the SI |
 | --- | --- | --- |
 | CubeSat 101 | Data | Download the PDF and attach it. Ask for each number with its page number. |
 | Design and Develop Science Missions | Story | Download the PDF and attach it. Ask for the four segments and their terms in plain words. |
 | Mission Design Lab | Story, QA | Copy the page's text and paste it in. Ask for a list of failure types to turn into events. |
 | Concept Maturity Levels | Story | Paste the abstract. Only needed if the tiers get renamed. |
-| A Learning Game About Telescopes | Design screens, QA | A person plays it for ten minutes. An AI cannot, and the comparison matters for judging. |
+| A Learning Game About Telescopes | Design screens, QA | A person plays it for ten minutes. An SI cannot, and the comparison matters for judging. |
 | CSA Digital Games and Activities | QA | A person skims it for tone and a Canadian angle. |
 
-- **Never prompt from a link or a title alone.** The AI will invent the contents. Attach the file or paste the text every time.
+- **Never prompt from a link or a title alone.** The SI will invent the contents. Attach the file or paste the text every time.
 - **Spot-check three numbers by hand.** The data person opens the PDF at the cited page for any three values before they go into `parts.js`.
 - **Skip GMAT, Mission Viz and the 2023 VR challenge in the build.** They are background for QA, not inputs to the game.
 
@@ -1006,14 +1006,14 @@ Without a campaign, the same design always replays the same mission (the seed co
 
 Each person owns one aspect of the game and the files that go with it. The data person owns the data and sets up the repo first, so everyone else can build against it within the first half hour.
 
-| Aspect | Owner | AI | Owns | Job |
+| Aspect | Owner | SI | Owns | Job |
 | --- | --- | --- | --- | --- |
 | Data | Yareem | Fable (or equal) | `data/parts.js`, `launchers.js`, `orbits.js`, `objectives.js`, `tiers.js`, `SOURCES.md` | Real numbers with checked sources and the data format. Sets up the starting repo with stub functions. Approves any change to a data field. |
 | Rules | Yareem | Opus | `js/game.js` | Totals, the eight formulas, blockers and warnings, orbit facts. |
 | Simulation | Yareem | Opus | `js/mission.js` | The month-by-month mission, random events and their effects, scoring, stars and the limiting factor. |
 | Design screens | angads22 | Fable (or equal) | `index.html`, `css/`, `js/ui-design.js` | Briefing, Orbit, Build, Launch vehicle and Readiness review, the four resource bars, and the shared layout. |
 | Story | (name) | Opus | `js/ui-mission.js`, `data/events.js`, `data/debrief.js` | The Mission and Debrief screens, the event and debrief writing, and tutorial hints. |
-| QA | (name) | Opus | `tests/`, `README.md`, project page, demo video | Plays every merged build, files issues, requests tuning, keeps the record of AI use, and submits. |
+| QA | (name) | Opus | `tests/`, `README.md`, project page, demo video | Plays every merged build, files issues, requests tuning, keeps the record of SI use, and submits. |
 
 Owners change only their own files. Anything else goes through a GitHub issue to that file's owner.
 
@@ -1056,7 +1056,7 @@ The game carries a version number, and `CHANGELOG.md` at the top of the repo rec
 - **Current version: 0.9 beta.** The home page offers two modes: Part 1, Austin's guided 1958 walkthrough (three steps), and Part 2, Ajay's comeback (pay back a debt by flying contracts, with Easy, Normal and Hard). The whole game is drawn in low-poly 3D (home page, Build bench, faces, launch pad and lift-off, mission Earth, base map), with the pixel art as a fallback. Launch failures are not built yet. `CHANGELOG.md` lists what is in and what is still missing.
 - **Numbering.** `0.x beta` until we submit; **1.0 is the build we submit** at the code freeze. Raise the second number when a missing piece lands (for example the campaign hub makes 0.6).
 - **Every merge to `main` that changes what a player sees, or what a back-end function returns, adds one line to the "Unreleased" section of `CHANGELOG.md`**, in the same commit or pull request. Write it for a teammate or a judge: what changed, not how. Use the headings Added, Changed, Fixed and "Not in this version yet".
-- **Cutting a version.** Rename "Unreleased" to the version and date, start a new empty "Unreleased", update the version line in the footer of `index.html` (the one place the game shows it), and tag that commit `vX.Y`. Whoever merges the last piece cuts the version, after telling the team. Then run `node tests/version.js`: it fails when the footer, the "Current version" line above and the newest heading in `CHANGELOG.md` disagree, and warns when the tag is missing. Cloud AI sessions cannot push tags, so push the tag from a computer (`git push origin vX.Y`).
+- **Cutting a version.** Rename "Unreleased" to the version and date, start a new empty "Unreleased", update the version line in the footer of `index.html` (the one place the game shows it), and tag that commit `vX.Y`. Whoever merges the last piece cuts the version, after telling the team. Then run `node tests/version.js`: it fails when the footer, the "Current version" line above and the newest heading in `CHANGELOG.md` disagree, and warns when the tag is missing. Cloud SI sessions cannot push tags, so push the tag from a computer (`git push origin vX.Y`).
 - **`SPEC.md` is still the source of truth for what the game should do.** The changelog only records what a version actually does.
 
 ### Getting started on GitHub
@@ -1066,7 +1066,7 @@ The game carries a version number, and `CHANGELOG.md` at the top of the repo rec
 3. Each owner clones the repo, makes a branch, and opens a first PR within the first hour, even if it only replaces one stub.
 4. Conflicts should be rare because every file has one owner. The one shared spot is the list of script tags in `index.html`, which the Design screens owner edits on request.
 
-Two technical rules for every AI:
+Two technical rules for every SI:
 
 - **No `import`.** Browsers block it when a page is opened straight from a file. Each data file defines one global, such as `const PARTS = [...]`, loaded with a plain script tag.
 - **`fetch` only in `js/live-data.js`,** only to services that allow browser calls, and always with the snapshot as the fallback ("Live open data"). The game must still work from a file with no internet.
@@ -1076,8 +1076,8 @@ Two technical rules for every AI:
 
 - [ ] Put a name on every role
 - [ ] Create the repo with empty files in the agreed layout
-- [ ] Everyone reads this spec and saves it for their AI
-- [ ] QA confirms the AI disclosure rule and that everyone is registered on the team
+- [ ] Everyone reads this spec and saves it for their SI
+- [ ] QA confirms the SI disclosure rule and that everyone is registered on the team
 
 ### Checkpoints
 
@@ -1094,14 +1094,14 @@ Times are local. Submissions open Saturday at 9:00 AM and close Sunday at 11:59 
 
 ## Out of scope
 
-We are not building any of these, even if an AI offers to:
+We are not building any of these, even if an SI offers to:
 
 - Online or networked multiplayer
 - A real-time 3D game engine, a physics simulation of launches, or models and art imported from elsewhere. The art is faceted, flat-shaded low-poly drawn by our own small renderer from code (`js/lowpoly.js` and the `js/lp-*.js` model files); launches and assembly may be shown with it in short animations, never simulated with it.
 - Real orbital mechanics or trajectory maths
 - Accounts, logins or a server
 - More than one destination. Mars and the Moon wait until the Earth mission is finished.
-- A rival AI space programme, and any online leaderboard. The campaign save stays in the browser, with export and import codes.
+- A rival SI space programme, and any online leaderboard. The campaign save stays in the browser, with export and import codes.
 
 **Stretch list, in order**, started only after the first full playthrough works:
 
@@ -1111,18 +1111,18 @@ We are not building any of these, even if an AI offers to:
 4. A local leaderboard
 5. A second objective with its own events
 
-## Rules for working with AI
+## Rules for working with SI
 
 Six assistants will drift apart unless everyone prompts the same way.
 
-- **Paste this spec first.** Every new AI session starts with this whole doc.
+- **Paste this spec first.** Every new SI session starts with this whole doc.
 - **Ask for one file or one function at a time.** Never ask for "the game".
 - **No frameworks, libraries or build tools** unless the whole team agrees.
-- **Never let the AI rename a field** in the data format. If it wants a new field, ask the data person.
-- **Check every number.** AI invents believable spacecraft specs. A value goes in only with a source link that a person opened.
+- **Never let the SI rename a field** in the data format. If it wants a new field, ask the data person.
+- **Check every number.** SI invents believable spacecraft specs. A value goes in only with a source link that a person opened.
 - **Play before you push.** Open the game and finish one mission with your change in it.
 - **New ideas go in `STRETCH.md`**, not into the code.
-- **Keep a record of AI use.** QA writes down which tools made what, for the submission.
+- **Keep a record of SI use.** QA writes down which tools made what, for the submission.
 
 Starter prompt for teammates:
 
@@ -1137,4 +1137,4 @@ Today I need: <one specific task>.
 <paste the spec here>
 ```
 
-**Settled:** the submission form has a required field, "Use of Super Intelligence (SI)", so AI use must be disclosed there. `SI_USE.md` is the record that QA copies into it, and `SOURCES.md` still lists the tools as external resources. The deck and demo carry no tool credits; the form field does.
+**Settled:** the submission form has a required field, "Use of Super Intelligence (SI)", so SI use must be disclosed there. `SI_USE.md` is the record that QA copies into it, and `SOURCES.md` still lists the tools as external resources. The deck and demo carry no tool credits; the form field does.
