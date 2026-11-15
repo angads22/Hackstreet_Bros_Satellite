@@ -5,6 +5,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 ## Unreleased
 
 - **Fewer words.** Events are a short title, one line and one-to-three-word choices; the debrief, hints, briefings, launch checks and client reasons say the same in about half the words.
+- **Clearer Build.** A part that adds nothing to the job gets a WHY box (what the job wants against what the part is); Part 2 shows PROFIT (green or red) on Build and first on the debrief; selecting a part shows one line of what it does with its animation; a body leads with what it CARRIES and says what it WEIGHS.
 
 ## 1.0 (November 15, 2026)
 

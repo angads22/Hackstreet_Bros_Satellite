@@ -2799,6 +2799,7 @@
     }
     var dl = t.delta || {};
     var bits = [];
+    if (p.category === "structure" && isNum(p.payload_kg) && t.adding) bits.push("carries " + num(p.payload_kg, 0) + " kg");   // the same two numbers as the card: CARRIES, then what it weighs
     if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
     if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
     if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");

@@ -61,6 +61,10 @@ async function part2Build(p, topic) {
   ok(await p.locator('#preview .part-why').count() === 0, 'WHY: not shown in Part 1 for a part that counts');
   await p.click(`[data-key="${good.key}"]`); await p.waitForTimeout(200);
   ok(await p.locator('.part-why').count() === 0, 'WHY: not shown after a part that counts is placed');
+  const sel1 = await p.evaluate(() => { const f = document.querySelector('#preview figure.explainer'); return f ? { part: f.getAttribute('data-part'), lines: f.querySelector('figcaption').children.length } : null; });
+  ok(!!sel1 && sel1.part === goodId && sel1.lines === 1, 'click: selecting a part shows its explainer as one line');
+  await p.focus(`[data-key="${cards[1].key}"]`); await p.waitForTimeout(100);
+  ok(await p.evaluate(id => { const f = document.querySelector('#preview figure.explainer'); return !!f && f.getAttribute('data-part') === id && f.querySelector('figcaption').children.length === 1; }, cards[1].key.replace('part-', '')), 'keyboard focus: the same one-line explainer');
   // No money in Part 1.
   ok(await p.locator('.profit, [data-key="profit-line"], [data-key="contract-pay"]').count() === 0 && !/PROFIT/.test(await p.evaluate(() => document.body.innerText)), 'Part 1 Build: no PROFIT line');
 
@@ -107,6 +111,21 @@ async function part2Build(p, topic) {
   ok(await T.noScroll(p), 'phone Build: no sideways scroll');
   await p.screenshot({ path: path.join(shots, 'clarity-p1-tap-390.png') });
   ok(errors.length === 0, 'no console errors on the phone ' + errors.join(' | '));
+  await ctx.close();
+
+  // ================================================================ Part 1's debrief: no money, so no PROFIT
+  console.log('[Part 1, step 1, the debrief]');
+  ({ p, errors, ctx } = await open(b, { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 1 }));
+  await part1Build(p);
+  await T.addParts(p, T.WALK[1].parts);
+  await p.click('.nav-row .btn.primary'); await T.waitHead(p, 'READINESS');
+  await p.locator('.btn.big').click(); await T.waitHead(p, 'MISSION');
+  await T.fly(p, 'first');
+  ok(await T.waitHead(p, 'DEBRIEF'), 'Part 1 step 1 reaches its debrief');
+  await p.waitForTimeout(800);
+  ok(await p.locator('.profit, .profit-band, [data-key="debrief-profit"], .cb-result').count() === 0 && !/PROFIT|\$/.test(await p.locator('#app').innerText()), 'Part 1 debrief: no PROFIT and no money');
+  await p.screenshot({ path: path.join(shots, 'clarity-p1-debrief-1366.png') });
+  ok(errors.length === 0, 'no console errors in the Part 1 debrief ' + errors.join(' | '));
   await ctx.close();
 
   // ================================================================ Part 2, Normal, 1366x768
