@@ -1717,7 +1717,8 @@
     }
   }
 
-  function go(screen) {
+  function go(screen, bin) {
+    if (screen === "build" && state.screen !== "build" && state.design) state.bin = entryBin(state.design, bin);
     var i = DESIGN_STEPS.indexOf(screen);
     if (i > state.reached) state.reached = i;
     bumpReached();                         // a preset place counts as visited once the one before it is
@@ -1838,6 +1839,12 @@
     return c.text;   // an id this list does not know: the back end's own words
   }
 
+  // The bin a FIX line opens on Build: the empty one for "NO POWER" and the like, else none (Build picks).
+  function fixBin(c) {
+    var id = String(c && c.id || "");
+    return id.indexOf("empty-") === 0 && byId(categories(), id.slice(6)) ? id.slice(6) : null;
+  }
+
   function checkList(design, opts) {
     opts = opts || {};
     var checks = runChecks(design);
@@ -1855,7 +1862,7 @@
         el("span", { class: "check-text" }, [icon(row.kind === "bad" ? "blocker" : "warning"), el("strong", { text: label }),
           label !== row.c.text ? el("details", { class: "more why" }, [el("summary", { text: "Why" }), el("span", { text: row.c.text })]) : null]),
         opts.fix && target !== state.screen
-          ? el("button", { type: "button", class: "fix", onclick: function () { go(target); },
+          ? el("button", { type: "button", class: "fix", onclick: function () { go(target, fixBin(row.c)); },
               "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
           : el("span", { class: "status", text: row.status })
       ]);
@@ -2373,19 +2380,19 @@
 
     state.avail = availability(d);   // one call per screen refresh; partCard reads it
     var cats = categories();
-    // The open bin: the one the player chose, else the instrument bin ("the reason we fly"), else the first.
+    // The open bin: the one chosen on the way in (entryBin) or by the player, else the instrument bin, else the first.
     var cat = byId(cats, state.bin) || byId(cats, "instrument") || cats[0];
     var body = getTotals(d).body || null;   // { name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null
     var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(cats.map(function (c) {
       var n = count[c.id] || 0;
       var need = c.required && !n;
-      // With a body fitted, each bin shows how many of its slots are used ("2 / 3").
+      // With a body fitted, each bin shows how many of its slots are used ("2 / 3 slots", "1 / 1 slot"). A kind of
+      // part the body has no slot for says so ("No room on this body", or "2 on board, no room").
       var slot = body && body.slots ? body.slots[c.id] : null;
-      if (slot && !slot.max && !slot.used) slot = null;   // no slots at all on this body
-      var noRoom = !!body && !slot && c.id !== "structure";
-      var over = !!slot && slot.used > slot.max;
-      var sub = need ? "Needed" : slot ? slot.used + " / " + slot.max + " slots" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
-        : n ? n + " on board" : c.sub;
+      var noRoom = !!body && c.id !== "structure" && !(slot && slot.max);
+      var over = noRoom ? n > 0 : !!slot && slot.used > slot.max;
+      var sub = need ? "Needed" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
+        : slot ? slot.used + " / " + slot.max + (slot.max === 1 ? " slot" : " slots") : n ? n + " on board" : c.sub;
       return el("button", {
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
         onclick: function () { state.bin = c.id; state.hover = null; redraw(); showShelf(); }
@@ -2393,7 +2400,7 @@
         icon(c.id) || art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
         el("span", { class: "bin-text" }, [
           el("span", { class: "bin-name", text: c.name }),
-          el("span", { class: "bin-sub" + (need || over || (noRoom && n) ? " need" : ""), text: sub })
+          el("span", { class: "bin-sub" + (need || over ? " need" : ""), text: sub })
         ])
       ]);
     })));
@@ -2433,8 +2440,20 @@
       // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
       el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
         el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
-      navRow("launcher", true)
+      // With the rocket preset (Part 1), the next stop after the Workshop is the Launch Pad.
+      navRow(isPreset("launcher") ? "review" : "launcher", true)
     ]);
+  }
+
+  // The bin Build opens on: the one a FIX line asked for, else the first required bin still empty (the team's line
+  // talks about it), else the one the player had open. Chosen on the way in (go), never on a redraw, so the shelf
+  // never changes under the pointer after a click.
+  function entryBin(d, wanted) {
+    if (wanted) return wanted;
+    var have = {};
+    list(d.parts).forEach(function (id) { var p = byId(data("PARTS"), id); if (p) have[p.category] = true; });
+    var missing = categories().filter(function (c) { return c.required && !have[c.id]; })[0];
+    return missing ? missing.id : state.bin;
   }
 
   // A narrow screen stacks the Build screen: after a bin is picked, bring its parts (and the preview) into view.
