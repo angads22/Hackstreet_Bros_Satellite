@@ -1000,6 +1000,10 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .launch-show .launch-clock .countdown { font-size: clamp(40px, 8vw, 64px); }
 .launch-show[data-phase="liftoff"] .launch-word { color: var(--info-ink); }
 .launch-show .lp-launch { width: min(100%, 960px, calc((100vh - 230px) * 4 / 3)); }
+/* The finale: the Earth fades in over the end of the climb. */
+.launch-show .lp-fadein { animation: lp-fadein 0.9s ease-out both; }
+@keyframes lp-fadein { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .launch-show .lp-fadein { animation: none; } }
 .launch-status { margin: 0; min-height: 28px; font-family: var(--pixel); font-weight: 700; font-size: 24px; color: var(--text-dim); text-align: center; }
 /* The debrief's stars land one by one, the way Part 2's PAID stamp lands (upright: their own keyframes). */
 .panel.paper { overflow: hidden; }   /* a star lands from larger: it must not widen the page while it does */
@@ -1023,6 +1027,8 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
   .win-moment { padding: 10px 12px; }
   .win-discovery h2 { font-size: 19px; }
   .win-discovery p { font-size: 19px; }
+  /* The finale's status line ("IN ORBIT · SUN-SYNCHRONOUS POLAR ORBIT") wraps on a phone: room for two lines, so the Earth does not jump. */
+  .launch-status { min-height: 52px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .stamp-star.on { animation: none; }

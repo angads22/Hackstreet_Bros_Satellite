@@ -3534,18 +3534,23 @@
     }
   }
 
-  // The lift-off, about 9.5 s: T-MINUS 5 counts down to zero over the design's rocket on the low-poly pad (the arms
+  // The lift-off, about 14 s: T-MINUS 5 counts down to zero over the design's rocket on the low-poly pad (the arms
   // swing clear, the engines start, smoke billows), it lifts off on zero, climbs with the camera following, and leaves
-  // the frame; then done() opens the mission screen. A click or any key skips it (a SKIP button stays on screen the
+  // the frame. Then the camera pulls up and away over the Earth, the satellite lets go of its spent stage, and the
+  // player's OWN satellite (the model the Build bench shows) orbits along the chosen orbit's ring for about 4 s, more
+  // than one lap, the status line IN ORBIT with the orbit's name; then done() opens the mission screen. A click or any key skips it (a SKIP button stays on screen the
   // whole time). It only delays the screen change: the design is locked at the click and nothing can change it before
   // done(). With reduced motion, with no rocket chosen or without the 3D art, done() runs at once and nothing is shown.
   // The count is the show's clock, not the game's. The pad scene (js/lp-pad.js) has its own launch clock: 0 on the pad,
   // about 0.4 ignition, 3 lift-off, then the climb. It plays at its natural speed through the count, so lift-off lands
-  // on zero; only the climb is a little faster than natural.
-  var LAUNCH_COUNT = 5, LAUNCH_TICK_MS = 800, LAUNCH_HOLD_MS = 1000, LAUNCH_LIFTOFF_MS = 2000, LAUNCH_CLIMB_MS = 3500;
+  // on zero; only the climb is a little faster than natural. The finale is the Earth scene (js/lp-earth.js) on the same
+  // canvas, driven by this clock: its own time 0 is the end of the climb; the stage lets go at LAUNCH_SEP_S.
+  var LAUNCH_COUNT = 5, LAUNCH_TICK_MS = 800, LAUNCH_HOLD_MS = 1000, LAUNCH_LIFTOFF_MS = 2000, LAUNCH_CLIMB_MS = 2600;
   var LAUNCH_SCENE_LIFTOFF = 3, LAUNCH_SCENE_END = 9.8, LAUNCH_FOLLOW_UNTIL = 5, LAUNCH_FOLLOW_EASE = 2;
-  var LAUNCH_SHOW_MS = LAUNCH_COUNT * LAUNCH_TICK_MS + LAUNCH_LIFTOFF_MS + LAUNCH_CLIMB_MS, launchShowing = false;
-  // What the status line says from each moment (ms into the show).
+  var LAUNCH_FINALE_MS = 6000, LAUNCH_LAP_S = 3.4, LAUNCH_ORBIT_AT_MS = 2000;   // the orbit starts 2 s into the finale
+  var LAUNCH_PAD_MS = LAUNCH_COUNT * LAUNCH_TICK_MS + LAUNCH_LIFTOFF_MS + LAUNCH_CLIMB_MS, launchShowing = false;
+  // What the status line says from each moment (ms into the show). The finale adds ABOVE THE ATMOSPHERE, SEPARATION and
+  // IN ORBIT with the orbit's name (data/orbits.js) when it is shown.
   var LAUNCH_STATUS = [[0, "ALL SYSTEMS GO"], [1400, "ENGINES START"], [LAUNCH_COUNT * LAUNCH_TICK_MS, "CLEAR OF THE TOWER"],
     [LAUNCH_COUNT * LAUNCH_TICK_MS + LAUNCH_LIFTOFF_MS, "CLIMBING"]];
   function launchShow(done) {
@@ -3553,7 +3558,22 @@
     var row = chosenLauncher();
     if (reduce || !row || typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.pad !== "function") return done();
     var finished = false, box = null, timer = null, ticker = null, count = null, status = null, word = null;
-    var countMs = LAUNCH_COUNT * LAUNCH_TICK_MS, climbAt = countMs + LAUNCH_LIFTOFF_MS;
+    var countMs = LAUNCH_COUNT * LAUNCH_TICK_MS, climbAt = countMs + LAUNCH_LIFTOFF_MS, finaleAt = LAUNCH_PAD_MS;
+    // The finale: the player's own satellite in the Earth scene, on the chosen orbit. Without an orbit, the 3D Earth or
+    // the satellite model the show ends when the climb does.
+    var finale = null, showMs = LAUNCH_PAD_MS, d0 = state.design;
+    try {
+      var flat = d0 && d0.orbit && typeof LowPoly.scenes.earth === "function" && typeof LowPoly.scenes.satellite === "function" &&
+        typeof LowPoly.scenes.satellite.flat === "function" ? LowPoly.scenes.satellite.flat({ parts: list(d0.parts), data: data("PARTS") }) : null;
+      if (flat) finale = LowPoly.scenes.earth({ orbitId: d0.orbit, objectiveId: d0.objective, spin: 6, lap: LAUNCH_LAP_S, mesh: flat.mesh, size: 2.3, finale: true });
+      if (finale && !finale.orbit) finale = null;
+    } catch (e0) { finale = null; }
+    if (finale) {
+      showMs = LAUNCH_PAD_MS + LAUNCH_FINALE_MS;
+      var orb = byId(data("ORBITS"), d0.orbit), orbName = orb && orb.name ? String(orb.name).replace(/\s*\(.*?\)/g, "").toUpperCase() : "";
+      LAUNCH_STATUS = LAUNCH_STATUS.slice(0, 4).concat([[finaleAt, "ABOVE THE ATMOSPHERE"], [finaleAt + finale.finale.sep * 1000, "SEPARATION"],
+        [finaleAt + LAUNCH_ORBIT_AT_MS, "IN ORBIT" + (orbName ? " · " + orbName : "")]]);
+    } else LAUNCH_STATUS = LAUNCH_STATUS.slice(0, 4);
     var now = function () { return window.performance && performance.now ? performance.now() : Date.now(); };
     var start = now();
     function onKeyShow(e) {
@@ -3579,7 +3599,7 @@
       var left = Math.max(0, Math.ceil(LAUNCH_COUNT - ms / LAUNCH_TICK_MS));
       var text = "00:00:0" + left;
       if (count.textContent !== text) count.textContent = text;
-      var phase = left > 0 ? "count" : ms < climbAt ? "liftoff" : "climb";
+      var phase = left > 0 ? "count" : ms < climbAt ? "liftoff" : ms < finaleAt || !finale ? "climb" : "orbit";
       if (box.getAttribute("data-phase") !== phase) box.setAttribute("data-phase", phase);
       var say = "";
       LAUNCH_STATUS.forEach(function (s) { if (ms >= s[0]) say = s[1]; });
@@ -3596,14 +3616,26 @@
       return LAUNCH_FOLLOW_UNTIL + Math.min(1, (ms - climbAt) / LAUNCH_CLIMB_MS) * (LAUNCH_SCENE_END - LAUNCH_FOLLOW_UNTIL);
     }
     launchShowing = true;
-    timer = setTimeout(finish, LAUNCH_SHOW_MS);   // armed first: a hidden tab or a drawing error cannot hold the player here
+    timer = setTimeout(finish, showMs);   // armed first: a hidden tab or a drawing error cannot hold the player here
     try {
       var lp = lpCanvas(function (L) { return L.scenes.pad({ launcherId: row.id, launcher: row, ready: true }); }, "lp-launch");
       if (!lp) return finish();
-      var cam = lp.wrap.scene.camera, followed = null;
+      var cam = lp.wrap.scene.camera, followed = null, swapped = false;
       lp.wrap.setTime(0);
       lp.view.onFrame(function () {
-        var T = sceneAt(now() - start);
+        var ms = now() - start;
+        if (finale && ms >= finaleAt) {
+          // The same canvas now shows the Earth. The view is given the scene without its update(): this clock drives it.
+          if (!swapped) {
+            swapped = true;
+            lp.view.set({ scene: finale.scene, label: finale.label });
+            lp.canvas.classList.add("lp-fadein");
+          }
+          finale.fit(lp.canvas.clientWidth, lp.canvas.clientHeight);
+          finale.pose((ms - finaleAt) / 1000);
+          return;
+        }
+        var T = sceneAt(ms);
         lp.wrap.setTime(T);
         // The scene's camera follows the rocket up. From LAUNCH_FOLLOW_UNTIL it slows to a stop over LAUNCH_FOLLOW_EASE
         // seconds, so the rocket climbs out of the top of the frame instead of staying in it.

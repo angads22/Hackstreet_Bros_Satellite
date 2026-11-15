@@ -362,5 +362,21 @@
   satellite.sample = function (name) { return SAMPLES[name] ? SAMPLES[name].slice() : null; };
   satellite.sample.names = Object.keys(SAMPLES);
 
+  // The finished satellite as ONE mesh, for a scene that flies it (LowPoly.scenes.earth's opts.mesh): every part placed on
+  // the body exactly as the bench shows it (panels out), the lot centred on its bounding sphere, nadir -Y as built.
+  // opts = {parts, data}. Returns {mesh, radius} (radius: of that sphere), or null when there are no parts.
+  satellite.flat = function (opts) {
+    opts = opts || {};
+    var ids = isArr(opts.parts) ? opts.parts.slice() : [];
+    if (!ids.length) return null;
+    var lay = layout(ids, isArr(opts.data) ? opts.data : []), meshes = [lay.frame.mesh], i;
+    for (i = 0; i < lay.items.length; i++) {
+      meshes.push(lay.items[i].mesh);
+      if (lay.items[i].plate) meshes.push(lay.items[i].plate);
+    }
+    var s = sphereOf(meshes);
+    return { mesh: L.move(L.merge(meshes), -s.c[0], -s.c[1], -s.c[2]), radius: s.r };
+  };
+
   L.scenes.satellite = satellite;
 })();

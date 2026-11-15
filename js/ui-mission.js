@@ -44,10 +44,19 @@
     n.fastBtn = UI.button(">>", toggleFast, { aria: "Fast forward" });
     n.fastBtn.setAttribute("aria-pressed", "false");
 
-    // A small low-poly Earth with this orbit beside the month (LowPoly.scenes.earth); nothing without the 3D art.
+    // A small low-poly Earth with this orbit beside the month (LowPoly.scenes.earth); nothing without the 3D art. The
+    // satellite on the ring is the player's own (the model the Build bench shows), flying the whole mission at the
+    // mission's pace (setPace); the built-in one when the model cannot be made.
     var earth = UI.lpCanvas ? UI.lpCanvas(function (L) {
-      return typeof L.scenes.earth === "function" ? L.scenes.earth({ orbitId: design.orbit, objectiveId: design.objective, spin: 5 }) : null;
+      if (typeof L.scenes.earth !== "function") return null;
+      var flat = null;
+      try {
+        flat = typeof L.scenes.satellite === "function" && typeof L.scenes.satellite.flat === "function" ?
+          L.scenes.satellite.flat({ parts: UI.list(design.parts), data: UI.data("PARTS") }) : null;
+      } catch (e) { flat = null; }
+      return L.scenes.earth({ orbitId: design.orbit, objectiveId: design.objective, spin: 5, mesh: flat ? flat.mesh : null, size: 1.5 });
     }, "mission-earth") : null;
+    run.earth = earth ? earth.wrap : null;
 
     UI.mount("mission", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
@@ -86,9 +95,16 @@
 
   function stopTimer() { if (run && run.timer) { clearTimeout(run.timer); run.timer = null; } }
 
+  // The Earth's satellite flies at the mission's pace: held while the mission is paused or an event waits for an
+  // answer, five times faster in fast-forward (a month per 60 ms instead of 300). Under reduced motion it never moves.
+  function setPace() {
+    if (run && run.earth && typeof run.earth.setRate === "function") run.earth.setRate(run.paused || run.waiting ? 0 : run.fast ? TICK_MS / FAST_MS : 1);
+  }
+
   function schedule() {
     if (run.finishing) return;   // the mission is over: nothing may cancel the walk to the debrief
     stopTimer();
+    setPace();
     if (run.paused || run.waiting) return;
     run.timer = setTimeout(tick, run.fast ? FAST_MS : TICK_MS);
   }
@@ -143,6 +159,7 @@
   function askEvent(event) {
     run.waiting = true;
     stopTimer();
+    setPace();
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
     run.choices = UI.list(event.choices);

@@ -12,12 +12,23 @@
  *   opts.spin         degrees per second the Earth turns (default 5). The satellite keeps its pace
  *                     relative to the Earth (LEO about 6 laps per Earth turn, GEO exactly 1), so
  *                     spin 0 holds the whole scene still. Under prefers-reduced-motion it holds still.
+ *   opts.mesh         optional satellite mesh (body frame: nadir -Y, as LowPoly.scenes.satellite.flat gives it) that
+ *                     rides the ring instead of the built-in gold box and panels, scaled so it is about as big
+ *                     as that box (opts.size, default 1, makes it bigger or smaller). It does not turn its panels
+ *                     to the Sun. Without it nothing changes.
+ *   opts.lap          optional seconds per lap of the ring (default: LEO about 6 laps per Earth turn, GEO one).
+ *   opts.finale       true: the lift-off show's last scene. pose(time) from 0: the camera starts close and pulls
+ *                     up and away, the satellite rides the ring with a spent stage behind it that falls away
+ *                     (wrapper.finale = {sep, pull}: seconds at which the stage lets go and the pull-back ends).
+ *                     Drive it with pose(); the lift-off show hands the view a wrapper with no update().
  *   Heights use a compressed (logarithmic) scale, so LEO is a low ring and GEO is clearly farther
  *   out but nowhere near its true 6.6 Earth radii; the label says so.
  *   Extras: orbit = {id, altitude_km, inclination_deg, radius, laps_per_turn} (null without an orbit);
  *   fit(w, h) re-frames the camera for a canvas of that CSS size (the default framing suits any
  *   canvas from square to very wide, e.g. 390x400 and 1280x320; call it for taller canvases);
  *   pose(time) sets the scene to that many seconds of animation and returns the wrapper;
+ *   setRate(r) sets how fast update() runs the animation: 1 normal, 0 holds it, 5 five times faster (the mission
+ *   screen follows its pace with it);
  *   meshes = {globe, ring, satellite, overlay} (read-only, for thumbnails and tests).
  *
  * LowPoly.scenes.title(opts) -> { scene, update(t, dt), label, fit(w, h), meshes }
@@ -519,6 +530,31 @@
     return rFit / Math.sin(Math.atan(Math.tan(fov * DEG / 2) * Math.min(1, aspect)));
   }
 
+  // A satellite mesh a caller supplies (body frame: nadir -Y): centred on its bounding box, with the radius of the
+  // sphere round it. null for anything that is not a mesh with triangles.
+  function customSatellite(m) {
+    if (!m || !m.tris || !m.tris.length) return null;
+    var b = L.bounds(m), c = b.center, r = 0, i, k, v;
+    for (i = 0; i < m.tris.length; i++) for (k = 0; k < 3; k++) {
+      v = m.tris[i].v[k];
+      r = Math.max(r, Math.sqrt(Math.pow(v[0] - c[0], 2) + Math.pow(v[1] - c[1], 2) + Math.pow(v[2] - c[2], 2)));
+    }
+    return r > 1e-6 ? { mesh: L.move(m, -c[0], -c[1], -c[2]), radius: r } : null;
+  }
+  function easeOut(u) { u = clamp(u, 0, 1); var v = 1 - u; return 1 - v * v * v; }
+  // The spent stage that carries the satellite up in the finale: a white tank with a dark band and a nozzle, its
+  // axis along the orbit with the nozzle aft (+Z), in units of the satellite's radius.
+  var stageCache = null;
+  function stageMesh() {
+    if (stageCache) return stageCache;
+    var tank = L.cylinder(0.7, 0.7, 2.2, 10, 'white'), tb = L.bounds(tank);
+    tank = L.move(tank, -tb.center[0], -tb.center[1], -tb.center[2]);
+    var band = L.move(L.cylinder(0.72, 0.72, 0.18, 10, 'metalDark'), 0, 0.5, 0);
+    var nozzle = L.move(L.cone(0.5, 0.7, 8, 'graphite'), 0, -1.45, 0);
+    stageCache = L.rotate(L.merge([tank, band, nozzle]), -90, 0, 0);
+    return stageCache;
+  }
+
   // ===================================================================== scene: earth
   L.scenes.earth = function (opts) {
     opts = opts || {};
@@ -545,7 +581,9 @@
     items.push(earthItem);
     var overlayItem = overlay ? { mesh: overlay, pos: [0, 0, 0], rot: [0, theta0, 0], scale: 1 } : null;
     if (overlayItem) items.push(overlayItem);
-    var ring = null, sat = null, wings = null, proxyScale = 0;
+    var ring = null, sat = null, wings = null, proxyScale = 0, unit = 0, stage = null;
+    var fin = opts.finale ? { sep: 1.3, pull: 1.8, drop: 1.6 } : null, lap = num(opts.lap, 0), rate = 1;
+    var custom = customSatellite(opts.mesh);
     var light = { dir: vnorm([-0.55, 0.45, 0.7]), key: '#d8c9a6', ambient: '#4f5d78' };
     if (objective === 'solar') {
       var sunPos = sunPlacement(rFit);
@@ -556,9 +594,16 @@
       ring = ringMesh(orbit, 0.009 * rFit, 44, 'glowCool');
       items.push({ mesh: ring, pos: [0, 0, 0] });
       proxyScale = 0.26 * rFit / 1.13 / 2.3;
-      sat = { mesh: proxyMeshes().body, pos: [0, 0, 0], rot: [0, 0, 0], scale: proxyScale };
-      wings = { mesh: proxyMeshes().wings, pos: [0, 0, 0], rot: [0, 0, 0], scale: proxyScale };
-      items.push(sat, wings);
+      unit = proxyScale * 1.15 * Math.max(0.2, num(opts.size, 1));   // the built-in satellite is about 1.15 units from its centre
+      if (custom) {
+        sat = { mesh: custom.mesh, pos: [0, 0, 0], rot: [0, 0, 0], scale: unit / custom.radius };
+        items.push(sat);
+      } else {
+        sat = { mesh: proxyMeshes().body, pos: [0, 0, 0], rot: [0, 0, 0], scale: proxyScale };
+        wings = { mesh: proxyMeshes().wings, pos: [0, 0, 0], rot: [0, 0, 0], scale: proxyScale };
+        items.push(sat, wings);
+      }
+      if (fin) { stage = { mesh: stageMesh(), pos: [0, 0, 0], rot: [0, 0, 0], scale: unit }; items.push(stage); }
     }
     var beltItem = belts ? { mesh: belts, pos: [0, 0, 0], rot: [0, 0, 0] } : null;
     if (beltItem) items.push(beltItem);
@@ -570,7 +615,7 @@
       background: { color: 'space', stars: true, seed: 7 },
       label: label
     };
-    var time = 0;
+    var time = 0, baseDist = scene.camera.dist;
     function pose(tm) {
       time = num(tm, 0);
       var th = theta0 + spin * time;
@@ -578,30 +623,55 @@
       if (overlayItem) overlayItem.rot = [0, th + (cloudy ? 0.25 * spin * time : 0), 0];
       if (beltItem) beltItem.rot = [0, -0.4 * spin * time, 0];   // trapped particles drift around Earth
       if (orbit) {
-        var u = orbit.geostationary ? th + geoLongitude() : orbit.u0 + spin * orbit.laps_per_turn * time;
+        var u = lap > 0 ? orbit.u0 + 360 * time / lap : orbit.geostationary ? th + geoLongitude() : orbit.u0 + spin * orbit.laps_per_turn * time;
         var P = orbitPose(orbit, u), W = sunTrack(P, light.dir);
-        sat.pos = P.pos; wings.pos = P.pos;
+        sat.pos = P.pos;
         sat.rot = eulerFromAxes(P.X, P.Y, P.Z);
-        wings.rot = eulerFromAxes(W.X, W.Y, W.Z);
+        if (wings) { wings.pos = P.pos; wings.rot = eulerFromAxes(W.X, W.Y, W.Z); }
+        if (fin) poseFinale(u, P);
       }
       return wrapper;
     }
+    // The finale: the camera starts close above the ring and pulls up and away to the framing the ring fits in; the
+    // spent stage rides behind the satellite until 'sep', then lets go: it slows, tumbles and sinks toward the Earth.
+    function poseFinale(u, P) {
+      var e = easeOut(time / fin.pull);
+      scene.camera.dist = baseDist * (0.42 + 0.58 * e);
+      scene.camera.target = vscl(P.pos, 0.5 * (1 - e));
+      var gap = 2.4 * unit, sepU = lap > 0 ? orbit.u0 + 360 * fin.sep / lap : orbit.u0 + spin * orbit.laps_per_turn * fin.sep;
+      var gone = time - fin.sep;
+      if (gone >= fin.drop) { stage.hidden = true; return; }
+      stage.hidden = false;
+      var us = u, sink = 1, tumble = 0;
+      if (gone > 0) {
+        var k = gone / fin.drop;
+        us = sepU + (u - sepU) * 0.3;
+        sink = 1 - 0.35 * k * k;
+        tumble = 140 * gone;
+      }
+      var Q = orbitPose(orbit, us), eul = eulerFromAxes(Q.X, Q.Y, Q.Z);
+      stage.pos = vadd(vscl(Q.pos, sink), vscl(Q.Z, gap));
+      stage.rot = [eul[0] + tumble * 0.4, eul[1], eul[2] + tumble];
+    }
     function update(t, dt) {
-      if (spin === 0 || reducedMotion()) return false;
+      if (spin === 0 || rate <= 0 || reducedMotion()) return false;
       var step = num(dt, 0);
       if (!(step > 0)) return false;
-      pose(time + Math.min(step, 0.25));
+      pose(time + Math.min(step, 0.25) * rate);
       return true;
     }
     function fit(w, h) {
       var aspect = (w > 0 && h > 0) ? w / h : 1;
-      scene.camera.dist = fitDist(rFit, scene.camera.fov || CAM_FOV, Math.min(0.9, aspect * 0.95));
+      baseDist = fitDist(rFit, scene.camera.fov || CAM_FOV, Math.min(0.9, aspect * 0.95));
+      scene.camera.dist = baseDist;
+      if (fin) pose(time);
       return wrapper;
     }
+    function setRate(r) { rate = Math.max(0, num(r, 1)); return wrapper; }
     var wrapper = {
-      scene: scene, update: update, label: label, pose: pose, fit: fit,
+      scene: scene, update: update, label: label, pose: pose, fit: fit, setRate: setRate, finale: fin,
       orbit: orbit ? { id: orbit.id, altitude_km: orbit.altitude_km, inclination_deg: orbit.inclination_deg, radius: orbit.radius, laps_per_turn: orbit.laps_per_turn } : null,
-      meshes: { globe: globe, ring: ring, satellite: orbit ? L.merge([proxyMeshes().body, proxyMeshes().wings]) : null, overlay: overlay || belts }
+      meshes: { globe: globe, ring: ring, satellite: orbit ? (custom ? custom.mesh : L.merge([proxyMeshes().body, proxyMeshes().wings])) : null, overlay: overlay || belts }
     };
     pose(0);
     return wrapper;

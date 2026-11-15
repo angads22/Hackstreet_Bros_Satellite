@@ -38,8 +38,18 @@ function show(page, screen, parts, launcher) {
   }, [screen, parts || [], launcher || null]);
 }
 const noSideScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-// 20 s: LAUNCH plays the lift-off (about 9.5 s) before the Mission screen opens.
+// 20 s: LAUNCH plays the lift-off and the orbit finale (about 14.5 s) before the Mission screen opens.
 const head = (page, text) => page.locator('.screen-head h1', { hasText: text }).waitFor({ timeout: 20000 }).then(() => true, () => false);
+// The satellite riding the ring in a low-poly Earth canvas: its position and the time. The satellite is the first item with a
+// position that is not the origin (the stage, when there is one, comes after it). Also its model's triangle count.
+const satAt = (page, sel) => page.evaluate(sel => {
+  const c = document.querySelector(sel);
+  const v = c && c.__lowpolyView, it = v && v.scene.items.filter(i => i.pos && (i.pos[0] || i.pos[1] || i.pos[2]) && i.mesh && i.mesh.tris);
+  return it && it.length ? { p: it[0].pos.slice(), tris: it[0].mesh.tris.length, stage: it.length > 1 ? !it[it.length - 1].hidden : false, t: performance.now() } : null;
+}, sel);
+const angleBetween = (a, b) => { const d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2], m = Math.hypot(...a) * Math.hypot(...b); return Math.acos(Math.max(-1, Math.min(1, d / m))) * 180 / Math.PI; };
+// How many triangles the player's own satellite has (what the Build bench shows, as one mesh).
+const ownTris = (page, parts) => page.evaluate(parts => LowPoly.scenes.satellite.flat({ parts, data: StarlineUI.data('PARTS') }).mesh.tris.length, parts);
 // A fingerprint of a canvas's pixels (changes when anything moves).
 const pixels = (page, sel) => page.locator(sel).first().evaluate(c => { try { const s = c.toDataURL(); let h = 0; for (let i = 0; i < s.length; i += 7) h = (h * 31 + s.charCodeAt(i)) | 0; return h; } catch (e) { return null; } });
 
@@ -105,13 +115,36 @@ async function lowPolyOn(viewport, label) {
   ok(await page.locator('.screen-head h1', { hasText: 'READINESS' }).count() === 1, '...over the Readiness review (the screen has not changed yet)');
   await page.waitForTimeout(5500);
   await page.screenshot({ path: path.join(shots, `lowpoly-${label}-liftoff.png`) });
+  await page.waitForTimeout(6000);
+  await page.screenshot({ path: path.join(shots, `lowpoly-${label}-orbit.png`) });
   ok(await head(page, 'MISSION'), 'then the mission screen');
   const took = Date.now() - t0;
   console.log(`     lift-off lasted ${took} ms`);
-  ok(took > 8500 && took < 11000, 'the lift-off ends by itself in about 9.5 s');
+  ok(took > 13000 && took < 16500, 'the lift-off and the orbit finale end by themselves in about 14 s');
   ok(await page.locator('.launch-show').count() === 0, '...and is gone');
   ok(await page.locator('.mission-earth').count() === 1, 'the mission screen shows a small Earth with the orbit');
+  // The satellite on that ring is the player's own, and it keeps orbiting at the mission's pace: held while paused, much
+  // faster in fast-forward.
+  const own = await ownTris(page, PARTS), m0 = await satAt(page, '.mission-earth');
+  ok(m0 && m0.tris === own && own > 100, `the mission Earth's satellite is the player's own (${m0 && m0.tris} triangles, the bench's ${own})`);
+  const speed = async (ms) => {   // degrees per second along the ring, over a window of ms with no event waiting
+    const a = await satAt(page, '.mission-earth'); await page.waitForTimeout(ms); const b = await satAt(page, '.mission-earth');
+    return angleBetween(a.p, b.p) / ((b.t - a.t) / 1000);
+  };
+  const normal = await speed(500);
+  ok(normal > 15 && normal < 80, `the satellite orbits the whole mission (${normal.toFixed(0)} degrees a second)`);
+  await page.click('button[aria-label="Pause the mission"]');
+  await page.waitForTimeout(150);
+  const held = await speed(500);
+  ok(held < 0.5, `pausing the mission holds the satellite (${held.toFixed(2)} degrees a second against ${normal.toFixed(0)})`);
+  await page.click('button[aria-label="Resume the mission"]');
+  await page.click('button[aria-label="Fast forward"]');
+  let fast = 0;
+  for (let i = 0; i < 6; i++) if (!(await page.locator('[role="alertdialog"]').count())) fast = Math.max(fast, await speed(150));
+  ok(fast > 2.5 * normal, `fast-forward speeds it up (${fast.toFixed(0)} against ${normal.toFixed(0)} degrees a second)`);
+  await page.click('button[aria-label="Fast forward"]');
   // Past month 10 the month is wider: the Earth beside it must shrink, not wrap and push the screen down.
+  if (await page.locator('[role="alertdialog"]').count()) await page.locator('.choices .btn').first().click();
   const h0 = await page.locator('.mission-head').evaluate(e => e.offsetHeight);
   await page.click('button[aria-label="Fast forward"]');
   for (let i = 0; i < 300 && +(await page.locator('.month').innerText()).replace(/\D/g, '') < 12; i++) {
@@ -155,9 +188,9 @@ async function lowPolyOn(viewport, label) {
   await show(page, 'review', PARTS, 'small');
   await head(page, 'READINESS');
   await page.click('.btn.big');
-  const counts = [], phases = [], seen = [], says = [];
+  const counts = [], phases = [], seen = [], says = [], orbitSamples = [];
   let skipVisible = true, samples = 0;
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < 900; i++) {
     const s = await page.evaluate(() => {
       const box = document.querySelector('.launch-show'), c = box && box.querySelector('[data-key="launch-count"]');
       if (!box) return null;
@@ -171,15 +204,31 @@ async function lowPolyOn(viewport, label) {
     if (counts[counts.length - 1] !== s.n) { counts.push(s.n); phases.push(s.phase + (s.word === 'LIFT-OFF' ? '+word' : '')); }
     if (seen[seen.length - 1] !== s.phase) seen.push(s.phase);
     if (says[says.length - 1] !== s.say) says.push(s.say);
+    if (s.phase === 'orbit') { const o = await satAt(page, '.launch-show canvas'); if (o) orbitSamples.push(Object.assign(o, { say: s.say })); }
     await page.waitForTimeout(40);
   }
   console.log(`     the count read ${counts.join(', ')} (${phases.join(', ')}); phases ${seen.join(' > ')}; status: ${says.join(' / ')}`);
   ok(counts.length >= 5 && counts[0] > 3 && counts.every((n, i) => i === 0 || n === counts[i - 1] - 1), 'the lift-off counts down one at a time from more than 3');
   ok(counts[counts.length - 1] === 0, '...to zero before the mission screen opens');
   ok(phases.every((ph, i) => (counts[i] === 0) === (ph === 'liftoff+word')), '...and it says LIFT-OFF on zero, never before');
-  ok(seen.join(' > ') === 'count > liftoff > climb', '...then the lift-off and the climb follow the zero');
-  ok(says.length >= 3 && says.every(t => t.length > 0 && !/\d/.test(t)), 'a status line follows the sequence, with no numbers in it');
-  ok(skipVisible && samples > 100, 'SKIP stays on screen the whole time (' + samples + ' samples)');
+  ok(seen.join(' > ') === 'count > liftoff > climb > orbit', '...then the lift-off, the climb and the orbit follow the zero');
+  ok(says.length >= 6 && says.every(t => t.length > 0 && !/\d/.test(t)), 'a status line follows the sequence, with no numbers in it');
+  ok(says.indexOf('SEPARATION') > says.indexOf('CLIMBING') && /^IN ORBIT/.test(says[says.length - 1]) && says.indexOf('SEPARATION') === says.length - 2,
+    'the finale says SEPARATION, then IN ORBIT last');
+  ok(/sun-synchronous polar orbit/i.test(says[says.length - 1]), "...and IN ORBIT names the orbit from the data: " + says[says.length - 1]);
+  ok(skipVisible && samples > 150, 'SKIP stays on screen the whole time (' + samples + ' samples)');
+  // The satellite that orbits is the player's own, it separates from a stage, and it goes round the ring at least once.
+  // (The phase flips to "orbit" a frame before the canvas swaps to the Earth: the samples before the first Earth one, at most a few, are the pad.)
+  const all = orbitSamples.filter(Boolean), at0 = all.findIndex(x => x.tris === own), real = at0 < 0 ? [] : all.slice(at0);
+  ok(at0 >= 0 && at0 <= 3 && real.length > 30 && real.every(x => x.tris === own), `the orbiting satellite is the player's own model (${own} triangles) in all ${real.length} samples of the finale`);
+  ok(real.some(x => x.stage) && !real[real.length - 1].stage, '...the spent stage is there at first and has gone by the end');
+  // While the status line says IN ORBIT: for about 4 to 5 seconds, and at least one full lap of the ring.
+  const orbiting = real.filter(x => /^IN ORBIT/.test(x.say));
+  let travelled = 0;
+  for (let i = 1; i < orbiting.length; i++) travelled += angleBetween(orbiting[i - 1].p, orbiting[i].p);
+  const heldS = (orbiting[orbiting.length - 1].t - orbiting[0].t) / 1000;
+  ok(heldS >= 3.7 && heldS <= 5.5, `...it is IN ORBIT for about 4 to 5 seconds (${heldS.toFixed(1)} s)`);
+  ok(travelled >= 360, `...and it flies at least one full lap of its ring in that time (${travelled.toFixed(0)} degrees)`);
   ok(await head(page, 'MISSION'), '...then the mission screen');
 
   // The base map, when it is low-poly: the canvas sits under the markers, which keep their places.
@@ -261,6 +310,8 @@ async function reducedMotion(viewport, label) {
   await page.click('.btn.big');
   ok(await page.locator('.launch-show').count() === 0, 'no lift-off under reduced motion');
   ok(await head(page, 'MISSION'), 'LAUNCH opens the mission screen at once');
+  const s0 = await satAt(page, '.mission-earth'); await page.waitForTimeout(700); const s1 = await satAt(page, '.mission-earth');
+  ok(s0 && s1 && s0.p.join() === s1.p.join(), 'the satellite sits still on its orbit while the mission runs');
   await page.click('button[aria-label="Pause the mission"]');
   const e = await pixels(page, '.mission-earth'); await page.waitForTimeout(700); const f = await pixels(page, '.mission-earth');
   ok(e !== null && e === f, 'the mission Earth holds still');
