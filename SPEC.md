@@ -136,6 +136,24 @@ Readiness checks (only when a body is fitted, which becomes always once the swit
 | **Relevance** | The challenge asks for "different difficulty levels, mission types, or scenarios" and "simple and advanced components depending on the difficulty level". Eras are both, and they rest on NASA's own mission history (NSSDCA). | — |
 | **Presentation** | A 30-second demo can open in 1958 with Explorer 1 and close in 2026, which is a story in itself. The screens need only an era picker and slot counts on the body. | The research-tree screen is the biggest new screen; it is only needed for the campaign, so eras come first. |
 
+### Difficulty: how much help (proposed, November 15, our branch only)
+
+Higher levels hide **answers, never facts**. A blocker, a part's numbers and what limited the flight show on every level. What goes away is the game working out the answer for the player before the problem happens. Help that comes **after** the player met the issue (the debrief's "what limited this mission" and TRY THIS) stays on every level: it is the hints table, shown when you experience the issue.
+
+The level is read from the level's existing `hints` value, so there is no new data field: `on` is full help, `request` some, `off` minimal (`StarlineUI.assist(design)`). Part 1 uses `on`, so Austin's walkthrough is unchanged.
+
+| Help before a problem | Easy (`on`) | Normal (`request`) | Hard (`off`) |
+| --- | --- | --- | --- |
+| Hover preview: what a part fixes and causes | shown | hidden (numbers stay) | hidden |
+| Readiness: FIX links to the right screen | shown | hidden (NO GO lines stay) | hidden |
+| Readiness: science forecast bar, "short of target" | shown | shown | hidden |
+| Build pay line: what this design will earn, and the net | shown | shown | the contract's terms only ("Pays up to $X for N points") |
+| Event choices: the odds | "20% chance of losing the computer" | same | a band: "a small / a real / a likely chance" |
+| Debrief: what limited the flight, and TRY THIS | shown | shown | shown |
+| Hint box | on | on request | off |
+
+The Part 2 picker names this on each level's card ("Help: Full / Less / None"). Info-only changes do not move the comeback's simulated balance.
+
 ### Two game modes (approved November 15, replaces tier select)
 
 The home page offers **only two modes**. The era grid, the three levels as a separate choice and the 1957 campaign leave the screen. Their code stays (the back-end tests still use it), but no player reaches them.

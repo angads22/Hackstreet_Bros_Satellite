@@ -67,6 +67,12 @@
     ]);
   }
 
+  // What the level takes away (UI.assist): the help before a problem; the facts stay on every level.
+  function helpText(row) {
+    var h = row && row.hints;
+    return h === "off" ? "None: no forecasts, risks as bands" : h === "request" ? "Less: no part hints, no FIX links" : "Full";
+  }
+
   // ---------------------------------------------------------------- the difficulty picker
   function showPicker() {
     UI.leaveMission();
@@ -79,7 +85,8 @@
       return el("button", { type: "button", class: "cb-level", "data-key": "level-" + id, onclick: function () { start(id); } }, [
         el("span", { class: "cb-level-name", text: levelName(id) }),
         el("span", { class: "cb-level-tier", text: row ? String(row.name).toUpperCase() : "" }),
-        UI.facts([["Cash", money(t.cash_musd)], ["Debt", money(t.debt_musd)], ["Deadline", num(t.deadline_months, 0) + " months"]])
+        UI.facts([["Cash", money(t.cash_musd)], ["Debt", money(t.debt_musd)], ["Deadline", num(t.deadline_months, 0) + " months"],
+          ["Help", helpText(row)]])
       ]);
     });
     UI.mount("comeback-start", el("section", { class: "screen cb" }, [
