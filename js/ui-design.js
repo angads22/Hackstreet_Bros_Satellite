@@ -170,6 +170,10 @@
   //     `start` repeats `intro` (the same six beats); show only one of them.
   //   STORY.ajay.endings = { legend, comeback, close, sold, timeout, broke }, each { title, kicker, beats, line }.
   //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), mum.
+  //   STORY.journal = { title, part1, part2, next, locked }: the STORY SO FAR screen. part1 and part2 are lists of
+  //     { id, who, text, when }: one or two short lines each. `when` names the moment that unlocks the entry (js/ui-story.js
+  //     decides when it has come: start, step-1, step-2, step-3, offer, refused, sold, after-1, after-3). `next` holds the
+  //     few words for what to do now. No game number is written there: the debt and the months come from getComeback().
   var STORY = {
     title: "GRAVITRON",
     subtitle: "The Gravitronical Odyssey",
@@ -619,6 +623,44 @@
   STORY.ajay.interludes.offer.sell_hint = "The whole debt is cleared. The workshop and the notebook are gone.";
   STORY.ajay.interludes.offer.refuse_hint = "The debt stays. The workshop and the notebook stay yours.";
   STORY.ajay.interludes.start = STORY.ajay.intro.map(function (b) { return { who: b.who, text: b.text }; });
+
+  // The journal (STORY SO FAR): what the player has learned so far, one or two short lines per entry. An entry shows
+  // as "???" until its moment has come. Same voice as the scenes above; no digits, no money.
+  STORY.journal = {
+    title: "STORY SO FAR",
+    locked: "???",
+    part1: [
+      { id: "setup", who: "team", when: "start", text: "Sputnik beeps over our roof. Someone else got there first." },
+      { id: "rule-1", who: "notebook", when: "step-1", text: "Rule one: no power, no signal. Cells keep it alive." },
+      { id: "rule-2", who: "notebook", when: "step-2", text: "Rule two: every orbit has a night. The battery carries us." },
+      { id: "rule-3", who: "notebook", when: "step-2", text: "Rule three: data that never comes home proves nothing." },
+      { id: "discovery", who: "notebook", when: "step-3", text: "At the top, the counter went silent. Radiation, all round the Earth." },
+      { id: "voss", who: "team", when: "step-3", text: "Voss took the credit. Then he blamed Austin for the loss." },
+      { id: "box", who: "notebook", when: "step-3", text: "Austin shut the notebook in a box. His grandson opens it." }
+    ],
+    part2: [
+      { id: "lenders", who: "partner", when: "start", text: "The lenders want the debt back, or they take Grandpa's workshop." },
+      { id: "mum", who: "mum", when: "after-1", text: "Mum co-signed the loan with the house. Our house." },
+      { id: "iron-eclipse", who: "rival", when: "offer", text: "Iron Eclipse bought your patents for almost nothing." },
+      { id: "offer", who: "rival", when: "offer", text: "It will clear the debt, for the workshop and the notebook." },
+      { id: "refused", who: "partner", when: "refused", text: "You said no. Now you have to win it." },
+      { id: "sold", who: "rival", when: "sold", text: "You said yes. The debt is gone. So is the workshop." },
+      { id: "last-page", who: "notebook", when: "after-3", text: "His design was right. Voss changed it, then founded Iron Eclipse." }
+    ],
+    // What to do now, in a few words. Part 1 adds the step's name (from austin.steps) after "next".
+    next: {
+      part1: "Fly the next step.",
+      "part1-done": "Part one is done. On to the comeback.",
+      "part2-none": "Start the comeback from the home page.",
+      start: "Pick a contract. Fly it.",
+      fly: "Fly a contract. Data pays the debt.",
+      offer: "Answer Iron Eclipse first.",
+      late: "Time is short. Fly something cheap and sure.",
+      won: "Debt paid. Play again?",
+      sold: "Sold out. Play again for the other road.",
+      lost: "The keys are gone. Try again."
+    }
+  };
 
   // ---- the code that picks a line (no text below this point) ----
   // Every name here starts with "story" so it cannot clash with the rest of this file.
@@ -2499,7 +2541,11 @@
       el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
       el("h2", { text: M.name }),
       window.StarlineStory ? window.StarlineStory.counter() : null,
-      el("div", { class: "mode-foot" }, [extra.state || el("span"), el("div", { class: "mode-go" }, [go])])
+      el("div", { class: "mode-foot" }, [extra.state || el("span"),
+        // JOURNAL (js/ui-story.js): only when this part has something in it, and absent when that file is.
+        window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ part: key === "mode-part1" ? 1 : 2,
+          ifAny: true, back: function () { showDesignScreen("title"); }, key: "journal-" + key }) : null,
+        el("div", { class: "mode-go" }, [go])])
     ]);
   }
 
@@ -3381,6 +3427,9 @@
           // M and Esc go back into the place you stand at.
           el("div", { class: "keys-box" }, [el("h2", { class: "divided", text: "KEYS" }),
             el("p", { class: "keys" }, [el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " back inside"])]),
+          // The journal (js/ui-story.js): absent when that file is. Walking stops first so a walk cannot swap the screen under it.
+          window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ design: state.design,
+            before: stopWalking, back: function () { showDesignScreen("map"); }, key: "map-journal" }) : null,
           el("div", null, [isComebackDesign(state.design)
             ? button("BACK TO THE WORKSHOP", function () { window.showComebackHub(); }, { key: "map-workshop" })
             : inCampaign()
@@ -3736,6 +3785,7 @@
     // debrief, keeps the best stars of a step that passed and returns { step, passed, kept, best_stars, last } (null
     // for any other design; kept: this flight fell short but the step had passed before). startWalkStep(n) starts step n; showEpilogue() follows step 3.
     walkStep: walkStepOf,
+    walkStars: walkStars,   // read-only: the best stars of a passed Part 1 step, or null (the journal)
     walkResult: walkResult,
     startWalkStep: startWalkStep,
     showEpilogue: showEpilogue,
