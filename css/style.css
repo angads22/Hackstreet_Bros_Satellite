@@ -22,8 +22,18 @@
 --pal-ion: #8fd6c9;          --pal-flame: #f08a4b;
   --map-ground: #231e19;  --map-lot: #2c251f;     --map-road: #3c332b;    --map-dash: #5e5042;
   --map-sea: #1f4a50;     --map-wave: #2e6b72;    --map-shore: #66b0a6;
-  --pixel: "Pixelify Sans", "Courier New", monospace;
-  --mono: "VT323", "Courier New", monospace;
+  --pixel: "Digits", "Pixelify Sans", "Courier New", monospace;
+  --mono: "Digits", "VT323", "Courier New", monospace;
+}
+
+/* Digits only (U+0030-0039) come from a plain system monospace font, so a 5 never reads as an S
+   in the pixel headings. Letters keep the pixel fonts; if none of these fonts is installed the
+   digits fall back to the pixel font as before. Uses installed fonts, so nothing is downloaded. */
+@font-face {
+  font-family: "Digits";
+  src: local("Consolas"), local("Menlo"), local("DejaVu Sans Mono"), local("Liberation Mono"), local("Courier New"), local("Courier");
+  unicode-range: U+0030-0039;
+  font-weight: 400 700;
 }
 
 * { box-sizing: border-box; }

@@ -4,6 +4,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- **Readable numbers.** Digits are drawn in a plain system monospace font (Consolas, Menlo, DejaVu Sans Mono, Liberation Mono or Courier New) while letters keep the pixel fonts, so a 5 no longer reads as an S in "NO GO. 5 TO FIX" or "$5M". If none of those fonts is installed the digits fall back to the pixel font.
 - Icons use one spacing rule, part-card separators stay with their values, and the Rocket Yard has its own rocket icon. Instrument-card science says "up to" to distinguish its potential from the flight forecast.
 - Readiness says READY or HOLD instead of showing a countdown that never moves. The debrief explains the science requirement for a third star; full stars get a success banner and an expanded real-mission comparison.
 
