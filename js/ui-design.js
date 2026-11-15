@@ -1079,7 +1079,8 @@
   ICONS.map = [["path", { d: "M1 3l4-2 6 2 4-2v12l-4 2-6-2-4 2z M5 1v12 M11 3v12" }]];
   ICONS.design = [["path", { d: "M2 13L12 3l2 2L4 15H2z" }]];
   ICONS.none = [["path", { d: "M2 8l4 4 8-9" }]];
-  ICONS.launcher = ICONS.propulsion;
+  ICONS.launcher = [["path", { d: "M5 11V5L8 1l3 4v6H5Z M5 8l-3 5h3 M11 8l3 5h-3 M6 14h4" }],
+    ["circle", { cx: 8, cy: 6, r: 1.3 }]];
   ICONS.event = ICONS.warning;
   ICONS.cost = ICONS.budget;
   // The six topics (objective ids), for Part 2's contract cards.
@@ -2504,8 +2505,9 @@
   function partStats(p) {
     var bits = [];
     function stat(kind, text) {
-      if (bits.length) bits.push(" · ");
-      bits.push(el("span", { class: "part-stat" }, [icon(kind), text]));
+      var separator = bits.length ? "· " : "";
+      if (bits.length) bits.push(" ");
+      bits.push(el("span", { class: "part-stat" }, [separator, icon(kind), text]));
     }
     if (p.mass_kg) stat("mass", num(p.mass_kg) + " kg");
     if (p.power_draw_w) stat("power", fine(p.power_draw_w) + " W draw");
@@ -2528,7 +2530,7 @@
     var f = getPartFacts(d, p.id) || {};
     var extra = [];
     if (f.power_gen_w) extra.push("+" + num(f.power_gen_w, 0) + " W");
-    if (isNum(f.science_per_month)) extra.push(num(f.science_per_month) + " sci/mo");
+    if (isNum(f.science_per_month)) extra.push("up to " + num(f.science_per_month) + " sci/mo");
     if (isNum(f.resolution_m)) extra.push(num(f.resolution_m) + " m detail");
     var note = f.counts === false ? "Does not count for this objective"
       : f.sharp_enough === false ? "Too blurry from this orbit" : null;
@@ -2554,7 +2556,11 @@
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
       el("span", { class: "part-stats" }, partStats(p)),
-      extra.length ? el("span", { class: "part-stats", text: extra.join(" · ") }) : null,
+      extra.length ? el("span", { class: "part-stats" }, extra.reduce(function (bits, text, i) {
+        if (i) bits.push(" ");
+        bits.push(el("span", { class: "part-stat", text: (i ? "· " : "") + text }));
+        return bits;
+      }, [])) : null,
       note ? el("span", { class: "part-note", text: note }) : null,
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
     ]);
@@ -2827,8 +2833,8 @@
       short ? " warn" : "", short ? "Short of the target" : null, "science") : null;
     var launchBtn = button(blocked ? "LAUNCH" : warned || short ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked });
     var control = el("div", { class: "panel launch-control" }, [
-      el("span", { class: "countdown-label", text: "T-MINUS" }),
-      el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
+      el("span", { class: "countdown-label", text: "LAUNCH STATUS" }),
+      el("span", { class: "countdown", text: blocked ? "HOLD" : "READY" }),
       el("p", { class: "verdict " + (blocked ? "bad" : warned || short ? "warn" : "ok"),
         text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
           : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),
