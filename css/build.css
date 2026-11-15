@@ -2,3 +2,10 @@
 /* v1.2 build.css: owned by builder B (the Build screen). Loads after style.css. */
 .vstrip-slot:empty { display: none; }
 @media (max-width: 929px) { .workshop > .bench-col > .vstrip-slot { order: -3; } }   /* one column: the verdict leads, like the PROFIT line */
+
+/* One count beside the satellite ("4 of 6 needed"); the bins say "Needed" more quietly, and only a bin in trouble ("no room") stays red. */
+.progress-count { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-size: 22px; }
+.progress-count.done { color: var(--info-ink); }
+.bin-sub.need { color: var(--text-dim); font-size: 17px; }
+.bin-sub.need.over { color: var(--bad); font-size: 18px; }
+.bin[aria-pressed="true"] .bin-sub.need { color: var(--on-accent); }

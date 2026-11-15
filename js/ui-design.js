@@ -2970,16 +2970,19 @@
         icon(c.id) || art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
         el("span", { class: "bin-text" }, [
           el("span", { class: "bin-name", text: c.name }),
-          el("span", { class: "bin-sub" + (need || over ? " need" : ""), text: sub })
+          el("span", { class: "bin-sub" + (need || over ? " need" : "") + (over ? " over" : ""), text: sub })
         ])
       ]);
     })));
 
-    var built = cats.filter(function (c) { return count[c.id]; }).length;
+    // One count beside the satellite: the bins the job requires (required: true) that have a part, of all that it requires.
+    var needed = cats.filter(function (c) { return c.required; });
+    var haveNeeded = needed.filter(function (c) { return count[c.id]; }).length;
     var chg = state.change; state.change = null;   // the drop-in animation runs on this draw only
     var bench = el("div", { class: "bench" }, [
       el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
-        el("span", { text: list(d.parts).length + " parts · " + built + " of " + cats.length + " systems" })]),
+        needed.length ? el("span", { class: "progress-count" + (haveNeeded === needed.length ? " done" : ""), "data-key": "progress-count" },
+          [haveNeeded === needed.length ? icon("ok") : null, haveNeeded + " of " + needed.length + " needed"]) : null]),
       satelliteArt(d, chg)
     ]);
 
