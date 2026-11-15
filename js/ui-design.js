@@ -2536,11 +2536,19 @@
     var objective = byId(data("OBJECTIVES"), d.objective);
     var orbit = byId(data("ORBITS"), d.orbit);
     var rocket = byId(data("LAUNCHERS"), d.launcher);
+    // The science this design should bring home if nothing goes wrong, against the job's target (previewScience),
+    // shown before the one click that cannot be undone. Short of the target: amber, and the button says ANYWAY.
+    var sci = d.objective && d.orbit && typeof previewScience === "function" ? previewScience(d) : null;
+    var short = !!sci && sci.target > 0 && sci.share < 1;
+    var forecast = sci && sci.target > 0 ? bar("SCIENCE FORECAST", num(sci.total, 0) + " / " + num(sci.target, 0) + " PTS", sci.share,
+      short ? " warn" : "", short ? "Short of the target" : null, "science") : null;
     var control = el("div", { class: "panel" }, [
       el("span", { class: "countdown-label", text: "T-MINUS" }),
       el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
-      el("p", { class: "verdict " + (blocked ? "bad" : warned ? "warn" : "ok"),
-        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "") : "ALL SYSTEMS GO" }),
+      el("p", { class: "verdict " + (blocked ? "bad" : warned || short ? "warn" : "ok"),
+        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
+          : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),
+      forecast,
       checkList(d, { fix: true }),
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
@@ -2548,7 +2556,7 @@
         ["Rocket", rocket ? rocket.name : "not chosen"],
         isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
       ]),
-      button(blocked ? "LAUNCH" : warned ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
+      button(blocked ? "LAUNCH" : warned || short ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
       null
     ]);
     return el("section", { class: "screen" }, [
