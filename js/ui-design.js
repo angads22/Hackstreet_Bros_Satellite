@@ -2149,18 +2149,21 @@
       // The rest of the briefing sits beside the card, not inside it (a button cannot hold a button).
       return el("div", { class: "card-wrap" }, [card, more(o.briefing, "About this job")]);
     });
+    // The "½" in a Counts row, said once under the cards (SPEC: the first type counts fully, the others half).
+    var half = objectives.some(function (o) { return !lockReason(avail.objectives, o.id) && list(o.wants).length > 1; });
     return el("section", { class: "screen" }, [
       head("1 · BRIEFING"),
       sayLine("briefing"),
       presetNote("briefing"),
       objectives.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No objectives in the data yet." }),
+      half ? el("p", { class: "preset-note", text: "½: counts half." }) : null,
       navRow("orbit", !!d.objective)
     ]);
   }
 
   // ---------------------------------------------------------------- 2 Orbit
   // "In view: 69% of the world's fire detections (NASA FIRMS 2025)": the share comes from getOrbitFacts.
-  // (The badge beside it is about how often the orbit looks, which is a different thing.)
+  // (The badge above it is how well the orbit suits the job, which is a different thing.)
   function inViewText(objectiveId, share) {
     var e = typeof EARTH !== "undefined" && EARTH ? EARTH[objectiveId] : null;
     var KINDS = { "wildfire": ["of the world's fire detections", "NASA FIRMS"],
@@ -2188,10 +2191,12 @@
       setOrbit(probe, o.id);
       var f = getOrbitFacts(probe);
       var fit = objective && objective.orbit_fit ? objective.orbit_fit[o.id] : undefined;
+      // How well this orbit suits the job (objective.orbit_fit), which is not the share in view printed below it:
+      // so the badge says FIT, never VIEW, and the two cannot contradict each other on one card.
       var badge = !isNum(fit) ? null
         : fit === 0 ? el("span", { class: "tag bad", text: "CANNOT SEE TARGET" })
-        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL VIEW" })
-        : el("span", { class: "tag good", text: "GOOD VIEW" });
+        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL FIT" })
+        : el("span", { class: "tag good", text: "GOOD FIT" });
       var card = el("button", {
         type: "button", class: "card" + (fit === 0 ? " dim" : ""), "aria-pressed": d.orbit === o.id ? "true" : "false",
         "data-key": "orbit-" + o.id, onclick: function () { setOrbit(d, o.id); redraw(); }
