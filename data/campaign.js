@@ -18,11 +18,13 @@ const CAMPAIGN = {
   // Every value is a GAME VALUE, tuned by simulating hundreds of comebacks per difficulty (see CHANGELOG.md): a run is short.
   // A sensible player wins Easy in 2 flights, Normal in 3 and Hard in 4, with a few months to spare; Hard is still won
   // about 9 times in 10 by a sensible player; a careless player (random parts) loses on every difficulty.
+  // Launch failure (data/launchers.js failure_chance) can cost a flight, so each deadline got six months (the same simulator:
+  // before the failures and the six months, after the failures alone, after both; see CHANGELOG.md).
   comeback: {
     tiers: {                  // per difficulty (tier id): Easy, Normal and Hard
-      training: { cash_musd: 5, debt_musd: 22, deadline_months: 36 },   // GAME VALUES
-      standard: { cash_musd: 4, debt_musd: 28, deadline_months: 42 },   // GAME VALUES
-      expert:   { cash_musd: 3, debt_musd: 34, deadline_months: 48 }    // GAME VALUES (and 3 events a flight, from data/tiers.js)
+      training: { cash_musd: 5, debt_musd: 22, deadline_months: 42 },   // GAME VALUES (was 36: six months more, for the extra flight a failed launch can cost)
+      standard: { cash_musd: 4, debt_musd: 28, deadline_months: 48 },   // GAME VALUES (was 42, same reason)
+      expert:   { cash_musd: 3, debt_musd: 34, deadline_months: 54 }    // GAME VALUES (was 48, same reason; and 3 events a flight, from data/tiers.js)
     },
     interest_per_month: 0.005,    // GAME VALUE: the debt grows by this share every month, compounded (about 6% a year)
     launch_campaign_months: 2,    // GAME VALUE: months from a finished satellite to its data reaching the client

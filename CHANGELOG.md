@@ -9,6 +9,14 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 ### Added
 
 - **STORY SO FAR, a journal.** A JOURNAL button on the base map, in the Part 2 workshop and on a home card (once something in that part is unlocked) opens a short list of what you have learned: Part 1's 1957 setup, the notebook's three rules as the steps are reached, the discovery, Voss and the box; Part 2's lenders, Mum's house, Iron Eclipse, the offer and what you answered (SELL or REFUSE), and Austin's last page. Each entry has a face and one or two short lines; what you have not found yet is a dim "???". Part 2 adds the debt and the months left from the back end, and what to do next in a few words. BACK or Esc return to where you were. It only reads (nothing is saved by opening it), and a comeback saved by 0.9 shows what it has already passed without replaying a scene.
+### Added
+
+- Part 2 (the comeback): a rocket can fail at launch. Every rocket has a failure chance (the 1950s rockets most, a modern Falcon 9 hardly ever); the dice are seeded, so the same run, design and flight always end the same way. A failed launch ends the flight at once: no data, the launch money gone, the contract still open, and a debrief that says "The rocket failed at launch". Part 1 stays safe. Each rocket card and the readiness review show a RISK LOW, MEDIUM or HIGH tag (the back end's `getLaunchRisk`), in the good, warn and bad colours.
+- Part 2: more in the way. Five new short mission events (solar, weather, wildfire, sea ice), and small complications between flights in the workshop (a client drops a contract, a price moves, a month is lost), one colour-tagged line each, drawn from the run's seed. Old saves keep everything and get an empty list of complications.
+
+### Changed
+
+- Part 2 deadlines are six months longer on every difficulty for new runs (a failed launch can cost a flight); a run already saved keeps its own. With the same simulator, a sensible player wins Easy 98%, Normal 60% and Hard 13% of the time before the failures, 93%, 47% and 12% with them, and 95%, 67% and 22% with the longer deadlines; a careless player still never wins.
 
 ## 1.0 (November 15, 2026)
 
