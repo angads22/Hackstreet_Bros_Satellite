@@ -188,5 +188,23 @@ var c9e = G.getCampaign(); c9e.tier = "expert"; G.saveCampaign(c9e);
 var hidden = G.getHubInfo().research.filter(function (r) { return r.id === "topside-sounding"; })[0].missing.join(" ");
 check("10 above Initial Feasibility, lesson conditions are hints", hidden.indexOf("Show in flight") === -1 && /scientists/.test(hidden), hidden);
 
+// 11. The core loop: each topic has a data cap; a flight with nothing new earns no reward.
+G.resetCampaign(); G.newCampaign("training");
+var rad = G.getObjective("radiation"), cap11 = rad.knowledge_scale * G.CAMPAIGN.cap_scales;
+var t11 = G.getHubInfo().topics.filter(function (t) { return t.id === "radiation"; })[0];
+check("11 the hub shows data collected against the cap", t11.data_cap === cap11 && t11.data_collected === 0 && !t11.complete);
+var half = G.payoutFor(rad, cap11 - 10, 50);
+check("11 only data under the cap is new", half.new_data === 10 && half.topic_complete && half.payout_musd > 0);
+var none = G.payoutFor(rad, cap11, 50);
+check("11 nothing new pays nothing", none.new_data === 0 && none.payout_musd === 0 && none.nothing_new);
+var c11 = G.getCampaign(); c11.knowledge_science.radiation = cap11; c11.research = ["solar-cells"]; G.saveCampaign(c11);
+var sci11 = G.getCampaign().science_pts;
+var m11 = fly(campaignDesign("radiation", "leo", "juno-1", ["cosmic-ray-counter", "silicon-cells", "mercury-battery", "minitrack-beacon", "command-timer"]));
+var d11 = G.getDebrief(m11), r11 = G.recordResult(m11);
+check("11 a flight on a finished topic earns no money and no science points",
+  m11.science > 0 && d11.nothing_new && d11.payout_musd === 0 && r11.science_pts_earned === 0 && r11.nothing_new, "science " + m11.science + " payout " + d11.payout_musd);
+check("11 and the hub marks the topic complete", G.getHubInfo().topics.filter(function (t) { return t.id === "radiation"; })[0].complete);
+check("11 the grant still arrives, so the programme can fly again", r11.grant_musd > 0 && G.getCampaign().treasury_musd >= G.cheapestLaunchCost(G.getCampaign()));
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

@@ -17,6 +17,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Changed
 
+- **The core loop: each mission type has a data cap, and rewards are for new data only.** A flight that brings back nothing new earns no money and no science points, and the debrief says to try another type. The hub's topics carry `data_collected`, `data_cap` and `complete`; `previewPayout` and the debrief carry `new_data`.
 - **Far fewer words on the design screens** (the team lead's "too many words"). Visible words fell about 40% overall: the briefing 73%, the rocket yard 57%, the debrief 52%, Build 46%. Cards now show a name and the numbers; what a job, an era or a part is about waits behind "About this job" or in the hover preview; each check shows a short label ("TOO HEAVY") with the full sentence behind "Why"; the debrief folds the four segments and the real missions into one line each; the map's controls are key caps; the one-line hint shows only the first time a screen is visited, and the "?" button brings it back.
 - **Polar orbits before 1995 need no disposal fuel,** as in history (Alouette 1 and Nimbus 1 reached them on a Thor-Agena); the debris rule dates from 1995.
 - **Less hand-holding.** On Trade Space and Point Design, research shows a hint instead of the exact lesson to earn.
