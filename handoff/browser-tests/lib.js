@@ -171,6 +171,11 @@ async function buyInfo(page, parts, groups) {
     }
   }
 }
+// ASK THE ENGINEERS for every part on the open shelf (the bin on screen).
+async function buyBin(page, groups) {
+  const ids = await page.$$eval('.part:not(.locked)', es => es.map(e => e.dataset.key.slice(5)));
+  await buyInfo(page, ids, groups);
+}
 // The cash in the header ("CASH $3.96M"), in millions of dollars.
 async function cashNow(page) {
   const t = await page.locator('#status').innerText();
@@ -183,4 +188,4 @@ async function stars(page) {
 }
 
 module.exports = { args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
-  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, buyInfo, cashNow, throughBeats, fly, stars, startComeback, launchContract };
+  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, buyInfo, buyBin, cashNow, throughBeats, fly, stars, startComeback, launchContract };

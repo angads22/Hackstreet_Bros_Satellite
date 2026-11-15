@@ -141,6 +141,7 @@ async function part2Build(p, topic) {
   await p.screenshot({ path: path.join(shots, 'clarity-p2-build-neg-1366.png') });
   // ---- WHY, on Part 2's Build (the solar contract wants solar and radiation instruments)
   await p.click('[data-key="bin-instrument"]');
+  await T.buyBin(p, ['performance', 'dossier']);   // Normal: what a part does and why is asked of the engineers (2.0)
   const cards2 = await p.evaluate(() => [...document.querySelectorAll('.part:not(.locked)')].map(c => ({ key: c.getAttribute('data-key'), note: (c.querySelector('.part-note') || {}).innerText || '' })));
   const bad = cards2.find(c => /Does not count/.test(c.note)), count2 = cards2.find(c => !c.note);
   ok(!!bad && !!count2, 'Part 2 Build has an instrument that does not count for the solar job and one that does');
@@ -234,6 +235,7 @@ async function part2Build(p, topic) {
   await p.screenshot({ path: path.join(shots, 'clarity-p2-build-390.png') });
   // The same Part 2 Build: an instrument that does not count shows WHY.
   await p.click('[data-key="bin-instrument"]');
+  await T.buyBin(p, ['performance', 'dossier']);   // Normal: what a part does and why is asked of the engineers (2.0)
   const wrong = await p.evaluate(() => [...document.querySelectorAll('.part:not(.locked)')].map(c => ({ key: c.getAttribute('data-key'), note: (c.querySelector('.part-note') || {}).innerText || '' })).find(c => /Does not count/.test(c.note)));
   if (wrong) {
     await p.locator(`[data-key="${wrong.key}"]`).scrollIntoViewIfNeeded();

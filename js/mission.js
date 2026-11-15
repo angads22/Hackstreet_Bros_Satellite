@@ -2080,8 +2080,9 @@ function flightProfit(mission) {
   if (!r || !isNumber(r.contract_paid_musd)) return null;
   var launch = mission.launch_totals ? mission.launch_totals.cost_musd : 0;
   var paid = round(r.contract_paid_musd + (r.contract_bonus_musd || 0), 3), events = r.event_costs_musd || 0;
-  return { paid_musd: paid, launch_musd: launch, event_costs_musd: events, cost_musd: round(launch + events, 3),
-           profit_musd: round(paid - launch - events, 3) };
+  var engineers = r.engineers_musd || 0;   // paid for part information before this launch (2.0): part of what the flight cost
+  return { paid_musd: paid, launch_musd: launch, event_costs_musd: events, engineers_musd: engineers, cost_musd: round(launch + events + engineers, 3),
+           profit_musd: round(paid - launch - events - engineers, 3) };
 }
 
 // Why a part adds nothing to the job (the Build screen's WHY box), in a few words, or null when it counts. Only

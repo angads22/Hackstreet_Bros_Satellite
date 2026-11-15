@@ -141,6 +141,9 @@ function fly(G, d) {
     G.infoFeesFor(cf, 1) === cents(paid1) && G.infoFeesFor(cf, 2) === 0);
   var m = fly(G, d), r = G.recordResult(m);
   check("8 the first flight's result carries the engineers' fees, and only that flight's", r && r.engineers_musd === cents(paid1), r && String(r.engineers_musd));
+  var fp = G.flightProfit(m);
+  check("8 the flight's profit counts the engineers as a cost (so it matches the cash ledger)", fp && fp.engineers_musd === cents(paid1) && fp.cost_musd === cents(fp.launch_musd + fp.event_costs_musd + paid1) &&
+    fp.profit_musd === cents(fp.paid_musd - fp.cost_musd), JSON.stringify(fp));
   check("8 the fees were paid before launch: the cash before launch already has them out", cashBefore === cents(f.h.cash_musd - paid1));
   // The second flight pays for its own information only.
   var h2 = G.getComeback(); if (h2.offer) G.refuseBuyout();
