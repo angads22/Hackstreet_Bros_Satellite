@@ -743,7 +743,10 @@ function limitingFactor(mission, totals, scienceShare) {
     if (sharper) return say("design", "Nothing ran short, but the science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
     return say("design", "Nothing ran short, but the science fell below target. No single change you can make earns more: try a different design.", null, "instruments");
   }
-  // In a campaign there is no "next tier": the next step is the lab, or another topic.
+  // In a campaign there is no "next tier": the next step is the lab, or another topic. A flight whose record ended
+  // the game (the debrief reads the advice after recordResult) has no next flight or contract.
+  var saved = mission.campaign_flight ? getCampaign() : null;
+  if (saved && saved.finished && isComeback(saved) === !!mission.comeback) return say("none", "Target reached. That was the last flight: see how it ends.");
   if (mission.comeback) return say("none", "Target reached. Pay back the lenders, or take the next contract.");
   if (mission.campaign_flight) return say("none", "Target reached. Spend the science in the lab, or fly a different topic.");
   // Tiers are chosen as a ladder only in the old tier select (no era); Part 1's steps and the last tier have no next one.

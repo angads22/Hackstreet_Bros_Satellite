@@ -308,6 +308,33 @@ function textProblems(obj, label) {
     ["nimbus-bus", "reaction-wheels", "avcs-camera", "solar-small", "radio-sband", "obc-radtol", "prop-green-small"]), 0);
   var lim = adviceOf(G, m);
   check("3 a target reached on the last tier does not send the player to a next tier", lim.key === "none" && !/next tier/.test(lim.suggestion), lim.suggestion);
+  // Part 1: the back end cannot see the step, so the line must fit all three (no tier, contract, lender or lab).
+  var basic = ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "minitrack-beacon", "command-timer", "silicon-cells", "mercury-battery"];
+  var p1 = [fly(eraDesign("igy", "training", "radiation", "leo", "vanguard-rocket", basic), 0), fly(eraDesign("igy", "training", "radiation", "leo", "juno-1", basic), 1)]
+    .map(function (x) { return G.getDebrief(x); });
+  check("3 Part 1: a target reached says something every step can do: no tier, contract, lender or lab",
+    p1.every(function (x) { return x.limiting === "none" && !/tier|contract|lender|lab\b|research/i.test(x.suggestion); }), p1.map(function (x) { return x.suggestion; }).join(" | "));
+  // Part 2: a flight with the game still on points to the lenders and the next contract; the flight that ends it does not.
+  var H = load({ storage: load.memoryStorage() });
+  H.newComeback("training");
+  function cbFlight(id, lastMonth) {
+    var c = H.getCampaign();
+    c.offers = c.offers.concat({ id: id, topic: "radiation", orbit: null, client: "A test client", reason: "It tests things.", min_science: 60,
+                                 price_musd: 10, bonus_musd: 2.5, expires_month: c.month + 12, done: false, text: "A test contract." });
+    if (lastMonth) c.deadline_month = c.month + 1;   // this flight's months run past the deadline: the game ends
+    H.saveCampaign(c);
+    var d = H.newComebackDesign(id); H.setOrbit(d, "leo");
+    ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf", "command-timer", "spin-stabilised", "cubesat-12u"].forEach(function (x) { H.addPart(d, x); });
+    H.setLauncher(d, "rideshare");
+    var m = H.startMission(d), st;
+    do { st = H.stepMonth(m); if (st.event) H.chooseEvent(m, 0); } while (!st.ended);
+    return { result: H.recordResult(m), debrief: H.getDebrief(m) };
+  }
+  var open = cbFlight("t-open", false), last = cbFlight("t-last", true);
+  check("3 Part 2: a target reached with the game still on points to the lenders and the next contract",
+    !open.result.campaign_over && open.debrief.limiting === "none" && /contract/.test(open.debrief.suggestion), open.debrief.suggestion);
+  check("3 Part 2: the flight that ends the game offers no next contract", last.result.campaign_over && last.debrief.limiting === "none" &&
+    !/contract|lender|tier/i.test(last.debrief.suggestion), last.debrief.suggestion);
 })();
 
 // ---- 4. Event text names no hardware the satellite may not carry: an event can fire on any design for its topic
