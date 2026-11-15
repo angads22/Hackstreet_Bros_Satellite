@@ -73,6 +73,13 @@
     return h === "off" ? "None: no forecasts, risks as bands" : h === "request" ? "Less: no part hints, no FIX links" : "Full";
   }
 
+  // What the level makes the player pay for (CAMPAIGN.comeback.info_free, "Paying engineers for part information").
+  function infoText(id) {
+    var cfg = config(), free = cfg && cfg.info_free ? cfg.info_free[id] : null;
+    if (!free || free.length >= 3) return "Free";
+    return free.length ? free[0].charAt(0).toUpperCase() + free[0].slice(1) + " free, rest paid" : "All paid";
+  }
+
   // ---------------------------------------------------------------- the difficulty picker
   function showPicker() {
     UI.leaveMission();
@@ -86,7 +93,7 @@
         el("span", { class: "cb-level-name", text: levelName(id) }),
         el("span", { class: "cb-level-tier", text: row ? String(row.name).toUpperCase() : "" }),
         UI.facts([["Cash", money(t.cash_musd)], ["Debt", money(t.debt_musd)], ["Deadline", num(t.deadline_months, 0) + " months"],
-          ["Help", helpText(row)]])
+          ["Help", helpText(row)], ["Part facts", infoText(id)]])
       ]);
     });
     UI.mount("comeback-start", el("section", { class: "screen cb" }, [
