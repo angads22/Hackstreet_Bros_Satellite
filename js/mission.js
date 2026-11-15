@@ -1911,12 +1911,16 @@ function contractSnapshot(k) {
   return k ? { id: k.id, topic: k.topic, orbit: k.orbit, client: k.client, reason: k.reason,
                min_science: k.min_science, price_musd: k.price_musd, bonus_musd: k.bonus_musd } : null;
 }
+// Computed on every call, never saved: the cheapest launchable design for the contract's topic and orbit
+// (cheapest_cost_musd) and what is left of the price after it (net_musd), or null when nothing can launch for it.
 function contractsList(c) {
   return (c.offers || []).filter(function (k) { return !k.done && k.expires_month > c.month; }).map(function (k) {
     var t = getObjective(k.topic), orb = k.orbit ? getOrbit(k.orbit) : null;
+    var cheapest = cheapestLaunchCost(c, k.topic, k.orbit), known = isFinite(cheapest);
     return { id: k.id, client: k.client, reason: k.reason, topic: k.topic, topic_name: t ? t.name : k.topic,
              orbit: k.orbit, orbit_name: orb ? orb.name : null, min_science: k.min_science, price_musd: k.price_musd,
-             bonus_musd: k.bonus_musd, expires_month: k.expires_month, months_left: k.expires_month - c.month, text: k.text };
+             bonus_musd: k.bonus_musd, expires_month: k.expires_month, months_left: k.expires_month - c.month, text: k.text,
+             cheapest_cost_musd: known ? cheapest : null, net_musd: known ? round(k.price_musd - cheapest, 3) : null };
   });
 }
 
@@ -2151,6 +2155,7 @@ function getComeback() {
     debt_musd: c.debt_musd,
     start_debt_musd: startDebt(c),
     interest_per_month: cfg ? cfg.interest_per_month : 0,
+    next_interest_musd: c.finished ? 0 : round(accrueInterest(c.debt_musd, 1) - c.debt_musd, 3),   // computed, never saved: what the debt grows by next month
     debt_paid_musd: paidSoFar(c),
     safe_pay_max_musd: safePayMax(c),
     cheapest_launch_musd: isFinite(cheapest) ? cheapest : null,

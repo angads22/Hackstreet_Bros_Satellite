@@ -11,7 +11,6 @@
   if (!UI) return;   // ui-design.js failed to load; nothing to draw with
   var el = UI.el, num = UI.num, money = UI.money;
 
-  var QUARTER = 0.25;             // the countdown turns to the accent colour with this share of the months left
   var PAY_SHARES = [0.25, 0.5, 0.75];   // PAY BACK buttons: these shares of the most that is safe to pay, rounded down
   var COMEBACK = { comeback: true };    // stands in for a design when the story is asked for Ajay's lines
   var hub = { note: "", bad: false, fresh: false, debtFrom: null };   // the last payment's message, and the meter before it
@@ -60,7 +59,8 @@
       opts.brief ? null : el("p", { class: "cb-client", text: k.client }),
       opts.brief ? null : el("p", { class: "cb-reason", text: k.reason }),
       el("div", { class: "cb-price" }, [el("strong", { text: money(k.price_musd) }),
-        el("span", { text: "+" + money(k.bonus_musd) + " FOR ★★★" })]),
+        el("span", { text: "+" + money(k.bonus_musd) + " FOR ★★★" }),
+        opts.best ? el("span", { class: "cb-best", "data-key": "best-pay" }, [UI.icon("ok"), "BEST PAY"]) : null]),
       el("p", { class: "cb-terms", text: "NEEDS " + terms }),
       opts.counts ? el("p", { class: "cb-terms", text: "COUNTS: " + opts.counts }) : null,
       opts.onFly ? UI.button(["FLY THIS", " >"], opts.onFly, { primary: true, key: "fly-" + k.topic, aria: "Fly this: " + k.topic_name + " for " + k.client }) : null
@@ -71,6 +71,23 @@
   function helpText(row) {
     var h = row && row.hints;
     return h === "off" ? "None: no forecasts, risks as bands" : h === "request" ? "Less: no part hints, no FIX links" : "Full";
+  }
+
+  // The order of the contracts on the board is itself an answer, so it follows the level's help (UI.assist's own rule:
+  // the level's `hints`): Easy ("on") sorts by net (price minus the cheapest known cost, from contractsList) and marks
+  // the best; Normal ("request") sorts, no mark; Hard ("off") keeps the back end's order, so Hard still decides. The sort
+  // is on a copy and stable (the same net keeps the back end's order); a contract with no known cost goes last.
+  function boardOrder(c) {
+    var list = UI.list(c.contracts), row = tierRow(c.tier), help = row && row.hints;
+    if (help !== "on" && help !== "request") return { list: list, best: null };
+    var sorted = list.map(function (k, i) { return { k: k, i: i }; }).sort(function (a, b) {
+      var x = typeof a.k.net_musd === "number" ? a.k.net_musd : -Infinity, y = typeof b.k.net_musd === "number" ? b.k.net_musd : -Infinity;
+      return y - x || a.i - b.i;
+    }).map(function (o) { return o.k; });
+    var first = sorted[0], second = sorted[1];
+    // Marked only when it really is the best: a known net, and strictly above the next one.
+    var best = help === "on" && first && typeof first.net_musd === "number" && (!second || !(typeof second.net_musd === "number") || first.net_musd > second.net_musd) ? first.id : null;
+    return { list: sorted, best: best };
   }
 
   // ---------------------------------------------------------------- the difficulty picker
@@ -198,45 +215,34 @@
     UI.setStatus(title());
     if (!hub.fresh) { hub.note = ""; hub.debtFrom = null; }
     hub.fresh = false;
-    var late = c.months_left <= c.deadline_month * QUARTER;
-    var tooLate = noFlightInTime(c);
     var last = UI.list(c.missions)[UI.list(c.missions).length - 1];
     var from = hub.debtFrom; hub.debtFrom = null;
 
-    var stakes = el("div", { class: "cb-stakes" }, [
-      el("div", { class: "cb-stat cb-debt", "data-key": "stat-debt" }, [
-        el("span", { class: "cb-stat-label", text: "DEBT" }),
-        el("strong", { class: "cb-stat-value", id: "cb-debt", text: money(c.debt_musd) }),
-        meter({ debt: c.debt_musd, cash: c.cash_musd, start: c.start_debt_musd }, from,
-          "Debt " + money(c.debt_musd) + " of " + money(c.start_debt_musd) + " at the start; cash " + money(c.cash_musd)),
-        el("span", { class: "cb-note" }, "INTEREST " + num(c.interest_per_month * 100, 2) + "% A MONTH" +
-          (c.debt_paid_musd > 0 ? " · PAID BACK " + money(c.debt_paid_musd) : ""))
-      ]),
-      el("div", { class: "cb-stat", "data-key": "stat-cash" }, [
-        el("span", { class: "cb-stat-label", text: "CASH" }),
-        el("strong", { class: "cb-stat-value cash", id: "cb-cash", text: money(c.cash_musd) })
-      ]),
-      el("div", { class: "cb-stat" + (late || tooLate ? " warn" : ""), "data-key": "stat-months" }, [
-        el("span", { class: "cb-stat-label", text: "MONTHS LEFT" }),
-        el("strong", { class: "cb-stat-value", id: "cb-months", text: num(c.months_left, 0) }),
-        tooLate ? el("span", { class: "cb-note", role: "alert", text: "No flight can land before the deadline." })
-          : late ? el("span", { class: "cb-note", text: (line("hub", "late") || {}).text || "" }) : null
-      ])
+    // The strip (js/ui-ledger.js) is the top of the screen: CASH, DEBT with next month's interest, MONTHS LEFT with its cue.
+    // The debt meter stays under it, and still moves from its old widths after a payment.
+    var L = window.StarlineLedger;
+    var stakes = L ? L.strip(c, { workshop: true, lateText: (line("hub", "late") || {}).text || "" }) : null;
+    var track = el("div", { class: "cb-track", "data-key": "stat-meter" }, [
+      meter({ debt: c.debt_musd, cash: c.cash_musd, start: c.start_debt_musd }, from,
+        "Debt " + money(c.debt_musd) + " of " + money(c.start_debt_musd) + " at the start; cash " + money(c.cash_musd)),
+      c.debt_paid_musd > 0 ? el("span", { class: "cb-note", text: "PAID BACK " + money(c.debt_paid_musd) }) : null
     ]);
 
     var situation = !c.flights ? line("hub", "start") : c.debt_musd < c.start_debt_musd / 2 ? line("hub", "halfway")
       : last && last.payout_musd > 0 ? line("hub", "paid") : null;
-    var jobs = UI.list(c.contracts).map(function (k) {
-      return contractCard(k, { onFly: function () {
+    var board = boardOrder(c);
+    var jobs = board.list.map(function (k) {
+      return contractCard(k, { best: k.id === board.best, onFly: function () {
         var d = typeof newComebackDesign === "function" ? newComebackDesign(k.id) : null;
         hub.note = "";
         if (d) window.showDesignScreen("map", d); else showComebackHub();
       } });
     });
 
-    UI.mount("comeback", el("section", { class: "screen cb" }, [
-      el("div", { class: "screen-head" }, [el("span", { class: "kicker", text: "PART 2 · " + levelName(c.tier) }), el("h1", { text: "THE WORKSHOP" })]),
+    UI.mount("comeback", el("section", { class: "screen cb cb-workshop" }, [
       stakes,
+      track,
+      el("div", { class: "screen-head" }, [el("span", { class: "kicker", text: "PART 2 · " + levelName(c.tier) }), el("h1", { text: "THE WORKSHOP" })]),
       say(line("why", c.flights)),
       el("div", { class: "panel cb-board" }, [
         el("h2", { text: "CONTRACTS" }),
@@ -298,5 +304,5 @@
   window.showComebackStart = showComebackStart;
   window.showComebackHub = showComebackHub;
   window.showComebackEnding = showComebackEnding;
-  window.StarlineComeback = { contractCard: contractCard, meter: meter, showPicker: showPicker };
+  window.StarlineComeback = { contractCard: contractCard, meter: meter, showPicker: showPicker, noFlightInTime: noFlightInTime };
 })();
