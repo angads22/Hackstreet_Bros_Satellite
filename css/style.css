@@ -17,6 +17,8 @@
   --pal-glass: #e9b04b;   --pal-red: #d9482f;     --pal-cell: #2e6b72;    --pal-cell-dark: #1f4a50;
   --pal-dark: #1d1915;    --pal-skin: #e0ae86;    --pal-hair: #5a3a24;    --pal-mouth: #7e3b30;
   --pal-portrait: #352b23; --pal-night: #1a1612;
+  --pal-metal-dark: #8e7f67;   --pal-cell-light: #4d9aa0;   --pal-gold-dark: #a8742a;
+--pal-ion: #8fd6c9;          --pal-flame: #f08a4b;
   --map-ground: #231e19;  --map-lot: #2c251f;     --map-road: #3c332b;    --map-dash: #5e5042;
   --map-sea: #1f4a50;     --map-wave: #2e6b72;    --map-shore: #66b0a6;
   --pixel: "Pixelify Sans", "Courier New", monospace;
@@ -437,6 +439,35 @@ button:disabled { cursor: not-allowed; }
 .campaign-panel { margin-top: 8px; }
 .tier-list.row { flex-direction: row; flex-wrap: wrap; }
 .tier-list.row .tier-btn { flex: 1 1 220px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { padding: 6px 16px; min-height: 44px; background: var(--surface); color: var(--text-dim); border: 4px solid var(--border); font-size: 22px; cursor: pointer; }
+.tab.on { background: var(--accent); color: var(--on-accent); border-color: var(--text); }
+.tab:not(.on):hover { border-color: var(--accent); }
+.gains li.good { color: var(--info-ink); }
+.gains li.bad { color: var(--bad); }
+.more summary { cursor: pointer; color: var(--info-ink); }
+.more[open] summary { margin-bottom: 4px; }
+.check-text { display: flex; flex-direction: column; min-width: 0; }
+.check-text strong { font-family: var(--mono); font-weight: normal; letter-spacing: 1px; }
+.why > summary { font-size: 16px; color: var(--text-dim); }
+.why span { font-size: 19px; }
+.science-total { font-family: var(--pixel); font-weight: 700; font-size: 28px; color: var(--accent-ink); }
+.card-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.card-wrap > .card { flex: 1; }
+.more > summary { display: inline-block; padding: 2px 0; font-size: 18px; }
+.preview-line.blurb { color: var(--text-dim); }
+.keys { font-size: 20px; }
+kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); border-bottom-width: 5px; font-family: var(--mono); font-size: 18px; color: var(--accent-ink); }
+
+/* ---- the story: one short spoken line with a portrait */
+.say { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: var(--surface); border-left: 8px solid var(--accent); }
+.intro { gap: 18px; }
+.intro-beats { display: flex; flex-direction: column; gap: 12px; }
+.big-title.small { font-size: clamp(36px, 8vw, 64px); text-shadow: 4px 4px 0 var(--stamp); }
+.say .portrait { flex: none; width: 64px; height: 64px; border-width: 3px; }
+.say-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.say-name { font-size: 16px; color: var(--accent-ink); letter-spacing: 1px; }
+.say-text p { font-size: 26px; line-height: 1.05; }
 .hub-facts { display: flex; flex-wrap: wrap; gap: 12px; }
 .hub-fact { display: flex; flex-direction: column; min-width: 150px; padding: 8px 14px; background: var(--surface); border: 4px solid var(--border); }
 .hub-fact span { color: var(--text-dim); font-size: 18px; }
@@ -655,3 +686,41 @@ button:disabled { cursor: not-allowed; }
 }
 
 [hidden] { display: none !important; }
+
+/* ---- satellite on the bench ---- */
+/* The drawing is one SVG; each part is a <g class="sat-p">. satelliteArt() sets is-new / is-gone when it
+   draws, and the screen is rebuilt on every click, so a class is all the animation needs to start. */
+.sat-bench { position: relative; width: 100%; max-width: 480px; padding: 6px; background: var(--surface); border: 4px solid var(--border); }
+.sat-bench .sat { display: block; width: 100%; max-width: none; height: auto; }
+.sat-small { max-width: 220px; padding: 3px; border-width: 3px; }
+.sat-p { transform-box: fill-box; transform-origin: 50% 100%; }
+.sat-p.is-new { animation: sat-drop 0.55s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
+.sat-p.is-gone { animation: sat-away 0.55s ease-in both; pointer-events: none; }
+@keyframes sat-drop {
+  0%   { transform: translateY(-9px); opacity: 0; filter: brightness(2.6); }
+  40%  { transform: translateY(0); opacity: 1; filter: brightness(2.2); }
+  58%  { transform: translateY(-2px); filter: brightness(1.6); }
+  76%  { transform: translateY(0) scaleY(0.94); filter: brightness(1.25); }
+  100% { transform: translateY(0) scaleY(1); filter: none; }
+}
+@keyframes sat-away {
+  0%   { transform: translateY(0); opacity: 0.85; filter: grayscale(1) brightness(1.5); }
+  100% { transform: translateY(12px); opacity: 0; filter: grayscale(1) brightness(1.5); }
+}
+.sat-tag { position: absolute; left: var(--x, 50%); transform: translate(calc(var(--x, 50%) * -1), -100%); width: max-content; max-width: 92%; z-index: 1; text-align: center; pointer-events: none; }
+.sat-tag span {
+  display: inline-block; padding: 3px 8px; background: var(--bg); color: var(--accent-ink);
+  border: 2px solid var(--accent); font-family: var(--pixel); font-size: 16px; line-height: 1;
+  animation: sat-tag 1.1s ease-out both;
+}
+.sat-small .sat-tag span { font-size: 12px; padding: 2px 5px; }
+@keyframes sat-tag {
+  0%   { opacity: 0; transform: translateY(4px); }
+  15%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-26px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sat-p.is-new { animation: none; }
+  .sat-p.is-gone, .sat-tag { display: none; }
+}

@@ -42,10 +42,8 @@
     n.fastBtn.setAttribute("aria-pressed", "false");
 
     UI.mount("mission", el("section", { class: "screen" }, [
-      el("div", { class: "screen-head" }, [
-        el("h1", { text: "6 · MISSION" }),
-        el("p", { text: "Your satellite is flying. Each tick is one month." })
-      ]),
+      el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
+      UI.say ? UI.say("mission-start", null) : null,
       el("div", { class: "mission-head" }, [
         el("div", { class: "stack" }, [n.month, n.of]),
         el("div", { class: "controls" }, [n.pause, n.fastBtn])
@@ -107,6 +105,9 @@
       return s.month_name + ": " + num(r.ice_extent_mkm2, 1) + " million km\u00b2 of Arctic ice" +
         (r.daylight_share === 0 ? ", polar night" : "") + " (NSIDC " + r.year + ")";
     }
+    if (typeof r.soundings === "number") {
+      return s.month_name + ": Alouette heard " + num(r.soundings, 0) + " soundings (Canadian Space Agency)";
+    }
     if (typeof r.sunspots === "number") {
       return s.month_name + (s.year ? " " + s.year : "") + ": sunspot number " + num(r.sunspots, 0) + " (SILSO)";
     }
@@ -137,11 +138,19 @@
       return UI.button(risk ? [el("span", { text: c.label }), el("span", { class: "odds", text: risk })] : c.label,
         function () { answer(i); }, { primary: i === 0 });
     });
+    // Who speaks is whoever opened the mission (the story's speaker); the plain director when there is no story.
+    var opener = UI.storyLine ? UI.storyLine("mission-start", run.design) : "";
+    var who = opener && opener.who ? opener.who : "";
+    var face = who && UI.speakerArt ? UI.speakerArt(who) : null;
+    var speaker = who && UI.speakerName ? UI.speakerName(who) : "";
+    // The calibration event also gets a line from Austin's notebook, for Ajay only (the story layer says "" otherwise).
+    var extra = event.id === "calibration-drift" && UI.storyLine ? UI.storyLine("event-calibration", run.design, "ask") : "";
     box.appendChild(el("div", { class: "dialogue", role: "alertdialog", "aria-labelledby": "event-title" }, [
-      UI.directorArt(),
+      face || UI.directorArt(),
       el("div", { class: "stack" }, [
-        el("div", { class: "speaker" }, [el("h2", { id: "event-title", text: event.title.toUpperCase() }), el("span", { text: "Mission director" })]),
+        el("div", { class: "speaker" }, [el("h2", { id: "event-title", text: event.title.toUpperCase() }), el("span", { text: speaker ? speaker.toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) : "Mission director" })]),
         el("p", { class: "speech", text: event.text }),
+        extra && extra.text ? el("p", { class: "speech note", text: (extra.who && UI.speakerName && UI.speakerName(extra.who) ? UI.speakerName(extra.who) + ": " : "") + extra.text }) : null,
         el("div", { class: "choices" }, choices)
       ])
     ]));
@@ -153,6 +162,10 @@
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);
     log((out.title || "Event") + ": " + (out.label || ""), "");
+    if (out.id === "calibration-drift" || /calibration/i.test(out.title || "")) {   // the story's reply to the choice (Ajay only; "" otherwise)
+      var reply = UI.storyLine ? UI.storyLine("event-calibration", run.design, i) : "";
+      if (reply && reply.text) log((reply.who && UI.speakerName && UI.speakerName(reply.who) ? UI.speakerName(reply.who) + ": " : "") + reply.text, "");
+    }
     if (out.protected) log("A part on board protected you.", "good");
     if (out.failed_part) {
       var p = UI.byId(UI.data("PARTS"), out.failed_part);
@@ -193,7 +206,7 @@
 
     function row(label, sub, value, of) {
       return el("div", { class: "row" }, [
-        el("div", { class: "row-label" }, [el("span", { text: label }), el("span", { text: sub })]),
+        el("div", { class: "row-label", title: sub }, [el("span", { text: label }), /^\d/.test(sub) ? el("span", { text: sub }) : null]),
         el("span", { class: "row-value", text: num(value) + (of ? " / " + of : "") })
       ]);
     }
@@ -238,7 +251,6 @@
         el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
       segmentRows(d),
       closestLine(d),
-      d.real_mission ? el("p", { class: "bar-note", text: "Real-world cousin: " + d.real_mission }) : null,
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
       done.design.campaign
@@ -258,9 +270,10 @@
     ]);
 
     UI.mount("debrief", el("section", { class: "screen" }, [
-      el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" }),
-        el("p", { text: "The same design always flies the same mission, so you can see exactly what your change did." })]),
-      el("div", { class: "ledger" }, [paper, side])
+      el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
+      UI.say ? UI.say("debrief", d) : null,
+      el("div", { class: "ledger" }, [paper, side]),
+      UI.say ? UI.say("closing", d) : null
     ]));
     run = null;
   }
@@ -275,7 +288,7 @@
   function segmentRows(d) {
     var rows = UI.list(d.segments).filter(function (s) { return s && s.text; });
     if (!rows.length) return null;
-    return el("div", { class: "segments" }, [el("h2", { class: "divided", text: "THE FOUR SEGMENTS" }),
+    return el("details", { class: "more segments" }, [el("summary", { text: "The four segments" }),
       el("dl", { class: "facts wide" }, rows.map(function (s) {
         return el("div", null, [el("dt", { text: s.name || s.id }), el("dd", { text: s.text })]);
       }))]);
@@ -289,14 +302,16 @@
   }
 
   // "Closest real mission: Explorer 1 (1958, NASA / JPL). ... Like yours: same orbit; battery power."
+  // The closest real mission and the real-world cousin, folded into one "More" (one line until opened).
   function closestLine(d) {
     var c = d.closest_mission;
-    if (!c || !c.name) return null;
+    if (!c || !c.name) return d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null;
     var shared = UI.list(c.shared).join("; ");
-    return el("p", { class: "nasa-line", text: "Closest real mission: " + c.name +
-      " (" + [c.year, c.agency].filter(Boolean).join(", ") + "). " + (c.blurb || "") +
-      (shared ? " Like yours: " + shared + "." : "") });
+    var body = [el("p", { class: "card-blurb", text: (c.blurb || "") + (shared ? " Like yours: " + shared + "." : "") })];
+    if (d.real_mission) body.push(el("p", { class: "card-blurb", text: d.real_mission }));
+    return el("details", { class: "more" }, [el("summary", { text: "Closest real mission: " + c.name + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" })].concat(body));
   }
+
 
   // ---- campaign: what the flight paid and taught. Every number is from recordResult() or getDebrief().
   function campaignBlock(design, d, result) {
@@ -323,6 +338,10 @@
       next ? el("p", { class: "nasa-line", text: "Try a new topic: " + next.name + "." }) : null,
       lessons.length ? el("p", { class: "nasa-line", text: "Shown in flight: " + lessons.join("; ") + "." }) : null,
       result.bailout ? el("p", { class: "part-note", text: "An emergency grant of " + UI.money(result.bailout_musd) + " topped up the treasury." }) : null,
+      typeof result.science_pts_earned === "number"
+        ? el("p", { class: "nasa-line science-earned", text: "Science points: +" + UI.num(result.science_pts_earned, 1) +
+            (result.archive_sci ? ", +" + UI.num(result.archive_sci, 1) + " from the archive" : "") +
+            (typeof result.science_pts === "number" ? ", now " + UI.num(result.science_pts, 1) : "") }) : null,
       el("p", { class: "bar-note", text: "Treasury now " + UI.money(result.treasury_musd) + ", year " + result.year + "." })
     ]);
   }

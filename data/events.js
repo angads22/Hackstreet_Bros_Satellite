@@ -103,5 +103,14 @@ const EVENTS = [
       { label: "Shrink the operations team", effect: { science_mult: 0.9 } },
       { label: "Find the money elsewhere",   effect: { cost_musd: 1 } }
     ]
+  },
+  {
+    id: "calibration-drift",
+    title: "Instrument calibration problem",
+    text: "An instrument's readings have begun to drift away from the truth. A demonstration is coming, and recalibrating means pausing observations.",
+    choices: [
+      { label: "Pause and recalibrate",          effect: { lose_months: 1 } },
+      { label: "Continue with reduced accuracy", effect: { science_mult: 0.8 } }   // GAME VALUE: to be agreed with the Simulation owner
+    ]
   }
 ];
