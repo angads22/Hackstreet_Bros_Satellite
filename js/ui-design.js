@@ -2322,7 +2322,9 @@
   function comebackStatus(info) {
     info = info || comebackInfo();
     if (!info) return "PART 2";
-    return "PART 2 · MONTH " + num(info.month, 0) + "/" + num(info.deadline_month, 0) + " · CASH " + money(info.cash_musd) +
+    // The cash keeps its hundredths when it has them: the engineers' fees are a few cents each.
+    var cash = isNum(info.cash_musd) && Math.abs(info.cash_musd * 10 - Math.round(info.cash_musd * 10)) > 1e-6 ? "$" + num(info.cash_musd, 2) + "M" : money(info.cash_musd);
+    return "PART 2 · MONTH " + num(info.month, 0) + "/" + num(info.deadline_month, 0) + " · CASH " + cash +
       " · DEBT " + money(info.debt_musd);
   }
   function comebackLevel(tierId) {
@@ -2756,7 +2758,47 @@
   // ---------------------------------------------------------------- 3 Build
   // WHY: a small flat box for an instrument that adds nothing to the job: what the job wants against what the part is.
   // The words are partWhy()'s (js/mission.js, from the objective's wants and the part's tags); null when the part counts.
+  // PAID PART INFORMATION (SPEC.md, "Paying engineers for part information"): in Part 2 on Normal and Hard some of a part's
+  // information is asked of the engineers for a fee. infoKnown() is the back end's partInfoKnown (true in Part 1, in a
+  // standalone design, on Easy and for a group already paid for), so the world builder's lead-time line can use it too.
+  // The groups: "sheet", "performance", "dossier". The bars, blockers and readiness review are never gated.
+  var INFO_LABEL = { sheet: "SHEET", performance: "SCIENCE", dossier: "DOSSIER" };
+  var INFO_WORD = { sheet: "sheet", performance: "performance", dossier: "dossier" };
+  function infoKnown(partId, group) {
+    return typeof partInfoKnown === "function" ? partInfoKnown(state.design, partId, group) : true;
+  }
+  // Only an instrument has a PERFORMANCE group worth asking for (what it measures, science a month).
+  function hasPerformance(p) { return !!p && p.category === "instrument"; }
+  // The groups of this part that are still "?" and worth asking for. `where` is "card" (sheet, performance) or "preview" (all three).
+  function unknownGroups(p, where) {
+    var out = [];
+    if (!infoKnown(p.id, "sheet")) out.push("sheet");
+    if (hasPerformance(p) && !infoKnown(p.id, "performance")) out.push("performance");
+    if (where !== "card" && !infoKnown(p.id, "dossier")) out.push("dossier");
+    return out;
+  }
+  function askEngineers(p, group, button) {
+    var r = typeof buyPartInfo === "function" ? buyPartInfo(state.design, p.id, group) : { ok: false, reason: "No engineers." };
+    if (r.ok) { state.hover = p.id; redraw(); return; }
+    // Not enough cash: nothing was bought. Say so once, next to the button.
+    button.title = r.reason || "";
+    if (button.parentNode && !button.parentNode.querySelector(".ask-fail")) {
+      button.parentNode.appendChild(el("span", { class: "part-note ask-fail", role: "alert", text: "Not enough cash" }));
+    }
+  }
+  // One "?" with its ASK button. Short on a card ("ASK $0.04M"), the full words in the preview.
+  function askLine(p, group, short) {
+    var fee = typeof partInfoFee === "function" ? partInfoFee(state.design, p.id, group) : 0;
+    var button = el("button", {
+      type: "button", class: "ask", "data-key": "ask-" + p.id + "-" + group,
+      "aria-label": "Ask the engineers for the " + INFO_WORD[group] + " of " + p.name + ", " + money(fee),
+      onclick: function () { askEngineers(p, group, button); }
+    }, [short ? "ASK " : "ASK THE ENGINEERS ", el("span", { class: "ask-fee", text: money(fee) })]);
+    return el("div", { class: "ask-line", "data-key": "unknown-" + p.id + "-" + group }, [
+      el("span", { class: "ask-what", text: INFO_LABEL[group] + " ?" }), button]);
+  }
   function whyBox(design, partId, withName) {
+    if (!infoKnown(partId, "dossier")) return null;   // the WHY box is part of the DOSSIER group
     var w = typeof partWhy === "function" ? partWhy(design, partId) : null;
     if (!w) return null;
     var p = byId(data("PARTS"), partId);
@@ -2790,11 +2832,13 @@
       ]);
     }
     var f = getPartFacts(d, p.id) || {};
+    // Paid part information: a group the engineers have not been asked about shows as "?" (see askLine).
+    var sheetOk = infoKnown(p.id, "sheet"), perfOk = !hasPerformance(p) || infoKnown(p.id, "performance");
     var extra = [];
-    if (f.power_gen_w) extra.push("+" + num(f.power_gen_w, 0) + " W");
-    if (isNum(f.science_per_month)) extra.push("up to " + num(f.science_per_month) + " sci/mo");
-    if (isNum(f.resolution_m)) extra.push(num(f.resolution_m) + " m detail");
-    var note = f.counts === false ? "Does not count for this objective"
+    if (f.power_gen_w && sheetOk) extra.push("+" + num(f.power_gen_w, 0) + " W");
+    if (isNum(f.science_per_month) && perfOk) extra.push("up to " + num(f.science_per_month) + " sci/mo");
+    if (isNum(f.resolution_m) && perfOk) extra.push(num(f.resolution_m) + " m detail");
+    var note = !perfOk ? null : f.counts === false ? "Does not count for this objective"
       : f.sharp_enough === false ? "Too blurry from this orbit" : null;
     function preview() { state.hover = p.id; refreshPreview(); }
     var card = el("button", {
@@ -2817,8 +2861,8 @@
       onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
-      p.category === "structure" && p.payload_kg ? el("span", { class: "part-carry", "data-key": "carries-" + p.id }, [icon("mass"), "CARRIES " + num(p.payload_kg, 0) + " KG"]) : null,
-      el("span", { class: "part-stats" + (p.category === "structure" && p.payload_kg ? " small" : "") }, partStats(p)),
+      sheetOk && p.category === "structure" && p.payload_kg ? el("span", { class: "part-carry", "data-key": "carries-" + p.id }, [icon("mass"), "CARRIES " + num(p.payload_kg, 0) + " KG"]) : null,
+      sheetOk ? el("span", { class: "part-stats" + (p.category === "structure" && p.payload_kg ? " small" : "") }, partStats(p)) : null,
       extra.length ? el("span", { class: "part-stats" }, extra.reduce(function (bits, text, i) {
         if (i) bits.push(" ");
         bits.push(el("span", { class: "part-stat", text: (i ? "· " : "") + text }));
@@ -2828,7 +2872,10 @@
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
     ]);
     if (state.touch && state.hover === p.id) markArmed(card, on);
-    return card;
+    // A button cannot sit inside the card button: the "?" lines and their ASK buttons go under it (Part 2, Normal and Hard).
+    var unknown = unknownGroups(p, "card");
+    if (!unknown.length) return card;
+    return el("div", { class: "part-slot" }, [card, el("div", { class: "ask-lines" }, unknown.map(function (g) { return askLine(p, g, true); }))]);
   }
   // A finger's first tap on a card: the card says that a second tap adds (or removes) it. One card at a time.
   function markArmed(card, on) {
@@ -2868,25 +2915,32 @@
     }
     var dl = t.delta || {};
     var bits = [];
-    if (p.category === "structure" && isNum(p.payload_kg) && t.adding) bits.push("carries " + num(p.payload_kg, 0) + " kg");   // the same two numbers as the card: CARRIES, then what it weighs
-    if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
-    if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
-    if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
+    // Paid part information: what a click changes in mass, power and data is the SHEET, in science the PERFORMANCE; the price
+    // is the catalogue's and always shows.
+    var sheetOk = infoKnown(p.id, "sheet"), perfOk = !hasPerformance(p) || infoKnown(p.id, "performance"), dossierOk = infoKnown(p.id, "dossier");
+    if (sheetOk && p.category === "structure" && isNum(p.payload_kg) && t.adding) bits.push("carries " + num(p.payload_kg, 0) + " kg");   // the same two numbers as the card: CARRIES, then what it weighs
+    if (sheetOk && dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
+    if (sheetOk && dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
+    if (sheetOk && dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
     if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
-    if (dl.data_returned_gb_day) bits.push("data home " + dataText(dl.data_returned_gb_day, true) + "/day");
-    if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
-    if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
-    if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
+    if (sheetOk && dl.data_returned_gb_day) bits.push("data home " + dataText(dl.data_returned_gb_day, true) + "/day");
+    if (sheetOk && dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
+    if (sheetOk && dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
+    if (perfOk && dl.science_total) bits.push("science " + signed(dl.science_total, 0));
+    var unknown = unknownGroups(p, "preview");
     var ch = checkChanges(state.design, state.hover);
     box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
     var why = whyBox(state.design, state.hover);   // the part adds nothing to the job: say why, first
     if (why) box.appendChild(why);
-    box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
+    if (bits.length || !unknown.length) box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
+    unknown.forEach(function (g) { box.appendChild(askLine(p, g, false)); });   // "?" and ASK THE ENGINEERS, with the fee
     if (assist() === "full") {   // above Easy the player works out what a part fixes or breaks
       ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
       ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
     }
     // The part's animated explainer (js/ui-parts.js) tells its story better than the blurb, so it replaces the blurb.
+    // The explainer and the blurb are the DOSSIER: until it is paid for they are not drawn (its "?" and ASK are above).
+    if (!dossierOk) return;
     var story = typeof PartExplainer === "object" && PartExplainer && PartExplainer.has(p.id) ? PartExplainer.element(p.id, { compact: true }) : null;
     if (story) box.insertBefore(story, box.children[why ? 3 : 2] || null);   // under the heading and the WHY box
     else if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
@@ -3813,6 +3867,7 @@
     // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
     era: function (name) { markEra("era", name); },
     assist: assist,
+    infoKnown: infoKnown,   // paid part information: true when this group ("sheet", "performance", "dossier") of the part may be shown
     mount: function (screen, node) {
       state.screen = screen;
       markHome(screen);
