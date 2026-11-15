@@ -1258,7 +1258,9 @@ function ratingFor(c, K) {
 
 function flightHeadline(m, o, orbitName) {
   var topic = o ? o.name : m.objective;
-  if (m.ended_early) return "Satellite lost" + (isCount(m.months) ? " after " + m.months + (m.months === 1 ? " month" : " months") : "");
+  // A flight lost after it met its goal says so first: the stars and the headline tell the same story.
+  var met = o && isNumber(m.science) && m.science >= o.science_target;
+  if (m.ended_early) return (met ? "Goal met, then lost" : "Satellite lost") + (isCount(m.months) ? " after " + m.months + (m.months === 1 ? " month" : " months") : "");
   if (m.new_data <= 0) return "Old news: " + topic + " measured again";
   if (m.first_look && m.stars >= 2) return topic + ": the first data comes home";
   if (m.stars === 3) return "Flawless flight adds to the record on " + topic;
@@ -1738,7 +1740,8 @@ function segmentLines(mission, t, k, cpay) {
     text: parts.length + " parts drawing " + round(t.power_draw_w, 1) + " W" +
       (t.power_gen_w > 0 ? " from " + round(t.power_gen_w, 1) + " W of solar cells" : " from batteries alone") +
       "; it worked for " + mission.month + " of " + mission.lifetime_months + " months planned" +
-      (mission.ended_early ? ", then a failure ended it." : mission.end_cause === "batteries" ? ", until the batteries ran down." : ".") });
+      (mission.ended_early ? (objective && mission.science >= objective.science_target ? " and met its target before a failure ended it." : ", then a failure ended it.")
+       : mission.end_cause === "batteries" ? ", until the batteries ran down." : ".") });
   // The share as a person would say it: never "0%" beside data that did reach the ground, never "100%" when some was lost.
   var pct = t.data_gb_day > 0 ? 100 * t.data_returned_gb_day / t.data_gb_day : 100;
   var share = pct >= 100 ? "100%" : pct > 0 && pct < 1 ? "under 1%" : Math.min(99, Math.round(pct)) + "%";

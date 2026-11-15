@@ -7,6 +7,7 @@
 // 5. The readiness review points an orbit no rocket reaches (or no thruster can hold) back to the orbit.
 // 6. The solar topic in 2026, after the sunspot record ends: the latest full year, never a made-up 0.
 // 7. An instrument card's science figure is what it delivers on this satellite, after the radio's and the power's losses.
+// 8. One verdict: a flight lost after it beat its target says the goal was met; a sliver of a target is never a success.
 var load = require("./load");
 var G = load();
 var passed = 0, failed = 0;
@@ -411,6 +412,33 @@ function textProblems(obj, label) {
     if (Math.abs(sum - G.previewScience(dd).per_month) > 0.05) off.push(x[0] + "/" + x[1] + ": cards " + G.round(sum, 2) + ", build " + G.previewScience(dd).per_month);
   });
   check("7 the fitted instruments' cards add up to the Build screen's science a month", off.length === 0, off.join(" | "));
+})();
+
+// ---- 8. One verdict (engage-15): the back end's text agrees with the target and the stars
+// (a) A flight that beat its target and was then lost: the advice, the space segment and the chronicle headline say the
+// goal was met before they say it was lost. (b) A battery-only flight that brought home a sliver: nothing calls it a success.
+(function () {
+  var basic = ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "minitrack-beacon", "command-timer", "silicon-cells", "mercury-battery"];
+  var m = G.startMission(eraDesign("igy", "training", "radiation", "leo", "juno-1", basic));
+  m.schedule = [{ month: m.lifetime_months - 2, event: G.EVENTS.filter(function (e) { return e.id === "software-bug"; })[0] }];
+  m.rand = function () { return 0; };   // its risky choice fails: the only computer breaks late in the flight
+  finish(m, 0);
+  var db = G.getDebrief(m), space = db.segments.filter(function (x) { return x.id === "space"; })[0].text;
+  check("8 a flight lost after it beat its target: the advice and the space segment say the target was met",
+    m.ended_early && m.science >= db.science_target && db.stars >= 2 && /^Target reached first\./.test(db.suggestion) && /met its target before a failure ended it/.test(space),
+    db.stars + " stars | " + db.suggestion.slice(0, 60) + " | " + space);
+  var o = G.getObjective("radiation");
+  var won = G.flightHeadline({ ended_early: true, months: 34, science: o.science_target + 1, stars: 2, new_data: 10 }, o, "Low Earth orbit");
+  var lost = G.flightHeadline({ ended_early: true, months: 3, science: 5, stars: 0, new_data: 5 }, o, "Low Earth orbit");
+  check("8 the chronicle and the ending headline a lost flight that met its goal as such, and a lost flight that did not as lost",
+    /^Goal met/.test(won) && /^Satellite lost/.test(lost), won + " | " + lost);
+  var tiny = fly(eraDesign("igy", "training", "radiation", "leo", "juno-1",
+    ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "minitrack-beacon", "command-timer", "mercury-battery"]), 0);
+  var dt = G.getDebrief(tiny), said = [];
+  (function walk(v) { if (typeof v === "string") said.push(v); else if (v && typeof v === "object") Object.keys(v).forEach(function (k) { walk(v[k]); }); })
+    ([dt.suggestion, dt.paragraph, dt.segments, dt.limiting_name]);
+  check("8 a battery-only flight with a sliver of its target: 0 stars and no text calls it a success",
+    dt.stars === 0 && dt.limiting !== "none" && !said.some(function (t) { return /target reached|complete|success|proud|well done/i.test(t); }), dt.score + " points | " + dt.suggestion);
 })();
 
 console.log(passed + " passed, " + failed + " failed");
