@@ -50,12 +50,15 @@ const KEY = 'gravitron-walkthrough-v1';
   ok(/CONTINUE: STEP 3/.test(await p.locator('[data-key="part1-go"]').innerText()), 'a saved record: CONTINUE: STEP 3');
   ok(await p.locator('.mode-steps li.passed').count() === 2 && (await p.locator('[data-key="walk-step-2"] .stars').getAttribute('aria-label')) === '3 of 3 stars',
     'passed steps show their best stars');
-  // RESET PROGRESS clears the stars and the walkthrough record
+  // RESET EVERYTHING clears the stars, the walkthrough record and a saved comeback
   await p.evaluate(() => localStorage.setItem('smdg-progress-v1', JSON.stringify({ best_stars: { training: 3 }, best_score: { training: 90 }, best_stars_by_era: { igy: 3 } })));
+  await p.evaluate(() => { newComeback('standard'); });   // a comeback in progress: RESET EVERYTHING clears it too
+  ok(await p.evaluate(() => getComeback() !== null && localStorage.getItem('smdg-campaign') !== null), 'a comeback is saved before the reset');
   await p.click('[data-key="reset-progress"]');
+  ok(await p.evaluate(() => getComeback() === null && localStorage.getItem('smdg-campaign') === null), 'RESET EVERYTHING clears the saved comeback');
   const after = await p.evaluate(k => [localStorage.getItem(k), JSON.parse(localStorage.getItem('smdg-progress-v1'))], KEY);
-  ok(after[0] === null, 'RESET PROGRESS removes the walkthrough record');
-  ok(after[1] && Object.keys(after[1].best_stars).length === 0 && Object.keys(after[1].best_stars_by_era || {}).length === 0, 'RESET PROGRESS clears the saved stars');
+  ok(after[0] === null, 'RESET EVERYTHING removes the walkthrough record');
+  ok(after[1] && Object.keys(after[1].best_stars).length === 0 && Object.keys(after[1].best_stars_by_era || {}).length === 0, 'RESET EVERYTHING clears the saved stars');
   ok(/^START/.test(await p.locator('[data-key="part1-go"]').innerText()) && await p.locator('[data-key="mode-part1"] .tag', { hasText: 'START HERE' }).count() === 1,
     'after reset: START and the START HERE tag');
 

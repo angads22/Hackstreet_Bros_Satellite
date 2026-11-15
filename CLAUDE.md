@@ -7,4 +7,4 @@
 - `js/game.js` must never touch the page (no `document`, no HTML).
 - Do not rename or add data fields without asking me.
 - Do one small task at a time.
-- Push any change to `SPEC.md` to `main` immediately, in its own commit, so every teammate's AI reads the same spec.
+- Push any change to `SPEC.md` to `main` immediately, in its own commit, so every teammate's SI reads the same spec.
