@@ -147,7 +147,7 @@ async function lowPolyOn(viewport, label) {
   ok(fast > 2.5 * normal, `fast-forward speeds it up (${fast.toFixed(0)} against ${normal.toFixed(0)} degrees a second)`);
   await page.click('button[aria-label="Fast forward"]');
   // Past month 10 the month is wider: the Earth beside it must shrink, not wrap and push the screen down.
-  if (await page.locator('[role="alertdialog"]').count()) await page.locator('.choices .btn').first().click();
+  if (await page.locator('[role="alertdialog"], .mission-head.event-open').count()) await page.locator('.choices .btn').first().click();
   const h0 = await page.locator('.mission-head').evaluate(e => e.offsetHeight);
   await page.click('button[aria-label="Fast forward"]');
   for (let i = 0; i < 300 && +(await page.locator('.month').innerText()).replace(/\D/g, '') < 12; i++) {
