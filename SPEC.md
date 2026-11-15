@@ -154,6 +154,38 @@ The level is read from the level's existing `hints` value, so there is no new da
 
 The Part 2 picker names this on each level's card ("Help: Full / Less / None"). Info-only changes do not move the comeback's simulated balance.
 
+### Paying engineers for part information (approved November 15, version 2.0)
+
+Part 2 only (it has money). In real programmes the data sheet, the test history and the delivery quote of a part are bought, asked for or learned the hard way. From 2.0 the level decides how much of that is free. This **replaces** "hide answers, never facts" above **for information about parts**; the readiness checks, every blocker (NO GO) and the debrief's "what limited you" stay free on every level, because a design that cannot fly must say so.
+
+A part's information comes in three **groups**: **SHEET** (mass, power draw, data rate, the part's own cost class), **PERFORMANCE** (what it measures and how much science per month, its quality and limits) and **DOSSIER** (its catches, what it fixes and causes, the WHY box, the animated explainer and its real-world lead time). The part's name, category and catalogue price are always shown (the player can read a price list).
+
+| Level | Free | The player pays for |
+| --- | --- | --- |
+| Easy | all three groups | nothing |
+| Normal | SHEET | PERFORMANCE, DOSSIER |
+| Hard | nothing | SHEET, PERFORMANCE, DOSSIER |
+
+- **A fee per group, paid from the comeback's cash** (GAME VALUES in `CAMPAIGN.comeback.info_fee_musd`, `{ sheet, performance, dossier }`, small against a flight's price). `buyPartInfo(design, partId, group)` returns `{ ok, reason, cost_musd }`; a fee is paid once per run for a part and group, and the group then stays known for the whole run (it is saved in the comeback as `info`, a map of part id to the groups bought; saves without it are upgraded in place to an empty map and no existing player loses anything). Not enough cash: nothing is bought and the reason says so.
+- **What is hidden, and where.** Hidden groups show as "?" with a one-line ASK THE ENGINEERS button and its fee on the part card, the hover or select preview and the explainer. Adding a part to the design is not research: the four bars, the problem list and the readiness review keep showing what the design as a whole does. The fee buys a part's sheet **before** the choice.
+- **Part 1, standalone designs and the lab** are always free (full help). The back-end functions that return part facts (`getPartFacts` and friends) are unchanged and still return everything: only the screens hide, so the tests and the simulator are unaffected.
+- The debrief says what the engineers cost this flight, as one line of the ledger.
+
+### Real-world elements: the long pole and lead time (approved November 15, version 2.0)
+
+From `docs/real-world-plan.md` (two satellite engineers visited the table). Built in 2.0: **Step 1**, `getSchedule(design)` returns `{ long_pole, long_pole_months, next_months, integration_months, total_months }` from the existing `build_months` (no change to any timing), and the Build bar and the readiness review name the long pole ("Longest part: synthetic aperture radar, 8 months. Without it: 5 months"). **Step 2**, one new data field per part, `lead_months` (months between ordering and delivery, a rounded range from the sources in `docs/real-world-plan.md`, each with a `source` note and labelled GAME VALUE), shown in the DOSSIER group; it does **not** change `dev_months` or any rule in 2.0. Steps 3 to 6 of the plan (counting back from the launch slot, expediting, test blocks, heritage) are not built.
+
+### Online features (approved November 15, version 2.0)
+
+Two features need a server: a **global leaderboard** and a **quick 1v1 duel**. The game must stay fully playable without them.
+
+- **Off when run locally.** Online features are on only when the page is served from a public address **and** `ONLINE.endpoint` (new data file `data/online.js`) is set. They are off, with no network request at all, when the page is opened from `file:`, from `localhost`, `127.0.0.1`, `[::1]`, `0.0.0.0`, a name ending `.local` or `.localhost`, a private address (10.x, 172.16 to 31.x, 192.168.x), or with `?offline=1` in the address. So a judge or anyone who hosts the game themselves gets the offline game. The rule is one function, `LiveData.onlineStatus()`, with tests. When off, the leaderboard and duel buttons say "ONLINE OFF" and why, in one line; nothing else changes.
+- **`fetch` stays only in `js/live-data.js`** (`CLAUDE.md`): the online calls are `LiveData.online.*` there, with a timeout and a plain failure message ("Server not reachable"); a failure never blocks play.
+- **What is sent:** a nickname the player types (at most 16 characters), a random player id kept in `localStorage` (`gravitron-player-v1`), and the result figures below. No account, no email, no cookie, no analytics. Results are **self-reported**: the leaderboard says so.
+- **Leaderboard:** the best Part 2 runs. A run's score (`getRunScore()` in `js/mission.js`): 500 for a win, plus 100 per star earned, plus 10 per month left on a win, plus 5 per point of reputation. The screen shows the top 20, the player's own best and rank, and a SUBMIT button on the ending screen.
+- **Duel:** one player creates a room and gets a four-letter code; the other joins with it. Both get the **same seed**: the same contract and the same starting cash. Each designs and flies one flight; the figures are submitted; the higher science wins, ties go to the lower cost. The room lives about ten minutes. Nothing carries into the player's own comeback save.
+- **The server** is a separate, optional program in `server/` (plain Node, no dependencies, a JSON file for storage, a request limit per address, a cap on sizes). The README outlines the features, the off rule, the privacy line and how to host it. The game itself stays plain HTML, CSS and JavaScript with no build step.
+
 ### Two game modes (approved November 15, replaces tier select)
 
 The home page offers **only two modes**. The era grid, the three levels as a separate choice and the 1957 campaign leave the screen. Their code stays (the back-end tests still use it), but no player reaches them.
