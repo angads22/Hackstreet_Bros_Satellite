@@ -546,5 +546,211 @@ G.resetCampaign(); NC("standard", 62);
 var code19 = G.exportSave(); G.resetCampaign();
 check("19 a comeback save code keeps its seed and its offer", G.importSave(code19).ok && G.getComeback().seed === 62 && G.getComeback().buyout === "none");
 
+// ---- 20. Launch failure (Part 2 only): every rocket has a failure chance, the dice are seeded, the risk level has thresholds in the back end.
+// These use the real chances (load({ realRockets: true })); every other section runs with rockets that never fail (tests/load.js).
+var R = load({ storage: load.memoryStorage(), realRockets: true });
+function setChance(id, v) { R.run("LAUNCHERS.filter(function (l) { return l.id === '" + id + "'; })[0].failure_chance = " + v + ";"); }
+function allChances(v) { R.run("LAUNCHERS.forEach(function (l) { l.failure_chance = " + v + "; });"); }
+var RAD_PARTS = ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf", "command-timer", "spin-stabilised", "cubesat-12u"];
+function rcontract(extra) {
+  var c = R.getCampaign();
+  var k = Object.assign({ id: "t-rad", topic: "radiation", orbit: null, client: "A test client", reason: "It tests things.", min_science: 60, price_musd: 10,
+                          bonus_musd: 2.5, expires_month: c.month + 12, done: false, text: "A test contract." }, extra || {});
+  c.offers = (c.offers || []).filter(function (x) { return x.id !== k.id; }).concat([k]); c.treasury_musd = Math.max(c.treasury_musd, 40); R.saveCampaign(c); return k;
+}
+function rdesign(launcher) {
+  var d = R.newComebackDesign("t-rad"); if (!d) return null;
+  R.setOrbit(d, "leo"); R.setLauncher(d, launcher || "rideshare"); RAD_PARTS.forEach(function (p) { R.addPart(d, p); });
+  return d;
+}
+function rrun(seed, tier) { R.resetCampaign(); R.newComeback(tier || "standard", seed); rcontract(); return rdesign(); }
+
+check("20 every rocket has a failure chance between 0 and 1: the 1950s rockets fail most, small launchers in between, a modern Falcon 9 hardly ever", (function () {
+  var L = {}; R.LAUNCHERS.forEach(function (l) { L[l.id] = l.failure_chance; });
+  return R.LAUNCHERS.every(function (l) { return typeof l.failure_chance === "number" && l.failure_chance >= 0 && l.failure_chance <= 1; }) &&
+    L["vanguard-rocket"] >= L["juno-1"] && L["juno-1"] > L.small && L["thor-able"] > L.small && L.small > L.heavy && L.heavy <= 0.02 && L.rideshare <= 0.05;
+})(), JSON.stringify(R.LAUNCHERS.map(function (l) { return l.id + ":" + l.failure_chance; })));
+
+// the risk level: thresholds in the back end, a chance for the back end only
+check("20 the risk level comes from thresholds in the back end: LOW below 5%, MEDIUM from 5%, HIGH from 15%", (function () {
+  var d = rrun(3), seen = {};
+  [[0, "low"], [0.0499, "low"], [0.05, "medium"], [0.1499, "medium"], [0.15, "high"], [0.9, "high"]].forEach(function (x) {
+    setChance("rideshare", x[0]); var r = R.getLaunchRisk(d); seen[x[0]] = r.level === x[1] && r.chance === x[0];
+  });
+  setChance("rideshare", 0.03);
+  return Object.keys(seen).every(function (k) { return seen[k]; });
+})());
+check("20 the risk of each real rocket is a level: the Falcon 9 and the rideshare LOW, the small launcher MEDIUM, the 1950s rockets HIGH", (function () {
+  var d = rrun(3), lv = {};
+  R.LAUNCHERS.forEach(function (l) { d.launcher = l.id; lv[l.id] = R.getLaunchRisk(d).level; });
+  d.launcher = "rideshare";
+  return lv.heavy === "low" && lv.rideshare === "low" && lv.small === "medium" && lv["juno-1"] === "high" && lv["vanguard-rocket"] === "high";
+})());
+check("20 no risk without a rocket, and none outside Part 2 (a Part 1 design, or no design)", (function () {
+  var d = rrun(3), none = R.newDesign("training");
+  R.setEra(none, "igy"); R.setObjective(none, "radiation"); R.setOrbit(none, "leo"); R.setLauncher(none, "vanguard-rocket");
+  var bare = R.newComebackDesign("t-rad");
+  var a = R.getLaunchRisk(none), b = R.getLaunchRisk(bare), c = R.getLaunchRisk(null);
+  return a.level === null && a.chance === 0 && b.level === null && c.level === null && R.getLaunchRisk(d).level === "low";
+})());
+
+// seeded: the same design on the same flight of the same run gives the same outcome; luck differs between runs and flights
+check("20 the launch is seeded: the same run, design and flight fail or fly the same way on every load, and luck differs between runs", (function () {
+  allChances(0.5);
+  var first = [], again = [];
+  for (var seed = 1; seed <= 60; seed++) { var m = R.startMission(rrun(seed)); first.push(m.launch_failed); }
+  var R2 = load({ storage: load.memoryStorage(), realRockets: true });
+  R2.run("LAUNCHERS.forEach(function (l) { l.failure_chance = 0.5; });");
+  for (var s2 = 1; s2 <= 60; s2++) {
+    R2.resetCampaign(); R2.newComeback("standard", s2);
+    var c = R2.getCampaign(); c.offers.push({ id: "t-rad", topic: "radiation", orbit: null, client: "A test client", reason: "It tests things.", min_science: 60, price_musd: 10, bonus_musd: 2.5, expires_month: c.month + 12, done: false, text: "A test contract." }); R2.saveCampaign(c);
+    var d = R2.newComebackDesign("t-rad"); R2.setOrbit(d, "leo"); R2.setLauncher(d, "rideshare"); RAD_PARTS.forEach(function (p) { R2.addPart(d, p); });
+    again.push(R2.startMission(d).launch_failed);
+  }
+  var fails = first.filter(Boolean).length;
+  setChance("rideshare", 0.03); setChance("small", 0.08);
+  return JSON.stringify(first) === JSON.stringify(again) && fails > 15 && fails < 45;
+})());
+check("20 the failure rate follows the chance (the Falcon 9's 1%, the small launcher's 8%) over many runs", (function () {
+  R.resetCampaign(); R.run("LAUNCHERS.forEach(function (l) { l.failure_chance = ({ heavy: 0.01, small: 0.08, rideshare: 0.03 })[l.id] || 0; });");
+  var out = {}, n = 600;
+  ["small", "rideshare"].forEach(function (id) {
+    var f = 0; for (var s = 1; s <= n; s++) { R.resetCampaign(); R.newComeback("standard", s * 31 + 7); rcontract(); var d = rdesign(id); if (d && R.startMission(d).launch_failed) f++; }
+    out[id] = f / n;
+  });
+  return Math.abs(out.small - 0.08) < 0.035 && Math.abs(out.rideshare - 0.03) < 0.025;
+})());
+
+// Part 1 and every other design never fail, whatever the data says
+check("20 Part 1 never fails at launch, nor does the 1957 campaign, even if every rocket were certain to fail", (function () {
+  allChances(1);
+  var ok = true;
+  var x = R.newDesign("training"); R.setEra(x, "igy"); R.setObjective(x, "radiation"); R.setOrbit(x, "leo"); R.setLauncher(x, "vanguard-rocket");
+  ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "silicon-cells", "mercury-battery", "minitrack-beacon", "command-timer"].forEach(function (p) { R.addPart(x, p); });
+  var m = R.startMission(x);
+  ok = ok && !!m && !m.launch_failed && !m.ended_early && m.lifetime_months > 0 && R.getLaunchRisk(x).level === null;
+  R.resetCampaign(); R.newCampaign("training");
+  var cd = R.newCampaignDesign(); R.setObjective(cd, "radiation"); R.setOrbit(cd, "leo"); R.setLauncher(cd, "juno-1");
+  ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "silicon-cells", "mercury-battery", "minitrack-beacon", "command-timer"].forEach(function (p) { R.addPart(cd, p); });
+  var m2 = R.startMission(cd);
+  ok = ok && (!m2 || !m2.launch_failed);
+  setChance("rideshare", 0.03); setChance("small", 0.08);
+  R.run("var _f = { 'juno-1': 0.30, 'vanguard-rocket': 0.50, 'thor-able': 0.20, 'thor-agena': 0.15, heavy: 0.01 }; LAUNCHERS.forEach(function (l) { if (_f[l.id] !== undefined) l.failure_chance = _f[l.id]; });");
+  return ok;
+})());
+
+// a failed launch: over at once, no science, the money gone, the contract still open, a clear debrief
+check("20 a failed launch ends the mission at once with no science, no event and no month flown", (function () {
+  allChances(1);
+  var d = rrun(5), m = R.startMission(d), s = R.stepMonth(m);
+  var ok = m.ended && m.ended_early && m.launch_failed && m.science === 0 && m.month === 0 && s.ended && !s.event && s.science === 0;
+  allChances(0);
+  var d0 = rrun(5), m0 = R.startMission(d0);
+  return ok && !m0.launch_failed && !m0.ended && m0.schedule.length > 0;
+})());
+check("20 the dice never change the events of a flight: the same flight meets the same events whether or not the rocket fails", (function () {
+  allChances(0); var a = R.startMission(rrun(9)); var ids0 = a.schedule.map(function (e) { return e.month + e.event.id; }).join();
+  allChances(1); var b = R.startMission(rrun(9)); var ids1 = b.schedule.map(function (e) { return e.month + e.event.id; }).join();
+  return b.launch_failed && !a.launch_failed && ids0 === ids1 && ids0.length > 0;
+})());
+check("20 a failed launch: the debrief says so, 0 stars, nothing paid, a safer rocket is advised", (function () {
+  allChances(0.5); setChance("heavy", 0.01);
+  R.resetCampaign(); R.newComeback("standard", 12); rcontract(); R.run("LAUNCHERS.forEach(function (l) { if (l.id === 'small') l.failure_chance = 1; });");
+  var d = rdesign("small"), m = R.startMission(d), db = R.getDebrief(m);
+  var ok = m.launch_failed && db.launch_failed && db.stars === 0 && db.score === 0 && db.science === 0 && db.payout_musd === 0 && db.limiting === "launch" &&
+    /failed at launch/i.test(db.paragraph) && db.suggestion.length > 0 && !/AI\b/.test(db.paragraph + db.suggestion) && db.segments[0].id === "launch" && /failed at launch/.test(db.segments[0].text);
+  R.run("var _f = { 'juno-1': 0.30, 'vanguard-rocket': 0.50, 'thor-able': 0.20, 'thor-agena': 0.15, heavy: 0.01, rideshare: 0.03, small: 0.08 }; LAUNCHERS.forEach(function (l) { l.failure_chance = _f[l.id]; });");
+  return ok;
+})());
+check("20 a failed launch costs the launch money, closes nothing, pays nothing and the months and interest still pass", (function () {
+  R.resetCampaign(); R.newComeback("standard", 12); var k = rcontract();
+  R.run("LAUNCHERS.forEach(function (l) { l.failure_chance = 1; });");
+  var d = rdesign("rideshare"), before = R.getComeback(), cost = R.getTotals(d).cost_musd;
+  var m = R.startMission(d), res = R.recordResult(m), after = R.getComeback();
+  var months = R.flightMonths(d);
+  var open = after.contracts.some(function (x) { return x.id === k.id; }), last = after.missions[after.missions.length - 1];
+  var ok = res.launch_failed === true && near(after.cash_musd, R.round(before.cash_musd - cost, 3), 1e-6) && after.flights === before.flights + 1 &&
+    after.month >= before.month + months && after.debt_musd > before.debt_musd && open && last.science === 0 && last.stars === 0 && last.ended_early && last.months === 0 &&
+    res.contract_paid_musd === 0 && res.new_data === 0 && !res.nothing_new && R.getCampaign().knowledge_science.radiation === 0;
+  R.run("var _f = { 'juno-1': 0.30, 'vanguard-rocket': 0.50, 'thor-able': 0.20, 'thor-agena': 0.15, heavy: 0.01, rideshare: 0.03, small: 0.08 }; LAUNCHERS.forEach(function (l) { l.failure_chance = _f[l.id]; });");
+  return ok;
+})());
+check("20 after a failed launch the ending's timeline says the rocket was lost, and the save is the same shape", (function () {
+  R.resetCampaign(); R.newComeback("standard", 12); rcontract(); R.run("LAUNCHERS.forEach(function (l) { l.failure_chance = 1; });");
+  var m = R.startMission(rdesign("rideshare")); R.recordResult(m);
+  var e = R.getComebackEnding(), raw = JSON.parse(R.run("localStorage.getItem('smdg-campaign')"));
+  R.run("var _f = { 'juno-1': 0.30, 'vanguard-rocket': 0.50, 'thor-able': 0.20, 'thor-agena': 0.15, heavy: 0.01, rideshare: 0.03, small: 0.08 }; LAUNCHERS.forEach(function (l) { l.failure_chance = _f[l.id]; });");
+  return /Rocket lost at launch/.test(e.timeline[0].title) && /failed at launch/.test(e.timeline[0].text) && !("launch_failed" in raw.missions[0]) && R.validCampaign(raw);
+})());
+
+// ---- 21. Complications between flights: three kinds, seeded, small, saved as one list.
+check("21 a complication is drawn from the run's seed and the flight count: the same every time, some flights have none", (function () {
+  var kinds = {}, none = 0, same = true;
+  for (var f = 0; f < 300; f++) {
+    var a = G.drawComplication(777, f), b = G.drawComplication(777, f);
+    if (JSON.stringify(a) !== JSON.stringify(b)) same = false;
+    if (!a) none++; else kinds[a.kind] = (kinds[a.kind] || 0) + 1;
+  }
+  return same && Object.keys(kinds).sort().join() === "client-left,delay,price" && none > 90 && none < 210;
+})());
+var COMP = (function () {   // strike every kind once, on a fresh run each, and check what each did
+  var seen = {}, problems = [];
+  for (var seed = 1; seed <= 400 && Object.keys(seen).length < 4; seed++) {
+    G.resetCampaign(); NC("standard", seed);
+    var c = G.getCampaign(); c.flights = 1; c.month = 8; c.offers.forEach(function (k) { k.expires_month = Math.max(k.expires_month, 20); }); G.saveCampaign(c);
+    c = G.getCampaign();
+    var before = JSON.parse(JSON.stringify(c)), e = G.applyComplication(c);
+    if (!e) continue;
+    G.saveCampaign(c); G.makeOffers(c); G.saveCampaign(c);
+    var h = G.getComeback(), open0 = before.offers.filter(function (k) { return !k.done && k.expires_month > before.month; });
+    if (seen[e.id]) continue;
+    seen[e.id] = { entry: e, seed: seed, ok: false };
+    if (e.id === "delay") seen[e.id].ok = c.month === before.month + 1 && c.debt_musd === G.accrueInterest(before.debt_musd, 1) && h.contracts.length === CB.contracts_open && e.tag === "warn";
+    if (e.id === "client-left") seen[e.id].ok = h.contracts.length === CB.contracts_open && open0.length > 1 && e.tag === "bad" &&
+      open0.filter(function (k) { return !h.contracts.some(function (x) { return x.id === k.id; }); }).length === 1 && c.month === before.month && c.debt_musd === before.debt_musd;
+    if (e.id === "price-up" || e.id === "price-down") {
+      var changed = c.offers.filter(function (k) { var o = before.offers.filter(function (x) { return x.id === k.id; })[0]; return o && o.price_musd !== k.price_musd; });
+      var up = e.id === "price-up", k = changed[0], o = k && before.offers.filter(function (x) { return x.id === k.id; })[0];
+      seen[e.id].ok = changed.length === 1 && near(k.price_musd, G.round(o.price_musd * (up ? 1.15 : 0.85), 1), 1e-9) && near(k.bonus_musd, G.round(k.price_musd * CB.bonus_3_stars, 1), 1e-9) &&
+        k.text.indexOf("$" + k.price_musd + "M") !== -1 && e.tag === (up ? "good" : "warn") && c.month === before.month && c.debt_musd === before.debt_musd;
+    }
+    if (!(e.flight === 1 && e.month === c.month && typeof e.text === "string" && e.text.length > 10 && e.text.length < 90 && !/\bAI\b/.test(e.text))) seen[e.id].ok = false;
+    if (G.applyComplication(c)) problems.push("a second one struck after the same flight");
+  }
+  seen.problems = problems; return seen;
+})();
+check("21 all three kinds are met: a client leaves (and a new one is dealt), a price moves up or down by 15%, a delay costs a month and its interest",
+  ["client-left", "delay"].every(function (k) { return COMP[k] && COMP[k].ok; }) && (COMP["price-up"] && COMP["price-up"].ok || COMP["price-down"] && COMP["price-down"].ok) && COMP.problems.length === 0,
+  Object.keys(COMP).filter(function (k) { return k !== "problems"; }).map(function (k) { return k + ":" + COMP[k].ok + "@" + COMP[k].seed; }).join(" "));
+check("21 a complication is shown once, tagged, with its flight, in the hub and the save, and survives a reload", (function () {
+  var s = COMP["client-left"].seed;
+  G.resetCampaign(); NC("standard", s);
+  var c = G.getCampaign(); c.flights = 1; c.month = 8; c.offers.forEach(function (k) { k.expires_month = Math.max(k.expires_month, 20); }); G.saveCampaign(c);
+  c = G.getCampaign(); var e = G.applyComplication(c); G.saveCampaign(c); G.makeOffers(c); G.saveCampaign(c);
+  var h = G.getComeback(), raw = JSON.parse(store.getItem("smdg-campaign")), G5 = load({ storage: store }), h5 = G5.getComeback();
+  return h.complications.length === 1 && h.complications[0].id === "client-left" && h.complications[0].tag === "bad" && h.complications[0].flight === 1 &&
+    raw.complications.length === 1 && h5.complications.length === 1 && G.validCampaign(raw);
+})());
+check("21 a new comeback starts with no complications, and a run has the same ones every time it is played the same way", (function () {
+  function play(seed) {
+    G.resetCampaign(); NC("standard", seed); var out = [];
+    for (var f = 1; f <= 4; f++) { var c = G.getCampaign(); c.flights = f; var e = G.applyComplication(c); out.push(e ? e.id + ":" + e.text : "-"); G.saveCampaign(c); G.makeOffers(c); G.saveCampaign(c); }
+    return out.join("|");
+  }
+  G.resetCampaign(); NC("standard", 31);
+  var fresh = G.getComeback().complications.length === 0, a = play(31), b = play(31);
+  return fresh && a === b && a.split("|").some(function (x) { return x !== "-"; }) && a !== play(32);
+})());
+check("21 no delay when the deadline is close (it would end the run), and no complication once the run is over", (function () {
+  G.resetCampaign(); NC("standard", 31);
+  var c = G.getCampaign(), ok = true, struck = 0;
+  for (var f = 0; f < 80; f++) {
+    c.flights = f; c.month = c.deadline_month - 3; c.complications = []; G.saveCampaign(c);
+    var e = G.applyComplication(c); if (e && e.id === "delay") ok = false; if (e) struck++;
+  }
+  c.finished = true; c.complications = []; c.flights = 1; for (var g = 0; g < 40; g++) { c.flights = g; if (G.applyComplication(c)) ok = false; }
+  return ok;
+})());
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

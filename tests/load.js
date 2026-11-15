@@ -10,6 +10,9 @@ var FILES = ["data/parts.js", "data/launchers.js", "data/orbits.js", "data/objec
 // screen has bins for structure and attitude (SPEC.md, "Switch-over").
 // load({ storage: load.memoryStorage() }) gives the game a localStorage that keeps only text, as a
 // browser does; loading again with the same storage is a page reload.
+// Rockets never fail here unless the test asks for the dice: load({ realRockets: true }) keeps data/launchers.js
+// failure_chance as it is. The other tests are about money, contracts and parts, not luck, so they must not depend on
+// a tuned chance; the tests of the dice (tests/comeback.js, section 20) opt in.
 module.exports = function load(opts) {
   opts = opts || {};
   var root = path.join(__dirname, "..");
@@ -24,6 +27,7 @@ module.exports = function load(opts) {
     while ((m = re.exec(src))) names.push(m[1] || m[2]);
   });
   if (opts.newCategoriesRequired) vm.runInContext("NEW_CATEGORIES_REQUIRED = true;", ctx);
+  if (!opts.realRockets) vm.runInContext("LAUNCHERS.forEach(function (l) { l.failure_chance = 0; });", ctx);
   var G = {};
   names.forEach(function (n) { G[n] = vm.runInContext(n, ctx); });
   G.run = function (code) { return vm.runInContext(code, ctx); };   // for tuning scripts: change a game value in place

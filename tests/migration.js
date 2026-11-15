@@ -37,7 +37,7 @@ function findDesign(G, h) {
   return null;
 }
 
-var names = Object.keys(FX.saves), NEW_KEYS = ["seed", "buyout", "start_debt_musd"];
+var names = Object.keys(FX.saves), NEW_KEYS = ["seed", "buyout", "start_debt_musd", "complications"];
 var LEGACY_DEBT = { training: 30, standard: 40, expert: 45 };
 check("0 the fixtures are real 0.9 saves: version 4, mode comeback, six of them", names.length >= 6 && names.every(function (n) {
   var r = JSON.parse(FX.saves[n].raw); return r.version === 4 && r.mode === "comeback" && !("seed" in r) && !("buyout" in r); }));
@@ -70,7 +70,7 @@ names.forEach(function (name) {
   check("2 " + name + ": re-saved at the new version", now.version === G.CAMPAIGN.save_version);
   check("2 " + name + ": every old field and value is exactly as it was", Object.keys(original).every(function (k) { return k === "version" || same(now[k], original[k]); }),
     Object.keys(original).filter(function (k) { return k !== "version" && !same(now[k], original[k]); }).join(","));
-  check("2 " + name + ": only seed, buyout and the starting debt were added", same(Object.keys(now).filter(function (k) { return !(k in original); }).sort(), NEW_KEYS.slice().sort()),
+  check("2 " + name + ": only seed, buyout, the starting debt and the complications list were added", same(Object.keys(now).filter(function (k) { return !(k in original); }).sort(), NEW_KEYS.slice().sort()),
     Object.keys(now).filter(function (k) { return !(k in original); }).join(","));
   check("2 " + name + ": a random 32-bit seed, buyout none, and the debt the run began with (the old tuning)",
     Number.isInteger(now.seed) && now.seed >= 0 && now.seed <= 4294967295 && now.buyout === "none" && now.start_debt_musd === LEGACY_DEBT[original.tier] &&
@@ -197,6 +197,44 @@ names.forEach(function (name) {
   check("8 the stars record still reads as it did", p.best_stars.training === 3 && p.best_stars.standard === 1 && p.best_score.training === 97 && p.best_stars_by_era.igy === 3 && p.best_stars_by_era.nimbus === 2);
   check("8 the Part 1 record is never read or written by the back end", JSON.parse(store.getItem("gravitron-walkthrough-v1")).done[2] === 3 &&
     !/gravitron-walkthrough/.test(fs.readFileSync(path.join(__dirname, "..", "js", "mission.js"), "utf8") + fs.readFileSync(path.join(__dirname, "..", "js", "game.js"), "utf8")));
+})();
+
+// ---- 9. The complications list: old saves get it with a default (none have struck), and nothing else about them changes.
+names.forEach(function (name) {
+  var fx = FX.saves[name], original = JSON.parse(fx.raw), store = storeWith(fx.raw), G = load({ storage: store }), h = G.getComeback();
+  var now = JSON.parse(store.getItem("smdg-campaign"));
+  check("9 " + name + ": the 0.9 save is upgraded with an empty complications list, in the hub and in storage", Array.isArray(now.complications) && now.complications.length === 0 &&
+    Array.isArray(h.complications) && h.complications.length === 0 && !("complications" in original));
+  var G2 = load({ storage: store });
+  check("9 " + name + ": a reload keeps it, and the saved text does not change again", store.getItem("smdg-campaign") === JSON.stringify(now) && G2.getComeback().complications.length === 0);
+});
+(function () {
+  var G0 = load({ storage: load.memoryStorage() });
+  G0.newComeback("standard", 5);
+  var cur = JSON.parse(JSON.stringify(G0.getCampaign()));
+  check("9 a new comeback saves its list, empty", Array.isArray(cur.complications) && cur.complications.length === 0);
+  var o = JSON.parse(JSON.stringify(cur)); delete o.complications;
+  var store = storeWith(JSON.stringify(o)), G = load({ storage: store }), h = G.getComeback();
+  check("9 a current-version comeback without the list is filled in, not refused", !!h && h.complications.length === 0 && Array.isArray(JSON.parse(store.getItem("smdg-campaign")).complications) &&
+    h.debt_musd === cur.debt_musd && h.cash_musd === cur.treasury_musd);
+  var bad = JSON.parse(JSON.stringify(cur)); bad.complications = "none"; var rawB = JSON.stringify(bad), storeB = storeWith(rawB), GB = load({ storage: storeB });
+  check("9 a save with a wrong complications value is ignored and left in storage as it is", GB.getCampaign() === null && storeB.getItem("smdg-campaign") === rawB);
+  var bad2 = JSON.parse(JSON.stringify(cur)); bad2.complications = [{ id: "delay" }]; var rawC = JSON.stringify(bad2), storeC = storeWith(rawC), GC = load({ storage: storeC });
+  check("9 so is one whose complication entries are broken", GC.getCampaign() === null && storeC.getItem("smdg-campaign") === rawC);
+  var body = JSON.stringify({ v: 4, campaign: JSON.parse(FX.saves["one-flight-normal"].raw), progress: { best_stars: { training: 3 }, best_score: {}, best_stars_by_era: {} } });
+  var GI = load({ storage: storeWith() });
+  var r = GI.importSave("SMDG1." + Buffer.from(body).toString("base64") + "." + GI.checksum(body));
+  check("9 a version 4 save code imports with the empty list too", r.ok && GI.getComeback().complications.length === 0 && JSON.parse(GI.run("localStorage.getItem('smdg-campaign')")).complications.length === 0, r.reason);
+})();
+// A migrated run meets complications as any run does: one struck after a flight is saved next to the old fields, which stay as they were.
+(function () {
+  var fx = FX.saves["one-flight-normal"], original = JSON.parse(fx.raw), store = storeWith(fx.raw), G = load({ storage: store });
+  var struck = null, c;
+  for (var f = 2; f < 40 && !struck; f++) { c = G.getCampaign(); c.flights = f; struck = G.applyComplication(c); if (struck) { G.saveCampaign(c); } }
+  var now = JSON.parse(store.getItem("smdg-campaign"));
+  check("9 a migrated run can meet a complication: it is saved in the list, shown by the hub, and the rest of the old run is untouched", !!struck && now.complications.length === 1 &&
+    G.getComeback().complications[0].id === struck.id && now.seed === c.seed && now.missions.length === original.missions.length && same(now.missions, original.missions) &&
+    now.treasury_musd === original.treasury_musd && now.deadline_month === original.deadline_month);
 })();
 
 console.log("\n" + passed + " passed, " + failed + " failed");

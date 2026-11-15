@@ -217,6 +217,58 @@ const EVENTS = [
       { label: "Keep schedule",                        effect: {} }
     ]
   },
+  // ------------------------------------------------ more challenges for Part 2 (added November 15): short, two choices, a real trade-off
+  // Each costs money, a month or a risk. Radiation has none here, so Part 1 (a radiation walkthrough) is untouched.
+  {
+    id: "sol-eclipse-season",
+    objectives: ["solar"],
+    title: "Long shadows",
+    text: "Eclipse season: the battery is draining fast.",
+    choices: [
+      { label: "Switch the instrument off for a month", effect: { lose_months: 1 } },
+      { label: "Keep it on",                              effect: { science_mult: 1.1, fail_chance: 0.25, fails: "power" } }
+    ]
+  },
+  {
+    id: "wx-ground-check",
+    objectives: ["weather"],
+    title: "A ground check",
+    text: "A weather balloon launch could check your data.",
+    choices: [
+      { label: "Pay for the check ($0.3M)", effect: { cost_musd: 0.3, science_mult: 1.15 } },
+      { label: "Skip it",                    effect: {} }
+    ]
+  },
+  {
+    id: "fire-night-pass",
+    objectives: ["wildfire"],
+    title: "Fires at night",
+    text: "Fires show best after dark.",
+    choices: [
+      { label: "Add night passes ($0.4M)", effect: { cost_musd: 0.4, science_mult: 1.2 } },
+      { label: "Keep the day passes",       effect: {} }
+    ]
+  },
+  {
+    id: "ice-early-melt",
+    objectives: ["sea-ice"],
+    title: "The ice melts early",
+    text: "The edge is moving fast.",
+    choices: [
+      { label: "Command extra passes", effect: { science_mult: 1.2, fail_chance: 0.2, fails: "computer" } },
+      { label: "Stay on plan",          effect: { science_mult: 0.9 } }
+    ]
+  },
+  {
+    id: "ice-dish-icing",
+    objectives: ["sea-ice"],
+    title: "Ice on the dish",
+    text: "Frost on the polar ground dish drops your signal.",
+    choices: [
+      { label: "Fly in a crew ($0.4M)", effect: { cost_musd: 0.4 } },
+      { label: "Wait for a thaw",        effect: { lose_months: 1 } }
+    ]
+  },
   {
     id: "rare-alignment",
     title: "A rare alignment",
