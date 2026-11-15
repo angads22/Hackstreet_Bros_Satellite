@@ -1,7 +1,8 @@
 // js/ui-design.js — owned by Design screens.
 // The shared layout (header, minimap, objective line, hints), the base map that
 // players walk around to reach each screen, and the screens before launch:
-// Tier select, 1 Briefing, 2 Orbit, 3 Build, 4 Launch vehicle, 5 Readiness review.
+// the home page (two game modes), Part 1 (Austin's 1958 walkthrough: steps, presets, epilogue),
+// 1 Briefing, 2 Orbit, 3 Build, 4 Launch vehicle, 5 Readiness review.
 // Every number shown comes from a game.js / mission.js call or a plain data field;
 // this file only formats numbers and draws the page.
 //
@@ -31,7 +32,7 @@
 
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
-    title:    "Earn 2 stars on a tier to unlock the next one.",
+    title:    "",
     map:      "Walk with the arrow keys or WASD, press E to go in. Or click a marker and you walk there yourself. The gold route leads to your next job.",
     briefing: "Decide the goal before the hardware. The objective says which instruments count.",
     orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
@@ -86,6 +87,19 @@
     launcher: "Pick a rocket that can lift your satellite.",
     review:   "Clear every NO GO line, then launch."
   };
+  // Part 1, Austin's walkthrough: three standalone missions in the 1958 era, Training tier (hints on).
+  // A field set here is preset: that place counts as visited and its cards are read-only for the step.
+  // Only ids: every number comes from the back end. 1958 has one topic (radiation) and its rockets reach
+  // only low orbit (getAvailability), so every step flies radiation; steps 2 and 3 leave more choices open.
+  var WALK_STEPS = [
+    { step: 1, era: "igy", tier: "training", objective: "radiation", orbit: "leo", launcher: "juno-1" },
+    { step: 2, era: "igy", tier: "training", objective: "radiation", launcher: "vanguard-rocket" },
+    { step: 3, era: "igy", tier: "training" }
+  ];
+  var WALK_KEY = "gravitron-walkthrough-v1";   // { done: { "1": best stars, "2": ..., "3": ... } }, passed steps only
+  var WALK_PASS_STARS = 1;                     // a step passes with this many stars or more (the debrief's stars)
+  var PRESET_FIELD = { briefing: "objective", orbit: "orbit", launcher: "launcher" };   // screen -> design field
+
   var WALK_MS = 9;   // milliseconds per map unit walked (0 if the player asks for less motion)
   var KEY_DIRS = { ArrowUp: [0, -1], w: [0, -1], W: [0, -1], ArrowDown: [0, 1], s: [0, 1], S: [0, 1],
                    ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0], ArrowRight: [1, 0], d: [1, 0], D: [1, 0] };
@@ -108,7 +122,8 @@
     hintOpen: false,
     avail: null,         // getAvailability(design) for the screen being drawn
     seenHint: {},        // screens whose one-line hint has been shown in this page load
-    introSeen: {},       // chapters whose story intro has been shown in this page load
+    walk: null,          // the walkthrough step being played: { step, design } (matched by the design object itself)
+    walkMemory: null,    // the walkthrough record when the browser blocks storage
     change: null,        // { id, kind } of the part click that is about to be drawn (one draw only)
     touch: false,        // last press on a part card was a finger
     armed: false,        // that part was already previewed when the finger went down
@@ -116,9 +131,10 @@
   };
 
   // STORY-BEGIN  (everything between these two markers is the story: Story rewrites the text freely)
-  // GRAVITRON, "The Gravitronical Odyssey". Two chapters use the same screens:
-  //   "austin": Austin Albert, a NASA engineer in the first satellite project (the tutorial, the FIRST tier).
-  //   "ajay":   Ajay Albert, his grandson, a small-business engineer on loans (every later tier).
+  // GRAVITRON, "The Gravitronical Odyssey". Two chapters use the same screens, one per game mode:
+  //   "austin": Austin Albert, a NASA engineer in 1958 (Part 1, the walkthrough).
+  //   "ajay":   Ajay Albert, his grandson, a founder deep in debt (Part 2, the comeback: a design with `comeback`
+  //             or `contract`). Any other design follows its tier, as before: the first tier is Austin's.
   //
   // STORY holds ALL the words, so a writer can edit them without reading the code below it.
   //   A line is a string, a list of strings (variants, one is chosen from the design), or
@@ -128,8 +144,10 @@
   // How to show a line (the code at the end of this block returns it):
   //   var line = storyLine(key, design, extra);          // "" or { who: "partner", text: "..." }
   //   if (line) { portrait = speakerArt(line.who); name = STORY.speakers[line.who]; text = line.text; }
-  // storyLine("intro", design) returns a list of such beats instead. Keys: intro, map, briefing, orbit,
-  // build, launcher, review, mission-start, mission-end, debrief, closing, notebook, event-calibration.
+  // storyLine("intro", design) returns a list of such beats instead, and so do "step-open" (extra: the step number)
+  // and "epilogue". Keys: intro, step-open, step-close, epilogue, map, briefing, orbit, build, launcher, review,
+  // mission-start, mission-end, debrief, closing, notebook, event-calibration. "closing" on a walkthrough step that
+  // passed is that step's close beat.
   // extra: debrief and closing take the getDebrief result; mission-end takes it too (or the chooseEvent
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
@@ -138,17 +156,42 @@
     subtitle: "The Gravitronical Odyssey",
     speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK" },
 
-    // ------------------------------------------------ Story 1: Austin Albert, the tutorial
+    // The home page: one card per mode. No game numbers here (every number on screen comes from the back end).
+    modes: {
+      part1: { kicker: "PART 1 · 1958", name: "AUSTIN'S FIRST SATELLITE", pitch: "Three short missions, one idea each.", tag: "START HERE" },
+      part2: { kicker: "PART 2 · TODAY", name: "AJAY'S COMEBACK", pitch: "Austin's grandson owes the bank. Sell satellite data, pay it back in time." }
+    },
+
+    // ------------------------------------------------ Story 1: Austin Albert, Part 1 (the 1958 walkthrough)
     austin: {
       who: { map: "team", briefing: "team", orbit: "team", build: "team", launcher: "team", review: "team",
              "mission-start": "team", "mission-end": "team", debrief: "team", closing: "notebook",
              notebook: "notebook", "event-calibration": "notebook" },
+      // Shown once, before step 1 of the walkthrough (then the step's own opening beats).
       intro: [
-        { who: "team", text: "Austin Albert, NASA engineer. You lead the world's first satellite project." },
-        { who: "team", text: "Your invention is bold. Today we make it a complete mission." },
-        { who: "team", text: "Iron Eclipse is racing to own the view of Earth." },
-        { who: "team", text: "NASA has invested heavily. It needs proof that satellite data serves the public." },
-        { who: "team", text: "Watch wildfires and Arctic sea ice. Bring back observations people can use." }
+        { who: "team", text: "1958. You are Austin Albert, NASA engineer, building the first satellites." }
+      ],
+      // Part 1, the walkthrough: three short missions in 1958, one idea each. name is the step's label on the
+      // home page; open is shown before the step (one or two beats); close is the debrief's last line once it passes.
+      steps: {
+        "1": { name: "THE BASICS",
+               open: [{ who: "team", text: "The rocket and the orbit are set. You build the satellite." },
+                      { who: "team", text: "One of each part. Fit solar cells: batteries alone soon run down." }],
+               close: { who: "notebook", text: "It works. The counter heard radiation nobody expected." } },
+        "2": { name: "POWER AND DATA",
+               open: [{ who: "team", text: "Vanguard is smaller. You choose the orbit, then build." },
+                      { who: "team", text: "Cells go dark in Earth's shadow. Data must reach the ground." }],
+               close: { who: "notebook", text: "Power through the shadow, and data home. It keeps talking." } },
+        "3": { name: "YOUR MISSION",
+               open: [{ who: "team", text: "Your mission now: the job, the orbit, the parts, the rocket." }],
+               close: { who: "notebook", text: "Every choice was mine, and it flew. I write it all down." } }
+      },
+      // After step 3 passes. Name no real launch here unless SOURCES.md has a page for it.
+      epilogue: [
+        { who: "team", text: "His biggest satellite is lost on the launch pad, as many of the first rockets were." },
+        { who: "team", text: "The programme is cut. Rivals call his vision impractical." },
+        { who: "notebook", text: "His notebook goes into a box." },
+        { who: "notebook", text: "Decades later, his grandson Ajay opens it." }
       ],
       map: {
         start: ["Five stops, one mission. Begin at Mission Control.", "Begin at Mission Control. The gold route leads the way."],
@@ -218,7 +261,7 @@
       },
       "mission-start": {
         warned: ["We launched with warnings. Let us hope they stay quiet."],
-        clean: ["Launched. Now we learn what we did not plan for.", "Iron Eclipse is watching this launch."]
+        clean: ["Launched. Now we learn what we did not plan for.", "Launched. The whole world is listening for our signal."]
       },
       "mission-end": {
         lost: ["We lost it in flight. We must learn why."],
@@ -249,7 +292,7 @@
       }
     },
 
-    // ------------------------------------------------ Story 2: Ajay Albert, every later tier
+    // ------------------------------------------------ Story 2: Ajay Albert, Part 2 (the comeback; not yet rewritten for it)
     ajay: {
       who: { map: "partner", briefing: "customer", orbit: "partner", build: "partner", launcher: "partner", review: "partner",
              "mission-start": "partner", "mission-end": "partner", debrief: "partner", closing: "partner",
@@ -418,9 +461,12 @@
     return !!obj && typeof obj === "object" && typeof key === "string" && Object.prototype.hasOwnProperty.call(obj, key);
   }
 
-  // "austin" for the first tier (the tutorial) or no design; "ajay" for every later tier.
+  // The chapter follows the mode: "austin" for a walkthrough step (Part 1), "ajay" for a comeback design (Part 2).
+  // Any other design follows its tier: "austin" for the first tier or no design, "ajay" for every later tier.
   function storyChapter(design) {
     try {
+      if (design && walkStepOf(design)) return "austin";
+      if (design && (design.comeback || design.contract)) return "ajay";
       var tiers = data("TIERS");
       if (!design || !tiers.length || !byId(tiers, design.tier)) return "austin";   // an unknown tier plays as the first, as in newDesign
       return design.tier === tiers[0].id ? "austin" : "ajay";
@@ -613,6 +659,8 @@
   // Closing text: success (2 or 3 stars), partial (1 star) or failure (0 stars or ended early).
   function storyClosing(ctx, extra) {
     if (!extra || typeof extra !== "object") return "";
+    var step = walkStepOf(ctx.design);
+    if (step && typeof extra.stars === "number" && extra.stars >= WALK_PASS_STARS) return storyStepClose(ctx, step);
     if (!extra.ended_early && typeof extra.stars !== "number") return "";
     var result = extra.ended_early || extra.stars <= 0 ? "failure" : extra.stars === 1 ? "partial" : "success";
     return storySay(ctx, "closing", result, ctx.c.closing[result]);
@@ -665,13 +713,27 @@
     return storySay(ctx, "event-calibration", which, t[which]);
   }
 
-  // storyLine(key, design, extra) -> "" or { who, text }; for "intro", a list of those. Never throws.
+  // The walkthrough: a step's opening beats (a list), its closing beat, and the epilogue after step 3.
+  function storyBeats(list0) {
+    return list(list0).filter(function (b) { return b && typeof b.text === "string" && b.text; })
+      .map(function (b) { return { who: b.who || "team", text: b.text }; });
+  }
+  function storyStep(ctx, step) { return ctx.c.steps && storyHas(ctx.c.steps, String(step)) ? ctx.c.steps[String(step)] : null; }
+  function storyStepClose(ctx, step) {
+    var s = storyStep(ctx, step);
+    return s && s.close && s.close.text ? { who: s.close.who || "notebook", text: s.close.text } : "";
+  }
+
+  // storyLine(key, design, extra) -> "" or { who, text }; for "intro", "step-open" and "epilogue", a list. Never throws.
   function storyLine(key, design, extra) {
     try {
       var chapter = storyChapter(design);
       var ctx = { c: STORY[chapter], design: design || null, stage: storyStage(design) };
       switch (key) {
         case "intro":             return ctx.c.intro.map(function (b) { return { who: b.who, text: b.text }; });
+        case "step-open":         return storyBeats((storyStep(ctx, extra) || {}).open);
+        case "step-close":        return storyStepClose(ctx, extra);
+        case "epilogue":          return storyBeats(ctx.c.epilogue);
         case "map":               return storyMap(ctx);
         case "briefing":          return storyBriefing(ctx);
         case "orbit":             return storyOrbit(ctx);
@@ -686,7 +748,7 @@
         case "event-calibration": return storyEvent(ctx, extra);
         default:                  return "";
       }
-    } catch (e) { return key === "intro" ? [] : ""; }
+    } catch (e) { return key === "intro" || key === "step-open" || key === "epilogue" ? [] : ""; }
   }
 
   // speakerArt(who) -> a 16 x 16 pixel portrait (the same size and class as directorArt), or null for an unknown speaker.
@@ -770,6 +832,20 @@
   }
   function money(v) { return isNum(v) ? "$" + num(v, v < 1 ? 2 : 1) + "M" : "–"; }
   function signed(v, places) { return (v > 0 ? "+" : "") + num(v, places); }
+  // Small values keep two significant figures, so a 1958 radio's 0.06 W does not read as 0 W.
+  function fine(v) {
+    if (!isNum(v)) return "–";
+    var a = Math.abs(v);
+    if (a === 0 || a >= 10) return num(v, 0);
+    if (a >= 1) return num(v, 1);
+    return num(v, Math.min(8, 1 - Math.floor(Math.log(a) / Math.LN10)));
+  }
+  // A data rate in GB, MB or kB a day, whichever reads best for the larger of the values (unit formatting only).
+  function dataUnit(gb) { return !(gb > 0) || gb >= 1 ? ["GB", 1] : gb >= 0.001 ? ["MB", 1000] : ["kB", 1e6]; }
+  function dataText(gb, sign) {
+    var u = dataUnit(Math.abs(gb));
+    return (sign && gb > 0 ? "+" : "") + fine(gb * u[1]) + " " + u[0];
+  }
   function starsText(n) {
     n = isNum(n) ? n : 0;
     var s = "";
@@ -905,7 +981,7 @@
   function button(label, onClick, opts) {
     opts = opts || {};
     return el("button", { type: "button", class: "btn" + (opts.primary ? " primary" : "") + (opts.big ? " big" : "") + (opts.quiet ? " quiet" : ""),
-      disabled: !!opts.disabled, onclick: onClick, "aria-label": opts.aria }, label);
+      disabled: !!opts.disabled, onclick: onClick, "aria-label": opts.aria, "data-key": opts.key }, label);
   }
 
   // ---------------------------------------------------------------- pixel art
@@ -1439,6 +1515,13 @@
 
   // ---------------------------------------------------------------- shell: header, objective line, minimap, hints
   function tier() { return state.design ? byId(data("TIERS"), state.design.tier) : null; }
+  // What the header calls this mission: "PART 1 · STEP 2" for a walkthrough step, else the tier's name.
+  function modeName() {
+    var step = walkStepOf(state.design);
+    if (step) return "PART 1 · STEP " + step;
+    var t = tier();
+    return t ? t.name.toUpperCase() : "";
+  }
 
   // LIVE DATA or SNAPSHOT: which data the game is using. The status comes from getLiveData();
   // js/live-data.js announces a finished fetch with a "livedata" event on window.
@@ -1472,7 +1555,7 @@
       return "CAMPAIGN" + (info ? " · " + info.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd) +
         (info && isNum(info.science_pts) ? " · SCIENCE " + num(info.science_pts, 1) : "");
     }
-    return t.name.toUpperCase() + (state.design.year ? " · " + state.design.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
+    return modeName() + (state.design.year ? " · " + state.design.year : "") + " · SPENT " + money(totals.cost_musd) + " OF " + money(totals.budget_musd);
   }
 
   // The header shows the current objective and a minimap (instead of a step bar).
@@ -1550,6 +1633,7 @@
   function go(screen) {
     var i = DESIGN_STEPS.indexOf(screen);
     if (i > state.reached) state.reached = i;
+    bumpReached();                         // a preset place counts as visited once the one before it is
     if (i !== -1) state.player = screen;   // you are standing in that building
     stopWalking();
     state.swappedAt = Date.now();
@@ -1630,15 +1714,16 @@
     var m = t.margins || {};
     var massRight = t.capacity_kg ? num(t.mass_kg) + " / " + num(t.capacity_kg, 0) + " KG" : num(t.mass_kg) + " KG";
     var dataLost = t.data_gb_day > t.data_returned_gb_day;
+    var du = dataUnit(Math.max(t.data_gb_day || 0, t.data_returned_gb_day || 0));
     return el("div", { class: "bars" }, [
       bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass),
           t.capacity_kg ? null : "Pick a rocket to see the limit", "mass"),
-      bar("POWER", num(t.power_draw_w, 0) + " / " + num(t.power_gen_w, 0) + " W",
+      bar("POWER", fine(t.power_draw_w) + " / " + fine(t.power_gen_w) + " W",
           isNum(m.power) ? 1 - m.power : (t.power_draw_w > 0 ? 1 : 0), isNum(m.power) ? barClass(m.power) : (t.power_draw_w > 0 ? " bad" : ""),
           t.power_gen_w ? null : "Nothing makes power yet", "power"),
       bar("BUDGET", money(t.cost_musd) + " / " + money(t.budget_musd), isNum(m.budget) ? 1 - m.budget : null, barClass(m.budget), null, "budget"),
       // For data a full bar is good: it is the share of data that reaches the ground.
-      bar("DATA HOME", num(t.data_returned_gb_day) + " / " + num(t.data_gb_day) + " GB/DAY",
+      bar("DATA HOME", fine(t.data_returned_gb_day * du[1]) + " / " + fine(t.data_gb_day * du[1]) + " " + du[0].toUpperCase() + "/DAY",
           t.data_gb_day > 0 ? t.data_returned_gb_day / t.data_gb_day : 0,
           dataLost ? (t.data_returned_gb_day > 0 ? " warn" : " bad") : "",
           !design.orbit ? "Pick an orbit to see ground contact" : null, "data")
@@ -1677,7 +1762,7 @@
     checks.warnings.forEach(function (c) { rows.push({ c: c, kind: "warn", status: "WARN" }); });
     if (!rows.length) return opts.short ? el("p", { class: "preview-line fix", text: "No problems right now." }) : null;
     return el("ul", { class: "checks" }, rows.map(function (row) {
-      var target = FIX_SCREEN[row.c.id] || "build";
+      var target = fixPlace(row.c, design);
       var label = checkLabel(row.c);
       return el("li", { class: "check " + row.kind }, [
         el("span", { class: "check-text" }, [icon(row.kind === "bad" ? "blocker" : "warning"), el("strong", { text: label }),
@@ -1690,7 +1775,7 @@
     }));
   }
 
-  // ---------------------------------------------------------------- tier select (title)
+  // ---------------------------------------------------------------- the home page (two game modes)
   // What a design may use in its era: { parts, launchers, objectives }, each id -> { available, year, reason }.
   // One call per screen refresh. Without eras everything is available.
   function availability(d) {
@@ -1720,131 +1805,204 @@
     return offers.length ? el("div", null, [line].concat(offers)) : line;
   }
 
-  function campaignPanel(tiers) {
-    if (typeof newCampaign !== "function" || typeof window.showCampaignHub !== "function") return null;
-    var info = hubInfo();
-    return el("div", { class: "panel campaign-panel" }, [
-      el("h2", { text: "CAMPAIGN" }),
-      more("Start in 1957. Money and knowledge carry from one satellite to the next, and research opens new parts.", "How it works"),
-      info ? button(["CONTINUE: " + info.year + ", " + money(info.treasury_musd), " >"], function () { window.showCampaignHub(); },
-        { primary: true, aria: "Continue the campaign" }) : null,
-      el("div", { class: "tier-list row" }, tiers.map(function (t) {
-        return el("button", {
-          type: "button", class: "tier-btn", "data-key": "campaign-" + t.id,
-          "aria-label": "New campaign, " + t.name + ", treasury " + money(t.budget_musd) + ", " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission",
-          onclick: function () {
-            if (info && !window.confirm("Start a new campaign? It replaces the one you have saved.")) return;
-            newCampaign(t.id);
-            window.showCampaignHub();
-          }
-        }, [el("span", { class: "tier-name", text: "NEW: " + t.name.toUpperCase() }),
-            el("span", { class: "tier-facts", text: money(t.budget_musd) })]);
-      }))
-    ]);
+  // ---- Part 1, the walkthrough. The record holds only which steps passed and their best stars (from the debrief).
+  function walkConfig(step) { return WALK_STEPS[step - 1] || null; }
+  function walkStepOf(design) { return state.walk && design && state.walk.design === design ? state.walk.step : 0; }
+  function walkClean(rec) {
+    var out = { done: {} };
+    var done = rec && typeof rec === "object" && rec.done && typeof rec.done === "object" ? rec.done : {};
+    WALK_STEPS.forEach(function (w) {
+      var v = done[String(w.step)];
+      if (isNum(v) && v >= WALK_PASS_STARS && v <= 3) out.done[String(w.step)] = Math.round(v);
+    });
+    return out;
+  }
+  function walkRecord() {
+    try {
+      var raw = window.localStorage ? window.localStorage.getItem(WALK_KEY) : null;
+      if (raw) return walkClean(JSON.parse(raw));
+    } catch (e) { /* storage blocked or garbage: fall back to memory */ }
+    return walkClean(state.walkMemory);
+  }
+  function walkSave(rec) {
+    state.walkMemory = walkClean(rec);
+    try { if (window.localStorage) window.localStorage.setItem(WALK_KEY, JSON.stringify(state.walkMemory)); } catch (e) { /* memory copy still works */ }
+  }
+  function walkForget() {
+    state.walkMemory = null;
+    try { if (window.localStorage) window.localStorage.removeItem(WALK_KEY); } catch (e) { /* nothing saved */ }
+  }
+  function walkStars(step) { var v = walkRecord().done[String(step)]; return isNum(v) ? v : null; }
+  // The first step not passed yet, or 0 when all three have passed.
+  function walkNext() {
+    for (var i = 0; i < WALK_STEPS.length; i++) if (walkStars(WALK_STEPS[i].step) === null) return WALK_STEPS[i].step;
+    return 0;
+  }
+  // Called once by the debrief: keeps the best stars of a step that passed. Returns what the debrief shows.
+  function walkResult(design, stars) {
+    var step = walkStepOf(design);
+    if (!step) return null;
+    var passed = isNum(stars) && stars >= WALK_PASS_STARS;
+    if (passed) {
+      var rec = walkRecord();
+      rec.done[String(step)] = Math.max(rec.done[String(step)] || 0, stars);
+      walkSave(rec);
+    }
+    return { step: step, passed: passed, best_stars: walkStars(step), last: step === WALK_STEPS.length };
   }
 
-  function startMissionDesign(tierId, eraId) {
-    state.design = newDesign(tierId);
-    if (eraId && typeof setEra === "function") setEra(state.design, eraId);
+  // A preset choice: set by the step, so its place counts as visited and its cards are read-only.
+  function isPreset(screen) {
+    var cfg = walkStepOf(state.design) ? walkConfig(state.walk.step) : null;
+    return !!(cfg && PRESET_FIELD[screen] && cfg[PRESET_FIELD[screen]]);
+  }
+  // A preset place counts as visited as soon as the place before it has been: no place stays locked behind a choice
+  // the step already made (the Launch Pad opens once the Workshop has been visited when the rocket is preset).
+  function bumpReached() {
+    while (state.reached + 1 < DESIGN_STEPS.length && isPreset(DESIGN_STEPS[state.reached + 1])) state.reached++;
+  }
+
+  function startWalkStep(step) {
+    var cfg = walkConfig(step);
+    if (!cfg || typeof newDesign !== "function") return showDesignScreen("title");
+    var d = newDesign(cfg.tier);
+    if (cfg.era && typeof setEra === "function") setEra(d, cfg.era);
+    if (cfg.objective) setObjective(d, cfg.objective);
+    if (cfg.orbit) setOrbit(d, cfg.orbit);
+    if (cfg.launcher) setLauncher(d, cfg.launcher);
+    stopWalking();
+    state.walk = { step: step, design: d };
+    state.design = d;
+    state.locked = false;
     state.reached = 0;
     state.player = "gate";
-    if (showIntro()) return;
-    go("map");
+    state.bin = null;
+    bumpReached();
+    var beats = (step === 1 ? list(storyLine("intro", d)) : []).concat(list(storyLine("step-open", d, step)));
+    var name = walkName(step);
+    showBeats(beats, STORY.modes.part1.kicker + " · STEP " + step + (name ? " · " + name : ""), function () { go("map"); });
+  }
+  function walkName(step) {
+    var s = STORY.austin && STORY.austin.steps ? STORY.austin.steps[String(step)] : null;
+    return s && s.name ? s.name : "";
   }
 
-  // The story's opening: a few short beats, one at a time (NEXT, or SKIP), once per chapter in a page load.
-  // storyLine("intro") returns a list of { who, text } beats; an empty list (or no story block) skips it.
-  function showIntro() {
-    var beats = typeof storyLine === "function" ? list(storyLine("intro", state.design)) : [];
-    var chapter = typeof storyChapter === "function" ? storyChapter(state.design) : "story";
-    if (!beats.length || state.introSeen[chapter]) return false;
-    state.introSeen[chapter] = true;
-    var title = typeof STORY === "object" && STORY.title ? STORY.title : "";
-    var sub = typeof STORY === "object" && STORY.subtitle ? STORY.subtitle : "";
+  // After step 3: the epilogue, then Part 2 (window.showComebackStart, defined by the Part 2 screens) or home.
+  function showEpilogue() {
+    var toPart2 = function () {
+      if (typeof window.showComebackStart === "function") window.showComebackStart();
+      else showDesignScreen("title");
+    };
+    state.walk = null;
+    state.design = null;
+    state.locked = false;
+    showBeats(list(storyLine("epilogue", null)), STORY.modes.part1.kicker + " · " + STORY.modes.part1.name, toPart2,
+      { doneLabel: "CONTINUE TO PART 2", skipToEnd: true, home: true });
+  }
+
+  // A few short story beats, one at a time (NEXT, or SKIP), then onDone. An empty list goes straight to onDone.
+  // opts: doneLabel (the last button, default START), skipToEnd (SKIP shows the last beat instead of leaving),
+  // home (a HOME button beside the last one).
+  function showBeats(beats, kicker, onDone, opts) {
+    opts = opts || {};
+    beats = list(beats).filter(function (b) { return b && b.text; });
+    if (!beats.length) return onDone();
     var at = 0;
     function draw1() {
       var last = at >= beats.length - 1;
       mount("intro", el("section", { class: "screen intro" }, [
-        el("div", { class: "kicker", text: (chapter === "ajay" ? "PART 2 · " : "PART 1 · ") + String(sub || title).toUpperCase() }),
+        el("div", { class: "kicker", text: String(kicker || "").toUpperCase() }),
         el("div", { class: "intro-beats", "aria-live": "polite" }, [sayElement(beats[at])]),
         el("p", { class: "bar-note", text: (at + 1) + " / " + beats.length }),
         el("div", { class: "nav-row" }, [
-          button("SKIP", function () { go("map"); }, { aria: "Skip the introduction" }),
-          button([last ? "START" : "NEXT", " >"], function () { if (last) go("map"); else { at++; draw1(); } }, { primary: true })
+          last ? (opts.home ? button("HOME", function () { showDesignScreen("title"); }) : null)
+            : button("SKIP", function () { if (opts.skipToEnd) { at = beats.length - 1; draw1(); } else onDone(); }, { aria: "Skip the story" }),
+          button([last ? (opts.doneLabel || "START") : "NEXT", " >"], function () { if (last) onDone(); else { at++; draw1(); } }, { primary: true })
         ])
       ]));
       var next = document.querySelector(".intro .btn.primary");
       if (next) next.focus();
     }
     draw1();
-    return true;
   }
 
-  function tierButton(t, i, tiers, era, eraOpen, eraLockText) {
-    var tierOpen = typeof isTierUnlocked === "function" ? isTierUnlocked(t.id) : true;
-    var open = tierOpen && eraOpen;
-    var why = !eraOpen ? "Locked" : !tierOpen ? "Earn 2 stars on " + (tiers[i - 1] ? tiers[i - 1].name : "the previous tier") : null;
-    return el("button", {
-      type: "button", class: "tier-btn" + (open ? "" : " locked"), disabled: !open,
-      "data-key": era ? "start-" + era.id + "-" + t.id : "tier-" + t.id,
-      title: why ? (eraOpen ? why : eraLockText) : num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission",
-      "aria-label": (era ? era.name + " " + era.year + ", " : "") + t.name + ", " + money(t.budget_musd) + ", " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + (why ? ". Locked: " + (eraOpen ? why : eraLockText) : ""),
-      onclick: function () { startMissionDesign(t.id, era ? era.id : null); }
-    }, [
-      el("span", { class: "tier-name", text: t.name.toUpperCase() }),
-      el("span", { class: "tier-facts", text: why ? "LOCKED" : money(t.budget_musd) })
+  // ---- the home page: the title and two mode cards. Every star comes from the walkthrough record.
+  function comebackSaved() {
+    try {
+      if (typeof getComeback !== "function") return false;
+      var c = getComeback();
+      return !!c && !c.finished;
+    } catch (e) { return false; }
+  }
+
+  function part1Card() {
+    var M = STORY.modes.part1;
+    var next = walkNext();
+    var started = WALK_STEPS.some(function (w) { return walkStars(w.step) !== null; });
+    var label = !next ? "PLAY AGAIN" : started ? "CONTINUE: STEP " + next : "START";
+    var steps = el("ol", { class: "mode-steps" }, WALK_STEPS.map(function (w) {
+      var stars = walkStars(w.step);
+      return el("li", { class: stars === null ? "" : "passed", "data-key": "walk-step-" + w.step }, [
+        el("span", { class: "mode-step-num", text: String(w.step) }),
+        el("span", { class: "mode-step-name", text: walkName(w.step) }),
+        el("span", { class: "stars", text: starsText(stars || 0), "aria-label": stars === null ? "not passed yet" : stars + " of 3 stars" })
+      ]);
+    }));
+    return el("div", { class: "mode-card", "data-key": "mode-part1" }, [
+      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), next ? el("span", { class: "tag warn", text: M.tag }) : null]),
+      el("h2", { text: M.name }),
+      el("p", { class: "mode-pitch", text: M.pitch }),
+      steps,
+      el("div", { class: "mode-go" }, [button([label, " >"], function () { startWalkStep(next || 1); },
+        { primary: true, key: "part1-go", aria: label + ", part 1" })])
     ]);
   }
 
-  // Tier select: eras across, tiers (maturity levels) down. All numbers come from getEras(), TIERS and getProgress().
+  function part2Card() {
+    var M = STORY.modes.part2;
+    var ready = typeof window.showComebackStart === "function";
+    var label = !ready ? "COMING NEXT" : comebackSaved() ? "CONTINUE" : "START";
+    return el("div", { class: "mode-card", "data-key": "mode-part2" }, [
+      el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker })]),
+      el("h2", { text: M.name }),
+      el("p", { class: "mode-pitch", text: M.pitch }),
+      el("div", { class: "mode-go" }, [button(ready ? [label, " >"] : label, function () { if (typeof window.showComebackStart === "function") window.showComebackStart(); },
+        { primary: ready, disabled: !ready, key: "part2-go", aria: label + ", part 2" })])
+    ]);
+  }
+
   function drawTitle() {
     setStatus("Space Mission Design Game");
     state.locked = false;
-    var tiers = data("TIERS");
-    var eras = typeof getEras === "function" ? list(getEras()) : [];
-    var missions = typeof MISSIONS !== "undefined" ? list(MISSIONS) : [];
-
-    var grid;
-    if (eras.length) {
-      grid = el("div", { class: "eras" }, eras.map(function (e, i) {
-        var lockText = e.unlocked ? null : "Earn 2 stars in " + (eras[i - 1] ? eras[i - 1].name : "the previous era");
-        // A locked era is one short card: the rule is its tooltip and accessible name, and the screen's one hint.
-        if (!e.unlocked) {
-          return el("div", { class: "era locked compact", "data-key": "era-" + e.id, role: "group", title: lockText,
-            "aria-label": e.name + " " + e.year + ". Locked. " + lockText }, [
-            el("div", { class: "era-year", text: String(e.year) }),
-            el("div", { class: "card-title" }, [el("h3", { text: String(e.name).toUpperCase() }), el("span", { class: "tag", text: "LOCKED" })])
-          ]);
-        }
-        var real = list(e.real_missions).map(function (id) { var m = byId(missions, id); return m ? m.name : null; }).filter(Boolean);
-        return el("div", { class: "era" + (e.unlocked ? "" : " locked"), "data-key": "era-" + e.id }, [
-          el("div", { class: "era-year", text: String(e.year) }),
-          el("div", { class: "card-title" }, [el("h3", { text: String(e.name).toUpperCase() }),
-            el("span", { class: "stars", text: starsText(e.best_stars), "aria-label": (e.best_stars || 0) + " of 3 stars" })]),
-          more(e.blurb + (real.length ? " Real missions: " + real.join(", ") + "." : ""), "About this era"),
-          el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, e, e.unlocked, lockText); }))
-        ]);
-      }));
-    } else {
-      // No eras in the data: the three tiers alone, everything available.
-      grid = el("div", { class: "eras" }, [el("div", { class: "era" }, [
-        el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, null, true, null); }))])]);
-    }
-
-    var campaignUp = tiers.length ? campaignPanel(tiers) : null;
+    state.walk = null;
     return el("section", { class: "title" }, [
       titleHero(),
-      el("h1", { class: "big-title", text: String(typeof STORY === "object" && STORY.title ? STORY.title : "GRAVITRON").toUpperCase() }),
+      el("h1", { class: "big-title", text: String(STORY.title || "GRAVITRON").toUpperCase() }),
       el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-      // The campaign is the game's core loop, so it comes first; a single mission is the quick alternative.
-      campaignUp,
-      el("h2", { class: campaignUp ? "subhead" : "sr-only", text: (campaignUp ? "OR FLY ONE MISSION" : (eras.length ? "Choose an era and a level" : "Choose a level")) }),
-      tiers.length ? grid : el("p", { class: "empty", text: "No tiers in the data yet." }),
+      el("div", { class: "modes" }, [part1Card(), part2Card()]),
       el("div", null, [button("RESET PROGRESS", function () {
-        if (typeof resetProgress === "function" && window.confirm("Forget every star you have earned?")) { resetProgress(); draw("title"); }
-      }, { quiet: true })])
+        if (!window.confirm("Forget every star you have earned?")) return;
+        if (typeof resetProgress === "function") resetProgress();
+        walkForget();
+        draw("title");
+      }, { quiet: true, key: "reset-progress" })])
     ]);
   }
+
+  // A step that presets this screen's choice: the chosen card becomes a plain card (nothing to click) and the
+  // others are greyed out, under one line saying so.
+  function presetView(card, chosen) {
+    if (chosen) {
+      var div = el("div", { class: card.className + " static chosen", "data-key": card.getAttribute("data-key") });
+      while (card.firstChild) div.appendChild(card.firstChild);
+      return div;
+    }
+    card.disabled = true;
+    card.className += " locked";
+    card.removeAttribute("aria-pressed");
+    return card;
+  }
+  function presetNote(screen) { return isPreset(screen) ? el("p", { class: "preset-note", text: "Set for this step." }) : null; }
 
   // ---------------------------------------------------------------- 1 Briefing
   // What counts for a job: the instrument types, the first in full and the rest at half ("radar · imaging ½").
@@ -1876,12 +2034,14 @@
         facts([["Target", num(o.science_target, 0) + " pts"], ["Counts", wantsLine(o)],
           topic ? ["Pays", money(topic.next_payout_estimate_musd)] : null])
       ]);
+      if (isPreset("briefing")) card = presetView(card, d.objective === o.id);
       // The rest of the briefing sits beside the card, not inside it (a button cannot hold a button).
       return el("div", { class: "card-wrap" }, [card, more(o.briefing, "About this job")]);
     });
     return el("section", { class: "screen" }, [
       head("1 · BRIEFING"),
       sayLine("briefing"),
+      presetNote("briefing"),
       objectives.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No objectives in the data yet." }),
       navRow("orbit", !!d.objective)
     ]);
@@ -1899,6 +2059,15 @@
     var src = e && e.source ? " (" + kind[1] + (e.year ? " " + e.year : "") + ")" : "";
     return "In view: " + Math.round(share * 100) + "% " + kind[0] + src;
   }
+  // An orbit the chosen rocket cannot reach, or one no rocket on offer can reach (1958): said on the card before the
+  // click. A plain data field (the rocket's capacity_kg for that orbit), as on the Launch vehicle screen.
+  function reachNote(d, o) {
+    var rocket = d.launcher ? byId(data("LAUNCHERS"), d.launcher) : null;
+    var cap = rocket && rocket.capacity_kg ? rocket.capacity_kg[o.id] : null;
+    if (rocket && !(isNum(cap) && cap > 0)) return el("p", { class: "part-note", text: rocket.name + " cannot reach it" });
+    if (!rocket && !anyRocketReaches(d, o.id)) return el("p", { class: "part-note", text: "No rocket yet can reach it" });
+    return null;
+  }
   function drawOrbit() {
     var d = state.design;
     var objective = byId(data("OBJECTIVES"), d.objective);
@@ -1912,7 +2081,7 @@
         : fit === 0 ? el("span", { class: "tag bad", text: "CANNOT SEE TARGET" })
         : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL VIEW" })
         : el("span", { class: "tag good", text: "GOOD VIEW" });
-      return el("button", {
+      var card = el("button", {
         type: "button", class: "card" + (fit === 0 ? " dim" : ""), "aria-pressed": d.orbit === o.id ? "true" : "false",
         "data-key": "orbit-" + o.id, onclick: function () { setOrbit(d, o.id); redraw(); }
       }, [
@@ -1924,12 +2093,15 @@
           ["In shadow", num(f.eclipse_min) + " min a lap"],
           ["Lifetime", num(o.lifetime_months, 0) + " months"]
         ]),
-        isNum(f.target_in_view) ? el("p", { class: "nasa-line", text: inViewText(d.objective, f.target_in_view) }) : null
+        isNum(f.target_in_view) ? el("p", { class: "nasa-line", text: inViewText(d.objective, f.target_in_view) }) : null,
+        reachNote(d, o)
       ]);
+      return isPreset("orbit") ? presetView(card, d.orbit === o.id) : card;
     });
     return el("section", { class: "screen" }, [
       head("2 · ORBIT"),
       sayLine("orbit"),
+      presetNote("orbit"),
       cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No orbits in the data yet." }),
       navRow("build", !!d.orbit)
     ]);
@@ -1943,9 +2115,9 @@
       bits.push(el("span", { class: "part-stat" }, [icon(kind), text]));
     }
     if (p.mass_kg) stat("mass", num(p.mass_kg) + " kg");
-    if (p.power_draw_w) stat("power", num(p.power_draw_w, 0) + " W draw");
-    if (p.data_gb_day) stat("data", num(p.data_gb_day) + " GB/d made");
-    if (p.downlink_gb_day) stat("comms", num(p.downlink_gb_day) + " GB/d sent");
+    if (p.power_draw_w) stat("power", fine(p.power_draw_w) + " W draw");
+    if (p.data_gb_day) stat("data", dataText(p.data_gb_day) + "/d made");
+    if (p.downlink_gb_day) stat("comms", dataText(p.downlink_gb_day) + "/d sent");
     if (p.battery_wh) stat("power", num(p.battery_wh, 0) + " Wh");
     return bits;
   }
@@ -2007,10 +2179,10 @@
     var dl = t.delta || {};
     var bits = [];
     if (dl.mass_kg) bits.push(signed(dl.mass_kg) + " kg");
-    if (dl.power_draw_w) bits.push(signed(dl.power_draw_w, 0) + " W draw");
-    if (dl.power_gen_w) bits.push(signed(dl.power_gen_w, 0) + " W made");
+    if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
+    if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
     if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
-    if (dl.data_returned_gb_day) bits.push("data home " + signed(dl.data_returned_gb_day) + " GB/day");
+    if (dl.data_returned_gb_day) bits.push("data home " + dataText(dl.data_returned_gb_day, true) + "/day");
     if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
     if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
     if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
@@ -2140,7 +2312,7 @@
         : !reach ? el("span", { class: "tag bad", text: "CANNOT REACH" })
         : fits ? el("span", { class: "tag good", text: "FITS" })
         : el("span", { class: "tag bad", text: "TOO SMALL" });
-      return el("button", {
+      var card = el("button", {
         type: "button", class: "card" + (orbit && !reach ? " locked" : ""), disabled: !!(orbit && !reach),
         "aria-pressed": d.launcher === l.id ? "true" : "false", "data-key": "rocket-" + l.id,
         onclick: function () { setLauncher(d, l.id); redraw(); }
@@ -2151,10 +2323,12 @@
           orbit ? ["Lifts", reach ? num(cap, 0) + " kg" : "no"] : null
         ])
       ]);
+      return isPreset("launcher") ? presetView(card, d.launcher === l.id) : card;
     });
     return el("section", { class: "screen" }, [
       head("4 · LAUNCH VEHICLE"),
       sayLine("launcher"),
+      presetNote("launcher"),
       el("div", { class: "pad" }, [
         cards.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No rockets in the data yet." }),
         el("div", { class: "panel" }, [el("h2", { text: "MISSION OVERVIEW" }), resourceBars(d), payoutLine(d)])
@@ -2230,11 +2404,26 @@
     return categories().every(function (c) { return !c.required || have[c.id]; });
   }
 
-  // Where a NO GO line is fixed. Mass and budget belong to the rocket once one is chosen,
-  // and to the parts before that.
+  // Where a NO GO line (or a warning) is fixed. Mass and budget belong to the rocket once one is chosen, and to the
+  // parts before that or when the step presets the rocket. An orbit no rocket on offer can reach, or one that needs a
+  // thruster when none is on offer (1958), is fixed at the Tracking Station. The route and the FIX links both use this.
   function fixPlace(check, d) {
-    if ((check.id === "mass" || check.id === "budget") && !d.launcher) return "build";
-    return FIX_SCREEN[check.id] || "build";
+    var id = String(check && check.id || "");
+    if (id === "launcher-reach") return isPreset("launcher") || !anyRocketReaches(d, d.orbit) ? "orbit" : "launcher";
+    if (id === "delta-v" && !anyPartOffered(d, "propulsion")) return "orbit";
+    if ((id === "mass" || id === "budget" || id === "mass-margin") && (!d.launcher || isPreset("launcher"))) return "build";
+    return FIX_SCREEN[id] || "build";
+  }
+  // Plain data fields only: is any rocket on offer able to reach this orbit at all (capacity above 0)?
+  function anyRocketReaches(d, orbitId) {
+    var avail = availability(d);
+    return data("LAUNCHERS").some(function (l) {
+      return !lockReason(avail.launchers, l.id) && !!l.capacity_kg && isNum(l.capacity_kg[orbitId]) && l.capacity_kg[orbitId] > 0;
+    });
+  }
+  function anyPartOffered(d, category) {
+    var avail = availability(d);
+    return data("PARTS").some(function (p) { return p.category === category && !lockReason(avail.parts, p.id); });
   }
 
   function blockedAt(d) {
@@ -2258,6 +2447,7 @@
   // The objective line while you stand where the GPS points.
   function doText(screen) {
     var d = state.design;
+    if (screen === "orbit" && d.orbit && blockedAt(d).orbit) return "Choose an orbit a rocket can reach.";
     if (screen === "build" && hasRequiredParts(d)) return "Clear the problems marked with a cross under the bars.";
     if (screen === "launcher" && d.launcher && blockedAt(d).launcher) return "Still NO GO: try another rocket, or cut mass or cost at the Workshop.";
     if (screen === "review" && !runChecks(d).blockers.length) return "Launch when ready.";
@@ -2439,7 +2629,7 @@
             el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " map"]),
           el("div", null, [inCampaign()
             ? button("BACK TO THE HUB", function () { window.showCampaignHub(); })
-            : button("CHANGE TIER", function () { showDesignScreen("title"); })])
+            : button("HOME", function () { showDesignScreen("title"); }, { key: "map-home" })])
         ])
       ])
     ]);
@@ -2611,11 +2801,11 @@
   function showDesignScreen(screenName, design) {
     if (design) state.design = design;
     state.locked = false;
-    if (screenName === "title") { state.design = null; state.reached = 0; state.player = "gate"; }
+    if (screenName === "title") { state.design = null; state.walk = null; state.reached = 0; state.player = "gate"; }
     var i = DESIGN_STEPS.indexOf(screenName);
     if (i !== -1 && i > state.reached) state.reached = i;
     // A fresh design starts over at the gate; coming back to redesign, every place is open.
-    if (design && (screenName === "briefing" || screenName === "map")) { state.reached = 0; state.player = "gate"; }
+    if (design && (screenName === "briefing" || screenName === "map")) { state.reached = 0; state.player = "gate"; bumpReached(); }
     else if (design) state.reached = DESIGN_STEPS.length - 1;
     go(screenName || "briefing");
   }
@@ -2645,7 +2835,17 @@
       app.focus();
       window.scrollTo(0, 0);
     },
-    tierName: function () { var t = tier(); return t ? t.name.toUpperCase() : ""; }
+    tierName: modeName,
+    // Part 1. walkStep(design): the walkthrough step this design is (1 to 3), or 0. walkResult(design, stars): once per
+    // debrief, keeps the best stars of a step that passed and returns { step, passed, best_stars, last } (null for
+    // any other design). startWalkStep(n) starts step n; showEpilogue() follows step 3.
+    walkStep: walkStepOf,
+    walkResult: walkResult,
+    startWalkStep: startWalkStep,
+    showEpilogue: showEpilogue,
+    // A few story beats, one at a time, then onDone: showBeats([{ who, text }], kicker, onDone, { doneLabel, skipToEnd, home }).
+    showBeats: function (beats, kicker, onDone, opts) { showBeats(beats, kicker, typeof onDone === "function" ? onDone : function () { showDesignScreen("title"); }, opts); },
+    home: function () { showDesignScreen("title"); }
   };
 
   function start() {

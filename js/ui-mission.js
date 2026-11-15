@@ -1,5 +1,5 @@
 // js/ui-mission.js — owned by Story.
-// 6 Mission and 7 Debrief. Uses the drawing helpers from ui-design.js
+// 6 Mission and 7 Debrief (for a Part 1 walkthrough step, the step result and NEXT STEP / TRY AGAIN). Uses the drawing helpers from ui-design.js
 // (StarlineUI) and only the mission.js calls listed in SPEC.md.
 // Everything lives inside one function so no name here can clash with
 // the back end's globals. One name is shared: showMissionScreen(design).
@@ -208,6 +208,8 @@
   function showDebrief(done) {
     var result = recordResult(done.mission);       // once per finished mission
     var d = getDebrief(done.mission);
+    // Part 1: a walkthrough step passes with the stars the debrief gives (the record keeps the best). null otherwise.
+    var walk = UI.walkResult ? UI.walkResult(done.design, d.stars) : null;
     var b = d.breakdown || {};
     UI.setStatus(UI.tierName() + " · SCORE " + num(d.score, 0));
 
@@ -248,8 +250,11 @@
     });
 
     var side = el("div", { class: "panel limit" }, [
-      result && result.unlocked && !done.design.campaign ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
-      result && result.era_unlocked ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
+      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
+        text: "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
+      // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them.
+      result && result.unlocked && !done.design.campaign && !walk ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
+      result && result.era_unlocked && !walk ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
       el("h2", null, [UI.icon(d.limiting), limitingHeading(d)]),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
@@ -260,7 +265,8 @@
       closestLine(d),
       events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
       events.length ? el("ul", { class: "log" }, events) : null,
-      done.design.campaign
+      walk ? walkButtons(walk, done.design)
+      : done.design.campaign
         ? el("div", { class: "choices" }, [
             UI.button([result && result.campaign_over ? "THE STORY OF YOUR PROGRAMME" : "BACK TO THE HUB", " >"], function () { window.showCampaignHub(); }, { primary: true }),
             // A fresh launch of the same satellite, paid for again.
@@ -272,7 +278,7 @@
         : el("div", { class: "choices" }, [
             UI.button(["REDESIGN", " >"], function () { window.showDesignScreen("build", done.design); }, { primary: true }),
             UI.button("NEW MISSION", function () { window.showDesignScreen("map", freshDesign(done.design)); }),
-            UI.button("CHANGE TIER", function () { window.showDesignScreen("title"); })
+            UI.button("HOME", function () { window.showDesignScreen("title"); })
           ])
     ]);
 
@@ -283,6 +289,25 @@
       UI.say ? UI.say("closing", d) : null
     ]));
     run = null;
+  }
+
+  // Part 1: NEXT STEP (or, after step 3, the epilogue) once the step passes; TRY AGAIN (the same design on Build) if not.
+  function walkButtons(walk, design) {
+    var redesign = function () { window.showDesignScreen("build", design); };
+    var home = function () { window.showDesignScreen("title"); };
+    if (!walk.passed) {
+      return el("div", { class: "choices" }, [
+        UI.button(["TRY AGAIN", " >"], redesign, { primary: true, key: "walk-retry" }),
+        UI.button("HOME", home, { key: "walk-home" })
+      ]);
+    }
+    return el("div", { class: "choices" }, [
+      walk.last
+        ? UI.button(["EPILOGUE", " >"], function () { UI.showEpilogue(); }, { primary: true, key: "walk-next" })
+        : UI.button(["NEXT STEP", " >"], function () { UI.startWalkStep(walk.step + 1); }, { primary: true, key: "walk-next" }),
+      UI.button("REDESIGN", redesign, { key: "walk-redesign" }),
+      UI.button("HOME", home, { key: "walk-home" })
+    ]);
   }
 
   // "POWER LIMITED THIS MISSION": the name is a NASA Mission Design Lab discipline from the back end.

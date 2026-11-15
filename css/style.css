@@ -225,12 +225,12 @@ button:disabled { cursor: not-allowed; }
   cursor: pointer;
 }
 .card:hover { border-color: var(--text-dim); }
-.card[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); }
+.card[aria-pressed="true"], .card.chosen { background: var(--surface-2); border-color: var(--accent); }
 .card.locked { color: var(--text-dim); border-style: dashed; cursor: not-allowed; }
 .card.locked h3 { color: var(--text-dim); }
 .card-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 10px; }
 .card-title h3 { font-size: 24px; color: var(--text); }
-.card[aria-pressed="true"] .card-title h3 { color: var(--accent-ink); }
+.card[aria-pressed="true"] .card-title h3, .card.chosen .card-title h3 { color: var(--accent-ink); }
 .card-blurb { color: var(--text-dim); font-size: 20px; }
 .card.dim .card-blurb { color: var(--bad); }
 
@@ -412,7 +412,7 @@ button:disabled { cursor: not-allowed; }
 .banner { padding: 10px 14px; background: var(--accent); color: var(--on-accent); font-family: var(--pixel); font-weight: 700; font-size: 26px; }
 .banner.info { background: var(--surface); color: var(--text-dim); font-family: var(--mono); font-weight: normal; font-size: 22px; border: 4px solid var(--border); }
 
-/* ---------------------------------------------------------------- title (tier select) */
+/* ---------------------------------------------------------------- title (the home page) */
 .title { display: flex; flex-direction: column; gap: 22px; padding: 24px 0; }
 .kicker { font-size: 24px; letter-spacing: 4px; color: var(--info-ink); }
 .big-title { font-family: var(--pixel); font-weight: 700; font-size: clamp(48px, 12vw, 128px); line-height: 1; color: var(--accent-ink); text-shadow: 8px 8px 0 var(--stamp); }
@@ -420,35 +420,7 @@ button:disabled { cursor: not-allowed; }
 
 .empty { color: var(--text-dim); font-style: italic; }
 
-/* ---------------------------------------------------------------- tier select: eras across, tiers down */
-.eras { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); align-items: start; }
-.era { display: flex; flex-direction: column; gap: 8px; padding: 14px; background: var(--surface); border: 4px solid var(--border); min-width: 0; }
-.era.locked { border-style: dashed; }
-.era.locked h3, .era.locked .era-year { color: var(--text-dim); }
-.era-year { font-family: var(--pixel); font-weight: 700; font-size: 44px; line-height: 1; color: var(--accent-ink); }
-.era h3 { font-size: 22px; }
-.tier-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-.tier-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 56px;
-  padding: 6px 12px;
-  background: var(--bg);
-  color: var(--text);
-  border: 4px solid var(--border);
-  box-shadow: 4px 4px 0 var(--shadow);
-  text-align: left;
-  cursor: pointer;
-}
-.tier-btn:not(:disabled):hover { border-color: var(--accent); }
-.tier-btn.locked { border-style: dashed; box-shadow: none; color: var(--text-dim); cursor: not-allowed; }
-.tier-name { font-size: 24px; line-height: 1; }
-.tier-facts { font-size: 18px; line-height: 1.1; color: var(--text-dim); }
 /* ---------------------------------------------------------------- campaign hub */
-.campaign-panel { margin-top: 8px; }
-.tier-list.row { flex-direction: row; flex-wrap: wrap; }
-.tier-list.row .tier-btn { flex: 1 1 220px; }
 .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 .tab { padding: 6px 16px; min-height: 44px; background: var(--surface); color: var(--text-dim); border: 4px solid var(--border); font-size: 22px; cursor: pointer; }
 .tab.on { background: var(--accent); color: var(--on-accent); border-color: var(--text); }
@@ -776,7 +748,26 @@ svg.icon { display: inline-block; margin-right: .35em; vertical-align: -.12em; }
 .lp-hero { aspect-ratio: 4 / 1; max-height: 340px; border: 4px solid var(--border); }
 @media (max-width: 640px) { .lp-hero { aspect-ratio: 3 / 2; } }
 .title .big-title { font-size: clamp(40px, 8vw, 88px); text-shadow: 4px 4px 0 var(--stamp); }
-.era.compact { gap: 4px; padding: 10px 14px; }
-.era.compact .era-year { font-size: 28px; }
 .btn.quiet { background: none; border-color: transparent; box-shadow: none; color: var(--text-dim); text-decoration: underline; }
 .btn.quiet:hover { color: var(--text); border-color: var(--border); }
+
+/* ---------------------------------------------------------------- home page: the two game modes
+   Rounded and flat: no shadows or gradients on anything added here. Side by side on a wide screen, stacked on a phone. */
+.modes { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: stretch; }
+.mode-card { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; min-width: 0; background: var(--surface); border: 4px solid var(--border); border-radius: 12px; }
+.mode-card:first-child { border-color: var(--accent); }
+.mode-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; }
+.mode-top .kicker { font-size: 20px; letter-spacing: 3px; }
+.mode-top .tag { border-radius: 6px; }
+.mode-card h2 { font-size: clamp(26px, 4vw, 34px); color: var(--accent-ink); }
+.mode-pitch { font-size: 24px; color: var(--text-dim); }
+.mode-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mode-steps li { display: flex; align-items: center; gap: 10px; padding: 4px 10px; background: var(--bg); border: 3px solid var(--border); border-radius: 8px; }
+.mode-steps li.passed { border-color: var(--info); }
+.mode-step-num { flex: none; width: 1.4em; font-family: var(--pixel); font-weight: 700; color: var(--info-ink); }
+.mode-step-name { flex: 1; min-width: 0; font-size: 22px; }
+.mode-steps .stars { flex: none; color: var(--accent-ink); }
+.mode-steps li:not(.passed) .stars { color: var(--text-dim); }
+.mode-go { margin-top: auto; display: flex; }
+.mode-go .btn { flex: 1; border-radius: 8px; box-shadow: none; }
+.preset-note { color: var(--text-dim); font-size: 20px; }
