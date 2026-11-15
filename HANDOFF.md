@@ -78,3 +78,19 @@ Back end is on `main`; `SPEC.md` "The lab, the archive and open choices" has the
 - **Hub topic cards:** draw `data_collected` / `data_cap` as the bar, and a "COMPLETE: nothing new to collect" state when `complete` is true.
 - **Build screen payout line:** `previewPayout(d)` now has `new_data`, `data_left` and `topic_complete`. When `new_data` is 0, say "Nothing new to collect here: no reward" before the player launches.
 - **Debrief (campaign):** when `nothing_new` is true, lead with "NO REWARD: already collected" and a button to the hub naming `best_next_topic`. Otherwise show "New data: `new_data`" next to the payout.
+
+---
+
+## Overnight changes in your files (November 15, branch `yarmee/vibrant-galileo-gw37wj`, not on main)
+
+The back end gained the ending, offers and the data cap; these are the small edits made in the screen files so they show. Please read them before merging, they touch `ui-design.js`.
+
+| File | Change | Why |
+| --- | --- | --- |
+| `js/ui-design.js` Build screen | The part cards (`shelf`) and the "IF YOU CLICK" preview moved into the main grid under the satellite (`.bench-col`); the preview has a fixed height; the bins and the right column are sticky. | The preview used to grow with its text and push every card away from the mouse (cards flickered, clicks missed), and the cards sat below the fold while the bars they change were at the top. CSS: `.workshop`, `.bench-col`, `.preview` in `css/style.css`. |
+| `js/ui-design.js` | Build opens on the instrument bin; the "build" objective line names body and attitude control; the title puts the Campaign panel first; the payout line adds `new_data` and open offers. | Switch-over is on; the campaign is the core loop. |
+| `js/ui-mission.js` | Pause and fast-forward are disabled once the mission ends (they could cancel the walk to the debrief); the debrief shows "NO REWARD: ALREADY COLLECTED", "OFFER MET: ..." and, in a campaign, no tier-unlocked banner; the last flight's button reads "THE STORY OF YOUR PROGRAMME". | Core loop and ending. |
+| `js/ui-campaign.js` | The hub shows OPEN OFFERS; when the campaign has finished it calls `window.showChronicle()` (one line). | Offers and the ending. |
+| `js/ui-ending.js` (new), `index.html`, `css/style.css` (end of file) | The programme chronicle screen. | Storytelling: the ending tells the player's own story. |
+
+Not done for you: the topic cards on the hub still do not show `data_collected` / `data_cap` (HANDOFF Priority 6).

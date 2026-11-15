@@ -649,6 +649,8 @@ function limitingFactor(mission, totals, scienceShare) {
       ? "Nothing ran short, but the science fell below target. " + best.name + " suits this objective better."
       : "Nothing ran short, and this is already the best orbit for this objective. A longer-lived or sharper design is the only way up." };
   }
+  // In a campaign there is no "next tier": the next step is the lab, or another topic.
+  if (mission.campaign_flight) return { key: "none", suggestion: "Target reached. Spend the science in the lab, or fly a different topic." };
   return { key: "none", suggestion: "Target reached. Try the next tier, or reach it on a smaller budget." };
 }
 

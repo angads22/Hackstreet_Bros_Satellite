@@ -248,7 +248,7 @@
     });
 
     var side = el("div", { class: "panel limit" }, [
-      result && result.unlocked ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
+      result && result.unlocked && !done.design.campaign ? el("p", { class: "banner", text: tierLabel(result.unlocked) + " UNLOCKED" }) : null,
       result && result.era_unlocked ? el("p", { class: "banner", text: "NEW ERA: " + eraLabel(result.era_unlocked) }) : null,
       el("h2", { text: limitingHeading(d) }),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
