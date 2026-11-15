@@ -22,7 +22,7 @@ Design a satellite, pick a rocket, pass a readiness review, watch the mission mo
 
 ## Build a satellite
 
-- **41 real parts in seven bins:** body, attitude control, instruments, power, radio, computer, extras. *In*
+- **41 real parts in seven bins:** structure, instruments, power, radio, computer, attitude, propulsion. *In*
 - **A 3D bench:** the satellite is a low-poly model of the parts you fit; a part you add flies in, one you remove slides out. *In*
 - **An animated explainer for every part:** a looping drawing, a hook line, what it does, its catch. *In*
 - **Live resource bars:** mass, power, budget and data. *In*
