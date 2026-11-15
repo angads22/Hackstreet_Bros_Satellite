@@ -70,3 +70,11 @@ Back end is on `main`; `SPEC.md` "The lab, the archive and open choices" has the
 - **Build screen:** a replaced part greys out with `reason` "Replaced by …"; an upgrade not yet bought shows "Upgrade in the lab, from …". Nothing else changes: `getAvailability` already carries it.
 - **New topic `ionosphere`** (Alouette 1, Canada): it works with the existing screens. `stepMonth().real` can now be `{ soundings, year }` ("Alouette heard 18,000 soundings this month"); the debrief's `real_world.text` already explains the ground stations.
 - **Research hints:** on Trade Space and Point Design, `missing` holds a hint instead of the exact lesson. Nothing to change on screen.
+
+## Priority 6: the core loop on screen (November 15)
+
+`SPEC.md`, "The core loop". Each mission type has a data cap; only new data earns money and science points.
+
+- **Hub topic cards:** draw `data_collected` / `data_cap` as the bar, and a "COMPLETE: nothing new to collect" state when `complete` is true.
+- **Build screen payout line:** `previewPayout(d)` now has `new_data`, `data_left` and `topic_complete`. When `new_data` is 0, say "Nothing new to collect here: no reward" before the player launches.
+- **Debrief (campaign):** when `nothing_new` is true, lead with "NO REWARD: already collected" and a button to the hub naming `best_next_topic`. Otherwise show "New data: `new_data`" next to the payout.

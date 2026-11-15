@@ -466,7 +466,8 @@ function getDebrief(mission) {
   var lim = limitingFactor(mission, totals, scienceShare);
   var kp = "";
   if (mission.campaign_flight) {
-    if (k.novelty < 0.15) kp = DEBRIEF.saturated || "";
+    if (k.nothing_new) kp = "Nothing new: this topic's data has already been collected, so the flight earned no money and no science points. Try another mission type.";
+    else if (k.novelty < 0.15) kp = DEBRIEF.saturated || "";
     else if (k.novelty > 0.6 && k.knowledge_before < 0.2) kp = DEBRIEF.breakthrough || "";
   }
   return {
@@ -490,6 +491,9 @@ function getDebrief(mission) {
     knowledge_before: k.knowledge_before,
     knowledge_after: k.knowledge_after,
     novelty: k.novelty,
+    new_data: k.new_data,
+    nothing_new: !!(mission.campaign_flight && k.nothing_new),
+    topic_complete: !!(mission.campaign_flight && k.topic_complete),
     spent_musd: round(spent, 3),
     best_next_topic: mission.campaign_flight ? bestNextTopic(design.objective) : null,
     knowledge_paragraph: kp
@@ -505,17 +509,32 @@ function knowledgeOf(objective, S) {
 }
 
 // Payout for sending home `science` points on a topic where `before` points were already known.
+// Each mission type has a data cap (SPEC.md, "The core loop"): only data under the cap is new.
+function dataCap(objective) {
+  var n = typeof CAMPAIGN !== "undefined" && CAMPAIGN.cap_scales ? CAMPAIGN.cap_scales : 0;
+  return objective && objective.knowledge_scale && n ? objective.knowledge_scale * n : Infinity;
+}
+function newDataFor(objective, before, science) {
+  return Math.max(0, Math.min(science, dataCap(objective) - before));
+}
+
 function payoutFor(objective, before, science) {
   var floor = typeof CAMPAIGN !== "undefined" ? CAMPAIGN.repeat_floor_musd : 0;
+  var cap = dataCap(objective), raw = science;
+  science = newDataFor(objective, before, science);   // rewards are for new data only
   var kb = knowledgeOf(objective, before), ka = knowledgeOf(objective, before + science);
   var gain = ka - kb;
-  var first = knowledgeOf(objective, science);         // what a first mission would have gained
+  var first = knowledgeOf(objective, Math.min(raw, cap));   // what a first mission would have gained
   var value = objective && objective.value_musd ? objective.value_musd : 0;
   return {
     payout_musd: round(Math.max(value * gain, science > 0 ? floor : 0), 3),
     knowledge_before: round(kb, 3),
     knowledge_after: round(ka, 3),
-    novelty: first > 0 ? round(Math.min(1, gain / first), 3) : 0
+    novelty: first > 0 ? round(Math.min(1, gain / first), 3) : 0,
+    new_data: round(science, 1),
+    data_left: isFinite(cap) ? round(Math.max(0, cap - before - science), 1) : null,
+    topic_complete: isFinite(cap) && before + science >= cap,
+    nothing_new: raw > 0 && science === 0
   };
 }
 
@@ -531,7 +550,7 @@ function bestNextTopic(currentId) {
   if (!c) return null;
   var best = null, bestPay = -1;
   OBJECTIVES.forEach(function (o) {
-    if (!isObjectiveAvailable(o.id)) return;
+    if (!isObjectiveAvailable(o.id) || o.id === currentId && (c.knowledge_science[o.id] || 0) >= dataCap(o)) return;
     var pay = payoutFor(o, c.knowledge_science[o.id] || 0, o.science_target).payout_musd;
     if (pay > bestPay) { bestPay = pay; best = o.id; }
   });
@@ -844,14 +863,15 @@ function settleCampaign(mission, debrief, result) {
   if (!c) return;
   var obj = mission.design.objective;
   var grant = grantFor(c);
-  c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + mission.science;
+  var newData = newDataFor(getObjective(obj), c.knowledge_science[obj] || 0, mission.science);
+  c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + newData;
   c.treasury_musd = round(c.treasury_musd + debrief.payout_musd + grant - mission.extra_cost_musd, 3);
   var yearFlown = c.year;
   var yearsPassed = missionYears(mission.design);
   c.year += yearsPassed;   // time as a resource: long builds cost years
   // Science points: this flight's data, plus a share of the whole archive for every year that passed.
   var archive = round(archivePerYear(c) * yearsPassed, 1);
-  c.science_pts = round((c.science_pts || 0) + mission.science + archive, 1);
+  c.science_pts = round((c.science_pts || 0) + newData + archive, 1);
   var newLessons = lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
   c.lessons = c.lessons.concat(newLessons);
   c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
@@ -889,7 +909,10 @@ function settleCampaign(mission, debrief, result) {
   result.campaign_over = c.finished;
   result.won = c.won;
   result.lessons_new = newLessons;
-  result.science_pts_earned = round(mission.science, 1);
+  result.science_pts_earned = round(newData, 1);
+  result.new_data = round(newData, 1);
+  result.nothing_new = mission.science > 0 && newData === 0;
+  result.best_next_topic = bestNextTopic(obj);
   result.archive_sci = archive;
   result.science_pts = c.science_pts;
 }
@@ -916,6 +939,9 @@ function getHubInfo() {
       return {
         id: o.id, name: o.name, available: open,
         knowledge: round(knowledgeOf(o, S), 3),
+        data_collected: round(S, 1),
+        data_cap: isFinite(dataCap(o)) ? dataCap(o) : null,
+        complete: S >= dataCap(o),
         science_so_far: round(S, 1),
         next_payout_estimate_musd: payoutFor(o, S, o.science_target).payout_musd,
         locked_reason: open ? null : "Needs " + researchNameFor("objectives", o.id)
@@ -962,6 +988,7 @@ function previewPayout(design) {
   var k = payoutFor(objective, before, previewScience(design).total);
   return { expected_payout_musd: k.payout_musd, knowledge_before: k.knowledge_before,
            knowledge_after: k.knowledge_after, novelty: k.novelty,
+           new_data: k.new_data, data_left: k.data_left, topic_complete: k.topic_complete,
            cost_musd: cost, net_musd: round(k.payout_musd - cost, 3) };
 }
 
