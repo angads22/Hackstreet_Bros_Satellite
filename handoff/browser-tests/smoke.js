@@ -1,0 +1,23 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('console', m => { if (m.type() === 'error' && !/fonts/.test((m.location()||{}).url||'')) errs.push(m.text()); });
+  await p.goto('file:///home/user/Hackstreet_Bros_Satellite/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload();
+  await p.waitForTimeout(800);
+  await p.click('[data-key="tier-training"]');
+  await p.waitForTimeout(300);
+  await p.screenshot({ path: process.argv[2] + '/map-0.png' });
+  console.log('prompt:', await p.locator('.map-prompt-text').innerText());
+  await p.keyboard.press('e'); await p.waitForTimeout(1200);
+  console.log('after E:', await p.locator('.map-prompt-text').innerText());
+  await p.keyboard.press('e'); await p.waitForTimeout(300);
+  console.log('screen:', await p.locator('.screen-head h1').innerText());
+  await p.click('[data-key="obj-wildfire"]');
+  await p.screenshot({ path: process.argv[2] + '/map-1-briefing.png' });
+  await p.click('text=GO TO TRACKING STATION'); await p.waitForTimeout(400);
+  await p.screenshot({ path: process.argv[2] + '/map-2-walking.png' });
+  await p.waitForTimeout(1500);
+  console.log('screen:', await p.locator('.screen-head h1').innerText());
+  console.log('errors:', errs);
+  await b.close();
+})();
