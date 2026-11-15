@@ -306,6 +306,31 @@ function devMonths(design) {
   return longest + Math.ceil(parts.length / 3);
 }
 
+// The long pole (SPEC.md, "Real-world elements"): which part sets the build time, and what it would be without it.
+// Reads the same build_months as devMonths and changes no timing: total_months equals getTotals().dev_months.
+//   long_pole          the name of the slowest part (two names when two tie; "A and N other parts" beyond that); null with no parts
+//   long_pole_months   its build_months
+//   next_months        the longest build once one long pole is taken out (the same number when two parts tie)
+//   integration_months one month for every three parts
+//   total_months       long_pole_months + integration_months
+function getSchedule(design) {
+  var parts = designParts(design);
+  var out = { long_pole: null, long_pole_months: 0, next_months: 0, integration_months: 0, total_months: 0 };
+  if (!parts.length) return out;
+  var months = parts.map(function (p) { return p.build_months || 0; });
+  var longest = Math.max.apply(null, months);
+  var poles = parts.filter(function (p) { return (p.build_months || 0) === longest; });
+  var rest = months.slice().sort(function (a, b) { return b - a; });
+  out.long_pole = poles.length === 1 ? poles[0].name
+    : poles.length === 2 ? poles[0].name + " and " + poles[1].name
+    : poles[0].name + " and " + (poles.length - 1) + " other parts";
+  out.long_pole_months = longest;
+  out.next_months = rest.length > 1 ? rest[1] : 0;
+  out.integration_months = Math.ceil(parts.length / 3);
+  out.total_months = longest + out.integration_months;
+  return out;
+}
+
 // Years a campaign mission takes on the calendar: at least one, more for long builds.
 function missionYears(design) {
   var per = typeof CAMPAIGN !== "undefined" ? CAMPAIGN.years_per_mission : 1;

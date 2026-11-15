@@ -14,6 +14,11 @@
 //   - data_gb_day for comms = the radio's data rate running all day.
 //     The orbit's downlink_mult then cuts it to the real time in contact.
 //   - power_draw_w = orbit-average draw, not peak.
+//   - lead_months = months between ordering a part and having it delivered (new in 2.0, from the
+//     engineers who visited the table). Every value is a GAME VALUE rounded from the ranges in
+//     docs/real-world-plan.md (reaction wheels and star trackers about 18 to 52 weeks; space-grade solar
+//     cells about 26 to 52 weeks, up to 18 months in the 2025-26 boom). Those web pages are NOT OPENED,
+//     NEEDS HUMAN CHECK (see SOURCES.md). It is shown in the part's dossier and changes no timing.
 //
 // The spacecraft structure, attitude control and wiring are not modelled.
 
@@ -33,7 +38,8 @@ const PARTS = [
     source: "Explorer 1 was a long thin cylinder carried on top of its final rocket stage (checked by hand by the team). Mass is an ESTIMATE.",
     payload_kg: 10,          // approved field: the most this body carries
     slots: { instrument: 1, power: 2, comms: 1, computer: 2, attitude: 1 },
-    build_months: 2
+    build_months: 2,
+    lead_months: 2   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "drum-body",
@@ -48,7 +54,8 @@ const PARTS = [
     source: "NASA NSSDCA, TIROS 1: an 18-sided right prism, 107 cm across and 56 cm high. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B Mass is an ESTIMATE.",
     payload_kg: 100,          // approved field: the most this body carries
     slots: { instrument: 2, power: 3, comms: 2, computer: 2, attitude: 1 },
-    build_months: 6
+    build_months: 6,
+    lead_months: 4   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "smallsat-bus",
@@ -63,7 +70,8 @@ const PARTS = [
     source: "Representative of ESPA-class buses listed in NASA's Small Spacecraft Technology State of the Art 2025, Table 2-7 (https://www.nasa.gov/wp-content/uploads/2026/05/soa-2026.pdf). Mass and cost are ESTIMATES.",
     payload_kg: 150,          // approved field: the most this body carries
     slots: { instrument: 2, power: 3, comms: 2, computer: 2, attitude: 2, propulsion: 1 },
-    build_months: 4
+    build_months: 4,
+    lead_months: 6   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple
   },
   {
     id: "nimbus-bus",
@@ -78,7 +86,8 @@ const PARTS = [
     source: "Modelled on Nimbus 1 (1964, 374.4 kg, polar orbit; NASA NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1964-052A). Body mass, payload and slots are ESTIMATES.",
     payload_kg: 300,         // approved field
     slots: { instrument: 3, power: 3, comms: 2, computer: 2, attitude: 2, propulsion: 1 },
-    build_months: 8
+    build_months: 8,
+    lead_months: 10   // GAME VALUE, no range quoted: a specialised instrument, set above the 18-week low end of the quoted wheels and trackers
   },
   {
     id: "cubesat-12u",
@@ -93,7 +102,8 @@ const PARTS = [
     source: "CubeSat units are 10 cm cubes of about 1 to 1.33 kg each; 12U is one of the standard sizes (NASA CubeSat 101, PDF p.12, https://www3.nasa.gov/sites/default/files/atoms/files/nasa_csli_cubesat_101_508.pdf). Frame mass is an ESTIMATE; payload is 12 x 1.33 kg plus margin.",
     payload_kg: 22,          // approved field
     slots: { instrument: 1, power: 2, comms: 1, computer: 1, attitude: 1, propulsion: 1 },
-    build_months: 3
+    build_months: 3,
+    lead_months: 2   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple
   },
   {
     id: "spin-stabilised",
@@ -106,7 +116,8 @@ const PARTS = [
     tags: ["spin"], protects: [],
     blurb: "Spin it like a top and it keeps its axis. Simple, but cameras see a smeared, turning Earth.",
     source: "Explorer 1 and TIROS 1 were spin-stabilised; TIROS 1 used small solid thrusters to keep 8-12 rpm (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Mass is an ESTIMATE.",
-    build_months: 1
+    build_months: 1,
+    lead_months: 1   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "reaction-wheels",
@@ -120,7 +131,8 @@ const PARTS = [
     tags: ["three-axis"], protects: [],
     blurb: "Spinning wheels inside the satellite hold it steady and pointed, so cameras get sharp pictures.",
     source: "Small reaction wheels with flight heritage are listed in NASA's Small Spacecraft Technology State of the Art 2025, Table 5-3 (https://www.nasa.gov/wp-content/uploads/2026/05/soa-2026.pdf). Mass, power and cost are ESTIMATES.",
-    build_months: 4
+    build_months: 4,
+    lead_months: 8   // GAME VALUE rounded from the engineers' quote: reaction wheels and star trackers 18 to 52 weeks, middle of the range
   },
   // ======================================================== 1957-1960 era parts
   // The campaign starts with these (SPEC.md, "The 1957 campaign"). Research unlocks the rest.
@@ -144,7 +156,8 @@ const PARTS = [
     protects: [],
     blurb: "James Van Allen's cosmic-ray counter. On Explorer 1 it went strangely quiet high up: the counter was swamped.",
     source: "NASA, Explorer 1 overview: the main instrument was a cosmic-ray detection package designed by James Van Allen. https://www.nasa.gov/history/explorer-1-overview/ Mass and power are ESTIMATES.",
-    build_months: 2          // GAME VALUE: months to build and test
+    build_months: 2,          // GAME VALUE: months to build and test
+    lead_months: 2   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "cloud-photocell",
@@ -162,7 +175,8 @@ const PARTS = [
     protects: [],
     blurb: "Two photocells that measure sunlight reflected from clouds: the first attempt to see weather from orbit.",
     source: "NASA NSSDCA, Vanguard 2 (1959): designed to measure cloud-cover distribution; 10.75 kg sphere. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A Part mass and power are ESTIMATES.",
-    build_months: 3          // GAME VALUE: months to build and test
+    build_months: 3,          // GAME VALUE: months to build and test
+    lead_months: 3   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "vidicon-camera",
@@ -180,7 +194,8 @@ const PARTS = [
     protects: [],
     blurb: "Two small TV cameras, one wide and one narrow. TIROS-1 sent the first television pictures of Earth's clouds.",
     source: "NASA NSSDCA, TIROS 1 (1960): two 1.27 cm vidicon TV cameras, pictures sent live or stored on tape. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B Mass and power are ESTIMATES.",
-    build_months: 6          // GAME VALUE: months to build and test
+    build_months: 6,          // GAME VALUE: months to build and test
+    lead_months: 6   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "solar-xray-photometer",
@@ -198,7 +213,8 @@ const PARTS = [
     protects: [],
     blurb: "Watches the Sun's X-ray flares, which only show above the atmosphere. The more active the Sun, the more it sees.",
     source: "Modelled on the US Navy's SOLRAD 1 (1960), the first satellite to observe solar X-rays. NEEDS A CHECKED SOURCE; all numbers are ESTIMATES.",
-    build_months: 4          // GAME VALUE: months to build and test
+    build_months: 4,          // GAME VALUE: months to build and test
+    lead_months: 6   // GAME VALUE, no range quoted: a specialised instrument, set above the 18-week low end of the quoted wheels and trackers
   },
   {
     id: "mercury-battery",
@@ -217,7 +233,8 @@ const PARTS = [
     blurb: "Explorer 1's power. No recharging: when they run down, the satellite falls silent.",
     source: "Explorer 1 ran on mercury batteries; its transmitters lasted 31 and 105 days (secondary sources summarising NASA records; NEEDS HUMAN CHECK). Energy and mass are ESTIMATES.",
     battery_wh: 160, // ESTIMATE: about 50 days at an Explorer-sized load (its transmitters lasted 31 and 105 days)
-    build_months: 1          // GAME VALUE: months to build and test
+    build_months: 1,          // GAME VALUE: months to build and test
+    lead_months: 1   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "silver-zinc-battery",
@@ -236,7 +253,8 @@ const PARTS = [
     blurb: "Sputnik 1's batteries: plenty of energy, but heavy. Sputnik fell silent after about 21 days.",
     source: "Sputnik 1 (83.6 kg) carried three silver-zinc batteries and transmitted for about 21 days (secondary sources; NEEDS HUMAN CHECK). Energy is an ESTIMATE.",
     battery_wh: 1000, // ESTIMATE
-    build_months: 1          // GAME VALUE: months to build and test
+    build_months: 1,          // GAME VALUE: months to build and test
+    lead_months: 2   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "silicon-cells",
@@ -256,7 +274,8 @@ const PARTS = [
     source: "Vanguard 1 (1958) was the first solar-powered satellite; TIROS 1 (1960) carried about 9000 1 x 2 cm silicon cells (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Lit area and efficiency are ESTIMATES (1950s silicon cells: about 8-10%).",
     panel_area_m2: 0.2,      // ESTIMATE: the share of body-mounted cells facing the Sun at once
     efficiency: 0.08,
-    build_months: 3          // GAME VALUE: months to build and test
+    build_months: 3,          // GAME VALUE: months to build and test
+    lead_months: 6   // GAME VALUE rounded from the engineers' quote: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, low end for 1950s cells
   },
   {
     id: "nicad-battery",
@@ -275,7 +294,8 @@ const PARTS = [
     blurb: "Rechargeable batteries: with solar cells they carry the satellite through Earth's shadow.",
     source: "TIROS 1 (1960) carried 21 nickel-cadmium batteries charged by its solar cells (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Energy and mass are ESTIMATES.",
     battery_wh: 120, // ESTIMATE
-    build_months: 2          // GAME VALUE: months to build and test
+    build_months: 2,          // GAME VALUE: months to build and test
+    lead_months: 3   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "minitrack-beacon",
@@ -293,7 +313,8 @@ const PARTS = [
     protects: [],
     blurb: "A tiny radio the ground can track and listen to. Enough for a counter, hopeless for pictures.",
     source: "Explorer 1 and the Vanguards transmitted near 108 MHz for the Minitrack tracking network (secondary sources; NEEDS HUMAN CHECK). Data rate is an ESTIMATE.",
-    build_months: 1          // GAME VALUE: months to build and test
+    build_months: 1,          // GAME VALUE: months to build and test
+    lead_months: 1   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "vhf-telemetry",
@@ -311,7 +332,8 @@ const PARTS = [
     protects: [],
     blurb: "A stronger radio that can send TV pictures to the ground.",
     source: "TIROS 1 used 235 MHz telemetry antennas and sent TV pictures to ground stations (NSSDCA, https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1960-002B). Rate, mass and power are ESTIMATES.",
-    build_months: 3          // GAME VALUE: months to build and test
+    build_months: 3,          // GAME VALUE: months to build and test
+    lead_months: 3   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "command-timer",
@@ -329,7 +351,8 @@ const PARTS = [
     protects: [],
     blurb: "Before computers: a clock and a radio receiver that switch things on and off.",
     source: "Early satellites used timers and ground commands rather than computers (TIROS 1 carried a command receiver; NSSDCA). All numbers are ESTIMATES.",
-    build_months: 1          // GAME VALUE: months to build and test
+    build_months: 1,          // GAME VALUE: months to build and test
+    lead_months: 1   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "tape-recorder",
@@ -347,7 +370,8 @@ const PARTS = [
     protects: [],
     blurb: "Records a whole orbit and plays it back over a station. Explorer 3 carried one to explain Explorer 1's silent counter.",
     source: "Explorer 3 (1958) added a tape recorder, and its data confirmed the radiation belts (secondary sources; NEEDS HUMAN CHECK). All numbers are ESTIMATES.",
-    build_months: 2          // GAME VALUE: months to build and test
+    build_months: 2,          // GAME VALUE: months to build and test
+    lead_months: 3   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
 
   // ---------------------------------------------------------------- instruments
@@ -369,7 +393,8 @@ const PARTS = [
     source: "Representative of wildfire thermal smallsats such as OroraTech FOREST (https://science.nasa.gov/earth-science/csda/vendor-ororatech/). Wavelength: long-wave infrared, about 10 micrometres. Mass, power, data and cost are ESTIMATES.",
     aperture_m: 0.25,        // ESTIMATE
     wavelength_m: 0.00001, // 10 micrometres, long-wave infrared (physics)
-    build_months: 12          // GAME VALUE: months to build and test
+    build_months: 12,          // GAME VALUE: months to build and test
+    lead_months: 9   // GAME VALUE, no range quoted: a specialised instrument, set above the 18-week low end of the quoted wheels and trackers
   },
   {
     id: "sar-radar",
@@ -390,7 +415,8 @@ const PARTS = [
     aperture_m: 3.2,         // ICEYE antenna length. The diffraction formula does not
                              // apply to radar (it builds a much larger synthetic aperture).
     wavelength_m: 0.031, // 9.65 GHz X-band (c / f)
-    build_months: 18          // GAME VALUE: months to build and test
+    build_months: 18,          // GAME VALUE: months to build and test
+    lead_months: 12   // GAME VALUE, no range quoted: a specialised instrument, set above the 18-week low end of the quoted wheels and trackers, the slowest instrument
   },
   {
     id: "optical-camera",
@@ -410,7 +436,8 @@ const PARTS = [
     source: "Representative of Planet's Dove cameras, about 9 cm aperture (https://www.eoportal.org/satellite-missions/planetscope). Wavelength: visible light, 550 nm. Mass, power, data and cost are ESTIMATES.",
     aperture_m: 0.09,
     wavelength_m: 0.00000055, // 550 nm, visible light (physics)
-    build_months: 6          // GAME VALUE: months to build and test
+    build_months: 6,          // GAME VALUE: months to build and test
+    lead_months: 8   // GAME VALUE, no range quoted: a specialised instrument, set above the 18-week low end of the quoted wheels and trackers
   },
 
   // ---------------------------------------------------------------------- power
@@ -432,7 +459,8 @@ const PARTS = [
     source: "Airbus Sparkwing 600x1100 mm 50 V panel: 183 W peak, 28 W/kg. SOA p.50, Table 3-2. Efficiency is the panel-level value, 183 W / (1361 W/m2 x 0.66 m2).",
     panel_area_m2: 0.66,     // 0.6 m x 1.1 m
     efficiency: 0.204, // panel-level: cells (about 30%, SOA p.48) minus gaps and wiring
-    build_months: 4          // GAME VALUE: months to build and test
+    build_months: 4,          // GAME VALUE: months to build and test
+    lead_months: 9   // GAME VALUE rounded from the engineers' quote: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, about 9 months
   },
   {
     id: "solar-large",
@@ -452,7 +480,8 @@ const PARTS = [
     source: "Airbus Sparkwing 1070x1100 mm 50 V panel: 366 W peak, 45 W/kg. SOA p.50, Table 3-2. Efficiency is the panel-level value, 366 W / (1361 W/m2 x 1.177 m2).",
     panel_area_m2: 1.177,    // 1.07 m x 1.1 m
     efficiency: 0.228,
-    build_months: 5          // GAME VALUE: months to build and test
+    build_months: 5,          // GAME VALUE: months to build and test
+    lead_months: 12   // GAME VALUE rounded from the engineers' quote: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, a year for the big array
   },
   {
     id: "battery-28v",
@@ -471,7 +500,8 @@ const PARTS = [
     blurb: "Keeps instruments running in Earth's shadow. Without one, they switch off every night-side pass.",
     source: "Ibeos 28 V Modular Battery: 109.8 Wh/kg, 8 to 30+ Ah. SOA p.61, Table 3-5. A 20 Ah configuration gives 28 V x 20 Ah = 560 Wh.",
     battery_wh: 560,
-    build_months: 3          // GAME VALUE: months to build and test
+    build_months: 3,          // GAME VALUE: months to build and test
+    lead_months: 4   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple
   },
 
   // ---------------------------------------------------------------------- comms
@@ -491,7 +521,8 @@ const PARTS = [
     protects: [],
     blurb: "Tiny, cheap and reliable. Fine for health reports, hopeless for images.",
     source: "GomSpace NanoCom AX100: up to 38.4 kbit/s, 30 dBm, 24.5 g. SOA p.294, Table 9-3.",
-    build_months: 2          // GAME VALUE: months to build and test
+    build_months: 2,          // GAME VALUE: months to build and test
+    lead_months: 2   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple
   },
   {
     id: "radio-sband",
@@ -509,7 +540,8 @@ const PARTS = [
     protects: [],
     blurb: "The workhorse. Enough for a thermal imager, tight for a radar or a busy camera.",
     source: "AAC Clyde Space TX-2400: 6,000 kbit/s, 2.5 W, 70 g. SOA p.296, Table 9-3. Antenna: Anteral S-band patch, 150 g, SOA p.289, Table 9-2.",
-    build_months: 3          // GAME VALUE: months to build and test
+    build_months: 3,          // GAME VALUE: months to build and test
+    lead_months: 3   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple
   },
   {
     id: "radio-xband",
@@ -527,7 +559,8 @@ const PARTS = [
     protects: [],
     blurb: "A fast data pipe for image-heavy missions. Heavier and hungrier than S-band.",
     source: "Tethers Unlimited SWIFT-XTX: 25,000 kbit/s, 33 dBm, 300 g. SOA p.298, Table 9-3. Antenna: Anteral 8x8 X-band patch, 500 g, SOA p.290, Table 9-2.",
-    build_months: 4          // GAME VALUE: months to build and test
+    build_months: 4,          // GAME VALUE: months to build and test
+    lead_months: 5   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple, a little longer than the S-band radio
   },
 
   // ------------------------------------------------------------------- computer
@@ -547,7 +580,8 @@ const PARTS = [
     protects: [],
     blurb: "Sips power and runs the spacecraft, but has no radiation hardening.",
     source: "AAC Clyde Space Kryten-M3: ARM Cortex-M3, 0.4 W, 9.59 x 9.02 cm. SOA p.260, Table 8-4. Mass and storage are ESTIMATES.",
-    build_months: 2          // GAME VALUE: months to build and test
+    build_months: 2,          // GAME VALUE: months to build and test
+    lead_months: 2   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple
   },
   {
     id: "obc-radtol",
@@ -565,7 +599,8 @@ const PARTS = [
     protects: ["solar-storm"],
     blurb: "A fault-tolerant processor that shrugs off radiation hits.",
     source: "AAC Clyde Space Sirius OBC: fault-tolerant LEON3FT processor, 1.3 W, flown in LEO and on a lunar lander. SOA p.260, Table 8-4. Mass and storage are ESTIMATES.",
-    build_months: 4          // GAME VALUE: months to build and test
+    build_months: 4,          // GAME VALUE: months to build and test
+    lead_months: 6   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple, radiation-tolerant parts are slower
   },
   {
     id: "obc-payload",
@@ -583,7 +618,8 @@ const PARTS = [
     protects: [],
     blurb: "Big memory and an FPGA to process images on board. Heavier and hungrier.",
     source: "Aerospacelab FPGA-based OBC (Belgium): under 4 W, 1.325 kg, 100 krad radiation tested. SOA p.260, Table 8-4. Storage is an ESTIMATE.",
-    build_months: 4          // GAME VALUE: months to build and test
+    build_months: 4,          // GAME VALUE: months to build and test
+    lead_months: 5   // GAME VALUE, no range quoted: kept well under the quoted 18 to 52 weeks because the part is simple
   },
 
   // ----------------------------------------------------------------- propulsion
@@ -605,7 +641,8 @@ const PARTS = [
     source: "VACCO 3U MiPS, LMP-103S propellant: 4 x 0.1 N, Isp 190 s, total impulse 3.3 kN-s, 5 kg wet, 15 W max. SOA p.127, Table 4-3. Fuel = 3300 / (190 x 9.81) = 1.77 kg.",
     isp_s: 190,
     fuel_kg: 1.77,
-    build_months: 6          // GAME VALUE: months to build and test
+    build_months: 6,          // GAME VALUE: months to build and test
+    lead_months: 8   // GAME VALUE, no range quoted: thrusters are specialised and slow, set at the top of the quoted 18 to 52 weeks
   },
   {
     id: "prop-green-large",
@@ -625,7 +662,8 @@ const PARTS = [
     source: "VACCO 11U MiPS, LMP-103S propellant: 4 x 1 N, Isp 200 s, total impulse 12 kN-s, 14.7 kg wet, 50 W max. SOA p.127, Table 4-3. Fuel = 12000 / (200 x 9.81) = 6.12 kg.",
     isp_s: 200,
     fuel_kg: 6.12,
-    build_months: 8          // GAME VALUE: months to build and test
+    build_months: 8,          // GAME VALUE: months to build and test
+    lead_months: 12   // GAME VALUE, no range quoted: thrusters are specialised and slow, set at the top of the quoted 18 to 52 weeks
   },
   {
     id: "prop-ion",
@@ -645,7 +683,8 @@ const PARTS = [
     source: "Busek BIT-3 RF ion thruster, iodine: 1.0 mN, Isp 1,960 s, total impulse 31.7 kN-s, 2.9 kg wet, 70 W. SOA p.133, Table 4-9. Fuel = 31700 / (1960 x 9.81) = 1.65 kg.",
     isp_s: 1960,
     fuel_kg: 1.65,
-    build_months: 9          // GAME VALUE: months to build and test
+    build_months: 9,          // GAME VALUE: months to build and test
+    lead_months: 12   // GAME VALUE, no range quoted: thrusters are specialised and slow, set at the top of the quoted 18 to 52 weeks
   },
   {
     id: "topside-sounder",
@@ -663,7 +702,8 @@ const PARTS = [
     protects: [],
     blurb: "A radio that sweeps from 0.5 to 11.5 MHz and listens for echoes from the ionosphere below, on antennas 45 m tip to tip. No tape recorder: a sounding counts only if a ground station hears it.",
     source: "CSA, Alouette 1 (1962): swept-frequency topside sounder, Canada's first satellite. https://www.asc-csa.gc.ca/eng/satellites/alouette.asp Mass, power and data are ESTIMATES.",
-    build_months: 9          // GAME VALUE: months to build and test
+    build_months: 9,          // GAME VALUE: months to build and test
+    lead_months: 8   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short but a specialised instrument
   },
   {
     id: "alouette-2-sounder",
@@ -682,7 +722,8 @@ const PARTS = [
     upgrade: { of: "topside-sounder", year: 1965, cost_musd: 2, cost_sci: 60, requires: [] },   // GAME VALUE costs
     blurb: "Alouette 2 swept from 0.1 to 14.5 MHz, deeper and wider than Alouette 1, and was built from Alouette 1's backup.",
     source: "CSA, Alouette 2 (1965): improved swept-frequency sounder. https://www.asc-csa.gc.ca/eng/satellites/alouette.asp Numbers are ESTIMATES.",
-    build_months: 8          // GAME VALUE: months to build and test
+    build_months: 8,          // GAME VALUE: months to build and test
+    lead_months: 8   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short but a specialised instrument
   },
   {
     id: "scintillation-counter",
@@ -701,7 +742,8 @@ const PARTS = [
     upgrade: { of: "cosmic-ray-counter", year: 1958, cost_musd: 1, cost_sci: 40, requires: [] },   // GAME VALUE costs
     blurb: "After Explorer 1's counter was swamped, Van Allen's team flew counters built for intense radiation on Explorer 4. They mapped the belts instead of falling silent.",
     source: "NASA NSSDCA, Explorer 4 (1958-005A): scintillation and Geiger counters for high-intensity trapped radiation. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1958-005A Numbers are ESTIMATES.",
-    build_months: 3          // GAME VALUE: months to build and test
+    build_months: 3,          // GAME VALUE: months to build and test
+    lead_months: 3   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "avcs-camera",
@@ -720,7 +762,8 @@ const PARTS = [
     upgrade: { of: "vidicon-camera", year: 1964, cost_musd: 3, cost_sci: 90, requires: ["three-axis-control"] },   // GAME VALUE costs
     blurb: "Three cameras looking down from a satellite that always faced Earth: Nimbus 1 sent sharper, wider cloud pictures than TIROS ever could.",
     source: "NASA NSSDCA, Nimbus 1 (1964-052A): Advanced Vidicon Camera System. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1964-052A Numbers are ESTIMATES.",
-    build_months: 8          // GAME VALUE: months to build and test
+    build_months: 8,          // GAME VALUE: months to build and test
+    lead_months: 8   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short but a specialised instrument
   },
   {
     id: "oso-xray-spectrometer",
@@ -739,7 +782,8 @@ const PARTS = [
     upgrade: { of: "solar-xray-photometer", year: 1962, cost_musd: 2, cost_sci: 70, requires: [] },   // GAME VALUE costs
     blurb: "The first Orbiting Solar Observatory kept its instruments pointed at the Sun and split its X-rays by energy, not just counted them.",
     source: "NASA NSSDCA, OSO 1 (1962-006A): first Orbiting Solar Observatory. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1962-006A Numbers are ESTIMATES.",
-    build_months: 6          // GAME VALUE: months to build and test
+    build_months: 6,          // GAME VALUE: months to build and test
+    lead_months: 6   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short but a specialised instrument
   },
   {
     id: "pcm-telemetry",
@@ -758,7 +802,8 @@ const PARTS = [
     upgrade: { of: "vhf-telemetry", year: 1964, cost_musd: 1, cost_sci: 50, requires: [] },   // GAME VALUE costs
     blurb: "Digital pulse-code telemetry replaced analog tones in the mid-1960s, sending twice the data on the same power.",
     source: "NASA NSSDCA, OGO 1 (1964-054A) used digital PCM telemetry. https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1964-054A Numbers are ESTIMATES.",
-    build_months: 3          // GAME VALUE: months to build and test
+    build_months: 3,          // GAME VALUE: months to build and test
+    lead_months: 3   // GAME VALUE, no range quoted: a 1950s part, ordered from a bench shop; kept short
   },
   {
     id: "n-on-p-cells",
@@ -779,6 +824,7 @@ const PARTS = [
     source: "Starfish Prime (July 1962) damaged satellites including Telstar 1; n-on-p silicon cells were adopted for their radiation resistance. Area and efficiency are ESTIMATES.",
     panel_area_m2: 0.2,      // ESTIMATE
     efficiency: 0.10,        // ESTIMATE
-    build_months: 3          // GAME VALUE: months to build and test
+    build_months: 3,          // GAME VALUE: months to build and test
+    lead_months: 9   // GAME VALUE rounded from the engineers' quote: space-grade solar cells 26 to 52 weeks, up to 18 months in the 2025-26 boom, about 9 months
   }
 ];
