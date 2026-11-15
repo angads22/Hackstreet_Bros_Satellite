@@ -780,3 +780,7 @@ svg.icon { display: inline-block; margin-right: .35em; vertical-align: -.12em; }
 .era.compact .era-year { font-size: 28px; }
 .btn.quiet { background: none; border-color: transparent; box-shadow: none; color: var(--text-dim); text-decoration: underline; }
 .btn.quiet:hover { color: var(--text); border-color: var(--border); }
+
+/* ---------------------------------------------------------------- low-poly art in the screens (js/lp-*.js) */
+/* The satellite on the bench and on the Readiness review: a canvas at 4:3, the bench colour showing through. */
+.lp-bench .lp-sat { display: block; width: 100%; max-width: none; height: auto; aspect-ratio: 4 / 3; }

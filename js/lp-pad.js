@@ -609,8 +609,16 @@
       var gF = gu[0] * F[0] + gu[1] * F[1], eF = E[0] * F[0] + E[1] * F[1];
       var s1 = gF > 0.05 ? Math.max(H * 0.5, (3.7 * H - eF) / gF) : 0, s2 = gF > 0.05 ? (68 * H - eF) / gF : 0;
       if (!(s2 > s1 + H)) { glint.hidden = true; return true; }
-      function gpt(s, side) { var w = s * 0.006 * side; return [E[0] + gu[0] * s + gp[0] * w, E[1] + gu[1] * s + gp[1] * w]; }
-      glint.mesh = L.emit(flat([gpt(s1, 1), gpt(s2, 1), gpt(s2, -1), gpt(s1, -1)], 'copper', 0));
+      // Broken streaks of glitter, not one solid strip (a solid strip under the half-sunk sun read as a
+      // mushroom on a stick): bands spaced evenly in perspective, widest under the sun, narrow near shore.
+      function gpt(s, side, k) { var w = s * k * side; return [E[0] + gu[0] * s + gp[0] * w, E[1] + gu[1] * s + gp[1] * w]; }
+      var bands = [], N = 13, j;
+      for (j = 0; j < N; j += 2) {
+        var a = s1 * Math.pow(s2 / s1, j / N), b = s1 * Math.pow(s2 / s1, (j + 0.55) / N);
+        var k = 0.004 + 0.016 * Math.pow(j / (N - 1), 1.5);
+        bands.push(flat([gpt(a, 1, k), gpt(b, 1, k), gpt(b, -1, k), gpt(a, -1, k)], 'copper', 0));
+      }
+      glint.mesh = L.emit(L.merge(bands));
       glint.hidden = false;
       return true;
     }

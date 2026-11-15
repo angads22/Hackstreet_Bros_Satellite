@@ -1317,7 +1317,39 @@
     return "Pixel drawing of your satellite. On board, " + bits.filter(Boolean).join("; ") + ".";
   }
 
+  // The low-poly satellite (LowPoly.scenes.satellite, js/lp-satellite.js) in one canvas, drawn once it is on
+  // the page. On the bench it turns slowly (not under reduced motion) and can be dragged round; the next
+  // click keeps the angle. "small" is a still pose. null when the 3D art is missing or fails, and
+  // satelliteArt then draws the pixel satellite below.
+  var satView = null, satLast = null;   // the bench view (for its angle) and the parts it showed last
+  function lpSatellite(design, change, size) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.satellite !== "function" ||
+          typeof LowPoly.view !== "function") return null;
+      var small = size === "small", ids = list(design && design.parts).slice(), parts = data("PARTS");
+      var wrap = LowPoly.scenes.satellite({ parts: ids, data: parts, change: small ? null : change, size: small ? "small" : "bench",
+        spin: small ? 0 : 8, yaw: !small && satView ? satView.yaw : undefined, before: satLast });
+      if (!wrap || !wrap.scene) return null;
+      var canvas = document.createElement("canvas");
+      canvas.width = 0; canvas.height = 0;   // nothing is drawn until the canvas is on the page
+      canvas.className = "sat lp-sat";
+      var view = LowPoly.view(canvas, wrap, { drag: !small, keys: false, fps: 30 });
+      if (!small) { satView = view; satLast = ids; }
+      // The "+ NAME" tag rises from where the new part settles. It is decoration: the canvas label names every part.
+      var tag = null, added = !small && change && change.kind === "add" ? byId(parts, change.id) : null;
+      var at = added && wrap.anchor ? wrap.anchor(added.id) : null;
+      if (at && isNum(at[0]) && isNum(at[1])) {
+        tag = el("div", { class: "sat-tag", "aria-hidden": "true",
+          style: "top:" + Math.min(95, Math.max(4, at[1] * 100)).toFixed(1) + "%;--x:" + Math.min(100, Math.max(0, at[0] * 100)).toFixed(1) + "%" },
+          [el("span", { text: "+ " + String(added.name).replace(/\s*\(.*?\)/g, "").toUpperCase() })]);
+      }
+      return el("div", { class: "sat-bench lp-bench" + (small ? " sat-small" : "") }, [canvas, tag]);
+    } catch (e) { return null; }
+  }
+
   function satelliteArt(design, change, size) {
+    var lp = lpSatellite(design, change, size);
+    if (lp) return lp;
     var ids = list(design && design.parts), parts = data("PARTS");
     var chosen = ids.map(function (id) { return byId(parts, id); }).filter(Boolean);
     var added = change && change.kind === "add" ? change.id : null;

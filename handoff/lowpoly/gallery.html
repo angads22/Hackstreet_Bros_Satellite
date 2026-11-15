@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Low-poly gallery</title>
+<!-- Every model and scene the game can draw, with its id, triangle count and render time.
+     Open from file:// (it loads the game's own js/ and data/ files). Not loaded by the game. -->
+<style>
+  :root { --bg: #1d1915; --surface: #27211c; --border: #54463a; --text: #f2e7d3; --dim: #bdae95; --accent: #e2703a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 15px/1.3 "Courier New", monospace; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 22px 0 8px; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 4px; }
+  p { margin: 0 0 8px; color: var(--dim); }
+  .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .grid.wide { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .grid.one { grid-template-columns: 1fr; }
+  .card { background: var(--surface); border: 2px solid var(--border); border-radius: 6px; padding: 6px; min-width: 0; }
+  .card canvas { display: block; width: 100%; height: auto; background: #2c251f; border-radius: 3px; }
+  .card .id { display: block; margin-top: 4px; font-weight: bold; overflow-wrap: anywhere; }
+  .card .meta { display: block; color: var(--dim); font-size: 13px; }
+  .card.missing { border-style: dashed; color: var(--dim); }
+  #live { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 6px 0; color: var(--dim); }
+</style>
+</head>
+<body>
+<h1>GRAVITRON low-poly gallery</h1>
+<p>Every registered model and scene, drawn by js/lowpoly.js. Under each: the id, the triangle count and the time of its first render.</p>
+<div id="live">Last frame: <span id="live-ms">-</span></div>
+<main id="out"></main>
+
+<script src="../../data/parts.js"></script>
+<script src="../../data/launchers.js"></script>
+<script src="../../data/orbits.js"></script>
+<script src="../../js/lowpoly.js"></script>
+<script src="../../js/lp-earth.js"></script>
+<script src="../../js/lp-parts-body.js"></script>
+<script src="../../js/lp-parts-instruments.js"></script>
+<script src="../../js/lp-parts-systems.js"></script>
+<script src="../../js/lp-satellite.js"></script>
+<script src="../../js/lp-pad.js"></script>
+<script src="../../js/lp-people.js"></script>
+<script src="js/lp-base.js"></script>
+<script>
+(function () {
+  'use strict';
+  var L = window.LowPoly, out = document.getElementById('out');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var live = /[?&]live\b/.test(location.search) && !reduce;   // ?live: everything turns (slower page)
+
+  function section(title, note, cls) {
+    var h = document.createElement('h2'); h.textContent = title; out.appendChild(h);
+    if (note) { var p = document.createElement('p'); p.textContent = note; out.appendChild(p); }
+    var g = document.createElement('div'); g.className = 'grid' + (cls ? ' ' + cls : ''); out.appendChild(g);
+    return g;
+  }
+  function trisOf(scene) {
+    var n = 0;
+    (scene.items || []).forEach(function (it) { if (!it.hidden && it.mesh) n += it.mesh.tris.length; });
+    return n;
+  }
+  // One card: a canvas of w x h CSS px (or the full card width at that aspect), drawn once.
+  function card(grid, id, sceneOrWrap, w, h, note, viewOpts) {
+    var c = document.createElement('div'); c.className = 'card';
+    var cv = document.createElement('canvas');
+    cv.style.aspectRatio = w + ' / ' + h;
+    if (w <= 400) cv.style.maxWidth = w + 'px';
+    c.appendChild(cv);
+    var a = document.createElement('span'); a.className = 'id'; a.textContent = id;
+    var m = document.createElement('span'); m.className = 'meta';
+    c.appendChild(a); c.appendChild(m);
+    grid.appendChild(c);
+    var scene = sceneOrWrap && sceneOrWrap.items ? sceneOrWrap : sceneOrWrap && sceneOrWrap.scene;
+    var t0 = performance.now(), r = null;
+    try {
+      if (viewOpts || live) L.view(cv, sceneOrWrap, viewOpts || { spin: 20, drag: true, keys: false });
+      else r = L.render(cv, scene);
+    } catch (e) { m.textContent = 'ERROR ' + e.message; c.classList.add('missing'); return c; }
+    var ms = r ? r.ms : performance.now() - t0;
+    m.textContent = trisOf(scene) + ' tris, ' + ms.toFixed(1) + ' ms' + (note ? ' · ' + note : '');
+    return c;
+  }
+  function missing(grid, id, why) {
+    var c = document.createElement('div'); c.className = 'card missing'; c.textContent = id + ': ' + why; grid.appendChild(c);
+  }
+  // A model in its own frame, turned three quarters, lit by the default light.
+  function modelScene(mesh, label) {
+    return { items: [{ mesh: mesh }], camera: { yaw: 32, pitch: 18, fov: 30 }, background: null, label: label };
+  }
+
+  // ---- satellites
+  var sats = section('Satellite scene (js/lp-satellite.js)', 'LowPoly.scenes.satellite.sample(name) on the bench (4:3), then the Readiness review pose.', 'wide');
+  L.scenes.satellite.sample.names.forEach(function (name) {
+    var w = L.scenes.satellite({ parts: L.scenes.satellite.sample(name), data: PARTS, change: null });
+    card(sats, 'satellite: ' + name, w, 320, 240, w.ids.length + ' parts', live ? { spin: 20, drag: true, keys: false } : null);
+  });
+  card(sats, 'satellite: empty cradle', L.scenes.satellite({ parts: [], data: PARTS }), 320, 240);
+  card(sats, 'small (Readiness): sea-ice', L.scenes.satellite({ parts: L.scenes.satellite.sample('sea-ice'), data: PARTS, size: 'small' }), 220, 165);
+
+  var anim = section('Add and remove (0, 300 and 700 ms)', 'The part just added flies in along its port; the part just removed slides out and fades.', 'wide');
+  [['add radio-xband', { id: 'radio-xband', kind: 'add' }, 'sea-ice', null],
+   ['remove solar-large', { id: 'solar-large', kind: 'remove' }, 'sea-ice', 'solar-large'],
+   ['add body explorer-body', { id: 'explorer-body', kind: 'add' }, 'explorer-1', null],
+   ['remove body cubesat-12u', { id: 'cubesat-12u', kind: 'remove' }, 'cubesat-12u', 'cubesat-12u']].forEach(function (row) {
+    [0, 0.3, 0.7].forEach(function (t) {
+      var ids = L.scenes.satellite.sample(row[2]).filter(function (id) { return id !== row[3]; });
+      var w = L.scenes.satellite({ parts: ids, data: PARTS, change: row[1] });
+      w.update(0, 0); if (t) w.update(t, t);
+      card(anim, row[0] + ' @ ' + Math.round(t * 1000) + ' ms', w.scene, 320, 240);
+    });
+  });
+
+  // ---- bodies and parts
+  var bodies = section('Bodies (js/lp-parts-body.js)', null, 'wide');
+  PARTS.filter(function (p) { return p.category === 'structure'; }).forEach(function (p) {
+    if (!L.has('body', p.id)) return missing(bodies, p.id, 'no model (placeholder)');
+    var m = L.model('body', p.id, p);
+    card(bodies, p.id, modelScene(m.mesh, m.label), 240, 180);
+  });
+  ['attitude', 'instrument', 'power', 'comms', 'computer', 'propulsion'].forEach(function (cat) {
+    var g = section('Parts: ' + cat);
+    PARTS.filter(function (p) { return p.category === cat; }).forEach(function (p) {
+      if (!L.has('part', p.id)) return missing(g, p.id, 'no model (placeholder)');
+      var m = L.model('part', p.id, p);
+      card(g, p.id, modelScene(m.mesh, m.label), 160, 120);
+    });
+  });
+
+  // ---- launchers and the pad
+  var rk = section('Rockets (js/lp-pad.js)');
+  LAUNCHERS.forEach(function (l) {
+    if (!L.has('launcher', l.id)) return missing(rk, l.id, 'no model (placeholder)');
+    var m = L.model('launcher', l.id, l);
+    card(rk, l.id, { items: [{ mesh: m.mesh }], camera: { yaw: 25, pitch: 8, fov: 30 }, background: null, label: m.label }, 120, 220);
+  });
+  var pad = section('Launch pad scene', 'LowPoly.scenes.pad({launcherId, launcher, ready}), and a still of the launch.', 'wide');
+  [['juno-1', false], ['juno-1', true], ['small', true], ['heavy', false], ['thor-able', true]].forEach(function (r) {
+    var l = LAUNCHERS.filter(function (x) { return x.id === r[0]; })[0];
+    card(pad, 'pad ' + r[0] + (r[1] ? ' ready' : ' not ready'), L.scenes.pad({ launcherId: r[0], launcher: l, ready: r[1] }), 400, 300);
+  });
+  [1.5, 4, 6.5].forEach(function (t) {
+    card(pad, 'launch t = ' + t + ' s', L.scenes.pad({ launcherId: 'thor-able', ready: true, t: t, play: false }), 400, 300);
+  });
+
+  // ---- people
+  var ppl = section('People (js/lp-people.js)', 'LowPoly.scenes.portrait({who}), as the game shows them.');
+  ['team', 'partner', 'customer', 'notebook', 'director'].forEach(function (who) {
+    if (!L.has('person', who)) return missing(ppl, who, 'no model');
+    card(ppl, who, L.scenes.portrait({ who: who, aspect: 1 }), 140, 140);
+  });
+
+  // ---- Earth, title, base
+  var earth = section('Earth (js/lp-earth.js)', 'LowPoly.scenes.earth({orbitId, objectiveId}) and the title hero at 1280x320 and 390x400.', 'wide');
+  [['leo', 'wildfire'], ['sso', 'sea-ice'], ['geo', 'weather'], ['sso', 'ionosphere']].forEach(function (r) {
+    card(earth, 'earth ' + r[0] + ' ' + r[1], L.scenes.earth({ orbitId: r[0], objectiveId: r[1], spin: 0 }), 320, 240);
+  });
+  var title = section('Title scene', null, 'one');
+  if (L.scenes.title) {
+    card(title, 'title 1280x320', L.scenes.title({ drift: false }), 1280, 320);
+    var tt = L.scenes.title({ drift: false }); if (tt.fit) tt.fit(390, 400);
+    card(title, 'title 390x400', tt, 390, 400);
+  } else missing(title, 'title', 'scene not loaded');
+  var base = section('Base map and minimap (lp-base.js)', null, 'one');
+  if (L.scenes.base) {
+    card(base, 'base 900x540', L.scenes.base({ width: 900, height: 540, animate: false }), 900, 540);
+    card(base, 'minimap 168x101', L.scenes.minimap({ width: 168, height: 101 }), 168, 101);
+  } else missing(base, 'base', 'scene not loaded');
+
+  // Live readout of the engine's last frame (changes when ?live is on).
+  var liveMs = document.getElementById('live-ms');
+  setInterval(function () { var s = L.stats; liveMs.textContent = s.lastMs.toFixed(1) + ' ms, ' + s.lastTris + ' tris, ' + s.lastW + 'x' + s.lastH + ' x' + s.lastSS + ' (' + s.frames + ' frames)'; }, 500);
+})();
+</script>
+</body>
+</html>
