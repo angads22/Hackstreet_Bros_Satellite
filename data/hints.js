@@ -55,7 +55,7 @@ const HINTS = {
     "no-objective": "Go back to the Briefing and choose a topic.",
     "no-orbit": "Go back and choose an orbit.",
     "no-launcher": "Choose a rocket on the next screen.",
-    "empty": "Every satellite needs at least one instrument, one power part, one radio and one computer.",
+    "empty": "Every satellite needs a body, an instrument, a power part, a radio, a computer and attitude control.",
     "launcher-reach": "This rocket cannot reach that orbit. Choose a bigger rocket or a lower orbit.",
     "mass": "Too heavy for this rocket: drop a part or choose a bigger rocket.",
     "mass-margin": "You are close to the rocket's limit. Real teams keep a reserve for the mass that always creeps in.",

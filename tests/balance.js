@@ -42,15 +42,29 @@ G.TIERS.forEach(function (t) {
   G.OBJECTIVES.forEach(function (o) {
     var key = t.id + "/" + o.id, best = { score: -1 }, three = 0, bestByOrbit = {};
     var era = G.topicEra(o.id), SETS = SETS_BY_ERA[era];
+    // Every satellite needs a body and an attitude part (the switch-over is on): try each attitude
+    // part of the era, with the smallest body that carries the load.
+    // Modern topics may also use the older bodies and attitude parts.
+    var ATT = cat("attitude", "era").concat(era === "modern" ? cat("attitude", "modern") : []),
+        BODIES = G.PARTS.filter(function (p) { return p.category === "structure" && (era === "modern" || G.eraOf("parts", p.id) === era); })
+      .sort(function (a, b) { return a.payload_kg - b.payload_kg; }).map(function (p) { return p.id; });
     G.ORBITS.forEach(function (orb) {
       launchersFor(era).forEach(function (l) {
-        SETS.forEach(function (parts) {
+        SETS.forEach(function (parts0) { ATT.forEach(function (att) {
+          var parts = parts0.concat([att]);
           var d = G.newDesign(t.id); G.setObjective(d, o.id); G.setOrbit(d, orb.id); G.setLauncher(d, l.id);
           parts.forEach(function (p) { G.addPart(d, p); });
+          var fitted = BODIES.some(function (b) {
+            G.addPart(d, b);
+            if (!G.runChecks(d).blockers.some(function (x) { return /^body-/.test(x.id); })) return true;
+            G.removePart(d, b); return false;
+          });
+          if (!fitted) return;
           if (G.runChecks(d).blockers.length) return;
           var m = play(d), db = G.getDebrief(m);
           if (db.stars === 3) {
-            if (t.id === "training") (winners[o.id] = winners[o.id] || []).push({ orbit: orb.id, launcher: l.id, parts: d.parts.slice() });
+            if (t.id === "training") (winners[o.id] = winners[o.id] || []).push({ orbit: orb.id, launcher: l.id,
+              parts: d.parts.filter(function (p) { var c = G.getPart(p).category; return c !== "structure" && c !== "attitude"; }) });
             three++; threeSeen++; if (db.science < db.science_target) threeBelowTarget++;
             // Distinct ways to succeed: a different orbit or different instruments (a bigger rocket alone does not count).
             var inst = d.parts.filter(function (p) { return G.getPart(p).category === "instrument"; }).sort().join("+");
@@ -65,7 +79,7 @@ G.TIERS.forEach(function (t) {
                 db.suggestion.toLowerCase().indexOf("your " + n) === -1) adviceBad.push(key + " " + d.orbit + ": " + db.suggestion);
           });
           if (m.design === d) adviceBad.push("mission shares the design object");
-        });
+        }); });
       });
     });
     stats[key] = { three: three, best: best, byOrbit: bestByOrbit };
@@ -77,11 +91,12 @@ G.TIERS.forEach(function (t) {
 // 1. Every objective has a design that reaches its science target (preview ceiling).
 G.OBJECTIVES.forEach(function (o) {
   var ceiling = 0, era = G.topicEra(o.id);
-  G.ORBITS.forEach(function (orb) { SETS_BY_ERA[era].forEach(function (parts) {
-    var d = { tier: "training", objective: o.id, orbit: orb.id, launcher: era === "era" ? "thor-agena" : "heavy", parts: parts };
+  var big = era === "era" ? "nimbus-bus" : "smallsat-bus";   // the largest body of the era, so the load always fits
+  G.ORBITS.forEach(function (orb) { SETS_BY_ERA[era].forEach(function (parts) { cat("attitude", "era").forEach(function (att) {
+    var d = { tier: "training", objective: o.id, orbit: orb.id, launcher: era === "era" ? "thor-agena" : "heavy", parts: parts.concat([att, big]) };
     if (G.runChecks(d).blockers.length) return;
     ceiling = Math.max(ceiling, G.previewScience(d).total);
-  }); });
+  }); }); });
   check("1 " + o.id + " target is reachable", ceiling >= o.science_target,
     "best preview " + Math.round(ceiling) + " of " + o.science_target + " = " + Math.round(100 * ceiling / o.science_target) + "%");
 });
@@ -186,7 +201,7 @@ check("5 advice never asks for a fitted part", adviceBad.length === 0, adviceBad
 
 // 6. A careless design fails.
 var c = G.newDesign("training"); G.setObjective(c, "wildfire"); G.setOrbit(c, "leo"); G.setLauncher(c, "rideshare");
-["optical-camera", "solar-small", "radio-uhf", "obc-basic"].forEach(function (p) { G.addPart(c, p); });
+["optical-camera", "solar-small", "radio-uhf", "obc-basic", "smallsat-bus", "spin-stabilised"].forEach(function (p) { G.addPart(c, p); });
 var dc = G.getDebrief(play(c));
 check("6 careless design scores 0 stars", dc.stars === 0, "score " + dc.score);
 

@@ -7,7 +7,7 @@
 
 const RESEARCH = [
   {
-    id: "solar-cells", name: "Silicon solar cells", year: 1958, cost_musd: 2, cost_sci: 5,
+    id: "solar-cells", name: "Silicon solar cells", year: 1958, cost_musd: 2, cost_sci: 4,
     requires: [], requires_lessons: ["batteries_ran_out"], requires_knowledge: {},
     unlocks: { parts: ["silicon-cells"], launchers: [], objectives: [] },
     blurb: "Sputnik fell silent in 21 days; Vanguard 1's solar cells kept talking for six years. Watch a battery die first."

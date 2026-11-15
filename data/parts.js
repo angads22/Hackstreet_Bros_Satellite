@@ -204,7 +204,7 @@ const PARTS = [
     id: "mercury-battery",
     name: "Mercury batteries",
     category: "power",
-    mass_kg: 2,              // ESTIMATE
+    mass_kg: 2.6,            // ESTIMATE
     power_draw_w: 0,
     power_gen_w: 0,
     cost_musd: 0.05,         // GAME VALUE
@@ -216,7 +216,7 @@ const PARTS = [
     protects: [],
     blurb: "Explorer 1's power. No recharging: when they run down, the satellite falls silent.",
     source: "Explorer 1 ran on mercury batteries; its transmitters lasted 31 and 105 days (secondary sources summarising NASA records; NEEDS HUMAN CHECK). Energy and mass are ESTIMATES.",
-    battery_wh: 100, // ESTIMATE
+    battery_wh: 160, // ESTIMATE: about 50 days at an Explorer-sized load (its transmitters lasted 31 and 105 days)
     build_months: 1          // GAME VALUE: months to build and test
   },
   {
