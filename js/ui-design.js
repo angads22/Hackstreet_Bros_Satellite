@@ -2764,6 +2764,7 @@
     speakerArt: speakerFace,
     speakerName: function (who) { return typeof STORY === "object" && STORY.speakers && STORY.speakers[who] ? STORY.speakers[who] : ""; },
     satelliteArt: satelliteArt,
+    lpCanvas: lpCanvas,
     setStep: setStep, setHint: setHint, setStatus: setStatus,
     lock: function () { state.locked = true; },
     bar: bar,
