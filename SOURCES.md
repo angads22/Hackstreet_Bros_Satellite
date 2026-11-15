@@ -17,12 +17,12 @@ One row per resource used. QA copies this into the project page.
 | GOES-R series | NOAA / NASA | https://www.goes-r.gov/ | `data/objectives.js`: wildfire real mission and 2 km resolution need (outside source) | No |
 | NASA FIRMS, MODIS active-fire detections, all countries, 2025 | NASA | https://firms.modaps.eosdis.nasa.gov/country/ | `data/earth.js`: monthly fire counts, share of fires each orbit can see (built by `tools/earth_data.py`) | Downloaded and processed |
 | NSIDC Sea Ice Index, version 4 (G02135), Arctic monthly extent | NSIDC (NASA DAAC) / NOAA | https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/ | `data/earth.js`: 2025 monthly extent and 1981-2010 average | Downloaded and processed |
-| NSSDCA Master Catalog: Vanguard 2 (1959-001A) and TIROS 1 (1960-002B) | NASA | https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A and ?id=1960-002B | `data/parts.js` era parts (photocells, vidicon cameras, silicon cells, NiCd batteries, 235 MHz link), `data/launchers.js` (Vanguard, Thor-Able) | Opened by the AI; NEEDS HUMAN CHECK |
-| Explorer 1 overview | NASA | https://www.nasa.gov/history/explorer-1-overview/ | `data/parts.js` (Geiger counter package), `data/launchers.js` (Juno I), `data/objectives.js` (radiation topic) | Opened by the AI; NEEDS HUMAN CHECK |
+| NSSDCA Master Catalog: Vanguard 2 (1959-001A) and TIROS 1 (1960-002B) | NASA | https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1959-001A and ?id=1960-002B | `data/parts.js` era parts (photocells, vidicon cameras, silicon cells, NiCd batteries, 235 MHz link), `data/launchers.js` (Vanguard, Thor-Able) | Opened by the SI; NEEDS HUMAN CHECK |
+| Explorer 1 overview | NASA | https://www.nasa.gov/history/explorer-1-overview/ | `data/parts.js` (Geiger counter package), `data/launchers.js` (Juno I), `data/objectives.js` (radiation topic) | Opened by the SI; NEEDS HUMAN CHECK |
 | SILSO monthly mean total sunspot number, version 2 | Royal Observatory of Belgium (CC BY-NC 4.0) | https://www.sidc.be/SILSO/datafiles | `data/earth.js` solar entry (1957-2025), drives the solar topic and solar-storm odds (built by `tools/earth_data.py`) | Downloaded and processed |
 | Alouette-1 ionogram data extraction (result_master.csv: 699,369 soundings, 33 ground stations, 1962-1973) | Canadian Space Agency, CSA Open Data | https://donnees-data.asc-csa.gc.ca/users/OpenData_DonneesOuvertes/pub/Alouette-ISIS/Alouette-1/ and https://github.com/asc-csa/Alouette_extract | `data/earth.js` ionosphere entry (built by `tools/earth_data.py` from `data/result_master.csv`): stations a low orbit can reach, season, debrief comparison | Downloaded and processed |
 | Alouette 1 and 2 | CSA | https://www.asc-csa.gc.ca/eng/satellites/alouette.asp | `data/parts.js` topside sounders, `data/missions.js`, `data/research.js` | NEEDS HUMAN CHECK (masses are estimates) |
-| Explorer 4 (1958-005A), OSO 1 (1962-006A), Nimbus 1 (1964-052A), OGO 1 (1964-054A) | NASA NSSDCA | https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1958-005A (and the other ids) | `data/parts.js` upgrade parts | Opened by the AI; NEEDS HUMAN CHECK |
+| Explorer 4 (1958-005A), OSO 1 (1962-006A), Nimbus 1 (1964-052A), OGO 1 (1964-054A) | NASA NSSDCA | https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1958-005A (and the other ids) | `data/parts.js` upgrade parts | Opened by the SI; NEEDS HUMAN CHECK |
 | Starfish Prime (1962) damage to satellite solar cells; n-on-p cells | Secondary sources | see the `source` field of `n-on-p-cells` in `data/parts.js` | `data/parts.js` upgrade part | NEEDS HUMAN CHECK |
 | NASA Safety Standard 1740.14 (1995), orbital debris guidelines | NASA | https://orbitaldebris.jsc.nasa.gov/ | `js/game.js`: polar orbits need disposal fuel only from 1995 | NEEDS HUMAN CHECK |
 | Solar cycle indices (observed monthly sunspot number, SILSO v2) | NOAA Space Weather Prediction Center | https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json | `js/live-data.js`: live refresh of the sunspot table up to last month | Called live; checked against the SILSO file (same values) |
@@ -37,9 +37,9 @@ The submission form's References field must list every external resource, includ
 
 | Name | Type | Link | Used for |
 | --- | --- | --- | --- |
-| Claude (Anthropic), via Claude Code | AI assistant | https://claude.ai/code | Drafting data files, game logic (`js/game.js`, `js/mission.js`), tests and spec text. Sourced numbers cite their page; the rest are labelled ESTIMATE or GAME VALUE in the data files |
+| Claude (Anthropic), via Claude Code | SI assistant | https://claude.ai/code | Drafting data files, game logic (`js/game.js`, `js/mission.js`), tests and spec text. Sourced numbers cite their page; the rest are labelled ESTIMATE or GAME VALUE in the data files |
 | NASA Space Apps 2026 Judging & Awards Guide | Rules | https://www.spaceappschallenge.org | Judging criteria and submission requirements (SPEC.md, "How we are judged") |
 | A Learning Game About Telescopes | NASA | https://science.nasa.gov/mission/webb/game-build-it-yourself/ | Design reference only; no code or art reused |
 | Digital Games and Activities | CSA | https://www.asc-csa.gc.ca/eng/youth-educators/digital-games-and-activities.asp | Tone and style reference only |
 
-No third-party code libraries, fonts, images or music are used. Teammates add any other AI tools they used (QA keeps the record).
+No third-party code libraries, fonts, images or music are used. Teammates add any other SI tools they used (QA keeps the record).

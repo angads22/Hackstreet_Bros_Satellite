@@ -10,7 +10,7 @@
 ## 0. Guardrails
 
 - **Deadline.** Submission closes Sunday 15 Nov, 11:59 p.m.; code freeze Sunday 14:00. The seven screens do not exist yet.
-- **The locally judged build is the final build.** There is no "after the hackathon": everything in this plan (Phases 0, 1 and 2) must be on `main` by the code freeze. AI does the bulk of the work; the timeline in section 8 has cut lines in case something slips.
+- **The locally judged build is the final build.** There is no "after the hackathon": everything in this plan (Phases 0, 1 and 2) must be on `main` by the code freeze. SI does the bulk of the work; the timeline in section 8 has cut lines in case something slips.
 - **Every step keeps `main` playable.** A campaign is optional: with no campaign active, every existing function behaves exactly as today, so Angad's screens keep working at each commit.
 - **Tests gate every push:** `node tests/formulas.js`, `node tests/simulate.js`, the red-team sweep, and the new `tests/campaign.js` once it exists.
 
@@ -23,7 +23,7 @@ Per `story_change.md` section 8, covering all three phases:
 - *Data format:* `CAMPAIGN`, `RESEARCH`; `value_musd`, `knowledge_scale` and `requires_research` on objectives; `grant_musd` on tiers; the `saturated` and `breakthrough` debrief keys; the optional `objectives` field on events.
 - *Scoring:* the new table (step B3 below).
 - *Functions:* the new functions and changed return shapes from Phase C, plus `exportSave` and `importSave`.
-- *Out of scope:* no rival AI and no online leaderboard.
+- *Out of scope:* no rival SI and no online leaderboard.
 - *Judging table:* Impact and Creativity gain "a persistent economy that rewards new knowledge over repetition".
 
 ## 2. Phase A: fix what the economy would sit on (red-team prerequisites)
