@@ -157,7 +157,8 @@ async function lowPolyOn(viewport, label) {
   await page.click('button[aria-label="Pause the mission"]');
   // An open event makes the orbit step back (a smaller head): answer it first, so the two heights are comparable.
   if (await page.locator('.mission-head.event-open').count()) { await page.locator('.choices .btn').first().click(); await page.waitForTimeout(100); }
-  ok(await page.locator('.mission-head').evaluate(e => e.offsetHeight) === h0, 'the month row keeps its height past month 10');
+  const h1 = await page.locator('.mission-head').evaluate(e => e.offsetHeight);
+  ok(h1 === h0, `the month row keeps its height past month 10 (${h0} then ${h1})`);
   await page.screenshot({ path: path.join(shots, `lowpoly-${label}-mission.png`), fullPage: true });
   ok(await noSideScroll(page), 'Mission: no sideways scroll');
 

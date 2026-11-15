@@ -955,7 +955,7 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .orbit-head { display: block; }
 .orbit-row { display: flex; align-items: center; justify-content: center; gap: 24px; width: 100%; min-width: 0; }
 .side-counter { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; white-space: nowrap; }
-.side-counter .month { font-size: 30px; min-width: 5em; }   /* as wide for MONTH 9 as for MONTH 40: the orbit beside it never changes size */
+.side-counter .month { font-size: 30px; min-width: 6.4em; }   /* as wide for MONTH 9 as for MONTH 40: the orbit beside it never changes size */
 .side-counter .countdown-label { font-size: 16px; }
 .side-counter .controls { margin-top: 10px; flex-direction: column; align-items: stretch; }
 .orbit-head.event-open .mission-earth { height: clamp(110px, 18vh, 160px); }   /* a question is open: the orbit steps back */
@@ -1516,3 +1516,5 @@ summary { min-width: 24px; padding: 0 4px; }
 /* ---- Sound (js/audio.js): the two small footer switches ---- */
 .foot .snd { min-height: 32px; margin-right: 14px; padding: 0 6px; font-size: 16px; letter-spacing: 1px; }
 .foot .snd[aria-pressed="false"] { opacity: 0.7; }
+/* Phones: the sound switches and the version do not both fit beside RESET EVERYTHING on the home page: only the switches show there. */
+@media (max-width: 760px) { .is-home .foot { font-size: 0; } .is-home .foot .snd { margin-right: 0; margin-left: 10px; } }
