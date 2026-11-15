@@ -986,3 +986,161 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 /* An event: focus lands on its heading (not a control, so no ring), and every choice reads the same, with its cost under it. */
 .dialogue h2[tabindex="-1"]:focus { outline: none; }
 .choices .btn .odds { opacity: 1; color: var(--text-dim); }
+
+/* ================================================================ explainers (js/ui-parts.js, js/part-story.js)
+   Every part has a small looping animation and three lines of text. Flat colours from the tokens above, so a theme set on
+   body[data-era] recolours them. The un-animated drawing is the poster frame (the key moment of each story): with reduced
+   motion nothing moves and all the text is still there. One loop length per figure (--t), set on its svg. */
+.explainer { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: none; }
+.ex-svg { display: block; width: 100%; height: auto; border: 3px solid var(--border, #54463a); background: var(--pal-night, #1a1612); pointer-events: none; }
+.ex-hook { display: block; font-family: var(--pixel, "Courier New", monospace); font-size: 20px; line-height: 1.1; color: var(--text, #f2e7d3); }
+.ex-does, .ex-trade { display: block; margin-top: 4px; font-size: 18px; line-height: 1.15; color: var(--text-dim, #bdae95); }
+.ex-tag { color: var(--accent-ink, #f0874f); }
+.explainer.ex-compact { flex-direction: row; align-items: flex-start; gap: 12px; }
+.explainer.ex-compact .ex-svg { flex: 0 0 192px; width: 192px; }
+.explainer.ex-compact figcaption { flex: 1 1 0; min-width: 0; }
+.explainer.ex-compact .ex-hook { font-size: 18px; }
+.explainer.ex-compact .ex-does, .explainer.ex-compact .ex-trade { font-size: 17px; margin-top: 2px; }
+@media (max-width: 760px) {
+  .explainer.ex-compact { flex-direction: column; gap: 4px; }
+  .explainer.ex-compact .ex-svg { flex: none; width: 140px; }
+}
+/* colours: fills (ex-f-) and strokes (ex-s-) */
+.ex-f-metal { fill: var(--pal-metal, #c4b396); } .ex-s-metal { stroke: var(--pal-metal, #c4b396); }
+.ex-f-dark { fill: var(--pal-metal-dark, #8e7f67); } .ex-s-dark { stroke: var(--pal-metal-dark, #8e7f67); }
+.ex-f-frame { fill: var(--pal-frame, #54463a); } .ex-s-frame { stroke: var(--pal-frame, #54463a); }
+.ex-f-cell { fill: var(--pal-cell, #2e6b72); } .ex-s-cell { stroke: var(--pal-cell, #2e6b72); }
+.ex-f-celld { fill: var(--pal-cell-dark, #1f4a50); } .ex-s-celld { stroke: var(--pal-cell-dark, #1f4a50); }
+.ex-f-celll { fill: var(--pal-cell-light, #4d9aa0); } .ex-s-celll { stroke: var(--pal-cell-light, #4d9aa0); }
+.ex-f-light { fill: var(--pal-light, #e9b04b); } .ex-s-light { stroke: var(--pal-light, #e9b04b); }
+.ex-f-accent { fill: var(--accent, #e2703a); } .ex-s-accent { stroke: var(--accent, #e2703a); }
+.ex-f-info { fill: var(--info, #66b0a6); } .ex-s-info { stroke: var(--info, #66b0a6); }
+.ex-f-red { fill: var(--pal-red, #d9482f); } .ex-s-red { stroke: var(--pal-red, #d9482f); }
+.ex-f-white { fill: var(--pal-white, #f2e7d3); } .ex-s-white { stroke: var(--pal-white, #f2e7d3); }
+.ex-f-night { fill: var(--pal-night, #1a1612); } .ex-s-night { stroke: var(--pal-night, #1a1612); }
+.ex-f-sea { fill: var(--map-sea, #1f4a50); } .ex-f-ion { fill: var(--pal-ion, #8fd6c9); } .ex-s-ion { stroke: var(--pal-ion, #8fd6c9); }
+.ex-f-flame { fill: var(--pal-flame, #f08a4b); } .ex-f-dim { fill: var(--text-dim, #bdae95); } .ex-s-dim { stroke: var(--text-dim, #bdae95); }
+[class*="ex-s-"] { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* motion: the plain style is the poster frame, the animation only moves away from it and back */
+.ex-a { transform-box: fill-box; transform-origin: center; animation-duration: var(--t, 4s); animation-iteration-count: infinite; animation-timing-function: linear; animation-delay: var(--dl, 0s); }
+.ex-ob { transform-origin: 50% 100%; transform: scaleY(var(--v, 1)); }
+.ex-ol { transform-origin: 0% 50%; transform: scaleX(var(--v, 1)); }
+@media (prefers-reduced-motion: reduce) { .explainer .ex-a { animation: none !important; } }
+
+@keyframes ex-spin { to { transform: rotate(360deg); } }
+@keyframes ex-spinr { to { transform: rotate(-360deg); } }
+.ex-spin { animation-name: ex-spin; animation-duration: calc(var(--t) / 3); }
+.ex-spinr { animation-name: ex-spinr; animation-duration: calc(var(--t) / 3); }
+.ex-hand { animation-duration: var(--t); }
+@keyframes ex-whirl { from { transform: scaleX(1); } to { transform: scaleX(.12); } }
+.ex-whirl { animation-name: ex-whirl; animation-duration: calc(var(--t) / 6); animation-direction: alternate; animation-timing-function: ease-in-out; }
+@keyframes ex-turn { 0%, 8% { transform: rotate(38deg); } 38%, 88% { transform: rotate(0deg); } 100% { transform: rotate(38deg); } }
+.ex-turn { animation-name: ex-turn; animation-timing-function: ease-in-out; }
+@keyframes ex-orbit { to { transform: rotate(360deg); } }
+.ex-orbit { animation-name: ex-orbit; }
+
+.ex-ping { transform: scale(var(--s, .8)); opacity: .7; animation-name: ex-ping; }
+@keyframes ex-ping { 0% { transform: scale(.1); opacity: .9; } 100% { transform: scale(1); opacity: 0; } }
+@keyframes ex-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: .2; } }
+.ex-blink { animation-name: ex-blink; animation-timing-function: step-end; animation-duration: calc(var(--t) / 6); }
+@keyframes ex-beat { 0%, 49% { opacity: 1; } 50%, 100% { opacity: .25; } }
+.ex-beat { animation-name: ex-beat; animation-timing-function: step-end; animation-duration: calc(var(--t) / 3); }
+@keyframes ex-beam { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.ex-beam { animation-name: ex-beam; animation-duration: calc(var(--t) / 2); }
+@keyframes ex-pass { 0% { transform: translate(calc(var(--dx) * -1), calc(var(--dy) * -1)); opacity: 0; } 12%, 88% { opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+.ex-pass { animation-name: ex-pass; animation-duration: calc(var(--t) / 2); }
+.ex-pass.ex-slow, .ex-hit { animation-duration: var(--t); }
+.ex-smoke { opacity: .75; }
+@keyframes ex-ionpass { 0% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(-34px); opacity: 0; } }
+.ex-ionpass { animation-name: ex-ionpass; animation-duration: calc(var(--t) / 4); }
+@keyframes ex-pop { 0% { opacity: .12; } 25%, 70% { opacity: 1; } 90%, 100% { opacity: .12; } }
+.ex-pop { animation-name: ex-pop; }
+@keyframes ex-late { 0%, 50% { opacity: 0; } 58%, 100% { opacity: 1; } }
+.ex-late { animation-name: ex-late; }
+
+/* the radio's packets travel only while the dish has the satellite in view */
+.ex-send1, .ex-send2, .ex-send3, .ex-send4 { transform: translate(calc(var(--dx) * .5), calc(var(--dy) * .5)); }
+.ex-send1 { animation-name: ex-send1; } .ex-send2 { animation-name: ex-send2; } .ex-send3 { animation-name: ex-send3; } .ex-send4 { animation-name: ex-send4; }
+@keyframes ex-send1 { 0%, 24% { transform: translate(0, 0); opacity: 0; } 26% { opacity: 1; } 46% { transform: translate(var(--dx), var(--dy)); opacity: 1; } 48%, 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+@keyframes ex-send2 { 0%, 32% { transform: translate(0, 0); opacity: 0; } 34% { opacity: 1; } 54% { transform: translate(var(--dx), var(--dy)); opacity: 1; } 56%, 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+@keyframes ex-send3 { 0%, 40% { transform: translate(0, 0); opacity: 0; } 42% { opacity: 1; } 62% { transform: translate(var(--dx), var(--dy)); opacity: 1; } 64%, 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+@keyframes ex-send4 { 0%, 48% { transform: translate(0, 0); opacity: 0; } 50% { opacity: 1; } 70% { transform: translate(var(--dx), var(--dy)); opacity: 1; } 72%, 100% { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+@keyframes ex-view { 0%, 18% { opacity: .2; } 26%, 74% { opacity: 1; } 82%, 100% { opacity: .2; } }
+.ex-view, .ex-appear { animation-name: ex-view; }
+.ex-appear { animation-name: ex-appear; }
+@keyframes ex-appear { 0%, 18% { opacity: .3; } 26%, 74% { opacity: 1; } 82%, 100% { opacity: .3; } }
+
+/* bodies: the parts snap into their slots, the payload gauge fills */
+@keyframes ex-in1 { 0%, 4% { transform: translate(var(--fx), var(--fy)); opacity: 0; } 22%, 80% { transform: translate(0, 0); opacity: 1; } 96%, 100% { transform: translate(var(--fx), var(--fy)); opacity: 0; } }
+@keyframes ex-in2 { 0%, 18% { transform: translate(var(--fx), var(--fy)); opacity: 0; } 36%, 84% { transform: translate(0, 0); opacity: 1; } 98%, 100% { transform: translate(var(--fx), var(--fy)); opacity: 0; } }
+@keyframes ex-in3 { 0%, 32% { transform: translate(var(--fx), var(--fy)); opacity: 0; } 50%, 88% { transform: translate(0, 0); opacity: 1; } 99%, 100% { transform: translate(var(--fx), var(--fy)); opacity: 0; } }
+.ex-in1 { animation-name: ex-in1; } .ex-in2 { animation-name: ex-in2; } .ex-in3 { animation-name: ex-in3; }
+@keyframes ex-gauge { 0% { transform: scaleY(.05); } 55%, 90% { transform: scaleY(var(--v, 1)); } 100% { transform: scaleY(.05); } }
+.ex-gauge { animation-name: ex-gauge; }
+
+/* gauges and bars */
+@keyframes ex-bar { 0% { transform: scaleX(.04); } 70%, 100% { transform: scaleX(var(--v, 1)); } }
+.ex-bar { animation-name: ex-bar; }
+@keyframes ex-barlin { 0% { transform: scaleX(.04); } 100% { transform: scaleX(var(--v, 1)); } }
+.ex-linear { animation-name: ex-barlin; }
+.ex-steps { animation-timing-function: steps(var(--n, 8)); }
+@keyframes ex-swampbar { 0% { transform: scaleX(0); } 55% { transform: scaleX(.55); } 62%, 100% { transform: scaleX(1); } }
+.ex-swampbar { animation-name: ex-swampbar; }
+@keyframes ex-swamp { 0%, 10%, 20%, 30%, 40%, 50%, 60%, 100% { opacity: 1; } 5%, 15%, 25%, 35%, 45%, 55% { opacity: .15; } }
+.ex-swamp { animation-name: ex-swamp; animation-timing-function: step-end; }
+@keyframes ex-hits { 0%, 15%, 30%, 45%, 60%, 75%, 90%, 100% { opacity: .1; } 20%, 50%, 80% { opacity: .85; } }
+.ex-hits { animation-name: ex-hits; animation-timing-function: step-end; opacity: .85; }
+@keyframes ex-draw { 0% { stroke-dashoffset: 400; } 70%, 100% { stroke-dashoffset: 0; } }
+.ex-draw { animation-name: ex-draw; }
+@keyframes ex-cloudbar { 0%, 25% { transform: scaleY(.15); } 50% { transform: scaleY(var(--v, 1)); } 75%, 100% { transform: scaleY(.15); } }
+.ex-cloudbar { animation-name: ex-cloudbar; }
+@keyframes ex-scan { 0% { transform: scaleY(1); } 80%, 100% { transform: scaleY(var(--v, 0)); } }
+.ex-scan { animation-name: ex-scan; }
+@keyframes ex-scroll { to { transform: translateX(-160px); } }
+.ex-scroll { animation-name: ex-scroll; }
+.ex-flash { opacity: .55; animation-name: ex-flash; animation-duration: calc(var(--t) / 3); }
+@keyframes ex-flash { 0% { opacity: .85; } 12%, 100% { opacity: 0; } }
+@keyframes ex-nightfall { 0%, 50% { opacity: 0; } 62%, 88% { opacity: .85; } 100% { opacity: 0; } }
+.ex-nightfall { opacity: 0; animation-name: ex-nightfall; }
+@keyframes ex-flare { 0%, 30% { transform: scale(.7); } 55% { transform: scale(1.35); } 80%, 100% { transform: scale(.7); } }
+.ex-flare { transform: scale(1.3); animation-name: ex-flare; }
+@keyframes ex-sweep { from { transform: translateY(calc(var(--sw) * -1)); } to { transform: translateY(var(--sw)); } }
+.ex-sweep { animation-name: ex-sweep; animation-direction: alternate; animation-duration: calc(var(--t) / 2); animation-timing-function: ease-in-out; }
+
+/* sunlight and shadow */
+.ex-eclipse { transform: translateX(var(--dx, -60px)); animation-name: ex-eclipse; }
+@keyframes ex-eclipse { 0%, 35% { transform: translateX(-60px); } 55%, 80% { transform: translateX(0); } 95%, 100% { transform: translateX(-60px); } }
+@keyframes ex-eclipse2 { 0%, 45% { transform: translateX(-60px); } 55%, 95% { transform: translateX(0); } 100% { transform: translateX(-60px); } }
+.ex-eclipse2 { animation-name: ex-eclipse2; }
+.ex-ray { stroke-dasharray: 6 6; animation-name: ex-ray; }
+@keyframes ex-ray { 0% { stroke-dashoffset: 0; opacity: 1; } 35% { stroke-dashoffset: -26px; opacity: 1; } 50%, 80% { opacity: 0; } 95% { opacity: 1; } 100% { stroke-dashoffset: -72px; opacity: 1; } }
+@keyframes ex-solarbar { 0%, 35% { transform: scaleY(var(--v)); } 55%, 80% { transform: scaleY(.04); } 95%, 100% { transform: scaleY(var(--v)); } }
+.ex-solarbar { animation-name: ex-solarbar; }
+@keyframes ex-solarbar2 { 0%, 100% { transform: scaleY(var(--v)); } 50% { transform: scaleY(calc(var(--v) * .88)); } }
+.ex-solarbar2 { animation-name: ex-solarbar2; }
+@keyframes ex-level { 0% { transform: scaleY(.3); } 50%, 55% { transform: scaleY(var(--v, .8)); } 100% { transform: scaleY(.3); } }
+.ex-level { animation-name: ex-level; }
+@keyframes ex-inarrow { 0%, 45% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes ex-outarrow { 0%, 50% { opacity: .25; } 55%, 100% { opacity: 1; } }
+.ex-inarrow { animation-name: ex-inarrow; } .ex-outarrow { animation-name: ex-outarrow; }
+@keyframes ex-drainlevel { 0% { transform: scaleY(1); } 80%, 100% { transform: scaleY(0); } }
+.ex-drainlevel { animation-name: ex-drainlevel; }
+@keyframes ex-silence { 0%, 55% { opacity: 1; } 80%, 100% { opacity: 0; } }
+.ex-silence { opacity: .6; animation-name: ex-silence; }
+@keyframes ex-fillthendump { 0% { transform: scaleX(.05); } 24%, 28% { transform: scaleX(1); } 72%, 100% { transform: scaleX(.05); } }
+.ex-fillthendump { animation-name: ex-fillthendump; }
+
+/* the computers and the thrusters */
+@keyframes ex-flip { 0%, 34% { fill: var(--info, #66b0a6); } 38%, 60% { fill: var(--pal-red, #d9482f); } 64%, 100% { fill: var(--info, #66b0a6); } }
+.ex-flip { animation-name: ex-flip; }
+@keyframes ex-flip2 { 0%, 60% { opacity: 0; } 64%, 80% { opacity: 1; } 90%, 100% { opacity: 0; } }
+.ex-flip2 { animation-name: ex-flip2; }
+@keyframes ex-check { 0%, 60% { opacity: .1; } 66%, 90% { opacity: 1; } 100% { opacity: .1; } }
+.ex-check { animation-name: ex-check; }
+@keyframes ex-ringgrow { 0% { transform: scale(var(--g0, .8)); opacity: .2; } 40%, 85% { transform: scale(1); opacity: 1; } 100% { transform: scale(var(--g0, .8)); opacity: .2; } }
+.ex-ringgrow { animation-name: ex-ringgrow; }
+@keyframes ex-slowgrow { 0% { transform: scale(var(--g0, .8)); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.ex-slowgrow { animation-name: ex-slowgrow; }
+@keyframes ex-flick { 0%, 100% { transform: scaleX(1.2); } 50% { transform: scaleX(.55); } }
+.ex-flick { animation-name: ex-flick; animation-duration: calc(var(--t) / 12); }
+/* end of explainers */

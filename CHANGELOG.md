@@ -4,6 +4,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- Every part has a short looping animated explainer with engaging text (a hook, what it does for your mission, and its catch), shown in the Build preview when you hover, focus or tap a part card. Flat drawings in the game's colours; with reduced motion nothing moves and all the text is still there. `js/part-story.js`, `js/ui-parts.js`, `handoff/lowpoly/parts-gallery.html`.
 - Icons use one spacing rule, part-card separators stay with their values, and the Rocket Yard has its own rocket icon. Instrument-card science says "up to" to distinguish its potential from the flight forecast.
 - Readiness says READY or HOLD instead of showing a countdown that never moves. The debrief explains the science requirement for a third star; full stars get a success banner and an expanded real-mission comparison.
 
