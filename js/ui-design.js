@@ -1660,14 +1660,15 @@
     try {
       if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.has !== "function" || !LowPoly.has("person", who) ||
           !LowPoly.scenes || typeof LowPoly.scenes.portrait !== "function" || typeof LowPoly.render !== "function") return null;
-      if (!FACES[who]) {
+      var fk = who + "|" + (document.documentElement.dataset.era || "");   // each era's palette draws its own picture
+      if (!FACES[fk]) {
         var ps = LowPoly.scenes.portrait({ who: who, aspect: 1 });
         var c = document.createElement("canvas");
         c.width = 280; c.height = 280;
         if (!LowPoly.render(c, ps.scene)) return null;
-        FACES[who] = { src: c.toDataURL("image/png"), alt: ps.label || "Portrait" };
+        FACES[fk] = { src: c.toDataURL("image/png"), alt: ps.label || "Portrait" };
       }
-      return el("img", { class: "portrait lp-face", src: FACES[who].src, alt: FACES[who].alt, width: 140, height: 140 });
+      return el("img", { class: "portrait lp-face", src: FACES[fk].src, alt: FACES[fk].alt, width: 140, height: 140 });
     } catch (e) { return null; }
   }
   // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
@@ -1856,9 +1857,22 @@
   // body.is-home while the home page is up: it hides the header and the pixel ground strip, and lets the title fill the screen.
   function markHome(screen) { if (document.body) document.body.classList.toggle("is-home", screen === "title"); }
 
+  // The era look (css/style.css, body[data-era]): "1958" in Part 1 (a walkthrough step, or any design set in the igy era),
+  // "today" in Part 2 and everywhere else, "home" on the title screen. Set on <body> and on <html>: the low-poly art
+  // reads its --lp-* colours from the page, and a picture drawn before it is on the page reads them from <html>.
+  // The story beats ("intro") keep the era they were opened with (markEra(name) forces one: the epilogue is 1958).
+  function eraOfDesign(d) { return d && (walkStepOf(d) > 0 || d.era === "igy") ? "1958" : "today"; }
+  function markEra(screen, forced) {
+    var era = forced || (screen === "title" ? "home" : screen === "intro" ? null : eraOfDesign(state.design));
+    if (!era || !document.body) return;
+    if (document.body.dataset.era !== era) document.body.dataset.era = era;
+    if (document.documentElement.dataset.era !== era) document.documentElement.dataset.era = era;
+  }
+
   function mount(screen, node) {
     state.screen = screen;
     markHome(screen);
+    markEra(screen);
     var app = document.getElementById("app");
     while (app.firstChild) app.removeChild(app.firstChild);
     app.appendChild(node);
@@ -1901,6 +1915,7 @@
   }
 
   function draw(screen) {
+    markEra(screen === "title" || !state.design ? "title" : screen);   // before the screen's pictures are drawn
     if (screen === "title" || !state.design) return mount("title", drawTitle());
     state.screen = screen;   // set first: the check list reads it while drawing
     setStatus(designStatus());
@@ -2272,7 +2287,7 @@
     state.design = null;
     state.locked = false;
     showBeats(list(storyLine("epilogue", null)), STORY.modes.part1.kicker + " · " + STORY.modes.part1.name, toPart2,
-      { doneLabel: "CONTINUE TO PART 2", skipToEnd: true, home: true });
+      { doneLabel: "CONTINUE TO PART 2", skipToEnd: true, home: true, era: "1958" });
   }
 
   // A few short story beats, one at a time (NEXT, or SKIP), then onDone. An empty list goes straight to onDone.
@@ -2284,6 +2299,7 @@
     if (!beats.length) return onDone();
     setStatus(modeName() || "Space Mission Design Game");   // not the last mission's score
     var at = 0;
+    markEra("intro", opts.era || eraOfDesign(state.design));   // Part 1 step beats: the step's design; Ajay's: no design, today
     function draw1() {
       var last = at >= beats.length - 1;
       mount("intro", el("section", { class: "screen intro" }, [
@@ -3427,10 +3443,13 @@
     lock: function () { state.locked = true; },
     bar: bar,
     // Leaving the design and mission screens for the Campaign hub: no design in hand, nothing locked.
-    leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; },
+    leaveMission: function () { stopWalking(); state.design = null; state.locked = false; state.reached = 0; state.player = "gate"; markEra("hub"); },
+    // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
+    era: function (name) { markEra("era", name); },
     mount: function (screen, node) {
       state.screen = screen;
       markHome(screen);
+      markEra(screen);
       state.swappedAt = Date.now();
       var app = document.getElementById("app");
       while (app.firstChild) app.removeChild(app.firstChild);
