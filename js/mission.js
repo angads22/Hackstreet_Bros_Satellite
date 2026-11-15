@@ -656,7 +656,7 @@ function limitingFactor(mission, totals, scienceShare) {
   if (mission.launch_failed) {
     var risk = launchFailureChance(design);
     var safer = launcherChange(mission, function (l) { return (l.failure_chance || 0) < risk; });
-    return say("launch", safer ? "Next time, fly the " + safer.launcherName + ": it fails less often." : "Fly it again: this rocket fails now and then.",
+    return say("launch", safer ? "Next time, fly the " + safer.launcherName + ": it fails less often." : "Fly it again. This rocket fails now and then.",
       safer, "event");
   }
 

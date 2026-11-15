@@ -182,6 +182,16 @@
     return rows.length ? el("div", { class: "panel" }, [el("h2", { text: "FLIGHTS" }), el("ul", { class: "log cb-log" }, rows)]) : null;
   }
 
+  // What struck since the last flight (back end: getComeback().complications): one line each, a colour tag first.
+  var COMPLICATION_WORDS = { "client-left": "CLIENT GONE", "price-up": "PRICE UP", "price-down": "PRICE DOWN", delay: "DELAY" };
+  function complicationLines(c) {
+    return UI.list(c.complications).filter(function (e) { return e.flight === c.flights; }).map(function (e) {
+      var kind = e.tag === "good" || e.tag === "bad" ? e.tag : "warn";
+      return el("p", { class: "cb-complication", "data-key": "complication-" + e.id }, [
+        el("span", { class: "tag " + kind, text: COMPLICATION_WORDS[e.id] || "NEWS" }), " " + e.text]);
+    });
+  }
+
   function showComebackHub() {
     var c = info();
     if (!c) { showPicker(); return; }
@@ -234,6 +244,7 @@
       el("div", { class: "panel cb-board" }, [
         el("h2", { text: "CONTRACTS" }),
         situation && situation.text ? el("p", { class: "cb-note", text: situation.text }) : null,
+        el("div", { class: "cb-complications" }, complicationLines(c)),
         jobs.length ? el("div", { class: "cb-jobs" }, jobs) : el("p", { class: "cb-note", text: "No contracts are open." })
       ]),
       payPanel(c),

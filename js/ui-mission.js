@@ -80,7 +80,9 @@
       el("div", { class: "panel" }, [el("h2", { text: "MISSION LOG" }), n.log])
     ]));
     status();
-    log("Launch. " + (objective ? objective.name : "Mission") + " begins.", "good");
+    // Part 2: the rocket may fail at launch (decided by startMission): the mission is over before it begins.
+    if (mission.launch_failed) log("The rocket failed at launch. Mission over.", "bad");
+    else log("Launch. " + (objective ? objective.name : "Mission") + " begins.", "good");
     schedule();
   }
 
@@ -451,7 +453,7 @@
   var ROW_WORDS = { science: "more science returned", efficiency: "better value for money", budget: "more of the budget left",
                     margins: "wider mass and power margins", events: "safer event choices", novelty: "more new science" };
   function nextStarLine(d, partsOfScore) {
-    if (!(d.stars >= 0 && d.stars < 3)) return null;
+    if (d.launch_failed || !(d.stars >= 0 && d.stars < 3)) return null;   // a rocket that never flew has no next star to chase
     var b = d.breakdown || {}, most = null, room = 0;
     Object.keys(b).forEach(function (k) {
       var max = partsOfScore[k] && partsOfScore[k][1];
@@ -537,7 +539,9 @@
     var launch = done.mission.launch_totals ? done.mission.launch_totals.cost_musd : 0;
     var paid = result.contract_paid_musd || 0, bonus = result.contract_bonus_musd || 0;
     var stamp = outcome === "paid" ? "PAID" : outcome === "part" ? "PAID IN PART" : "NOT PAID";
+    var stillOpen = !!(result.launch_failed && typeof getComeback === "function" && (getComeback() || { contracts: [] }).contracts.some(function (x) { return x.id === k.id; }));
     var why = outcome !== "nothing" ? null
+      : result.launch_failed ? (stillOpen ? "The contract is still open: fly it again." : "The contract ran out. Take another.")
       : result.nothing_new ? (d.knowledge_paragraph || "No new data: this topic is already known.")
       : "No data came home, so there was nothing to pay for.";
     var C = window.StarlineComeback;
@@ -590,6 +594,8 @@
     var line = UI.storyLine ? UI.storyLine("contract", done.design, outcome) : "";
     if (!line || !UI.sayEl) return null;
     var k = done.mission.contract || {};
+    // A rocket that failed at launch: the client wants its data, not the "nothing new" line.
+    if (done.mission.launch_failed) line = { who: line.who, text: "We still need that data. Fly it again." };
     return UI.sayEl({ who: line.who, text: line.text, name: k.client ? String(k.client).toUpperCase() : "" });
   }
 
@@ -619,6 +625,7 @@
 
   // "POWER LIMITED THIS MISSION": the name is a NASA Mission Design Lab discipline from the back end.
   function limitingHeading(d) {
+    if (d.launch_failed) return "THE ROCKET FAILED AT LAUNCH";
     var name = d.limiting_name || LIMIT_NAMES[d.limiting] || String(d.limiting || "");
     return (name + " limited this mission").toUpperCase();
   }

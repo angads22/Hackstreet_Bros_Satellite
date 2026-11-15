@@ -3013,6 +3013,17 @@
     if (top > window.innerHeight * 0.5 || top < 0) window.scrollTo(0, window.pageYOffset + top);
   }
 
+  // ---------------------------------------------------------------- launch risk (Part 2)
+  // The back end (getLaunchRisk) turns a rocket's failure chance into LOW, MEDIUM or HIGH; the screens only colour it:
+  // the existing good, warn and bad. No number is shown. Nothing for Part 1, which never fails at launch.
+  var RISK_TAG = { low: ["good", "RISK LOW"], medium: ["warn", "RISK MEDIUM"], high: ["bad", "RISK HIGH"] };
+  function riskTag(design, launcherId) {
+    if (typeof getLaunchRisk !== "function" || !design || !design.comeback) return null;
+    var r = getLaunchRisk({ comeback: design.comeback, campaign: design.campaign, launcher: launcherId });
+    var t = r && RISK_TAG[r.level];
+    return t ? el("span", { class: "tag risk " + t[0], "data-key": "risk-" + launcherId, text: t[1] }) : null;
+  }
+
   // ---------------------------------------------------------------- 4 Launch vehicle
   function drawLauncher() {
     var d = state.design;
@@ -3042,7 +3053,8 @@
         facts([
           ["Price", money(l.cost_musd)],
           orbit ? ["Lifts", reach ? num(cap, 0) + " kg" : "no"] : null
-        ])
+        ]),
+        riskTag(d, l.id)
       ]);
       return isPreset("launcher") ? presetView(card, d.launcher === l.id) : card;
     });
@@ -3085,6 +3097,7 @@
         text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
           : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),
       comebackDeadline(d, checks),
+      d.launcher && riskTag(d, d.launcher) ? el("p", { class: "risk-row" }, [el("span", { class: "countdown-label", text: "ROCKET" }), riskTag(d, d.launcher)]) : null,
       forecast,
       // The one thing to do first: with nothing blocking, LAUNCH comes before the warnings (it was below the fold on a
       // laptop); while something blocks, the NO GO lines and their FIX buttons come first.

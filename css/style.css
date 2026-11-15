@@ -276,6 +276,9 @@ button:disabled { cursor: not-allowed; }
 .tag.good { color: var(--info-ink); }
 .tag.warn { color: var(--accent-ink); }
 .tag.bad { color: var(--bad); }
+.tag.risk { align-self: flex-start; margin-top: 6px; }
+.risk-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.risk-row .tag.risk { margin-top: 0; }
 .tag.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 .stars { color: var(--accent-ink); letter-spacing: 2px; }
@@ -943,6 +946,8 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-note { font-size: 20px; color: var(--text-dim); }
 .cb-note.bad { color: var(--bad); }
 .cb-note.good { color: var(--info-ink); }
+.cb-complication { margin: 6px 0; font-size: 20px; }
+.cb-complication .tag { margin-right: 6px; }
 .cb-meter { position: relative; height: 18px; background: var(--line); overflow: hidden; }
 .cb-meter-debt, .cb-meter-cash { position: absolute; left: 0; top: 0; bottom: 0; transition: width 1.2s ease-out; }
 .cb-meter-debt { background: var(--bad); }
