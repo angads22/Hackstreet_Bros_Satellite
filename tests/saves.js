@@ -68,6 +68,10 @@ var exportsByName = {};
   exportsByName["1957 finished"] = G.exportSave();
 
   G.newComeback("standard"); exportsByName["comeback fresh"] = G.exportSave();
+  var pending = G.newComebackDesign(G.getComeback().contracts[0].id); if (!pending.orbit) G.setOrbit(pending, "leo");
+  RAD.forEach(function (p) { G.addPart(pending, p); }); G.setLauncher(pending, "rideshare");
+  var live = G.startMission(pending); exportsByName["comeback in flight"] = G.exportSave();
+  flyTo(G, live, 0); G.recordResult(live);
   oneFlight(G); oneFlight(G);
   var safe = G.getComeback().safe_pay_max_musd; if (safe > 0.01) G.payDebt(round2(safe / 2));
   exportsByName["comeback mid-way"] = G.exportSave();
@@ -168,6 +172,64 @@ Object.keys(exportsByName).forEach(function (name) {
   store.setItem("smdg-progress-v1", JSON.stringify({ best_stars: { training: 3 }, best_score: { training: 97 } }));
   var G2 = load({ storage: store });
   check("3 a record without best_stars_by_era keeps its stars", G2.getProgress().best_stars.training === 3 && G2.isTierUnlocked("standard"));
+})();
+
+// ---- 4. A flight lost to a reload or a closed tab gives its money back
+(function () {
+  var store = load.memoryStorage(), G = load({ storage: store });
+  G.newComeback("standard");
+  var c = G.getCampaign();
+  c.offers = c.offers.concat({ id: "t-rad", topic: "radiation", orbit: null, client: "A test client", reason: "It tests things.", min_science: 60,
+                               price_musd: 10, bonus_musd: 2.5, expires_month: c.month + 12, done: false, text: "A test contract." });
+  G.saveCampaign(c);
+  var before = G.getComeback();
+  // The dearest launchable design the cash allows: afterwards the cash is below the cheapest launch.
+  var d = G.newComebackDesign("t-rad"); G.setOrbit(d, "leo");
+  ["scintillation-counter", "oso-xray-spectrometer", "solar-small", "battery-28v", "radio-sband", "obc-radtol", "reaction-wheels", "smallsat-bus"].forEach(function (p) { G.addPart(d, p); });
+  G.setLauncher(d, "rideshare");
+  var m = G.startMission(d);
+  var flying = G.getComeback();
+  check("4 a comeback launch leaves less cash than the cheapest launch (the dead end in the bug report)",
+    m && flying.cash_musd < before.cheapest_launch_musd && flying.flights === 1, "cash " + flying.cash_musd + ", cheapest " + before.cheapest_launch_musd);
+  check("4 while the flight is in the air, the same page keeps it paid for", G.getComeback().cash_musd === flying.cash_musd);
+  var G2 = load({ storage: store });   // the page is reloaded mid-flight
+  var after = G2.getComeback();
+  check("4 after a reload mid-flight, the cash and the flight count are as before the launch", after.cash_musd === before.cash_musd &&
+    after.flights === 0 && after.month === before.month && after.debt_musd === before.debt_musd, "cash " + after.cash_musd + " of " + before.cash_musd);
+  check("4 the contract is still open and the refunded launch is gone from the log", !!G2.newComebackDesign("t-rad") &&
+    !(G2.getCampaign().log || []).some(function (e) { return e.kind === "launch"; }));
+  var d2 = G2.newComebackDesign("t-rad"); G2.setOrbit(d2, "leo"); RAD.forEach(function (p) { G2.addPart(d2, p); }); G2.setLauncher(d2, "rideshare");
+  var m2 = flyTo(G2, G2.startMission(d2), 0), r2 = G2.recordResult(m2);
+  var G3 = load({ storage: store });
+  check("4 the next flight is G-1, is recorded once, and a reload after it refunds nothing",
+    r2 && G3.getComeback().missions.length === 1 && G3.getComeback().missions[0].flight === 1 && G3.getComeback().cash_musd === G2.getComeback().cash_musd &&
+    G3.getComebackEnding().timeline[0].title.indexOf("G-1") === 0, G3.getComebackEnding().timeline[0].title);
+
+  // The 1957 campaign: the same, and the chronicle counts one flight and one launch cost.
+  var store2 = load.memoryStorage(), H = load({ storage: store2 });
+  H.newCampaign("expert");
+  var t0 = H.getCampaign().treasury_musd;
+  var e = H.newCampaignDesign(); H.setObjective(e, "radiation"); H.setOrbit(e, "leo"); BASIC.forEach(function (p) { H.addPart(e, p); }); H.setLauncher(e, "juno-1");
+  var cost = H.getTotals(e).cost_musd;
+  H.startMission(e);
+  var H2 = load({ storage: store2 });
+  check("4 a 1957 campaign gets its launch money back after a reload mid-flight", H2.getCampaign().treasury_musd === t0 && H2.getCampaign().flights === 0,
+    H2.getCampaign().treasury_musd + " of " + t0);
+  var e2 = H2.newCampaignDesign(); H2.setObjective(e2, "radiation"); H2.setOrbit(e2, "leo"); BASIC.forEach(function (p) { H2.addPart(e2, p); }); H2.setLauncher(e2, "juno-1");
+  H2.recordResult(flyTo(H2, H2.startMission(e2), 0));
+  var ch = H2.getChronicle();
+  check("4 the chronicle then shows flight G-1 and one launch's cost", ch.totals.flights === 1 && ch.totals.spent_musd === H2.round(cost, 1) &&
+    ch.timeline.filter(function (x) { return x.kind === "flight"; })[0].text.indexOf("G-1 ") === 0, JSON.stringify(ch.totals));
+
+  // A code exported mid-flight and imported in another page: that page cannot fly it, so the cost comes back.
+  var store3 = load.memoryStorage(), K = load({ storage: store3 });
+  K.newCampaign("training");
+  var k0 = K.getCampaign().treasury_musd;
+  var e3 = K.newCampaignDesign(); K.setObjective(e3, "radiation"); K.setOrbit(e3, "leo"); BASIC.forEach(function (p) { K.addPart(e3, p); }); K.setLauncher(e3, "juno-1");
+  K.startMission(e3);
+  var code = K.exportSave(), K2 = load({ storage: load.memoryStorage() });
+  check("4 a code exported mid-flight imports elsewhere with the launch refunded", K2.importSave(code).ok && K2.getCampaign().treasury_musd === k0 &&
+    K2.getCampaign().flights === 0);
 })();
 
 console.log(passed + " passed, " + failed + " failed");

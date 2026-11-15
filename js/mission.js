@@ -57,12 +57,35 @@ function copyDesign(design) {
   return copy;
 }
 
+function missionId(seed) { return "m" + missionCounter + "-" + seed.toString(36); }
+
+// Campaign flights launched in this page and not yet recorded (by mission id). A launch in the saved log
+// that is not here was made by a page that has since closed: its flight is lost, so its cost comes back.
+var liveFlights = {};
+function refundLostFlights(c) {
+  var lost = (c.log || []).filter(function (e) { return e.kind === "launch" && !liveFlights[e.id]; });
+  if (!lost.length) return c;
+  lost.forEach(function (e) {
+    c.treasury_musd = round(c.treasury_musd + e.musd, 3);
+    c.flights = Math.max(c.missions.length, c.flights - 1);
+  });
+  c.log = c.log.filter(function (e) { return lost.indexOf(e) === -1; });
+  saveCampaign(c);
+  return c;
+}
+// Called when a flight is recorded: its launch is no longer pending.
+function landFlight(c, mission) {
+  delete liveFlights[mission.id];
+  if (c.log) c.log = c.log.filter(function (e) { return !(e.kind === "launch" && e.id === mission.id); });
+}
+
 // Returns null if the design still has blockers: nothing launches past the readiness review.
 function startMission(design) {
   if (!design || runChecks(design).blockers.length) return null;
   var launchTotals = getTotals(design);   // before any money moves
   design = copyDesign(design);
   missionCounter += 1;
+  var seed = designSeed(design);
 
   // Campaign: pay at launch, count the flight, and give each flight fresh luck.
   var flight = 0, scienceBefore = 0, contract = null;
@@ -77,6 +100,13 @@ function startMission(design) {
     c.flights = (c.flights || 0) + 1;
     flight = c.flights;
     scienceBefore = c.knowledge_science[design.objective] || 0;
+    seed = (seed ^ Math.imul(flight, 2654435761)) >>> 0;
+    // The flight lives only in this page until its debrief records it. The log keeps what it cost, so a
+    // page closed or reloaded in flight gives the money back (refundLostFlights) instead of losing it.
+    var launchId = missionId(seed);
+    liveFlights[launchId] = true;
+    (c.log = c.log || []).push({ year: c.year, month: isComeback(c) ? c.month : undefined, kind: "launch", id: launchId,
+                                 flight: flight, musd: launchTotals.cost_musd });
     saveCampaign(c);
   }
 
@@ -87,8 +117,6 @@ function startMission(design) {
   var batteryMonths = batteryLifeMonths(design);
   var batteryLimited = batteryMonths !== null && batteryMonths < lifetime;
   if (batteryLimited) lifetime = Math.max(1, Math.round(batteryMonths));
-  var seed = designSeed(design);
-  if (flight) seed = (seed ^ Math.imul(flight, 2654435761)) >>> 0;
   var rand = makeRandom(seed);
 
   // Pick distinct events and distinct months (never month 1 or the last month).
@@ -111,7 +139,7 @@ function startMission(design) {
              (totals.margins.power !== null && totals.margins.power < LOW_MARGIN);
 
   return {
-    id: "m" + missionCounter + "-" + seed.toString(36),
+    id: missionId(seed),
     design: design,           // the copy taken at launch
     launch_totals: launchTotals,
     campaign_flight: flight,  // 0 = standalone mission
@@ -782,7 +810,7 @@ function getCampaign() {
   } catch (e) { c = null; }
   if (!c) c = memoryCampaign;
   if (!c || c.version !== campaignVersion()) return null;
-  return c;
+  return refundLostFlights(c);
 }
 
 function saveCampaign(c) {
@@ -919,6 +947,7 @@ function settleCampaign(mission, debrief, result) {
   var c = getCampaign();
   if (!c) return;
   if (isComeback(c) !== !!mission.comeback) return;   // the save changed mode since launch: nothing to settle
+  landFlight(c, mission);
   if (isComeback(c)) return settleComeback(c, mission, debrief, result);
   var obj = mission.design.objective;
   var grant = grantFor(c);
@@ -938,7 +967,7 @@ function settleCampaign(mission, debrief, result) {
                     spent_musd: debrief.spent_musd, science: round(mission.science, 1),
                     payout_musd: debrief.payout_musd, stars: debrief.stars,
                     // For the programme chronicle (SPEC.md, "The ending"):
-                    flight: c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
+                    flight: mission.campaign_flight || c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
                     months: mission.month, ended_early: !!mission.ended_early, limiting: debrief.limiting_name || null,
                     parts: designParts(mission.design).length,
                     real: debrief.closest_mission ? { name: debrief.closest_mission.name, year: debrief.closest_mission.year } : null });
@@ -1932,7 +1961,7 @@ function settleComeback(c, mission, debrief, result) {
   c.missions.push({ id: mission.id, year: yearFlown, objective: obj, orbit: mission.design.orbit,
                     spent_musd: debrief.spent_musd, science: round(mission.science, 1),
                     payout_musd: round(pay.paid_musd + pay.bonus_musd, 3), stars: debrief.stars,
-                    flight: c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
+                    flight: mission.campaign_flight || c.flights, new_data: round(newData, 1), first_look: (debrief.knowledge_before || 0) < 0.05 && newData > 0,
                     months: mission.month, ended_early: !!mission.ended_early, limiting: debrief.limiting_name || null,
                     parts: designParts(mission.design).length,
                     real: debrief.closest_mission ? { name: debrief.closest_mission.name, year: debrief.closest_mission.year } : null,
