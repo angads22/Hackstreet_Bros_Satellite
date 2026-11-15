@@ -4,6 +4,7 @@
 // 2. The knowledge paragraph: "first real look" only on a topic's first flight; none in a comeback.
 // 3. TRY THIS: always something the player can do with what the design has (Part 1, other eras, Part 2).
 // 4. Event text names no hardware the satellite may not carry.
+// 5. The readiness review points an orbit no rocket reaches (or no thruster can hold) back to the orbit.
 var load = require("./load");
 var G = load();
 var passed = 0, failed = 0;
@@ -279,6 +280,27 @@ function adviceProblems(g, m, lim, label) {
     [e.title, e.text].concat(e.choices.map(function (c) { return c.label; })).forEach(function (t) { if (named.test(t)) bad.push(e.id + ": " + t); });
   });
   check("4 no event text names a part the satellite may not carry", bad.length === 0, bad.slice(0, 3).join(" | "));
+})();
+// ---- 5. The readiness review sends an orbit nothing can fly back to the orbit, not to an impossible fix
+(function () {
+  function igy(orbit, launcher) {
+    var x = G.newDesign("training"); G.setEra(x, "igy"); G.setObjective(x, "radiation"); G.setOrbit(x, orbit);
+    ["explorer-body", "spin-stabilised", "scintillation-counter", "mercury-battery", "silicon-cells", "minitrack-beacon", "command-timer"].forEach(function (p) { G.addPart(x, p); });
+    if (launcher) G.setLauncher(x, launcher);
+    return G.runChecks(x).blockers;
+  }
+  function text(list, id) { var b = list.filter(function (x) { return x.id === id; })[0]; return b ? b.text : ""; }
+  var sso = igy("sso"), ssoV = igy("sso", "vanguard-rocket"), geo = igy("geo", "juno-1");
+  check("5 1958, polar orbit: no rocket reaches it, so the review says to pick another orbit",
+    /pick another orbit/.test(text(sso, "no-launcher")) && /pick another orbit/.test(text(ssoV, "launcher-reach")), text(sso, "no-launcher"));
+  check("5 1958, geostationary: no thruster exists, so the review does not say to add one",
+    /pick another orbit/.test(text(geo, "delta-v")) && !/Add propulsion/.test(text(geo, "delta-v")), text(geo, "delta-v"));
+  var m = G.newDesign("training"); G.setEra(m, "new-space"); G.setObjective(m, "radiation"); G.setOrbit(m, "geo");
+  ["smallsat-bus", "reaction-wheels", "scintillation-counter", "solar-small", "radio-sband", "obc-basic"].forEach(function (p) { G.addPart(m, p); });
+  G.setLauncher(m, "small");
+  var mb = G.runChecks(m).blockers;
+  check("5 2026: a rocket that exists can reach it, and a thruster fits, so those fixes stay", /pick another rocket/.test(text(mb, "launcher-reach")) &&
+    /Add propulsion/.test(text(mb, "delta-v")), text(mb, "launcher-reach") + " / " + text(mb, "delta-v"));
 })();
 console.log(passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;
