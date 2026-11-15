@@ -1500,3 +1500,7 @@ summary { min-width: 24px; padding: 0 4px; }
   summary, .blip { min-width: 44px !important; }
   summary { display: inline-flex; align-items: center; justify-content: center; }
 }
+
+/* ---- Sound (js/audio.js): the two small footer switches ---- */
+.foot .snd { min-height: 32px; margin-right: 14px; padding: 0 6px; font-size: 16px; letter-spacing: 1px; }
+.foot .snd[aria-pressed="false"] { opacity: 0.7; }

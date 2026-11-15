@@ -4,6 +4,8 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- **Music and sound effects.** A chill, slow ambient bed (a warm tape-worn one in 1958, a clean modern one in Part 2) and short effects for button presses, adding and removing a part, the launch countdown, lift-off and orbit, each star, the PAID stamp, a win or a loss, and events. All synthesised in the browser by `js/audio.js` (no recording or sample, nothing to license). MUSIC and SOUNDS switches in the footer, kept between visits; silent until the first click; pauses when the tab is hidden.
+
 - **Fewer words.** Events are a short title, one line and one-to-three-word choices; the debrief, hints, briefings, launch checks and client reasons say the same in about half the words.
 - **Clearer Build.** A part that adds nothing to the job gets a WHY box (what the job wants against what the part is); Part 2 shows PROFIT (green or red) on Build and first on the debrief; selecting a part shows one line of what it does with its animation; a body leads with what it CARRIES and says what it WEIGHS.
 ### Added
