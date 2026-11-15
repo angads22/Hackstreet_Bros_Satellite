@@ -1957,6 +1957,69 @@ function previewContractPay(design, c) {
                             min_science: ct.min_science, orbit: ct.orbit, expected_pay_musd: p.paid_musd, met: p.met } : null };
 }
 
+// The Build screen's PROFIT line for a comeback design: what the client pays if the flight goes as planned, minus
+// what it costs (the parts, plus the rocket). With no rocket chosen yet the cheapest one on offer that lifts the design
+// to its orbit stands in (launch_estimated true); with none that can, the cost and the profit are null. Null outside a
+// comeback or without a contract. Event costs are luck, so they are not in a preview.
+function previewProfit(design) {
+  if (!design || !design.comeback || !design.campaign) return null;
+  var c = getCampaign();
+  if (!isComeback(c)) return null;
+  var p = previewContractPay(design, c);
+  if (!p || !p.contract) return null;
+  var t = getTotals(design), chosen = getLauncher(design.launcher), launcher = chosen, estimated = false;
+  if (!chosen && design.orbit) {
+    LAUNCHERS.forEach(function (l) {
+      var cap = l.capacity_kg ? l.capacity_kg[design.orbit] : 0;
+      if (!isLauncherAvailable(l.id, design) || !(cap > 0) || cap < t.mass_kg) return;
+      if (!launcher || l.cost_musd < launcher.cost_musd) launcher = l;
+    });
+    estimated = !!launcher;
+  }
+  var parts = round(t.cost_musd - (chosen ? chosen.cost_musd : 0), 3);
+  var launch = launcher ? launcher.cost_musd : null;
+  return { pay_musd: p.expected_payout_musd, parts_musd: parts, launch_musd: launch, launch_estimated: estimated,
+           launcher_id: launcher ? launcher.id : null, cost_musd: launch === null ? null : round(parts + launch, 3),
+           profit_musd: launch === null ? null : round(p.expected_payout_musd - parts - launch, 3),
+           met: p.contract.met, no_new_data: !!(p.topic_complete && !(p.new_data > 0)) };
+}
+
+// The debrief's PROFIT line for a finished comeback flight: what the client paid (with the 3-star bonus) minus what the
+// flight cost (the parts and the rocket at launch, and the cost of the events). Interest on the debt is not the flight's.
+// Null for a flight that is not a comeback or has not been recorded (recordResult) yet.
+function flightProfit(mission) {
+  var r = mission && mission.comeback ? mission.recorded : null;
+  if (!r || !isNumber(r.contract_paid_musd)) return null;
+  var launch = mission.launch_totals ? mission.launch_totals.cost_musd : 0;
+  var paid = round(r.contract_paid_musd + (r.contract_bonus_musd || 0), 3), events = r.event_costs_musd || 0;
+  return { paid_musd: paid, launch_musd: launch, event_costs_musd: events, cost_musd: round(launch + events, 3),
+           profit_musd: round(paid - launch - events, 3) };
+}
+
+// Why a part adds nothing to the job (the Build screen's WHY box), in a few words, or null when it counts. Only
+// instruments earn science. Three reasons, from the objective's `wants` and the part's `tags`: its type is not wanted
+// ("type"), it is too blurry from this orbit ("blurry"), or the orbit cannot see the target at all ("orbit").
+function partWhy(design, partId) {
+  var p = getPart(partId), objective = design ? getObjective(design.objective) : null;
+  if (!p || p.category !== "instrument" || !objective) return null;
+  var f = getPartFacts(design, partId);
+  if (!f) return null;
+  var wants = (objective.wants || []).slice(), tags = (p.tags || []).slice();
+  if (f.counts === false) {
+    return { id: "type", wants: wants, tags: tags,
+             text: "Job wants " + wants.join(" or ") + ". " + (tags.length ? "This part reads " + tags.join(" and ") + "." : "This part is neither.") };
+  }
+  if (f.sharp_enough === false) {
+    return { id: "blurry", wants: wants, tags: tags,
+             text: "Too blurry: sees " + f.resolution_m + " m, the job needs " + objective.needs_resolution_m + " m." };
+  }
+  var orbit = design.orbit ? getOrbit(design.orbit) : null;
+  if (orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
+    return { id: "orbit", wants: wants, tags: tags, text: "Right type, wrong orbit: the target is out of sight." };
+  }
+  return null;
+}
+
 // ---- the money and the clock
 function startDebt(c) {
   if (c && isNumber(c.start_debt_musd)) return c.start_debt_musd;   // the debt this run began with (kept if the tuning changes)
