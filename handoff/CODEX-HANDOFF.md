@@ -1,3 +1,19 @@
+# Active continuation checkpoint — November 15, 2026
+
+Branch: `claude/pensive-allen-ujtdag`. Remote work through `68e0c6b` is merged locally in `f876d5b`; this supersedes the earlier checkpoint in `cddf861`. The previous session cut 0.9 beta on this branch in `9c65b46` and updated the main spec in `59196fc`; main still has the 0.8 game code. Do not repeat the version cut. The code release remains pending the advisor.
+
+**User constraint still active:** keep new 3D integration and all main updates pending the advisor. No advisor or remote-session messaging tool is exposed here. Existing integrated art is retained. No contributor credit, co-author trailers or SI_USE rows.
+
+**Current continuation:**
+- Preserved overlapping local work in two named git stashes before merging the newer remote implementation. Do not apply those stashes over the current code.
+- Fixed the three user-reported polish issues: shared icon spacing, part-card separator wrapping and a dedicated Rocket Yard icon. Instrument science now says "up to".
+- Replaced the frozen readiness countdown with READY/HOLD status. Added full-star feedback and an explanation of the science requirement for the third star.
+- Design-screen, smoke and home browser suites pass on these edits. Full Node and browser regression checks are still in progress. Do not treat previous-session results as verification of these edits. Logs and screenshots go outside the repo in `/workspace/work/final-checks`.
+
+No remaining-usage meter is exposed. This checkpoint is being maintained before further work. Update this section and `handoff/HANDBACK.md` with actual results and commit hashes, commit and push the branch before ending. The detailed older task list follows; its in-flight and release status is superseded above.
+
+---
+
 # Handoff for Codex (November 15 2026, about 08:40 Eastern)
 
 The Claude session building this hit (or is about to hit) its usage limit. This file is everything you need; it does not depend on anything outside the repo. Read `SPEC.md` (the source of truth, especially "Two game modes") and `CLAUDE.md` first, then this.

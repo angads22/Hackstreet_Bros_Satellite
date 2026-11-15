@@ -290,7 +290,9 @@
         el("span", { class: "stamp" + (d.stars > 0 ? " pass" : ""), role: "img", text: UI.starsText(d.stars), "aria-label": d.stars + " of 3 stars" })
       ])
     ].concat(rows).concat([
-      el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
+      el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })]),
+      d.stars === 2 && d.science < d.science_target
+        ? el("p", { class: "star-goal", text: "Reach the science target for the third star." }) : null
     ]));
 
     var events = UI.list(d.events).map(function (e) {
@@ -300,6 +302,7 @@
     });
 
     var side = el("div", { class: "panel limit" }, [
+      d.stars === 3 ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
       comeback ? comebackBlock(done, d, result, landed, outcome) : null,
       walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
         text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
@@ -505,7 +508,7 @@
     var shared = UI.list(c.shared).join("; ");
     var body = [el("p", { class: "card-blurb", text: (c.blurb || "") + (shared ? " Like yours: " + shared + "." : "") })];
     if (d.real_mission) body.push(el("p", { class: "card-blurb", text: d.real_mission }));
-    return el("details", { class: "more" }, [el("summary", { text: "Closest real mission: " + c.name + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" })].concat(body));
+    return el("details", { class: "more", open: d.stars === 3 }, [el("summary", { text: "Closest real mission: " + c.name + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" })].concat(body));
   }
 
 
