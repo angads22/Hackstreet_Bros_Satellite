@@ -459,6 +459,9 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 
 /* ---- the story: one short spoken line with a portrait */
 .say { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: var(--surface); border-left: 8px solid var(--accent); }
+.intro { gap: 18px; }
+.intro-beats { display: flex; flex-direction: column; gap: 12px; }
+.big-title.small { font-size: clamp(36px, 8vw, 64px); text-shadow: 4px 4px 0 var(--stamp); }
 .say .portrait { flex: none; width: 64px; height: 64px; border-width: 3px; }
 .say-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .say-name { font-size: 16px; color: var(--accent-ink); letter-spacing: 1px; }

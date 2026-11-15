@@ -353,7 +353,7 @@
     var text = "";
     if (screen === "mission") text = "Keep the satellite alive.";
     else if (screen === "debrief") text = "Read what limited you, then fly again.";
-    else if (state.design && screen !== "title" && screen !== "hub") {
+    else if (state.design && screen !== "title" && screen !== "hub" && screen !== "intro") {
       var next = waypoint();
       text = next === screen ? doText(screen) : GO_TEXT[next];
     }
@@ -456,7 +456,9 @@
 
   // ---- the story: one short spoken line per screen (STORY block above; "" shows nothing)
   function sayLine(key, extra) {
-    var line = typeof storyLine === "function" ? storyLine(key, state.design, extra) : "";
+    return sayElement(typeof storyLine === "function" ? storyLine(key, state.design, extra) : "");
+  }
+  function sayElement(line) {
     if (!line) return null;
     var who = typeof line === "object" ? line.who : "team", text = typeof line === "object" ? line.text : String(line);
     if (!text) return null;
@@ -612,7 +614,26 @@
     if (eraId && typeof setEra === "function") setEra(state.design, eraId);
     state.reached = 0;
     state.player = "gate";
+    if (showIntro()) return;
     go("map");
+  }
+
+  // The story's opening: a few short beats with a START button, once per chapter in a page load.
+  // storyLine("intro") returns a list of beats; an empty list (or no story block) skips it.
+  function showIntro() {
+    var beats = typeof storyLine === "function" ? list(storyLine("intro", state.design)) : [];
+    var chapter = typeof storyChapter === "function" ? storyChapter(state.design) : "story";
+    if (!beats.length || state.introSeen[chapter]) return false;
+    state.introSeen[chapter] = true;
+    var title = typeof STORY === "object" && STORY.title ? STORY.title : "";
+    mount("intro", el("section", { class: "screen intro" }, [
+      title ? el("h1", { class: "big-title small", text: String(title).toUpperCase() }) : null,
+      el("div", { class: "intro-beats" }, beats.map(sayElement)),
+      el("div", { class: "nav-row" }, [el("span"), button(["START", " >"], function () { go("map"); }, { primary: true, aria: "Start" })])
+    ]));
+    var go1 = document.querySelector(".intro .btn.primary");
+    if (go1) go1.focus();
+    return true;
   }
 
   function tierButton(t, i, tiers, era, eraOpen, eraLockText) {
