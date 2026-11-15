@@ -655,14 +655,15 @@ function limitingFactor(mission, totals, scienceShare) {
     if (era1957 && PARTS.some(function (p) { return isGenerator(p) && !isPartAvailable(p.id, design); })) {
       return say("power", silent + "Solar cells would keep it running: research them.");
     }
-    return say("power", silent + "Parts that draw less would make the battery last longer.");
+    // Instruments that earn nothing are the bigger problem: no power source helps them (the design branches below).
+    if (scienceRate(design, []).per_month > 0) return say("power", silent + "Parts that draw less would make the battery last longer.");
   }
 
   // An orbit that cannot see the target at all comes before everything else.
   if (objective && orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
     var seeing = orbitChange(mission, function (o) { return objective.orbit_fit[o.id] > 0; });
     return say("design", "From " + inText(orbit.name) + " the spacecraft cannot see what " + inText(objective.name) + " needs. " +
-      (seeing ? orbitText(seeing) + " instead." : "No orbit your rocket reaches can see it."), seeing, "orbit");
+      (seeing ? orbitText(seeing) + " instead." + thrusterNote(seeing) : "Pick an orbit that can, then clear what the readiness review asks."), seeing, "orbit");
   }
 
   var lost = mission.lost;
@@ -676,7 +677,7 @@ function limitingFactor(mission, totals, scienceShare) {
       var contact = orbitChange(mission, function (o) { return o.downlink_mult > (orbit ? orbit.downlink_mult : 0); }, true);
       if (radio || contact) {
         return say("data", dataHead + (radio ? changeText(radio) : "") + (radio && contact ? ", or " + lcFirst(orbitText(contact)) : contact ? orbitText(contact) : "") +
-          (contact ? " for longer ground contact." : "."), radio || contact);
+          (contact ? " for longer ground contact." : ".") + (radio ? "" : thrusterNote(contact)), radio || contact);
       }
       var lighter = bestChange(mission, PARTS.filter(function (p) { return p.category === "instrument"; }).map(function (p) { return p.id; }), true, false, true);
       if (lighter) return say("data", dataHead + changeText(lighter) + ": it makes less data, so more of it gets home.", lighter);
@@ -736,7 +737,7 @@ function limitingFactor(mission, totals, scienceShare) {
     }
     var better = orbitChange(mission, function () { return true; }, true);
     if (better) return say("design", "Nothing ran short, but the science fell below target. " + inText(getOrbit(better.orbit).name).replace(/^./, function (x) { return x.toUpperCase(); }) +
-      " suits this objective better" + (better.launcher ? ", on the " + better.launcherName : "") + ".", better, "orbit");
+      " suits this objective better" + (better.launcher ? ", on the " + better.launcherName : "") + "." + thrusterNote(better), better, "orbit");
     var sharper = bestChange(mission, instrumentIds, true);
     if (sharper) return say("design", "Nothing ran short, but the science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
     return say("design", "Nothing ran short, but the science fell below target, and nothing you can fit or fly earns more. A longer-lived orbit or another topic is the way up.", null, "instruments");
@@ -754,7 +755,7 @@ function limitingFactor(mission, totals, scienceShare) {
 var CATEGORY_WORDS = { structure: "body", instrument: "instrument", power: "power source", comms: "radio", computer: "computer",
                        attitude: "attitude control", propulsion: "thruster" };
 // A name inside a sentence: the first letter lower-cased, unless the name starts with a proper noun or an acronym.
-var KEEP_CAPITAL = /^(Explorer|Nimbus|TIROS|Geiger|Arctic|Earth|Sun|Alouette|Li-ion|X-band|S-band|Thor|Juno|Vanguard|Medium|Small dedicated)\b|^[A-Z0-9]{2}/;
+var KEEP_CAPITAL = /^(Explorer|Nimbus|TIROS|Geiger|Arctic|Earth|Sun|Alouette|Li-ion|Thor|Juno|Vanguard)\b|^[A-Z0-9]{2}|^[A-Z]-/;
 function inText(name) { return !name ? "" : KEEP_CAPITAL.test(name) ? name : lcFirst(name); }
 
 // The flown design with one change, as the player would build it for the next flight.
@@ -815,13 +816,21 @@ function orbitChange(mission, test, needGain) {
     var rockets = d.year && !d.campaign ? [d.launcher] :
       LAUNCHERS.filter(function (l) { return isLauncherAvailable(l.id, d); })
         .sort(function (a, b) { return (a.id === d.launcher ? -1 : 0) - (b.id === d.launcher ? -1 : 0) || a.cost_musd - b.cost_musd; }).map(function (l) { return l.id; });
+    // An orbit that needs the satellite's own thrust (polar orbit since 1995, geostationary) may also need a thruster.
+    var thrusters = [null].concat(PARTS.filter(function (p) { return p.category === "propulsion" && isPartAvailable(p.id, d); })
+      .sort(function (a, b) { return a.mass_kg - b.mass_kg; }).map(function (p) { return p.id; }));
     for (var i = 0; i < rockets.length; i++) {
-      var ch = { orbit: o.id, launcher: rockets[i] !== d.launcher ? rockets[i] : null }, v = variantOf(d, ch);
-      if (!canFly(mission, v)) continue;
-      var gain = previewScience(v).total - base;
-      if (needGain && !(gain > 0.05)) return;
-      if (!best || gain > best.gain) best = { orbit: o.id, launcher: ch.launcher, launcherName: ch.launcher ? getLauncher(ch.launcher).name : null, gain: gain };
-      return;
+      for (var j = 0; j < thrusters.length; j++) {
+        var ch = { orbit: o.id, launcher: rockets[i] !== d.launcher ? rockets[i] : null, add: thrusters[j] ? [thrusters[j]] : [] };
+        if (thrusters[j] && designParts(d).some(function (p) { return p.category === "propulsion"; })) continue;
+        var v = variantOf(d, ch);
+        if (!canFly(mission, v)) continue;
+        var gain = previewScience(v).total - base;
+        if (needGain && !(gain > 0.05)) return;
+        if (!best || gain > best.gain) best = { orbit: o.id, launcher: ch.launcher, launcherName: ch.launcher ? inText(getLauncher(ch.launcher).name) : null,
+                                               add: ch.add, thruster: thrusters[j], gain: gain };
+        return;
+      }
     }
   });
   return best;
@@ -829,13 +838,14 @@ function orbitChange(mission, test, needGain) {
 function orbitText(ch) {
   return "Fly in " + inText(getOrbit(ch.orbit).name) + (ch.launcher ? " on the " + ch.launcherName : "");
 }
+function thrusterNote(ch) { return ch && ch.thruster ? " That orbit needs a thruster: fit the " + inText(getPart(ch.thruster).name) + "." : ""; }
 // Another rocket (passing `test`) that this design can launch on, cheapest first.
 function launcherChange(mission, test) {
   var d = mission.design;
   var l = LAUNCHERS.filter(function (x) { return x.id !== d.launcher && isLauncherAvailable(x.id, d) && test(x); })
     .sort(function (a, b) { return a.cost_musd - b.cost_musd; })
     .filter(function (x) { return canFly(mission, variantOf(d, { launcher: x.id })); })[0];
-  return l ? { launcher: l.id, launcherName: l.name } : null;
+  return l ? { launcher: l.id, launcherName: inText(l.name) } : null;
 }
 
 // The orbit where instruments earn the most for this objective: science

@@ -162,6 +162,7 @@ function adviceProblems(g, m, lim, label) {
   (ch.add || []).forEach(function (id) { if (!av.parts[id].available) out.push(id + " is not available: " + text); });
   if (ch.part && text.toLowerCase().indexOf(g.getPart(ch.part).name.toLowerCase()) === -1) out.push("the text does not name " + ch.part + ": " + text);
   if (ch.orbit && text.toLowerCase().indexOf(g.getOrbit(ch.orbit).name.toLowerCase()) === -1) out.push("the text does not name the orbit: " + text);
+  if (ch.thruster && text.toLowerCase().indexOf(g.getPart(ch.thruster).name.toLowerCase()) === -1) out.push("the text does not name the thruster: " + text);
   return out.map(function (x) { return label + ": " + x; });
 }
 // Part 1: every launchable 1958 design, on each rocket, under each event choice; steps 1 and 2 preset the rocket.
