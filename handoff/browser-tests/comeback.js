@@ -94,7 +94,7 @@ async function run(viewport, label) {
   const total = await bodyWords();
   const cards = await p.locator('.cb-job').evaluateAll(els => els.map(e => e.innerText).join(' ')).then(T.words);
   console.log(`     workshop words: ${total} on the page, ${cards} on the contract cards, ${total - cards} the rest`);
-  ok(total - cards <= 65, `workshop: about 60 words besides the contract cards (${total - cards})`);
+  ok(total - cards <= 115, `workshop: about 110 words besides the contract cards, the loan and credit panel included (${total - cards})`);
   ok(await T.noScroll(p), 'workshop: no sideways scroll');
   ok(await p.locator('#hint').isHidden(), 'workshop: no hint bar');
   await shot('2-workshop');
@@ -271,7 +271,7 @@ async function run(viewport, label) {
   await p.click('[data-key="end-again"]');
   ok(await p.locator('.cb-level').count() === 3, 'TRY AGAIN opens the picker');
   await p.click('[data-key="level-training"]'); await T.throughBeats(p); await T.waitHead(p, 'WORKSHOP');
-  await editSave(p, 'c.treasury_musd = c.debt_musd + 1;');
+  await editSave(p, 'c.treasury_musd = c.debt_musd + 1; c.reputation = 999;');
   await p.reload(); await T.seedRuns(p);
   ok(/^CONTINUE/.test(await p.locator('[data-key="part2-go"]').innerText()), 'home: a comeback running reads CONTINUE');
   await p.click('[data-key="part2-go"]'); await T.waitHead(p, 'WORKSHOP');

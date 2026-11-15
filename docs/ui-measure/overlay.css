@@ -12,7 +12,7 @@
       page for screen readers. Screens whose heading is a place name (the Part 2 workshop) keep it. */
 .objective { display: none !important; }
 .screen:has(> .workshop, > .pad, > .mission-head, > .ledger, > .map-layout) > .screen-head h1 {
-  height: 0 !important; margin: 0 !important; padding: 0 !important; overflow: hidden; font-size: 0 !important; line-height: 0 !important; }
+  height: 1px !important; margin: 0 !important; padding: 0 !important; overflow: hidden; font-size: 1px !important; line-height: 1px !important; opacity: 0; }
 .screen:has(> .workshop, > .pad, > .mission-head, > .ledger, > .map-layout) > .screen-head { min-height: 0; padding: 0; margin: 0; }
 
 /* 2. A shorter header. It is sticky from 930 px wide, so every pixel of it is taken from every screen. */
