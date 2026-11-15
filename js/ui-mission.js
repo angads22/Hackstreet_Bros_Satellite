@@ -200,14 +200,14 @@
     var e = c.effect || {}, bits = [];
     if (withRisk && c.fail_chance_now > 0 && e.fails) bits.push(Math.round(c.fail_chance_now * 100) + "% chance of losing " + (FAIL_NAMES[e.fails] || e.fails));
     if (e.lose_months) bits.push("lose " + num(e.lose_months, 0) + " month" + (e.lose_months === 1 ? "" : "s"));
-    if (e.science_mult) bits.push("science \u00d7" + e.science_mult + " from now on");
+    if (e.science_mult) bits.push("science \u00d7" + e.science_mult);
     if (e.cost_musd && !/\$/.test(c.label || "")) bits.push("costs " + UI.money(e.cost_musd));
     return bits;
   }
   function protectedChoice(c) { var e = c.effect || {}; return !!(e.fail_chance && e.fails && !(c.fail_chance_now > 0)); }
   function sentence(bits) { var t = bits.join(", "); return t.charAt(0).toUpperCase() + t.slice(1); }
   function choiceCost(c) {
-    if (protectedChoice(c)) return "Protected: no effect";
+    if (protectedChoice(c)) return "Protected";
     var bits = costBits(c, true);
     return bits.length ? sentence(bits) : "No cost";
   }
@@ -310,9 +310,7 @@
       ]),
       nextStarLine(d, PARTS_OF_SCORE)
     ].concat(rows).concat([
-      el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })]),
-      d.stars === 2 && d.science < d.science_target
-        ? el("p", { class: "star-goal", text: "Reach the science target for the third star." }) : null
+      el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
     ]));
 
     var events = UI.list(d.events).map(function (e) {
@@ -467,7 +465,7 @@
   function closestMoment(d) {
     var c = d.closest_mission;
     if (!c || !c.name || !c.blurb) return null;
-    var shared = UI.list(c.shared).join("; ");
+    var shared = UI.list(c.shared).slice(0, 2).join("; ");
     return el("div", { class: "win-discovery" }, [
       el("h2", { text: "LIKE " + String(c.name).toUpperCase() + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" }),
       el("p", { text: c.blurb + (shared ? " Like yours: " + shared + "." : "") })
@@ -640,7 +638,7 @@
   function closestLine(d) {
     var c = d.closest_mission;
     if (!c || !c.name) return d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null;
-    var shared = UI.list(c.shared).join("; ");
+    var shared = UI.list(c.shared).slice(0, 2).join("; ");
     var body = [el("p", { class: "card-blurb", text: (c.blurb || "") + (shared ? " Like yours: " + shared + "." : "") })];
     if (d.real_mission) body.push(el("p", { class: "card-blurb", text: d.real_mission }));
     return el("details", { class: "more", open: d.stars === 3 }, [el("summary", { text: "Closest real mission: " + c.name + " (" + [c.year, c.agency].filter(Boolean).join(", ") + ")" })].concat(body));

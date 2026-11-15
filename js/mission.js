@@ -326,7 +326,7 @@ function withLiveNow(summary, objectiveId) {
   if (l && objectiveId === "solar" && l.sunspots_through) {
     var y = parseInt(l.sunspots_through.slice(0, 4), 10), m = parseInt(l.sunspots_through.slice(5, 7), 10) - 1;
     var sn = sunspots(y, m);
-    if (sn !== null) now = "The latest monthly sunspot number, for " + l.sunspots_through + ", is " + Math.round(sn) +
+    if (sn !== null) now = "Latest monthly sunspot number (" + l.sunspots_through + "): " + Math.round(sn) +
       " (SILSO, via NOAA's Space Weather Prediction Center).";
   }
   if (!summary) return now ? { now: now, text: now } : null;
@@ -351,14 +351,14 @@ function realWorldSummary(mission) {
       soundings_heard: heard,
       share_of_alouette: pace > 0 ? round(heard / pace, 3) : 0,
       stations_in_reach_share: reach,
-      text: "Alouette 1 swept the ionosphere " + e.soundings.toLocaleString("en-US") + " times between 1962 and 1973, and " +
-        e.stations + " ground stations heard it (CSA, digitised Alouette 1 ionograms). The busiest were " +
+      text: "Alouette 1 swept the ionosphere " + e.soundings.toLocaleString("en-US") + " times in 1962-1973; " +
+        e.stations + " ground stations heard it (CSA). Busiest: " +
         (top[0] ? top[0].name + " (" + top[0].soundings.toLocaleString("en-US") + ")" : "") +
         (top[1] ? " and " + top[1].name + " (" + top[1].soundings.toLocaleString("en-US") + ")" : "") +
-        ", under the auroral zone. From this orbit your satellite could reach the stations that heard " + Math.round(reach * 100) +
-        "% of Alouette's soundings. Over " + mission.month + " months it would have sent about " + heard.toLocaleString("en-US") +
-        " soundings home, " + Math.round(100 * (pace > 0 ? heard / pace : 0)) + "% of Alouette's pace." +
-        (reach < 1 ? " Alouette flew an 80-degree orbit to pass over the polar stations." : "")
+        ", under the auroral zone. From this orbit you reach stations that heard " + Math.round(reach * 100) +
+        "% of its soundings. Over " + mission.month + " months: about " + heard.toLocaleString("en-US") +
+        " soundings home, " + Math.round(100 * (pace > 0 ? heard / pace : 0)) + "% of its pace." +
+        (reach < 1 ? " Alouette flew an 80-degree orbit over the polar stations." : "")
     };
   }
   if (e.sunspots && mission.start_year !== null) {
@@ -371,9 +371,9 @@ function realWorldSummary(mission) {
     return {
       year: y0, sunspots: round(sn0, 0),
       text: when + " the Sun averaged " + Math.round(sn0) + " sunspots a month (SILSO, Royal Observatory of Belgium). " +
-        "Between " + e.sunspots.start_year + " and " + (e.sunspots.start_year + all.length - 1) + " the yearly average ran from " +
-        Math.round(quiet) + " to " + Math.round(peak) + ": the Sun has an 11-year cycle, so when you fly decides how much there is to see. " +
-        "The International Geophysical Year was timed for the 1957-58 maximum, the strongest on record."
+        "From " + e.sunspots.start_year + " to " + (e.sunspots.start_year + all.length - 1) + " the yearly average ran from " +
+        Math.round(quiet) + " to " + Math.round(peak) + ": an 11-year cycle, so when you fly matters. " +
+        "The 1957-58 maximum, the strongest on record, set the IGY\'s dates."
     };
   }
   if (e.monthly_share) {
@@ -386,10 +386,10 @@ function realWorldSummary(mission) {
       fires_reported: Math.round(reported),
       share_reported: seen > 0 ? round(reported / (e.detections * years), 3) : 0,
       text: "In " + e.year + ", NASA's MODIS instruments made " + e.detections.toLocaleString("en-US") +
-        " active-fire detections worldwide. From this orbit your satellite could see " + Math.round(view * 100) +
-        "% of them. Over " + mission.month + " months it would have reported about " +
+        " active-fire detections worldwide. From this orbit you could see " + Math.round(view * 100) +
+        "% of them. Over " + mission.month + " months: about " +
         Math.round(reported).toLocaleString("en-US") + " fire detections, " +
-        Math.round(100 * reported / (e.detections * Math.max(years, 1 / 12))) + "% of all those NASA recorded."
+        Math.round(100 * reported / (e.detections * Math.max(years, 1 / 12))) + "% of NASA\'s."
     };
   }
   if (e.extent_mkm2) {
@@ -403,11 +403,11 @@ function realWorldSummary(mission) {
       text: "In September " + e.year + ", Arctic sea ice shrank to " + e.extent_mkm2[sep] +
         " million km2, " + drop + "% below the 1981-2010 average (NSIDC). " +
         (mission.real.months_mapped === 0
-          ? "Your satellite never mapped the ice."
-          : "Your satellite mapped the ice in " + mission.real.months_mapped + " of " + mission.month + " months, " +
+          ? "You never mapped the ice."
+          : "You mapped it in " + mission.real.months_mapped + " of " + mission.month + " months, " +
             (mission.real.dark_months_mapped
-              ? "including " + mission.real.dark_months_mapped + " months of polar night, when only radar can see."
-              : "but none in the " + dark + " months of polar night each year, when only radar can see."))
+              ? "including " + mission.real.dark_months_mapped + " of polar night, when only radar sees."
+              : "but none of the " + dark + " polar-night months each year, when only radar sees."))
     };
   }
   return null;
@@ -639,31 +639,31 @@ function limitingFactor(mission, totals, scienceShare) {
     }).map(function (p) { return p.id; }), false, true);
     var safe = ev ? ev.choices.filter(function (c) { return !(c.effect && c.effect.fail_chance); })[0] : null;
     var choice = safe ? "“" + safe.label + "”" : "the safer option";
-    if (guard) return say("event", head + changeText(guard) + ", which guards against it, or pick " + choice + " next time.", guard);
-    if (spare) return say("event", head + "Carry a spare: " + lcFirst(changeText(spare)) + ", or pick " + choice + " next time.", spare);
-    return say("event", head + "Next time, pick " + choice + ".");
+    if (guard) return say("event", head + changeText(guard) + " to guard against it, or pick " + choice + ".", guard);
+    if (spare) return say("event", head + "Carry a spare: " + lcFirst(changeText(spare)) + ", or pick " + choice + ".", spare);
+    return say("event", head + "Pick " + choice + " next time.");
   }
 
   // A battery-only satellite that fell silent: the history lesson that leads to solar cells.
   if (mission.end_cause === "batteries" && scienceShare < 1) {
-    var silent = "Your batteries ran down after " + mission.month + " month" + (mission.month > 1 ? "s" : "") +
-      " and the satellite fell silent, as Sputnik 1 did after 21 days. ";
+    var silent = "Batteries ran down after " + mission.month + " month" + (mission.month > 1 ? "s" : "") +
+      ": silent, like Sputnik 1 after 21 days. ";
     var cells = bestChange(mission, PARTS.filter(isGenerator).map(function (p) { return p.id; }), true);
-    if (cells) return say("power", silent + changeText(cells) + " so the Sun keeps it running.", cells);
+    if (cells) return say("power", silent + changeText(cells) + " to run on sunlight.", cells);
     var bigger = bestChange(mission, PARTS.filter(function (p) { return p.battery_wh; }).map(function (p) { return p.id; }), true);
-    if (bigger) return say("power", silent + changeText(bigger) + ": it stores more, so the satellite lasts longer.", bigger);
+    if (bigger) return say("power", silent + changeText(bigger) + ": it stores more, so it lasts longer.", bigger);
     if (era1957 && PARTS.some(function (p) { return isGenerator(p) && !isPartAvailable(p.id, design); })) {
-      return say("power", silent + "Solar cells would keep it running: research them.");
+      return say("power", silent + "Research solar cells.");
     }
     // Instruments that earn nothing are the bigger problem: no power source helps them (the design branches below).
-    if (scienceRate(design, []).per_month > 0) return say("power", silent + "Parts that draw less would make the battery last longer.");
+    if (scienceRate(design, []).per_month > 0) return say("power", silent + "Parts that draw less make it last longer.");
   }
 
   // An orbit that cannot see the target at all comes before everything else.
   if (objective && orbit && objective.orbit_fit && objective.orbit_fit[orbit.id] === 0) {
     var seeing = orbitChange(mission, function (o) { return objective.orbit_fit[o.id] > 0; });
     return say("design", "From " + inText(orbit.name) + " the spacecraft cannot see what " + inText(objective.name) + " needs. " +
-      (seeing ? orbitText(seeing) + " instead." + thrusterNote(seeing) : "Pick an orbit that can, then clear what the readiness review asks."), seeing, "orbit");
+      (seeing ? orbitText(seeing) + " instead." + thrusterNote(seeing) : "Pick an orbit that can."), seeing, "orbit");
   }
 
   var lost = mission.lost;
@@ -680,8 +680,8 @@ function limitingFactor(mission, totals, scienceShare) {
           (contact ? " for longer ground contact." : ".") + thrusterNote(contact), radio || contact);
       }
       var lighter = bestChange(mission, PARTS.filter(function (p) { return p.category === "instrument"; }).map(function (p) { return p.id; }), true, false, true);
-      if (lighter) return say("data", dataHead + changeText(lighter) + ": it makes less data, so more of it gets home.", lighter);
-      return say("data", dataHead + "No radio or orbit you can use sends more: carry an instrument that makes less data.");
+      if (lighter) return say("data", dataHead + changeText(lighter) + ": less data, more gets home.", lighter);
+      return say("data", dataHead + "No radio or orbit sends more: carry an instrument that makes less data.");
     }
     if (biggest === lost.power) {
       if (totals.power_gen_w < totals.power_draw_w) {
@@ -689,32 +689,32 @@ function limitingFactor(mission, totals, scienceShare) {
           totals.power_draw_w + " W. Add or enlarge a solar panel, or cut the draw.");
       }
       var store = bestChange(mission, PARTS.filter(function (p) { return p.battery_wh; }).map(function (p) { return p.id; }), true);
-      if (store) return say("power", "Your instruments switched off in Earth's shadow. " + changeText(store) + " to carry them through the eclipse.", store);
-      return say("power", "Your instruments switched off in Earth's shadow, and no battery you can fit carries a " + totals.power_draw_w +
-        " W satellite through it. Choose parts that draw less.");
+      if (store) return say("power", "Instruments switched off in Earth's shadow. " + changeText(store) + " to carry them through.", store);
+      return say("power", "Instruments switched off in Earth's shadow; no battery you can fit carries a " + totals.power_draw_w +
+        " W satellite. Choose parts that draw less.");
     }
-    return say("event", "Events cost you months of observing. The safer choice, or a part that guards against an event, keeps the mission running.");
+    return say("event", "Events cost you months. Pick safer choices, or fit a part that guards against them.");
   }
 
   if (scienceShare < 1) {
     if (totals.margins.budget !== null && totals.margins.budget < LOW_MARGIN) {
       var cheaper = design.year && !design.campaign ? null : launcherChange(mission, function (l) { return l.cost_musd < (getLauncher(design.launcher) || {}).cost_musd; });
       return say("budget", "You spent " + Math.round((1 - totals.margins.budget) * 100) + "% of the budget. " +
-        (cheaper ? "The " + cheaper.launcherName + " is cheaper and still carries it, which frees money for better instruments."
-                 : "Cheaper parts would free money for better instruments."), cheaper);
+        (cheaper ? "The " + cheaper.launcherName + " is cheaper and still carries it."
+                 : "Cheaper parts free money for better instruments."), cheaper);
     }
     if (totals.margins.mass !== null && totals.margins.mass < LOW_MARGIN) {
       var roomier = design.year && !design.campaign ? null : launcherChange(mission, function (l) {
         return ((l.capacity_kg || {})[design.orbit] || 0) > totals.capacity_kg; });
-      return say("mass", "The rocket was nearly full. " + (roomier ? "The " + roomier.launcherName + " carries more, or lighter parts would give you room."
-                                                                    : "Lighter parts would give you room."), roomier);
+      return say("mass", "The rocket was nearly full. " + (roomier ? "The " + roomier.launcherName + " carries more, or use lighter parts."
+                                                                    : "Use lighter parts."), roomier);
     }
     var rate = scienceRate(design, []);
     if (rate.instruments.some(function (i) { return i.smeared && i.match > 0; })) {
       var steady = bestChange(mission, PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1; })
         .map(function (p) { return p.id; }), true);
       var later = PARTS.filter(function (p) { return p.category === "attitude" && p.tags.indexOf("three-axis") !== -1; })[0];
-      return say("design", "Your satellite spun, so its pictures were smeared, as TIROS-1's were. " +
+      return say("design", "Your satellite spun and smeared its pictures, as TIROS-1 did. " +
         (steady ? changeText(steady) + " to hold it steady." : era1957 ? "Research three-axis control to hold it steady."
                 : later && design.year && !design.campaign && itemYear("parts", later.id) > design.year
                   ? "Three-axis control would hold it steady: it arrives in " + itemYear("parts", later.id) + "."
@@ -724,7 +724,7 @@ function limitingFactor(mission, totals, scienceShare) {
     var weak = rate.instruments.filter(function (i) { return i.match === 0 || !i.sharp_enough; });
     if (weak.length) {
       var suit = bestChange(mission, instrumentIds, true);
-      return say("design", "Some instruments earned nothing: wrong type for this objective, or too blurry from this orbit. " +
+      return say("design", "Some instruments earned nothing: wrong type, or too blurry from this orbit. " +
         (suit ? changeText(suit) + "." : "Swap them for ones that suit it."), suit, "instruments");
     }
     // A wanted instrument type nobody carries is the cheapest way to more science.
@@ -734,14 +734,14 @@ function limitingFactor(mission, totals, scienceShare) {
     var extra = bestChange(mission, PARTS.filter(function (p) {
       return p.category === "instrument" && p.tags.some(function (t) { return wanted.indexOf(t) !== -1; }); }).map(function (p) { return p.id; }), true, false, false, true);
     if (extra) {
-      return say("design", "Nothing ran short, but one instrument was not enough. " + changeText(extra) + " as well; this objective counts it too.", extra, "instruments");
+      return say("design", "Nothing ran short, but one instrument was not enough. " + changeText(extra) + " as well: it counts too.", extra, "instruments");
     }
     var better = orbitChange(mission, function () { return true; }, true);
-    if (better) return say("design", "Nothing ran short, but the science fell below target. " + inText(getOrbit(better.orbit).name).replace(/^./, function (x) { return x.toUpperCase(); }) +
+    if (better) return say("design", "Nothing ran short, but science fell below target. " + inText(getOrbit(better.orbit).name).replace(/^./, function (x) { return x.toUpperCase(); }) +
       " suits this objective better" + (better.launcher ? ", on the " + better.launcherName : "") + "." + thrusterNote(better), better, "orbit");
     var sharper = bestChange(mission, instrumentIds, true);
-    if (sharper) return say("design", "Nothing ran short, but the science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
-    return say("design", "Nothing ran short, but the science fell below target. No single change you can make earns more: try a different design.", null, "instruments");
+    if (sharper) return say("design", "Nothing ran short, but science fell below target. " + changeText(sharper) + ": it earns more.", sharper, "instruments");
+    return say("design", "Nothing ran short, but science fell below target. No single change earns more: try a different design.", null, "instruments");
   }
   // In a campaign there is no "next tier": the next step is the lab, or another topic. A flight whose record ended
   // the game (the debrief reads the advice after recordResult) has no next flight or contract.
