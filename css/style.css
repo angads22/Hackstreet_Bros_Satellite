@@ -85,11 +85,12 @@ button:disabled { cursor: not-allowed; }
 .data-badge.partial { color: var(--accent-ink); }
 .data-badge.snapshot { color: var(--text-dim); }
 .data-badge.loading { color: var(--text-dim); border-style: dashed; }
-@media (min-width: 761px) {
-  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
-  html { scroll-padding-top: 240px; }   /* the header wraps to about 230px between 761 and 899px */
-}
+/* The header stays in view only on a wide screen, where it fits one row (about 130px): the brand's status line wraps
+   inside its own box instead of pushing the minimap and "?" onto rows of their own. Narrower (a phone, or 150 to 200%
+   zoom), it scrolls away with the page, so it never covers what has focus. */
 @media (min-width: 930px) {
+  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
+  .brand { flex: 0 1 300px; }
   html { scroll-padding-top: 144px; }
 }
 @media (max-height: 500px) {   /* landscape phones: a sticky header would eat the screen */
@@ -249,6 +250,7 @@ button:disabled { cursor: not-allowed; }
   font-size: 18px;
   white-space: nowrap;
 }
+.card-title .tag { white-space: normal; max-width: 100%; }   /* a long "NEEDS RESEARCH: ..." wraps inside its card */
 .tag.good { color: var(--info-ink); }
 .tag.warn { color: var(--accent-ink); }
 .tag.bad { color: var(--bad); }
@@ -311,9 +313,12 @@ button:disabled { cursor: not-allowed; }
   padding: 10px;
 }
 
-/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. */
-.preview { height: 190px; overflow-y: auto; }
-@media (min-width: 930px) { .bench-col > .preview { position: sticky; top: var(--sticky-top, 8px); z-index: 3; align-self: stretch; } }
+/* A fixed-height preview: it used to grow with its text and push the cards out from under the mouse. It lists the
+   change to the bars and what it fixes and causes before the part's story, and keeps the last part when the pointer
+   leaves the card, so the pointer can move onto it to scroll. It stays on top of the shelf while the parts scroll by. */
+.preview { height: clamp(190px, 36vh, 320px); overflow-y: auto; gap: 4px; }
+.part-picker { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.part-picker > .preview { position: sticky; top: var(--sticky-top, 0px); z-index: 3; }
 .bench-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .workshop > .bins, .workshop > .stack { position: sticky; top: var(--sticky-top, 8px); align-self: start; max-height: calc(100vh - var(--sticky-top, 8px) - 8px); overflow-y: auto; }
 @media (min-width: 930px) { .workshop { --sticky-top: 140px; } }   /* just under the sticky header */
@@ -321,7 +326,7 @@ button:disabled { cursor: not-allowed; }
 .workshop .sat-bench { max-width: 320px; }
 .workshop .shelf { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .preview h3 { font-size: 20px; color: var(--accent-ink); }
-.preview-line { font-size: 20px; }
+.preview-line { font-size: 19px; }
 .preview-line.fix { color: var(--info-ink); }
 .preview-line.cause { color: var(--bad); }
 .preview-empty { color: var(--text-dim); font-size: 20px; }
@@ -339,6 +344,8 @@ button:disabled { cursor: not-allowed; }
 }
 .part:hover, .part:focus-visible { border-color: var(--text-dim); }
 .part[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); }
+.part.armed { border-color: var(--accent); }   /* a finger's first tap: the next tap adds or removes it */
+.part-tap { align-self: flex-start; padding: 0 8px; background: var(--accent); color: var(--on-accent); font-size: 18px; }
 .part-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; align-items: baseline; }
 .part-name { font-size: 24px; line-height: 1; }
 .part-cost { color: var(--accent-ink); white-space: nowrap; }
@@ -547,13 +554,22 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   font-weight: 700;
   font-size: 20px;
 }
+/* The name hangs under its marker (the marker's box is the number alone, centred on the door). Near the map's left or
+   right edge it starts or ends at the marker instead of being centred, so it is never cut off on a phone. */
 .blip-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
   padding: 0 6px;
   background: var(--bg);
   color: var(--text);
   font-size: 18px;
   white-space: nowrap;
 }
+.blip.edge-l .blip-name { left: 0; transform: none; }
+.blip.edge-r .blip-name { left: auto; right: 0; transform: none; }
 .blip.done .blip-num { background: var(--info); border-color: var(--info); color: var(--on-info); }
 .blip.next .blip-num { background: var(--accent); border-color: var(--text); color: var(--on-accent); animation: pulse 1s steps(2) infinite; }
 .blip.next .blip-name { color: var(--accent-ink); }
@@ -602,7 +618,6 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 }
 .map-prompt-text { font-size: 22px; }
 .map-prompt .btn { min-height: 44px; font-size: 22px; padding: 0 14px; }
-.map-objective { color: var(--accent-ink); font-size: 24px; }
 
 /* NASA data lines: the orbit cards, each mission month and the debrief comparison. */
 .nasa-line { margin: 0; color: var(--info-ink); font-size: 20px; }
@@ -626,7 +641,8 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 .legend-item:hover { border-color: var(--accent); }
 .legend-item .blip-num { width: 28px; height: 28px; font-size: 18px; flex: none; }
 .legend-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1; }
-.legend-does { font-size: 18px; color: var(--text-dim); }
+.keys-box { display: flex; flex-direction: column; gap: 10px; }
+@media (hover: none) { .keys-box { display: none; } }   /* a touch screen: the hint says to tap a place */
 
 @media (prefers-reduced-motion: reduce) {
   .blip.next .blip-num { animation: none; box-shadow: 0 0 0 4px var(--accent); }
@@ -645,6 +661,11 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
 @media (max-width: 929px) {
   .workshop { grid-template-columns: 1fr; }
   .workshop > .bins, .workshop > .stack { position: static; max-height: none; }
+  /* One column: the bins, then the preview and the shelf, then the satellite and the bars. */
+  .workshop > .bench-col { display: contents; }
+  .workshop > .bins { order: -2; }
+  .workshop .part-picker { order: -1; }
+  .preview { height: clamp(120px, 30vh, 190px); }
 }
 
 @media (max-width: 760px) {
@@ -660,6 +681,7 @@ kbd { padding: 0 6px; background: var(--bg); border: 3px solid var(--border); bo
   .blip.next .blip-name { display: block; }
   .blip::before { content: ""; position: absolute; inset: -6px; }   /* 44px touch target */
   .workshop, .pad, .ledger { grid-template-columns: 1fr; }
+  .pad > .launch-control { order: -1; }   /* Readiness on a phone: the verdict and LAUNCH (or FIX) before the pictures */
   .bins { flex-direction: row; flex-wrap: wrap; }
   .bin { flex: 1 1 140px; }
   .dialogue { grid-template-columns: 1fr; }

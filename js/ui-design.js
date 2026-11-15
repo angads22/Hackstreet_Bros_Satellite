@@ -33,7 +33,7 @@
   // Shown under the header when the tier's hints are on (or on request).
   var HINTS = {
     title:    "",
-    map:      "Walk with the arrow keys or WASD, press E to go in. Or click a marker and you walk there yourself. The gold route leads to your next job.",
+    map:      "Tap or click a place to walk there. Or walk with the arrow keys or WASD and press E to go in. The gold route leads to your next job.",
     briefing: "Decide the goal before the hardware. The objective says which instruments count.",
     orbit:    "Where you fly changes everything else: detail, ground contact, lifetime and launch cost.",
     build:    "Every part costs something in all four bars. Hover a part to see what it would change before you click.",
@@ -118,6 +118,7 @@
     map: null,           // live map elements, while the map is showing
     reached: 0,          // furthest design step visited, as an index into DESIGN_STEPS
     bin: null,           // which parts bin is open on Build (null = the first one)
+    binFor: null,        // the design that bin was chosen for (a new design picks its bin again)
     hover: null,         // part id being previewed on Build
     hintOpen: false,
     avail: null,         // getAvailability(design) for the screen being drawn
@@ -1677,7 +1678,8 @@
     node.className = "data-badge " + (["live", "partial", "snapshot", "loading"].indexOf(status) !== -1 ? status : "snapshot");
     node.textContent = status === "live" ? "LIVE DATA" : status === "partial" ? "PARTLY LIVE" : status === "loading" ? "CHECKING DATA" : "SNAPSHOT";
     var sources = list(live.sources).map(function (s) { return s.name + ": " + (s.ok ? "live" : "snapshot"); }).join(". ");
-    var title = status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
+    var title = status === "loading" ? "Checking for live NASA and NOAA data. The saved data is used until it answers."
+      : status === "snapshot" || !sources ? "Using the saved NASA data. Live open data was not reachable."
       : sources + (live.fetched_at ? ". Fetched " + live.fetched_at.slice(0, 16).replace("T", " ") + " UTC." : "");
     node.title = title;
     node.setAttribute("aria-label", node.textContent + ". " + title);
@@ -1773,7 +1775,11 @@
     }
   }
 
-  function go(screen) {
+  function go(screen, bin) {
+    if (screen === "build" && state.design && (state.screen !== "build" || state.binFor !== state.design || bin)) {
+      state.bin = entryBin(state.design, bin);
+      state.binFor = state.design;
+    }
     var i = DESIGN_STEPS.indexOf(screen);
     if (i > state.reached) state.reached = i;
     bumpReached();                         // a preset place counts as visited once the one before it is
@@ -1859,12 +1865,18 @@
     var massRight = t.capacity_kg ? num(t.mass_kg) + " / " + num(t.capacity_kg, 0) + " KG" : num(t.mass_kg) + " KG";
     var dataLost = t.data_gb_day > t.data_returned_gb_day;
     var du = dataUnit(Math.max(t.data_gb_day || 0, t.data_returned_gb_day || 0));
+    // No limit yet: no rocket, no orbit, or a rocket that cannot reach this orbit (its capacity there is 0).
+    var rocket = design.launcher ? byId(data("LAUNCHERS"), design.launcher) : null;
+    var massNote = t.capacity_kg ? null : !rocket ? "Pick a rocket to see the limit"
+      : !design.orbit ? "Pick an orbit to see the limit" : rocket.name + " cannot reach this orbit";
+    // Batteries and no panel: a warning, not a fault (runChecks warns "battery-only"). The bar says how long they last.
+    var batteryOnly = !(t.power_gen_w > 0) && t.battery_wh > 0 && t.power_draw_w > 0;
+    var power = isNum(m.power) ? { fill: 1 - m.power, cls: barClass(m.power), note: null }
+      : batteryOnly ? { fill: 1, cls: " warn", note: batteryNote(design) }
+      : { fill: t.power_draw_w > 0 ? 1 : 0, cls: t.power_draw_w > 0 ? " bad" : "", note: "Nothing makes power yet" };
     return el("div", { class: "bars" }, [
-      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass),
-          t.capacity_kg ? null : "Pick a rocket to see the limit", "mass"),
-      bar("POWER", fine(t.power_draw_w) + " / " + fine(t.power_gen_w) + " W",
-          isNum(m.power) ? 1 - m.power : (t.power_draw_w > 0 ? 1 : 0), isNum(m.power) ? barClass(m.power) : (t.power_draw_w > 0 ? " bad" : ""),
-          t.power_gen_w ? null : "Nothing makes power yet", "power"),
+      bar("MASS", massRight, isNum(m.mass) ? 1 - m.mass : null, barClass(m.mass), massNote, "mass"),
+      bar("POWER", fine(t.power_draw_w) + " / " + fine(t.power_gen_w) + " W", power.fill, power.cls, power.note, "power"),
       bar("BUDGET", money(t.cost_musd) + " / " + money(t.budget_musd), isNum(m.budget) ? 1 - m.budget : null, barClass(m.budget), null, "budget"),
       // For data a full bar is good: it is the share of data that reaches the ground.
       bar("DATA HOME", fine(t.data_returned_gb_day * du[1]) + " / " + fine(t.data_gb_day * du[1]) + " " + du[0].toUpperCase() + "/DAY",
@@ -1872,6 +1884,14 @@
           dataLost ? (t.data_returned_gb_day > 0 ? " warn" : " bad") : "",
           !design.orbit ? "Pick an orbit to see ground contact" : null, "data")
     ]);
+  }
+
+  // "Battery only: runs out in about 2.2 months", from previewScience (its months stop when the battery is spent).
+  function batteryNote(design) {
+    var s = typeof previewScience === "function" ? previewScience(design) : null;
+    var orbit = byId(data("ORBITS"), design.orbit);
+    if (!s || !orbit || !isNum(s.months) || !(s.months < orbit.lifetime_months)) return "Battery only";
+    return "Battery only: runs out in about " + fine(s.months) + " months";
   }
 
   // A short label for each readiness check; the back end's full sentence stays one tap away ("Why").
@@ -1895,6 +1915,12 @@
     return c.text;   // an id this list does not know: the back end's own words
   }
 
+  // The bin a FIX line opens on Build: the empty one for "NO POWER" and the like, else none (Build picks).
+  function fixBin(c) {
+    var id = String(c && c.id || "");
+    return id.indexOf("empty-") === 0 && byId(categories(), id.slice(6)) ? id.slice(6) : null;
+  }
+
   function checkList(design, opts) {
     opts = opts || {};
     var checks = runChecks(design);
@@ -1912,7 +1938,7 @@
         el("span", { class: "check-text" }, [icon(row.kind === "bad" ? "blocker" : "warning"), el("strong", { text: label }),
           label !== row.c.text ? el("details", { class: "more why" }, [el("summary", { text: "Why" }), el("span", { text: row.c.text })]) : null]),
         opts.fix && target !== state.screen
-          ? el("button", { type: "button", class: "fix", onclick: function () { go(target); },
+          ? el("button", { type: "button", class: "fix", onclick: function () { go(target, fixBin(row.c)); },
               "aria-label": "Fix on the " + target + " screen: " + row.c.text }, "FIX >")
           : el("span", { class: "status", text: row.status })
       ]);
@@ -2168,8 +2194,10 @@
           button([last ? (opts.doneLabel || "START") : "NEXT", " >"], function () { if (last) onDone(); else { at++; draw1(); } }, { primary: true })
         ])
       ]));
+      // Open at the top (the title page may have been scrolled), then focus NEXT without scrolling back down.
+      window.scrollTo(0, 0);
       var next = document.querySelector(".intro .btn.primary");
-      if (next) next.focus();
+      if (next) next.focus({ preventScroll: true });
     }
     draw1();
   }
@@ -2289,18 +2317,21 @@
       // The rest of the briefing sits beside the card, not inside it (a button cannot hold a button).
       return el("div", { class: "card-wrap" }, [card, more(o.briefing, "About this job")]);
     });
+    // The "½" in a Counts row, said once under the cards (SPEC: the first type counts fully, the others half).
+    var half = objectives.some(function (o) { return !lockReason(avail.objectives, o.id) && list(o.wants).length > 1; });
     return el("section", { class: "screen" }, [
       head("1 · BRIEFING"),
       sayLine("briefing"),
       presetNote("briefing"),
       objectives.length ? el("div", { class: "grid" }, cards) : el("p", { class: "empty", text: "No objectives in the data yet." }),
+      half ? el("p", { class: "preset-note", text: "½: counts half." }) : null,
       navRow("orbit", !!d.objective)
     ]);
   }
 
   // ---------------------------------------------------------------- 2 Orbit
   // "In view: 69% of the world's fire detections (NASA FIRMS 2025)": the share comes from getOrbitFacts.
-  // (The badge beside it is about how often the orbit looks, which is a different thing.)
+  // (The badge above it is how well the orbit suits the job, which is a different thing.)
   function inViewText(objectiveId, share) {
     var e = typeof EARTH !== "undefined" && EARTH ? EARTH[objectiveId] : null;
     var KINDS = { "wildfire": ["of the world's fire detections", "NASA FIRMS"],
@@ -2328,10 +2359,12 @@
       setOrbit(probe, o.id);
       var f = getOrbitFacts(probe);
       var fit = objective && objective.orbit_fit ? objective.orbit_fit[o.id] : undefined;
+      // How well this orbit suits the job (objective.orbit_fit), which is not the share in view printed below it:
+      // so the badge says FIT, never VIEW, and the two cannot contradict each other on one card.
       var badge = !isNum(fit) ? null
         : fit === 0 ? el("span", { class: "tag bad", text: "CANNOT SEE TARGET" })
-        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL VIEW" })
-        : el("span", { class: "tag good", text: "GOOD VIEW" });
+        : fit < 1 ? el("span", { class: "tag warn", text: "PARTIAL FIT" })
+        : el("span", { class: "tag good", text: "GOOD FIT" });
       var card = el("button", {
         type: "button", class: "card" + (fit === 0 ? " dim" : ""), "aria-pressed": d.orbit === o.id ? "true" : "false",
         "data-key": "orbit-" + o.id, onclick: function () { setOrbit(d, o.id); redraw(); }
@@ -2391,7 +2424,7 @@
     var note = f.counts === false ? "Does not count for this objective"
       : f.sharp_enough === false ? "Too blurry from this orbit" : null;
     function preview() { state.hover = p.id; refreshPreview(); }
-    return el("button", {
+    var card = el("button", {
       type: "button", class: "part" + (note ? " dim" : ""), "aria-pressed": on ? "true" : "false", "data-key": "part-" + p.id,
       onpointerdown: function (e) {
         // Read before the tap focuses the card (focus also previews).
@@ -2400,15 +2433,15 @@
       },
       onclick: function () {
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
-        if (state.touch && !state.armed) { preview(); state.armed = true; return; }
+        if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
       },
       onfocus: preview,
       // Real mouse only: a phone tap also fires mouse enter/leave, which would undo the tap preview.
-      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); },
-      onpointerleave: function (e) { if (e.pointerType === "mouse") { state.hover = null; refreshPreview(); } }
+      // Leaving a card keeps its preview, so the pointer can move onto the preview and scroll it.
+      onpointerenter: function (e) { if (e.pointerType === "mouse") preview(); }
     }, [
       el("div", { class: "part-head" }, [el("span", { class: "part-name", text: p.name }), el("span", { class: "part-cost" }, [icon("budget"), money(p.cost_musd)])]),
       el("span", { class: "part-stats" }, partStats(p)),
@@ -2416,20 +2449,48 @@
       note ? el("span", { class: "part-note", text: note }) : null,
       on ? el("span", { class: "tag on", text: "ON BOARD" }) : null
     ]);
+    if (state.touch && state.hover === p.id) markArmed(card, on);
+    return card;
+  }
+  // A finger's first tap on a card: the card says that a second tap adds (or removes) it. One card at a time.
+  function markArmed(card, on) {
+    Array.prototype.slice.call(document.querySelectorAll(".part.armed")).forEach(function (n) {
+      n.classList.remove("armed");
+      var old = n.querySelector(".part-tap");
+      if (old) old.parentNode.removeChild(old);
+    });
+    card.classList.add("armed");
+    card.appendChild(el("span", { class: "part-tap", text: on ? "TAP AGAIN TO REMOVE" : "TAP AGAIN TO ADD" }));
   }
 
-  // What clicking the hovered part would change (previewToggle), drawn in place.
+  // What clicking the hovered part would change (previewToggle). There is one preview box: a redraw moves the box
+  // already on the page into the new screen and a hover refills it, so its aria-live text is announced, not replaced.
   function drawPreview() {
-    var box = el("div", { class: "panel preview", id: "preview", "aria-live": "polite" }, [el("h2", { text: "IF YOU CLICK" })]);
-    if (!state.hover) {
-      box.appendChild(el("p", { class: "preview-empty", text: "Point at a part to see what it would change." }));
-      return box;
+    var box = document.getElementById("preview") || el("div", { class: "panel preview", id: "preview", "aria-live": "polite" });
+    fillPreview(box);
+    return box;
+  }
+  function refreshPreview() {
+    var box = document.getElementById("preview");
+    if (box) fillPreview(box);
+  }
+  function touchScreen() { return !!(window.matchMedia && window.matchMedia("(hover: none)").matches); }
+
+  // The most useful lines first: the change to the bars, then what it fixes and causes; the part's story last.
+  function fillPreview(box) {
+    while (box.firstChild) box.removeChild(box.firstChild);
+    box.scrollTop = 0;
+    var touch = state.touch || touchScreen();
+    box.appendChild(el("h2", { text: !touch ? "IF YOU CLICK" : state.hover ? "IF YOU TAP AGAIN" : "IF YOU TAP" }));
+    var p = state.hover ? byId(data("PARTS"), state.hover) : null;
+    var t = p ? previewToggle(state.design, state.hover) : null;
+    if (!t) {
+      box.appendChild(el("p", { class: "preview-empty", text: (touch ? "Tap" : "Point at") + " a part to see what it would change." }));
+      return;
     }
-    var p = byId(data("PARTS"), state.hover);
-    var t = previewToggle(state.design, state.hover);
     var dl = t.delta || {};
     var bits = [];
-    if (dl.mass_kg) bits.push(signed(dl.mass_kg) + " kg");
+    if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
     if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
     if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
     if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
@@ -2437,17 +2498,43 @@
     if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
     if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
     if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
-    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + (p ? p.name.toUpperCase() : "") }));
-    if (p && p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
+    var ch = checkChanges(state.design, state.hover);
+    box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
-    list(t.fixes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
-    list(t.causes).forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
-    return box;
+    ch.fixes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line fix", text: "Fixes: " + x.text })); });
+    ch.causes.forEach(function (x) { box.appendChild(el("p", { class: "preview-line cause", text: "Causes: " + x.text })); });
+    if (p.blurb) box.appendChild(el("p", { class: "preview-line blurb", text: p.blurb }));
   }
 
-  function refreshPreview() {
-    var old = document.getElementById("preview");
-    if (old) old.parentNode.replaceChild(drawPreview(), old);
+  // What a click would fix and cause: runChecks on the design and on a full copy of it with the part toggled (every
+  // field kept, so the era's rules still apply). One check id can appear more than once (a BODY FULL line for each
+  // kind of part), so lines that share an id are matched by their text. Checks only: every number is the back end's.
+  function toggledCopy(d, partId) {
+    var a = {};
+    Object.keys(d).forEach(function (k) { a[k] = d[k]; });
+    a.parts = list(d.parts).slice();
+    if (a.parts.indexOf(partId) === -1) addPart(a, partId); else removePart(a, partId);
+    return a;
+  }
+  function checkChanges(d, partId) {
+    function all(r) { return list(r.blockers).concat(list(r.warnings)); }
+    var before = all(runChecks(d)), after = all(runChecks(toggledCopy(d, partId)));
+    // The lines of `from` that `to` no longer has: per id, as many as `to` has fewer, unmatched texts first.
+    function gone(from, to) {
+      var out = [], seen = {};
+      from.forEach(function (c) {
+        if (seen[c.id]) return;
+        seen[c.id] = true;
+        var mine = from.filter(function (x) { return x.id === c.id; });
+        var theirs = to.filter(function (x) { return x.id === c.id; }).map(function (x) { return x.text; });
+        var n = mine.length - theirs.length;
+        if (n <= 0) return;
+        var unmatched = mine.filter(function (x) { return theirs.indexOf(x.text) === -1; });
+        out = out.concat((unmatched.length >= n ? unmatched : mine).slice(0, n));
+      });
+      return out;
+    }
+    return { fixes: gone(before, after), causes: gone(after, before) };
   }
 
   function sciencePanel(design) {
@@ -2481,27 +2568,27 @@
 
     state.avail = availability(d);   // one call per screen refresh; partCard reads it
     var cats = categories();
-    // The open bin: the one the player chose, else the instrument bin ("the reason we fly"), else the first.
+    // The open bin: the one chosen on the way in (entryBin) or by the player, else the instrument bin, else the first.
     var cat = byId(cats, state.bin) || byId(cats, "instrument") || cats[0];
     var body = getTotals(d).body || null;   // { name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null
     var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(cats.map(function (c) {
       var n = count[c.id] || 0;
       var need = c.required && !n;
-      // With a body fitted, each bin shows how many of its slots are used ("2 / 3").
+      // With a body fitted, each bin shows how many of its slots are used ("2 / 3 slots", "1 / 1 slot"). A kind of
+      // part the body has no slot for says so ("No room on this body", or "2 on board, no room").
       var slot = body && body.slots ? body.slots[c.id] : null;
-      if (slot && !slot.max && !slot.used) slot = null;   // no slots at all on this body
-      var noRoom = !!body && !slot && c.id !== "structure";
-      var over = !!slot && slot.used > slot.max;
-      var sub = need ? "Needed" : slot ? slot.used + " / " + slot.max + " slots" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
-        : n ? n + " on board" : c.sub;
+      var noRoom = !!body && c.id !== "structure" && !(slot && slot.max);
+      var over = noRoom ? n > 0 : !!slot && slot.used > slot.max;
+      var sub = need ? "Needed" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
+        : slot ? slot.used + " / " + slot.max + (slot.max === 1 ? " slot" : " slots") : n ? n + " on board" : c.sub;
       return el("button", {
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
-        onclick: function () { state.bin = c.id; state.hover = null; redraw(); }
+        onclick: function () { state.bin = c.id; state.hover = null; redraw(); showShelf(); }
       }, [
         icon(c.id) || art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
         el("span", { class: "bin-text" }, [
           el("span", { class: "bin-name", text: c.name }),
-          el("span", { class: "bin-sub" + (need || over || (noRoom && n) ? " need" : ""), text: sub })
+          el("span", { class: "bin-sub" + (need || over ? " need" : ""), text: sub })
         ])
       ]);
     })));
@@ -2531,16 +2618,38 @@
       shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
         : el("p", { class: "empty", text: "No parts in this bin yet." })
     ]);
+    // The preview sits on top of the shelf and stays in view while you scroll through the parts (CSS sticky).
+    var picker = el("div", { class: "part-picker", id: "part-picker" }, [drawPreview(), shelf]);
 
     return el("section", { class: "screen" }, [
       head("3 · BUILD"),
       sayLine("build"),
-      // The shelf sits under the satellite, in the same grid as the side panels, and the side
-      // panels stay in view while you scroll: you always see what a click did to the bars.
-      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, drawPreview(), payoutLine(d), shelf]),
+      // On a wide screen the shelf sits under the satellite, and the side panels stay in view while you scroll: you
+      // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
+      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
         el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
-      navRow("launcher", true)
+      // With the rocket preset (Part 1), the next stop after the Workshop is the Launch Pad.
+      navRow(isPreset("launcher") ? "review" : "launcher", true)
     ]);
+  }
+
+  // The bin Build opens on: the one a FIX line asked for, else the first required bin still empty (the team's line
+  // talks about it), else the one the player had open. Chosen on the way in (go), never on a redraw, so the shelf
+  // never changes under the pointer after a click.
+  function entryBin(d, wanted) {
+    if (wanted) return wanted;
+    var have = {};
+    list(d.parts).forEach(function (id) { var p = byId(data("PARTS"), id); if (p) have[p.category] = true; });
+    var missing = categories().filter(function (c) { return c.required && !have[c.id]; })[0];
+    return missing ? missing.id : state.bin;
+  }
+
+  // A narrow screen stacks the Build screen: after a bin is picked, bring its parts (and the preview) into view.
+  function showShelf() {
+    var box = document.getElementById("part-picker");
+    if (!box || !(window.matchMedia && window.matchMedia("(max-width: 929px)").matches)) return;
+    var top = box.getBoundingClientRect().top;
+    if (top > window.innerHeight * 0.5 || top < 0) window.scrollTo(0, window.pageYOffset + top);
   }
 
   // ---------------------------------------------------------------- 4 Launch vehicle
@@ -2601,12 +2710,24 @@
     var objective = byId(data("OBJECTIVES"), d.objective);
     var orbit = byId(data("ORBITS"), d.orbit);
     var rocket = byId(data("LAUNCHERS"), d.launcher);
-    var control = el("div", { class: "panel" }, [
+    // The science this design should bring home if nothing goes wrong, against the job's target (previewScience),
+    // shown before the one click that cannot be undone. Short of the target: amber, and the button says ANYWAY.
+    var sci = d.objective && d.orbit && typeof previewScience === "function" ? previewScience(d) : null;
+    var short = !!sci && sci.target > 0 && sci.share < 1;
+    var forecast = sci && sci.target > 0 ? bar("SCIENCE FORECAST", num(sci.total, 0) + " / " + num(sci.target, 0) + " PTS", sci.share,
+      short ? " warn" : "", short ? "Short of the target" : null, "science") : null;
+    var launchBtn = button(blocked ? "LAUNCH" : warned || short ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked });
+    var control = el("div", { class: "panel launch-control" }, [
       el("span", { class: "countdown-label", text: "T-MINUS" }),
       el("span", { class: "countdown", text: blocked ? "HOLD" : "00:00:10" }),
-      el("p", { class: "verdict " + (blocked ? "bad" : warned ? "warn" : "ok"),
-        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "") : "ALL SYSTEMS GO" }),
+      el("p", { class: "verdict " + (blocked ? "bad" : warned || short ? "warn" : "ok"),
+        text: blocked ? "NO GO. " + checks.blockers.length + " TO FIX." : warned ? "GO, WITH " + checks.warnings.length + " WARNING" + (checks.warnings.length > 1 ? "S" : "")
+          : short ? "GO, SHORT OF TARGET" : "ALL SYSTEMS GO" }),
       comebackDeadline(d, checks),
+      forecast,
+      // The one thing to do first: with nothing blocking, LAUNCH comes before the warnings (it was below the fold on a
+      // laptop); while something blocks, the NO GO lines and their FIX buttons come first.
+      blocked ? null : launchBtn,
       checkList(d, { fix: true }),
       facts([
         ["Objective", objective ? objective.name : "not chosen"],
@@ -2614,8 +2735,7 @@
         ["Rocket", rocket ? rocket.name : "not chosen"],
         isComebackDesign(d) ? comebackTimeRow(d) : isNum(totalsNow.dev_months) ? ["Time", num(totalsNow.dev_months, 0) + " months to build"] : null
       ]),
-      button(blocked ? "LAUNCH" : warned ? "LAUNCH ANYWAY" : "LAUNCH", launch, { primary: true, big: true, disabled: blocked }),
-      null
+      blocked ? launchBtn : null
     ]);
     return el("section", { class: "screen" }, [
       head("5 · READINESS REVIEW"),
@@ -2892,10 +3012,13 @@
     if (lpMap) board.appendChild(lpMap);
     board.appendChild(refs.svg);
 
+    refs.edge = {};
     PLACES.forEach(function (p) {
       var at = pct(NODES[p.id]);
+      // A marker near the map's left or right edge hangs its name towards the middle, so a phone shows all of it.
+      refs.edge[p.id] = NODES[p.id].x < MAP_W * 0.3 ? " edge-l" : NODES[p.id].x > MAP_W * 0.7 ? " edge-r" : "";
       var b = el("button", {
-        type: "button", class: "blip", "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
+        type: "button", class: "blip" + refs.edge[p.id], "data-key": "blip-" + p.id, style: "left: " + at.left + "; top: " + at.top,
         onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }), el("span", { class: "blip-name", text: p.name })]);
       refs.markers[p.id] = b;
@@ -2914,23 +3037,23 @@
 
     refs.promptText = el("span", { class: "map-prompt-text" });
     refs.enter = el("button", { type: "button", class: "btn primary", onclick: act, "data-key": "map-enter" }, "ENTER [E]");
-    // Below the map, never on top of it, so it cannot cover a marker.
+    // Below the map, never on top of it, so it cannot cover a marker. The one instruction on the map is the header's
+    // OBJECTIVE line; this box is its button ("GO TO WORKSHOP"), or what the place you stand at is for.
     refs.prompt = el("div", { class: "map-prompt", "aria-live": "polite" }, [refs.promptText, refs.enter]);
 
+    // Names and NEXT / DONE / LOCKED only; why a place is locked is said when you pick it.
     var legend = el("ul", { class: "legend" }, PLACES.map(function (p) {
       var status = el("span", { class: "tag" });
-      var does = el("span", { class: "legend-does", text: p.does });
       // No aria-label: the button's name is its visible text, which updateMap keeps current.
       var item = el("li", null, [el("button", {
         type: "button", class: "legend-item", "data-key": "legend-" + p.id, onclick: function () { walkTo(p.id, true); }
       }, [el("span", { class: "blip-num", text: String(p.num) }),
-          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name]), does]),
+          el("span", { class: "legend-text" }, [el("span", null, [icon(p.id), p.name])]),
           status])]);
-      refs.legend[p.id] = { status: status, does: does };
+      refs.legend[p.id] = { status: status };
       return item;
     }));
 
-    refs.objective = el("p", { class: "map-objective" });
     state.map = refs;
     return el("section", { class: "screen" }, [
       head("BASE MAP"),
@@ -2938,11 +3061,11 @@
       el("div", { class: "map-layout" }, [
         el("div", { class: "stack" }, [board, refs.prompt]),
         el("aside", { class: "panel" }, [
-          el("h2", { text: "OBJECTIVE" }), refs.objective,
-          el("h2", { class: "divided", text: "PLACES" }), legend,
-          el("h2", { class: "divided", text: "KEYS" }),
-          el("p", { class: "keys", "aria-label": "Arrow keys or WASD walk. E or Enter goes in, or follows the gold route. Click a marker to walk there. M or Esc: back inside." }, [
-            el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " map"]),
+          el("h2", { text: "PLACES" }), legend,
+          // The keys, for a keyboard (hidden on a touch screen, where the hint says to tap a place). On the map,
+          // M and Esc go back into the place you stand at.
+          el("div", { class: "keys-box" }, [el("h2", { class: "divided", text: "KEYS" }),
+            el("p", { class: "keys" }, [el("kbd", { text: "WASD" }), " walk ", el("kbd", { text: "E" }), " enter ", el("kbd", { text: "M" }), " back inside"])]),
           el("div", null, [isComebackDesign(state.design)
             ? button("BACK TO THE WORKSHOP", function () { window.showComebackHub(); }, { key: "map-workshop" })
             : inCampaign()
@@ -2976,15 +3099,13 @@
     var next = waypoint();
     PLACES.forEach(function (p) {
       var st = placeStatus(p.id);
-      refs.markers[p.id].className = "blip " + st + (state.player === p.id ? " here" : "");
+      refs.markers[p.id].className = "blip " + st + refs.edge[p.id] + (state.player === p.id ? " here" : "");
       var line = st === "locked" ? lockedReason(p.id) : p.does + ".";
       refs.markers[p.id].setAttribute("aria-label", p.num + ". " + p.name + ", " + STATUS_TEXT[st].toLowerCase() + ". " + line);
-      refs.legend[p.id].does.textContent = st === "locked" ? lockedReason(p.id) : st === "next" ? p.does : "";
       refs.legend[p.id].status.className = "tag " + (st === "next" ? "warn" : st === "done" ? "good" : st === "locked" ? "bad" : "");
       refs.legend[p.id].status.textContent = STATUS_TEXT[st];
     });
     refs.route.setAttribute("points", routePoints(route(state.player, next)));
-    refs.objective.textContent = GO_TEXT[next];
 
     var here = byId(PLACES, state.player);
     var openHere = !!here && placeOpen(here.id);
@@ -2994,9 +3115,13 @@
     else if (state.walking) text = "Walking...";
     else if (openHere) text = here.name + ": " + here.does + ".";
     else if (here) text = here.name + " is locked. " + lockedReason(here.id);
-    else text = "Follow the gold route. " + GO_TEXT[next];
+    else text = "";   // at the gate or a crossing: the button says where the gold route goes
     refs.promptText.textContent = text;
-    refs.enter.textContent = canEnter ? "ENTER [E]" : "FOLLOW ROUTE [E]";
+    refs.promptText.hidden = !text;
+    // Two parts, like the GO TO buttons inside a place: a long name wraps, and the key stays on the right.
+    while (refs.enter.firstChild) refs.enter.removeChild(refs.enter.firstChild);
+    refs.enter.appendChild(el("span", { text: canEnter ? "ENTER" : "GO TO " + byId(PLACES, next).name }));
+    refs.enter.appendChild(el("span", { text: "[E]" }));
     // Never disabled while walking: that would drop keyboard focus to the page.
     refs.enter.disabled = !!here && !openHere && here.id === next;
     setStep("map");

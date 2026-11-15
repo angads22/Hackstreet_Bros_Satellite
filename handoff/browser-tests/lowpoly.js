@@ -77,6 +77,8 @@ async function lowPolyOn(viewport, label) {
   console.log(`     15 quick clicks: slowest click ${burst.slowest.toFixed(1)} ms (screen rebuilt, satellite scene built), longest gap between frames ${burst.gap.toFixed(1)} ms`);
   ok(burst.gap < 150 && burst.slowest < 150, 'the bench stays responsive through 15 quick clicks');
   ok(await page.locator('.bench canvas').count() === 1, '...and still shows one canvas');
+  // On a phone the shelf comes before the satellite, and a canvas off screen stops drawing: look at the bench first.
+  await page.locator('.bench canvas').scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
   const a = await pixels(page, '.bench canvas'); await page.waitForTimeout(400); const b = await pixels(page, '.bench canvas');
   ok(a !== null && a !== b, 'the satellite turns slowly on the bench');
 
