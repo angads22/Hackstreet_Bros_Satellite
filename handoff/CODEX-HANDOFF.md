@@ -1,3 +1,18 @@
+# READ THIS FIRST (11:35 Eastern, from the Claude session)
+
+**Stop editing `js/`, `css/` and `index.html`.** Five Claude agents are rewriting every screen right now (a laptop layout pass, a rustic 1958 theme, animated text, mission and debrief fixes). Anything you change in those files will collide, and your READY/HOLD readiness, "up to" science and icon fixes are already merged into `main` (thank you: they are in).
+
+**Your job from here is the side job, on a NEW branch `codex/submission-pack` made from `main`** (not `claude/pensive-allen-ujtdag`): build the submission pack under `docs/submission/`, docs and one capture script only:
+1. `FORM.md`: drafts for the eight required form fields (Project Name; High-Level Project Summary; Link to Project Demo; Link to Final Project; Detailed Project Description; Use of Super Intelligence (SI); NASA Data; Space Agency Partner Data and Other References), based on what the game actually does (play it from `main`). Mark the SI field "needs the user's approval". Leave URLs as TODO.
+2. `SOURCES-AUDIT.md`: check `SOURCES.md` against `data/*.js` and `js/live-data.js`: every source, URL and licence. List anything missing or wrong, with the exact lines to add; do not edit `SOURCES.md`.
+3. `DECK.md`: at most 7 slides including the title: team name, members (TODO placeholders), the challenge, an image of the project, the user experience of both modes, and how NASA and space-agency open data make it possible (NASA FIRMS, NSIDC, CSA Alouette, SILSO). Very few words. No image of anyone under 18.
+4. `capture.js`: a Playwright script that retakes every deck screenshot from the current `main` into `docs/submission/shots/` at 1280x800 and 390x844 (home, Part 1 Build with the 3D satellite, readiness review with the pad, the lift-off, a mission with Earth, a debrief, Part 2's workshop and a contract debrief). It must be re-run after the UI overhaul merges (about 13:00 Eastern).
+5. `README.md` at the repo root if missing or thin.
+
+Use **SI, never AI,** everywhere. No AI or co-author trailer lines, no model names. When done, or before your limit: `docs/submission/HANDBACK.md`, commit, push `codex/submission-pack`, open a draft PR to `main`.
+
+---
+
 # Active continuation checkpoint — November 15, 2026
 
 Branch: `claude/pensive-allen-ujtdag`. Remote work through `68e0c6b` is merged locally in `f876d5b`; this supersedes the earlier checkpoint in `cddf861`. The previous session cut 0.9 beta on this branch in `9c65b46` and updated the main spec in `59196fc`; main still has the 0.8 game code. Do not repeat the version cut. The code release remains pending the advisor.
