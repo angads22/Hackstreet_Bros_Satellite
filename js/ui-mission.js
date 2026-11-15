@@ -434,7 +434,10 @@
     var over = result && result.comeback_over;
     return el("div", { class: "choices" }, [over
       ? UI.button(["SEE THE ENDING", " >"], function () { window.showComebackEnding(); }, { primary: true, key: "debrief-ending" })
-      : UI.button(["BACK TO THE WORKSHOP", " >"], function () { window.showComebackHub(); }, { primary: true, key: "debrief-workshop" })]);
+      : UI.button(["BACK TO THE WORKSHOP", " >"], function () {
+        // js/ui-story.js: a story scene may be due between the debrief and the workshop
+        if (typeof window.nextInterlude === "function" && window.nextInterlude()) window.showInterlude(window.showComebackHub); else window.showComebackHub();
+      }, { primary: true, key: "debrief-workshop" })]);
   }
   // The client's last word, under its own name.
   function contractLine(done, outcome) {
