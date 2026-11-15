@@ -737,3 +737,13 @@ svg.icon { display: inline-block; margin-right: .35em; vertical-align: -.12em; }
 @media (prefers-reduced-motion: reduce) {
   .sat-small .sat-p { animation: none; }
 }
+
+/* ---------------------------------------------------------------- home page: low-poly hero, plainer cards */
+.lp { display: block; width: 100%; background: var(--bg); }
+.lp-hero { aspect-ratio: 4 / 1; max-height: 340px; border: 4px solid var(--border); }
+@media (max-width: 640px) { .lp-hero { aspect-ratio: 3 / 2; } }
+.title .big-title { font-size: clamp(40px, 8vw, 88px); text-shadow: 4px 4px 0 var(--stamp); }
+.era.compact { gap: 4px; padding: 10px 14px; }
+.era.compact .era-year { font-size: 28px; }
+.btn.quiet { background: none; border-color: transparent; box-shadow: none; color: var(--text-dim); text-decoration: underline; }
+.btn.quiet:hover { color: var(--text); border-color: var(--border); }
