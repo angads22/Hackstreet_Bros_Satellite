@@ -1,8 +1,6 @@
-// NEEDS PART 2 for most of it. The calibration event ("calibration-drift") gets a line from Austin's notebook in
-// Ajay's chapter only, and Ajay's chapter is Part 2 (the comeback), which has no screens yet. The next agent:
-// start a comeback through window.showComebackStart(), then check Ajay's intro, the notebook line in the event and
-// the reply after the choice (the old version of this file did that through the Trade Space tier).
-// What runs now: in Part 1 (Austin's chapter) the event can fire on the radiation topic and shows no notebook line.
+// The calibration event ("calibration-drift") in both chapters. Part 1 (Austin): it can fire on the radiation topic and
+// shows no notebook line. Part 2 (Ajay's comeback, started from the home page): Ajay's intro, then on a contract flight
+// the event carries a line from Austin's notebook, and the log has the notebook's reply after the choice.
 // Usage: node calib.js [shots dir]   or   node calib.js <repo dir> <shots dir>
 const { chromium } = require('playwright');
 const path = require('path');
@@ -36,7 +34,38 @@ const { waitHead } = T;
   if (seen) await p.locator('[role="alertdialog"] .choices .btn').first().click();
   ok(errors.length === 0, 'no errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await b.close();
+
+  // ---- Part 2: Ajay's chapter, at desktop and phone width
+  for (const [label, viewport] of [['desktop', { width: 1280, height: 800 }], ['phone', { width: 390, height: 844 }]]) {
+    console.log(`[Ajay's chapter, ${label}]`);
+    const b2 = await chromium.launch(); const q = await b2.newPage({ viewport });
+    const errs = T.watchErrors(q);
+    await T.noFonts(q);
+    await q.goto(url); await q.evaluate(() => localStorage.clear()); await q.reload();
+    await q.evaluate(() => { const c = EVENTS.filter(e => e.id === 'calibration-drift'); EVENTS.length = 0; c.forEach(e => EVENTS.push(e)); });
+    const beats = await T.startComeback(q, 'standard');
+    console.log('     intro: ' + beats.join(' | ').slice(0, 200));
+    ok(beats.length >= 1 && beats.length <= 6 && /Ajay|Albert Orbital/.test(beats.join(' ')), `Ajay's intro (${beats.length} beats)`);
+    ok(await waitHead(q, 'WORKSHOP'), 'the workshop after the intro');
+    await T.launchContract(q, 'solar');
+    await q.click('button[aria-label="Fast forward"]');
+    let event = '';
+    for (let i = 0; i < 400 && !event; i++) {
+      if (await q.locator('[role="alertdialog"]').count()) event = (await q.locator('[role="alertdialog"]').innerText()).replace(/\n/g, ' | ');
+      else await q.waitForTimeout(50);
+    }
+    console.log('     event: ' + event);
+    ok(/CALIBRATION/i.test(event), 'the calibration event fires on a contract flight');
+    ok(/Austin's notebook:/i.test(event), "the event carries a line from Austin's notebook");
+    await q.screenshot({ path: path.join(shots, `calib-ajay-${label}-event.png`) });
+    if (event) await q.locator('[role="alertdialog"] .choices .btn').first().click();
+    await q.waitForTimeout(200);
+    const log = (await q.locator('.log').innerText()).replace(/\n/g, ' | ');
+    console.log('     log: ' + log.slice(0, 240));
+    ok(/Austin's notebook: .*month lost/i.test(log), "after the choice, the notebook's reply is in the log");
+    ok(errs.length === 0, 'no errors' + (errs.length ? ': ' + errs.join(' / ') : ''));
+    await b2.close();
+  }
   if (count()) { console.log('FAILED ' + count()); process.exit(1); }
-  console.log('PASSED (Part 1 check)');
-  T.skipped("Ajay's chapter (intro, notebook line, reply after the choice) needs Part 2: no comeback screens yet");
+  console.log('PASSED');
 })();

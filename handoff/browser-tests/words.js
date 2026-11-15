@@ -1,7 +1,6 @@
 // Counts the words a player sees on each screen (visible text only), at 1280x800 and 390x844, along Part 1:
-// the home page, step 1 from the first story beat to the debrief, and the epilogue's last beat.
-// PART 2 NEEDED for the rest: the old version also counted the campaign hub and the lab; the next agent can add the
-// comeback hub here once window.showComebackStart exists.
+// the home page, step 1 from the first story beat to the debrief, and the epilogue's last beat; then Part 2: the
+// difficulty picker, the workshop (Normal's opening, three contract cards), and a contract's debrief.
 // Usage: node words.js [shots dir] [out.json]   or   node words.js <repo dir> <shots dir> [out.json]
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -35,12 +34,16 @@ const outFile = process.argv.slice(2).find(a => /\.json$/.test(a));
     await p.evaluate(() => window.StarlineUI.showEpilogue());
     for (let i = 0; i < 6 && !/CONTINUE TO PART 2/.test(await p.locator('.intro .btn.primary').innerText()); i++) await p.click('.intro .btn.primary');
     await count('10 epilogue (last beat)');
+    // Part 2
+    await p.click('.intro .btn.primary'); await p.locator('.cb-level').first().waitFor(); await count('11 picker');
+    await p.click('[data-key="level-standard"]'); await T.throughBeats(p); await T.waitHead(p, 'WORKSHOP'); await count('12 workshop');
+    await T.launchContract(p, 'solar'); await T.fly(p, 'first'); await T.waitHead(p, 'DEBRIEF'); await count('13 contract debrief');
     await b.close();
   }
   let td = 0, tp = 0;
   Object.keys(out).forEach(k => { console.log(k.padEnd(24), String(out[k].desktop).padStart(5), String(out[k].phone).padStart(6)); td += out[k].desktop; tp += out[k].phone; });
   console.log('TOTAL'.padEnd(24), String(td).padStart(5), String(tp).padStart(6));
   if (outFile) fs.writeFileSync(outFile, JSON.stringify(out, null, 1));
-  ok(Object.keys(out).length === 10, 'every screen counted');
+  ok(Object.keys(out).length === 13, 'every screen counted');
   done();
 })();

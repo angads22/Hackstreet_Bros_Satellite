@@ -1,7 +1,5 @@
-// The LIVE DATA / SNAPSHOT badge on the home page, offline and with live data faked in.
-// PART 2 NEEDED for the rest: the debrief's "RIGHT NOW" line comes with sea-ice and wildfire missions, and those
-// topics do not exist in 1958 (Part 1). The next agent: fly a sea-ice contract in Part 2 with the live data faked
-// in as below, and check that the debrief shows "RIGHT NOW: NASA EONET is tracking 3 open sea and lake ice events".
+// The LIVE DATA / SNAPSHOT badge on the home page, offline and with live data faked in, and the debrief's "RIGHT NOW"
+// line: a wildfire contract flown in Part 2 (Normal opens with one) with today's NASA EONET wildfire count faked in.
 // Usage: node live.js [shots dir]   or   node live.js <repo dir> <shots dir>
 const { chromium } = require('playwright');
 const path = require('path');
@@ -40,7 +38,36 @@ const { ok, count } = T.checker();
     ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
     await b.close();
   }
+  // ---- Part 2: a wildfire contract, with live data faked in: the debrief shows the RIGHT NOW line; without it, none
+  for (const [label, viewport] of [['desktop', { width: 1280, height: 800 }], ['phone', { width: 390, height: 844 }]]) {
+    console.log(`[right now, ${label}]`);
+    const b = await chromium.launch(); const p = await b.newPage({ viewport });
+    const errors = T.watchErrors(p, /Failed to load resource|ERR_/);
+    await T.noFonts(p);
+    await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
+    await T.startComeback(p, 'standard');
+    ok(await p.locator('[data-key="job-wildfire"]').count() === 1, 'Normal opens with a wildfire contract');
+    await p.evaluate(() => {
+      EARTH.live.status = 'live'; EARTH.live.fetched_at = '2026-11-14T22:30:00.000Z';
+      EARTH.live.sources = EARTH.live.sources.map(s => ({ ...s, ok: true }));
+      EARTH.live.wildfire_now = { events: [], text: 'NASA EONET is tracking 5 open wildfire events right now; the latest is Test Fire (2026-11-14).' };
+      window.dispatchEvent(new Event('livedata'));
+    });
+    await T.launchContract(p, 'wildfire');
+    await p.waitForFunction(() => /fire detections/.test((document.querySelector('.nasa-line') || {}).textContent || ''), null, { timeout: 8000 }).catch(() => {});
+    const real = await p.locator('.nasa-line').first().innerText().catch(() => '');
+    console.log('     mission: ' + real);
+    ok(/fire detections worldwide \(NASA FIRMS/.test(real), 'mission: the real NASA FIRMS line each month');
+    await T.fly(p, 'first'); await T.waitHead(p, 'DEBRIEF');
+    const rn = await p.locator('.right-now').innerText().catch(() => '');
+    console.log('     ' + rn.slice(0, 150));
+    ok(/^RIGHT NOW: NASA EONET is tracking 5 open wildfire events/.test(rn), 'debrief: the right-now line from live data');
+    ok(/NASA's MODIS/.test(await p.locator('.nasa-box').filter({ hasText: 'AGAINST THE REAL EARTH' }).innerText()), 'debrief: against the real Earth (NASA FIRMS)');
+    ok(await T.noScroll(p), 'debrief: no sideways scroll');
+    await p.screenshot({ path: path.join(shots, `live-${label}-7-debrief.png`), fullPage: true });
+    ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
+    await b.close();
+  }
   if (count()) { console.log('FAILED ' + count()); process.exit(1); }
-  console.log('PASSED (badge)');
-  T.skipped('the debrief "RIGHT NOW" line needs a sea-ice or wildfire mission: Part 2');
+  console.log('PASSED');
 })();
