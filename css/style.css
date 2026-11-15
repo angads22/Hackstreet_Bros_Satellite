@@ -43,6 +43,17 @@
   size-adjust: 128%;         /* VT323 digits are small beside Pixelify Sans letters: scale them to match */
 }
 
+/* The game's type, served from css/fonts/ (all SIL Open Font License except Special Elite, Apache 2.0; see SOURCES.md), so
+   there is no render-blocking request to Google Fonts and no late font swap that shifts the page (perf: handoff/notes/v2-perf.md).
+   The 1958 faces below are fetched only when Part 1 uses them. */
+@font-face { font-family: "Pixelify Sans"; src: url("fonts/PixelifySans-latin-wght.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "VT323"; src: url("fonts/VT323-Regular.woff2") format("woff2"), local("VT323"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Courier Prime"; src: url("fonts/CourierPrime-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Courier Prime"; src: url("fonts/CourierPrime-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Special Elite"; src: url("fonts/SpecialElite-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Stardos Stencil"; src: url("fonts/StardosStencil-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Stardos Stencil"; src: url("fonts/StardosStencil-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
 * { box-sizing: border-box; }
 
 html { background: var(--bg); }
@@ -827,6 +838,8 @@ body.is-home { background: var(--space); }
 .is-home .brand { min-width: 0; }
 .is-home .data-badge { background: var(--space); }
 .is-home .foot { position: absolute; right: var(--home-side); bottom: 16px; z-index: 2; margin: 0; padding: 0 8px; border: 0; background: var(--space); font-size: 18px; }
+/* Until the first screen is drawn the footer stays invisible: it sits at the bottom of the finished page, so showing it early made it jump (layout shift). */
+#app:empty ~ .foot { visibility: hidden; }
 
 :root { --home-side: clamp(16px, 5vw, 88px); }
 .title {
@@ -1138,7 +1151,7 @@ html[data-era="1958"], body[data-era="1958"] {
   --pal-ion: #a6d3c4;          --pal-flame: #d8864a;
   --map-ground: #27221a;  --map-lot: #342d23;     --map-road: #3d3427;    --map-dash: #6a5b44;
   --map-sea: #36504d;     --map-wave: #4f6f6a;    --map-shore: #86b3a6;
-  /* Type: a typewriter and a stencil. Google Fonts (index.html) with Courier-width fallbacks, so a missing font still reads
+  /* Type: a typewriter and a stencil. css/fonts/ with Courier-width fallbacks, so a missing font still reads
      as a typed page. Courier Prime and Courier New are the same width, so the layout holds on the fallback. */
   --pixel: "Stardos Stencil", "Rockwell Extra Bold", "Courier New", "Liberation Mono", monospace;
   --mono: "Courier Prime", "Courier New", "Liberation Mono", Courier, monospace;

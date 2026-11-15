@@ -3869,6 +3869,8 @@
     draw("title");
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  // perf: index.html defers every script, so this file runs before the later ui-*.js files (ui-comeback.js defines window.showComebackStart).
+  // DOMContentLoaded fires after the last deferred script has run: start then. A page that loads this file by hand starts at once.
+  if (document.readyState === "loading" || (document.currentScript && document.currentScript.defer)) document.addEventListener("DOMContentLoaded", start);
   else start();
 })();

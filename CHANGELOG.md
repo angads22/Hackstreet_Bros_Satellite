@@ -22,6 +22,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 ### Changed
 
 - **Higher levels give less help before a problem.** Normal drops the hover preview's "Fixes" and "Causes" lines and the FIX links; Hard also drops the science forecast and the pay forecast (the contract's terms stay) and shows event risks as bands. Facts, blockers and the debrief's TRY THIS stay on every level. The Part 2 picker says what each level removes.
+- **Faster to open.** Desktop Lighthouse performance went from 64 to 75 (about 60 on the hosted game) to 94 to 99: the home page no longer jumps when the scripts run, the fonts are in the game instead of fetched from Google (the pixel type now works offline), and the scripts load without blocking. Same look.
 
 ## 1.0 (November 15, 2026)
 
