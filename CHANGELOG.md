@@ -4,6 +4,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+### Added
+
+- **Adding a part has a moment of its own.** On Build, a tile lifts off the card and flies to the satellite (and back to the card when you remove a part), a ring and a few squares mark where it docks, and a small chip floats off every bar the part changed ("+45 KG", "+200 W DRAW", "+$6M", "+10 GB/DAY"), the same numbers the preview showed. Fitting a body makes the payload bar swell with "+150 KG" and ticks each bin that gained room. Quick, never in the way, and off under reduced motion.
+
 ## 1.0 (November 15, 2026)
 
 The submission build. Two game modes with a dramatic story, a choice and seven endings; runs short enough to replay; every screen animated; an animated explainer for each of the 41 parts; a rustic 1958 look for Part 1 against a modern Part 2; a longer launch. Players who already have progress keep all of it.

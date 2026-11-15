@@ -231,7 +231,7 @@ var GravMotion = (function () {
         var was = seen[key];
         seen[key] = { w: width, t: text };
         if (!was) return;
-        if (was.t !== text) flash(right);
+        if (was.t !== text) { flash(right); if (screen === "build") right.classList.add("fx-pop"); }   // on Build the number pops harder
         if (isFinite(width) && isFinite(was.w) && Math.abs(was.w - width) > 0.05) grow(fills[0], was.w, width);
       });
     }
@@ -261,9 +261,133 @@ var GravMotion = (function () {
   function grow(fill, from, to) {
     fill.classList.add("gm-grow");
     fill.style.width = from + "%";
+    if (to > from && last.screen === "build") lit(fill, from, to);
     var go = function () { fill.style.width = to + "%"; };
     if (window.requestAnimationFrame) window.requestAnimationFrame(function () { window.requestAnimationFrame(go); });
     else go();
+  }
+
+  // ---------------------------------------------------------------- adding a part on Build
+  // A click on a part card: a tile lifts off the card and flies to the satellite (back to the card on a removal), a
+  // ring and a few squares mark where it docks, and a chip floats off every bar the part changed. ui-design.js passes
+  // what the page knows (rec: kind, the card's rect, the icon, the chips' text from the back end's own numbers, the
+  // satellite point); this file only moves things. All of it lives in one layer on the body, because the screen under
+  // it is rebuilt on every click; a new click wipes the last effect (one tile in flight at a time) and a timer clears
+  // whatever is left. Nothing takes pointer events, nothing waits for it. Does nothing under reduced motion.
+  var FX_LIFE = 1500;   // everything is cleared by now (the longest piece, a chip with its delay, ends near 1.3 s)
+  var DOCK_AT = 420;    // ms: the ring and squares start as the flight (450 ms in the CSS, 300 ms back) and the satellite's own fly-in end
+  var fxLayer = null, fxTimer = 0;
+
+  function fxClear() {
+    if (fxTimer) { clearTimeout(fxTimer); fxTimer = 0; }
+    if (fxLayer) while (fxLayer.firstChild) fxLayer.removeChild(fxLayer.firstChild);
+  }
+  function fxBox() {
+    if (!fxLayer || fxLayer.parentNode !== document.body) {
+      fxLayer = document.createElement("div");
+      fxLayer.id = "gm-fx";
+      fxLayer.setAttribute("aria-hidden", "true");
+      document.body.appendChild(fxLayer);
+    }
+    return fxLayer;
+  }
+  function fxNode(cls, x, y, parent) {
+    var n = document.createElement("span");
+    n.className = cls;
+    if (x !== undefined) { n.style.left = Math.round(x) + "px"; n.style.top = Math.round(y) + "px"; }
+    (parent || fxLayer).appendChild(n);
+    return n;
+  }
+  function clampTo(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  // The lighter segment on a bar between its old and new width, then fades (the bar grows under it).
+  function lit(fill, from, to) {
+    var track = fill.parentNode;
+    if (!track) return;
+    var seg = document.createElement("span");
+    seg.className = "fx-lit";
+    seg.setAttribute("aria-hidden", "true");
+    seg.style.left = from + "%";
+    seg.style.width = (to - from) + "%";
+    track.appendChild(seg);
+  }
+
+  function barOf(app, name) {
+    return all(app, ".bar").filter(function (b) {
+      var n = b.querySelector(".bar-name");
+      return n && n.textContent.replace(/\s+/g, " ").trim() === name;
+    })[0] || null;
+  }
+
+  function buildFx(rec) {
+    try {
+      if (reduced() || !rec || !document.body) return false;
+      var app = document.getElementById("app") || document.body;
+      fxClear();
+      fxBox();
+      var vw = window.innerWidth || 800, vh = window.innerHeight || 600;
+      var back = rec.kind === "remove";
+
+      // the tile: from the card to the satellite (the other way on a removal)
+      var card = rec.card, sat = rec.sat;
+      if (!sat) {   // no point known: the middle of the picture on the bench
+        var pic = app.querySelector(".bench .sat-bench"), pr = pic ? pic.getBoundingClientRect() : null;
+        if (pr && pr.width) sat = { x: pr.left + pr.width / 2, y: pr.top + pr.height / 2 };
+      }
+      if (card && sat && card.width) {
+        var c = { x: card.left + card.width / 2, y: card.top + card.height / 2 };
+        var a = back ? sat : c, b = back ? c : sat;
+        // a target off the screen is clamped to its edge: the tile still flies toward it
+        var bx = clampTo(b.x, 24, vw - 24), by = clampTo(b.y, 24, vh - 24);
+        var ax = clampTo(a.x, 24, vw - 24), ay = clampTo(a.y, 24, vh - 24);
+        var fly = fxNode("fx-fly" + (back ? " back" : ""), ax, ay);
+        fly.style.setProperty("--dx", Math.round(bx - ax) + "px");
+        fly.style.setProperty("--dy", Math.round(by - ay) + "px");
+        var rise = fxNode("fx-rise", undefined, undefined, fly);
+        var tile = fxNode("fx-tile", undefined, undefined, rise);
+        if (rec.icon) tile.appendChild(rec.icon);
+        // where it docks: a ring and a few flat squares, just as the satellite's own part settles
+        if (!back && sat.x > 0 && sat.x < vw && sat.y > 0 && sat.y < vh) {   // only where the satellite is in view
+          var spot = fxNode("fx-spot", sat.x, sat.y);
+          fxNode("fx-ring", undefined, undefined, spot);
+          var anchor = fxNode("fx-bits", undefined, undefined, spot);
+          burst(anchor, DOCK_AT);
+          anchor.classList.remove("gm-anchor");
+        }
+      }
+
+      // the chips: out of the number of every bar that changed, one after another
+      var n = 0, hb = app.ownerDocument.querySelector(".topbar");
+      var head = hb && getComputedStyle(hb).position === "sticky" ? hb.getBoundingClientRect().bottom : 0;
+      (rec.items || []).forEach(function (it) {
+        var bar = barOf(app, it.bar);
+        var num = bar && bar.querySelector(".bar-top > span:last-child");
+        if (!num || !it.text) return;
+        var r = num.getBoundingClientRect();
+        if (r.bottom < head || r.top > vh) return;   // out of sight (or under the sticky header): nothing to point at
+        // the chip floats up out of the number; with no room above it (the header) it floats down instead
+        var below = r.top - 26 < head;
+        var wrap = fxNode("fx-chip-at", Math.min(r.right, vw - 6), below ? r.bottom - 2 : r.top + 2);
+        var chip = fxNode("fx-chip " + (it.good ? "good" : "warn") + (it.bar === "PAYLOAD" ? " star" : "") + (below ? " below" : ""), undefined, undefined, wrap);
+        chip.textContent = it.text;
+        wrap.setAttribute("data-bar", it.bar);
+        chip.style.setProperty("--i", String(n++));
+      });
+
+      // the payload bar is the star when a body is fitted: its track swells and its number lands with an overshoot
+      if (rec.star) {
+        var pay = barOf(app, "PAYLOAD");
+        if (pay) {
+          pay.classList.add("fx-star");
+          var pn = pay.querySelector(".bar-top > span:last-child");
+          if (pn) pn.classList.add("fx-pop");
+          var pf = pay.querySelector(".bar-fill");
+          if (pf && parseFloat(pf.style.width) > 0) lit(pf, 0, parseFloat(pf.style.width));
+        }
+      }
+      fxTimer = setTimeout(fxClear, FX_LIFE);
+      return true;
+    } catch (e) { return false; }
   }
 
   // The month ticker on the mission screen flips when the month changes (not while fast-forwarding).
@@ -274,5 +398,5 @@ var GravMotion = (function () {
     node.classList.add("gm-flip");
   }
 
-  return { mounted: mounted, reduced: reduced, flash: flash, flip: flip, grow: grow };
+  return { mounted: mounted, reduced: reduced, flash: flash, flip: flip, grow: grow, burst: burst, buildFx: buildFx };
 })();

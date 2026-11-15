@@ -1699,6 +1699,7 @@
   // click keeps the angle. "small" is a still pose. null when the 3D art is missing or fails, and
   // satelliteArt then draws the pixel satellite below.
   var satView = null, satLast = null;   // the bench view (for its angle) and the parts it showed last
+  var satWrap = null;                   // the bench scene on the page now (its anchor() says where a part sits), or null
   function lpSatellite(design, change, size) {
     try {
       if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.satellite !== "function" ||
@@ -1711,7 +1712,7 @@
       canvas.width = 0; canvas.height = 0;   // nothing is drawn until the canvas is on the page
       canvas.className = "sat lp-sat";
       var view = LowPoly.view(canvas, wrap, { drag: !small, keys: false, fps: 30 });
-      if (!small) { satView = view; satLast = ids; }
+      if (!small) { satView = view; satLast = ids; satWrap = wrap; }
       // The "+ NAME" tag rises from where the new part settles. It is decoration: the canvas label names every part.
       var tag = null, added = !small && change && change.kind === "add" ? byId(parts, change.id) : null;
       var at = added && wrap.anchor ? wrap.anchor(added.id) : null;
@@ -1727,6 +1728,7 @@
   function satelliteArt(design, change, size) {
     var lp = lpSatellite(design, change, size);
     if (lp) return lp;
+    if (size !== "small") satWrap = null;   // the pixel drawing has no scene to ask
     var ids = list(design && design.parts), parts = data("PARTS");
     var chosen = ids.map(function (id) { return byId(parts, id); }).filter(Boolean);
     var added = change && change.kind === "add" ? change.id : null;
@@ -2719,9 +2721,11 @@
       onclick: function () {
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
         if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
+        var fx = fxBefore(p, on, d);   // what this click will say with motion (null with none): read before the design changes
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
+        if (fx) fxAfter(fx, p);
       },
       onfocus: preview,
       // Real mouse only: a phone tap also fires mouse enter/leave, which would undo the tap preview.
@@ -2752,6 +2756,94 @@
     card.appendChild(el("span", { class: "part-tap", text: on ? "TAP AGAIN TO REMOVE" : "TAP AGAIN TO ADD" }));
   }
 
+  // The change a click would make, one entry per number, in the preview's own words: the hover preview joins their
+  // text, and the chips that float off the bars after the click show the same entries (bar: the bar they belong to).
+  // good: whether the player would call it a gain (more power made or data home, less mass or cost).
+  function deltaBits(dl) {
+    var out = [];
+    function put(v, text, chip, bar, up) { out.push({ text: text, chip: chip, bar: bar, good: up ? v > 0 : v < 0 }); }
+    var sg = function (v) { return v > 0 ? "+" : ""; };
+    if (dl.mass_kg) put(dl.mass_kg, sg(dl.mass_kg) + fine(dl.mass_kg) + " kg", sg(dl.mass_kg) + fine(dl.mass_kg) + " kg", "MASS", false);
+    if (dl.power_draw_w) put(dl.power_draw_w, sg(dl.power_draw_w) + fine(dl.power_draw_w) + " W draw", sg(dl.power_draw_w) + fine(dl.power_draw_w) + " W draw", "POWER", false);
+    if (dl.power_gen_w) put(dl.power_gen_w, sg(dl.power_gen_w) + fine(dl.power_gen_w) + " W made", sg(dl.power_gen_w) + fine(dl.power_gen_w) + " W made", "POWER", true);
+    if (dl.cost_musd) { var c = (dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)); put(dl.cost_musd, c, c, "BUDGET", false); }
+    if (dl.data_returned_gb_day) put(dl.data_returned_gb_day, "data home " + dataText(dl.data_returned_gb_day, true) + "/day", dataText(dl.data_returned_gb_day, true) + "/day", "DATA HOME", true);
+    if (dl.delta_v_ms) put(dl.delta_v_ms, signed(dl.delta_v_ms, 0) + " m/s", "", "", true);
+    if (dl.battery_wh) put(dl.battery_wh, signed(dl.battery_wh, 0) + " Wh", "", "", true);
+    if (dl.science_total) put(dl.science_total, "science " + signed(dl.science_total, 0), "", "", true);
+    return out;
+  }
+
+  // previewToggle for the part, kept from the last time the preview asked: a click on the card the preview shows reads
+  // the very same answer (the design has not changed since). Anything else asks again.
+  var previewMemo = null;
+  function previewOf(d, id) {
+    var key = id + "|" + list(d.parts).join(",") + "|" + d.orbit + "|" + d.launcher + "|" + d.objective + "|" + d.era + "|" + d.tier;
+    if (previewMemo && previewMemo.d === d && previewMemo.key === key) return previewMemo.t;
+    var t = previewToggle(d, id);
+    previewMemo = { d: d, key: key, t: t };
+    return t;
+  }
+
+  // ---------------------------------------------------------------- the effect of a click on a part card (motion.js does the moving)
+  // Before the click: the numbers it will change (the preview's own, from previewToggle) and, for a removal, where the
+  // part sits on the satellite (a fraction of the picture, no layout read). One frame after the redraw: where the card
+  // and the satellite are on the page, and the effect starts. Reading the page waits for that frame, so the click itself
+  // stays quick. With reduced motion, or without js/motion.js, nothing is read and nothing is drawn. Every number shown
+  // comes from the back end, never from a sum here.
+  function rectOf(node) {
+    var r = node.getBoundingClientRect();
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
+  }
+  function anchorOf(id) {
+    var at = satWrap && typeof satWrap.anchor === "function" ? satWrap.anchor(id) : null;
+    return at && isNum(at[0]) && isNum(at[1]) ? at : null;
+  }
+  // Where a part sits on the page (viewport pixels): its anchor on the 3D picture (at), else the SVG drawing's new part,
+  // else the middle of the picture.
+  function satPoint(at) {
+    var pic = document.querySelector(".bench .sat-bench");
+    if (!pic) return null;
+    var cv = pic.querySelector("canvas");
+    if (at && cv) {
+      var c = cv.getBoundingClientRect();
+      return { x: c.left + Math.min(1, Math.max(0, at[0])) * c.width, y: c.top + Math.min(1, Math.max(0, at[1])) * c.height };
+    }
+    var box = (pic.querySelector(".is-new") || pic.querySelector("svg") || pic).getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  }
+  function fxBefore(p, on, d) {
+    var M = window.GravMotion;
+    if (!M || typeof M.buildFx !== "function" || M.reduced()) return null;
+    try {
+      var t = previewOf(d, p.id);
+      var rec = { kind: on ? "remove" : "add", icon: icon(p.category), at: on ? anchorOf(p.id) : null, items: [], star: false };
+      deltaBits(t && t.delta ? t.delta : {}).forEach(function (b) { if (b.bar && b.chip) rec.items.push({ bar: b.bar, text: b.chip.toUpperCase(), good: b.good }); });
+      // Fitting a body when there is none: the payload it can carry (the part's own payload_kg) is the star of the click.
+      var bodyBefore = (getTotals(d) || {}).body;
+      if (!on && !bodyBefore && p.category === "structure" && isNum(p.payload_kg) && p.payload_kg > 0) {
+        rec.items.push({ bar: "PAYLOAD", text: ("+" + num(p.payload_kg, 0) + " KG").toUpperCase(), good: true });
+        rec.star = true;
+      }
+      return rec;
+    } catch (e) { return null; }
+  }
+  // A newer click cancels an effect still waiting for its frame.
+  var fxSeq = 0;
+  function fxAfter(rec, p) {
+    var mine = ++fxSeq;
+    var run = function () {
+      if (mine !== fxSeq) return;
+      try {
+        var card = document.querySelector('[data-key="part-' + p.id + '"]');   // rebuilt in the same place
+        rec.card = card ? rectOf(card) : null;
+        rec.sat = satPoint(rec.kind === "add" ? anchorOf(p.id) : rec.at);
+        window.GravMotion.buildFx(rec);
+      } catch (e) {}
+    };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run); else run();
+  }
+
   // What clicking the hovered part would change (previewToggle). There is one preview box: a redraw moves the box
   // already on the page into the new screen and a hover refills it, so its aria-live text is announced, not replaced.
   function drawPreview() {
@@ -2772,21 +2864,12 @@
     var touch = state.touch || touchScreen();
     box.appendChild(el("h2", { text: !touch ? "IF YOU CLICK" : state.hover ? "IF YOU TAP AGAIN" : "IF YOU TAP" }));
     var p = state.hover ? byId(data("PARTS"), state.hover) : null;
-    var t = p ? previewToggle(state.design, state.hover) : null;
+    var t = p ? previewOf(state.design, state.hover) : null;
     if (!t) {
       box.appendChild(el("p", { class: "preview-empty", text: (touch ? "Tap" : "Point at") + " a part to see what it would change." }));
       return;
     }
-    var dl = t.delta || {};
-    var bits = [];
-    if (dl.mass_kg) bits.push((dl.mass_kg > 0 ? "+" : "") + fine(dl.mass_kg) + " kg");
-    if (dl.power_draw_w) bits.push((dl.power_draw_w > 0 ? "+" : "") + fine(dl.power_draw_w) + " W draw");
-    if (dl.power_gen_w) bits.push((dl.power_gen_w > 0 ? "+" : "") + fine(dl.power_gen_w) + " W made");
-    if (dl.cost_musd) bits.push((dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)));
-    if (dl.data_returned_gb_day) bits.push("data home " + dataText(dl.data_returned_gb_day, true) + "/day");
-    if (dl.delta_v_ms) bits.push(signed(dl.delta_v_ms, 0) + " m/s");
-    if (dl.battery_wh) bits.push(signed(dl.battery_wh, 0) + " Wh");
-    if (dl.science_total) bits.push("science " + signed(dl.science_total, 0));
+    var bits = deltaBits(t.delta || {}).map(function (b) { return b.text; });
     var ch = checkChanges(state.design, state.hover);
     box.appendChild(el("h3", { text: (t.adding ? "ADD " : "REMOVE ") + p.name.toUpperCase() }));
     box.appendChild(el("p", { class: "preview-line", text: bits.length ? bits.join(", ") : "No change to the bars." }));
@@ -2863,8 +2946,14 @@
     // The open bin: the one chosen on the way in (entryBin) or by the player, else the instrument bin, else the first.
     var cat = byId(cats, state.bin) || byId(cats, "instrument") || cats[0];
     var body = getTotals(d).body || null;   // { name, payload_kg, payload_used_kg, slots: { category: { used, max } } } or null
+    // Slot maximums as the last draw of this design showed them: a bin whose maximum changed (a body was fitted or
+    // changed) ticks once, so the player sees the room appear. Forgotten with the design.
+    var maxWas = state.slotsFor === d ? state.slotMax : null, maxNow = {}, tick = 0;
+    cats.forEach(function (c) { var s = body && body.slots ? body.slots[c.id] : null; maxNow[c.id] = s ? s.max : null; });
+    state.slotMax = maxNow; state.slotsFor = d;
     var bins = el("div", { class: "panel bins" }, [el("h2", { text: "PARTS BINS" })].concat(cats.map(function (c) {
       var n = count[c.id] || 0;
+      var bump = !!maxWas && maxNow[c.id] !== null && maxWas[c.id] !== maxNow[c.id];
       var need = c.required && !n;
       // With a body fitted, each bin shows how many of its slots are used ("2 / 3 slots", "1 / 1 slot"). A kind of
       // part the body has no slot for says so ("No room on this body", or "2 on board, no room").
@@ -2874,7 +2963,8 @@
       var sub = need ? "Needed" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
         : slot ? slot.used + " / " + slot.max + (slot.max === 1 ? " slot" : " slots") : n ? n + " on board" : c.sub;
       return el("button", {
-        type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
+        type: "button", class: "bin" + (bump ? " bump" : ""), "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
+        style: bump ? "--i:" + (tick++) : null,
         onclick: function () { state.bin = c.id; state.hover = null; redraw(); showShelf(); }
       }, [
         icon(c.id) || art("0 0 8 8", BIN_ICONS[c.id] || BIN_ICONS.fallback, null),
