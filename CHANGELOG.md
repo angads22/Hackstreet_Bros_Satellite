@@ -6,8 +6,13 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Added
 
+- **A low-poly home page.** The title screen opens on a faceted low-poly Earth with a satellite above it, drawn by the game's own small renderer (`js/lowpoly.js`, `js/lp-earth.js`). If the art cannot load or draw, the page works without it.
 - **More screen icons and an assembly preview.** Place headers, the map legend, minimap, part statistics and debrief use the shared flat icons. The Readiness satellite assembles part by part; reduced-motion settings show it immediately.
 - **Flat icons beside the words.** The parts bins, the four resource bars (mass, power, budget, data) and the problem lists now carry a simple one-colour icon; a blocker shows a cross, a warning a triangle. The words stay next to every icon.
+
+### Changed
+
+- **A simpler home page.** Locked eras are one short card that says LOCKED, locked levels say LOCKED instead of repeating "Earn 2 stars on..." (the rule is the one hint at the top and each card's spoken name), the stars line, the subtitle and the "Choose an era and a level" heading are gone, the campaign buttons show only the treasury, and Reset progress is a quiet link. The visible words on the title fell from 167 to 97.
 
 ## 0.7 beta (November 15, 2026)
 

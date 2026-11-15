@@ -12,7 +12,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
     const wait = t => p.locator('.screen-head h1', { hasText: t }).waitFor({ timeout: 8000 }).then(() => true, () => false);
     await p.goto('file://' + REPO + '/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload();
     ok(await p.locator('.era').count() === 4 && await p.locator('.era.locked').count() === 3, 'four eras, three locked');
-    ok((await p.locator('[data-key="era-nimbus"]').innerText()).includes('Earn 2 stars in International Geophysical Year'), 'locked era says how to open it');
+    const lockedEra = p.locator('[data-key="era-nimbus"]');
+    ok((await lockedEra.getAttribute('aria-label')).includes('Earn 2 stars in International Geophysical Year') && (await lockedEra.getAttribute('title')).includes('Earn 2 stars'), 'locked era says how to open it (accessible name and tooltip)');
+    ok((await lockedEra.innerText()).includes('LOCKED') && !(await lockedEra.innerText()).includes('Earn 2 stars'), 'locked era shows only LOCKED on the page');
     await p.screenshot({ path: path.join(shots, `igy-${label}-0-title.png`), fullPage: true });
     await p.click('[data-key="start-igy-training"]'); await p.locator('.intro').waitFor({timeout:3000}).then(()=>p.click('text=SKIP'),()=>{}); /*SKIPINTRO*/ ok(await wait('BASE MAP'), 'starts on the map');
     ok((await p.locator('#status').innerText()).includes('1958'), 'header shows the year 1958');

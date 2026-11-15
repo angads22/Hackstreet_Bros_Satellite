@@ -816,6 +816,24 @@
     return svg;
   }
 
+  // ---- low-poly pictures (js/lowpoly.js and the js/lp-*.js model files). One canvas for one scene, or null when the
+  // art is missing or cannot start: every caller keeps working without it. The canvas draws once it is on the page and
+  // stops by itself when its screen is replaced. It is not focusable and cannot be dragged, so it adds no tab stop.
+  function lowPoly(make, className) {
+    try {
+      if (typeof LowPoly !== "object" || !LowPoly || typeof LowPoly.view !== "function" || !LowPoly.scenes) return null;
+      var wrap = make(LowPoly);
+      if (!wrap) return null;
+      var canvas = document.createElement("canvas");
+      canvas.className = "lp " + (className || "");
+      LowPoly.view(canvas, wrap, { drag: false, keys: false, fps: 30 });
+      return canvas;
+    } catch (e) { return null; }
+  }
+  function titleHero() {
+    return lowPoly(function (lp) { return typeof lp.scenes.title === "function" ? lp.scenes.title({}) : null; }, "lp-hero");
+  }
+
   // Flat icons: one colour (currentColor), a 16 x 16 grid, drawn here as shapes. They sit beside words and
   // never replace them, so a screen reader or a colour-blind player loses nothing. Static art only.
   var ICONS = {
@@ -886,7 +904,7 @@
 
   function button(label, onClick, opts) {
     opts = opts || {};
-    return el("button", { type: "button", class: "btn" + (opts.primary ? " primary" : "") + (opts.big ? " big" : ""),
+    return el("button", { type: "button", class: "btn" + (opts.primary ? " primary" : "") + (opts.big ? " big" : "") + (opts.quiet ? " quiet" : ""),
       disabled: !!opts.disabled, onclick: onClick, "aria-label": opts.aria }, label);
   }
 
@@ -1708,14 +1726,14 @@
       el("div", { class: "tier-list row" }, tiers.map(function (t) {
         return el("button", {
           type: "button", class: "tier-btn", "data-key": "campaign-" + t.id,
-          "aria-label": "New campaign, " + t.name,
+          "aria-label": "New campaign, " + t.name + ", treasury " + money(t.budget_musd) + ", " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission",
           onclick: function () {
             if (info && !window.confirm("Start a new campaign? It replaces the one you have saved.")) return;
             newCampaign(t.id);
             window.showCampaignHub();
           }
         }, [el("span", { class: "tier-name", text: "NEW: " + t.name.toUpperCase() }),
-            el("span", { class: "tier-facts", text: "Treasury " + money(t.budget_musd) + " · " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission" })]);
+            el("span", { class: "tier-facts", text: money(t.budget_musd) })]);
       }))
     ]);
   }
@@ -1764,12 +1782,12 @@
     return el("button", {
       type: "button", class: "tier-btn" + (open ? "" : " locked"), disabled: !open,
       "data-key": era ? "start-" + era.id + "-" + t.id : "tier-" + t.id,
-      title: num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission",
+      title: why ? (eraOpen ? why : eraLockText) : num(t.events, 0) + (t.events === 1 ? " event" : " events") + " a mission",
       "aria-label": (era ? era.name + " " + era.year + ", " : "") + t.name + ", " + money(t.budget_musd) + ", " + num(t.events, 0) + (t.events === 1 ? " event" : " events") + (why ? ". Locked: " + (eraOpen ? why : eraLockText) : ""),
       onclick: function () { startMissionDesign(t.id, era ? era.id : null); }
     }, [
       el("span", { class: "tier-name", text: t.name.toUpperCase() }),
-      el("span", { class: "tier-facts", text: why ? why : money(t.budget_musd) })
+      el("span", { class: "tier-facts", text: why ? "LOCKED" : money(t.budget_musd) })
     ]);
   }
 
@@ -1779,20 +1797,26 @@
     state.locked = false;
     var tiers = data("TIERS");
     var eras = typeof getEras === "function" ? list(getEras()) : [];
-    var progress = typeof getProgress === "function" ? getProgress() : { best_stars: {} };
     var missions = typeof MISSIONS !== "undefined" ? list(MISSIONS) : [];
 
     var grid;
     if (eras.length) {
       grid = el("div", { class: "eras" }, eras.map(function (e, i) {
         var lockText = e.unlocked ? null : "Earn 2 stars in " + (eras[i - 1] ? eras[i - 1].name : "the previous era");
+        // A locked era is one short card: the rule is its tooltip and accessible name, and the screen's one hint.
+        if (!e.unlocked) {
+          return el("div", { class: "era locked compact", "data-key": "era-" + e.id, role: "group", title: lockText,
+            "aria-label": e.name + " " + e.year + ". Locked. " + lockText }, [
+            el("div", { class: "era-year", text: String(e.year) }),
+            el("div", { class: "card-title" }, [el("h3", { text: String(e.name).toUpperCase() }), el("span", { class: "tag", text: "LOCKED" })])
+          ]);
+        }
         var real = list(e.real_missions).map(function (id) { var m = byId(missions, id); return m ? m.name : null; }).filter(Boolean);
         return el("div", { class: "era" + (e.unlocked ? "" : " locked"), "data-key": "era-" + e.id }, [
           el("div", { class: "era-year", text: String(e.year) }),
           el("div", { class: "card-title" }, [el("h3", { text: String(e.name).toUpperCase() }),
             el("span", { class: "stars", text: starsText(e.best_stars), "aria-label": (e.best_stars || 0) + " of 3 stars" })]),
-          e.unlocked ? more(e.blurb + (real.length ? " Real missions: " + real.join(", ") + "." : ""), "About this era")
-            : el("p", { class: "card-blurb", text: lockText }),
+          more(e.blurb + (real.length ? " Real missions: " + real.join(", ") + "." : ""), "About this era"),
           el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, e, e.unlocked, lockText); }))
         ]);
       }));
@@ -1802,21 +1826,16 @@
         el("div", { class: "tier-list" }, tiers.map(function (t, j) { return tierButton(t, j, tiers, null, true, null); }))])]);
     }
 
-    var best = el("p", { class: "bar-note", text: tiers.map(function (t) {
-      return t.name + " " + starsText((progress.best_stars || {})[t.id] || 0);
-    }).join("   ") });
-
     return el("section", { class: "title" }, [
-      el("div", { class: "kicker", text: String(typeof STORY === "object" && STORY.subtitle ? STORY.subtitle : "A space mission design game").toUpperCase() }),
+      titleHero(),
       el("h1", { class: "big-title", text: String(typeof STORY === "object" && STORY.title ? STORY.title : "GRAVITRON").toUpperCase() }),
       el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-      el("h2", { class: "subhead", text: eras.length ? "CHOOSE AN ERA AND A LEVEL" : "CHOOSE A LEVEL" }),
+      el("h2", { class: "sr-only", text: eras.length ? "Choose an era and a level" : "Choose a level" }),
       tiers.length ? grid : el("p", { class: "empty", text: "No tiers in the data yet." }),
-      tiers.length ? best : null,
       tiers.length ? campaignPanel(tiers) : null,
       el("div", null, [button("RESET PROGRESS", function () {
         if (typeof resetProgress === "function" && window.confirm("Forget every star you have earned?")) { resetProgress(); draw("title"); }
-      })])
+      }, { quiet: true })])
     ]);
   }
 
