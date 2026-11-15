@@ -32,6 +32,7 @@ One row per resource used. QA copies this into the project page.
 | Real missions for the debrief comparison (Explorer 1 and 3, Vanguard 2, TIROS-1, SOLRAD 1, SDO, GOES-R, Terra, FOREST, PlanetScope, Seasat, RADARSAT Constellation, ICEYE) | NASA, NOAA, CSA, Planet, ICEYE, OroraTech | see the `source` field of each record in `data/missions.js` | Debrief "your design's real twin" | Yes (masses marked) |
 | Sputnik 1: it orbited in October 1957 and its radio beeps were heard around the world | NASA history pages (not opened: nasa.gov was unreachable from the session that wrote the story; link to be added by a teammate) | NASA History, Sputnik 1 (page to confirm) | `js/ui-design.js` STORY.austin.intro: the opening beats ("A radio on the bench will not stop beeping", "Sputnik, passing over our roof"). The step 3 beat where the counter falls silent at altitude retells, as fiction, the Explorer 1 radiation finding listed above. Voss, Austin, Ajay, Priya and Iron Eclipse are invented | Checked and opened by a human. |
 | Real missions for the debrief comparison (Explorer 1 and 3, Vanguard 2, TIROS-1, SOLRAD 1, SDO, GOES-R, Terra, FOREST, PlanetScope, Seasat, RADARSAT Constellation, ICEYE) | NASA, YesAA, CSA, Planet, ICEYE, OroraTech | see the `source` field of each record in `data/missions.js` | Debrief "your design's real twin" | Yes (masses marked) |
+| Music and sound effects | Made for this game | n/a | `js/audio.js`: every sound is synthesised in the browser with the Web Audio API (oscillators, filtered noise, a generated reverb tail). No recording, sample, library or file is used, so there is nothing to license |
 | Pixelify Sans and VT323 (web fonts) | Google Fonts (SIL Open Font License) | https://fonts.google.com/specimen/VT323 | `index.html` (loaded from Google Fonts); `css/fonts/VT323-Regular.woff2` (the digits, kept in the repo for offline play) | No |
 
 ## Tools and other resources
@@ -45,4 +46,4 @@ The submission form's References field must list every external resource, includ
 | A Learning Game About Telescopes | NASA | https://science.nasa.gov/mission/webb/game-build-it-yourself/ | Design reference only; no code or art reused |
 | Digital Games and Activities | CSA | https://www.asc-csa.gc.ca/eng/youth-educators/digital-games-and-activities.asp | Tone and style reference only |
 
-No third-party code libraries, fonts, images or music are used. Teammates add any other SI tools they used (QA keeps the record).
+No third-party code libraries or images are used, and no recorded music or sound (the music and effects are synthesised by `js/audio.js`). Teammates add any other SI tools they used (QA keeps the record).

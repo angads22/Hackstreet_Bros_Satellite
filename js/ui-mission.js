@@ -165,6 +165,7 @@
     run.waiting = true;
     stopTimer();
     setPace();
+    if (window.GravAudio) GravAudio.sfx("event");   // sound: js/audio.js
     run.nodes.head.classList.add("event-open");   // the orbit shrinks so the question is on the screen
     var box = run.nodes.event;
     while (box.firstChild) box.removeChild(box.firstChild);

@@ -2808,6 +2808,7 @@
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
         if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
+        if (window.GravAudio) GravAudio.sfx(on ? "remove" : "add");   // sound: js/audio.js
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
       },
@@ -3708,6 +3709,7 @@
       document.removeEventListener("keydown", onKeyShow, true);
       if (box && box.parentNode) box.parentNode.removeChild(box);
       launchShowing = false;
+      if (window.GravAudio) GravAudio.duck(false);
       done();
     }
     // T-MINUS 00:00:05 ... 01, then 00:00:00 and LIFT-OFF; the status line follows the sequence.
@@ -3716,9 +3718,12 @@
       var ms = now() - start;
       var left = Math.max(0, Math.ceil(LAUNCH_COUNT - ms / LAUNCH_TICK_MS));
       var text = "00:00:0" + left;
-      if (count.textContent !== text) count.textContent = text;
+      if (count.textContent !== text) { count.textContent = text; if (window.GravAudio && left > 0) GravAudio.sfx("tick"); }   // sound: js/audio.js
       var phase = left > 0 ? "count" : ms < climbAt ? "liftoff" : ms < finaleAt || !finale ? "climb" : "orbit";
-      if (box.getAttribute("data-phase") !== phase) box.setAttribute("data-phase", phase);
+      if (box.getAttribute("data-phase") !== phase) {
+        box.setAttribute("data-phase", phase);
+        if (window.GravAudio) GravAudio.sfx(phase === "liftoff" ? "liftoff" : phase === "orbit" ? "orbit" : "");
+      }
       var say = "";
       LAUNCH_STATUS.forEach(function (s) { if (ms >= s[0]) say = s[1]; });
       if (status.textContent !== say) status.textContent = say;
@@ -3734,6 +3739,7 @@
       return LAUNCH_FOLLOW_UNTIL + Math.min(1, (ms - climbAt) / LAUNCH_CLIMB_MS) * (LAUNCH_SCENE_END - LAUNCH_FOLLOW_UNTIL);
     }
     launchShowing = true;
+    if (window.GravAudio) GravAudio.duck(true);   // the music steps back for the launch
     timer = setTimeout(finish, showMs);   // armed first: a hidden tab or a drawing error cannot hold the player here
     try {
       var lp = lpCanvas(function (L) { return L.scenes.pad({ launcherId: row.id, launcher: row, ready: true }); }, "lp-launch");
