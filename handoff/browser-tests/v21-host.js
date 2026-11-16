@@ -83,13 +83,13 @@ function serve() {
     ok(await T.waitHead(p, 'BUILD').catch(() => false), 'no sessionStorage: a reload on Build comes back to Build');
     const kept = await p.evaluate(() => { try { return JSON.parse(JSON.parse(localStorage.getItem('gravitron-session-v1')).rec).design.parts.length; } catch (e) { return -1; } });
     ok(kept === 3 && before >= 1, `...with the same parts (${kept} kept)`);
-    // an old place is forgotten (the page writes the place again as it is left, so age it in a new page before the game reads it)
+    // an old place is forgotten (twenty minutes; the page writes the place again as it is left, so age it in a new page before the game reads it)
     await p.close();
     const p2 = await ctx.newPage();
     await T.noFonts(p2);
     await p2.addInitScript(() => { try { const o = JSON.parse(localStorage.getItem('gravitron-session-v1')); if (o && o.at) { o.at = Date.now() - 4 * 60 * 60 * 1000; localStorage.setItem('gravitron-session-v1', JSON.stringify(o)); } } catch (e) {} });
     await p2.goto(origin + PREFIX);
-    ok(await p2.locator('.big-title').waitFor({ timeout: 8000 }).then(() => true, () => false), 'a place older than three hours is forgotten: the title screen');
+    ok(await p2.locator('.big-title').waitFor({ timeout: 8000 }).then(() => true, () => false), 'a place older than twenty minutes is forgotten: the title screen');
     p = p2;
     // the saves are small (the host refuses more than 512 KB)
     const bytes = await p.evaluate(() => { let n = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += k.length + (localStorage.getItem(k) || '').length; } return n; });

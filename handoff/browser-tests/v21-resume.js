@@ -202,7 +202,7 @@ async function fresh(b, viewport) {
     await p.click('[data-key="part2-go"]'); await waitHead(p, 'WORKSHOP');
     ok((await place(p) || {}).screen === 'comeback', 'back in the workshop: remembered');
     await p.evaluate(() => window.StarlineUI.home());
-    await p.click('[data-key="reset-progress"]');
+    await p.click('[data-key="reset-progress"]'); await p.click('[data-key="reset-progress"]');   // the first press asks, the second confirms (twoStep: window.confirm is blocked in a sandboxed frame)
     ok(await onTitle(p) && (await place(p)) === null, 'RESET EVERYTHING: the title and no place kept');
     ok(errors.length === 0, 'Part 2: no console errors' + (errors.length ? ' ' + errors.join(' | ') : ''));
     await ctx.close();

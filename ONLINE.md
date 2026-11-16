@@ -62,7 +62,7 @@ The team's server (Pitstop) serves the game from a clone of `main` and runs `ser
 | **Saves stay small** (under 512 KB; a real comeback save is about 4 KB) | the server refuses anything bigger, silently |
 | **`ONLINE.endpoint` stays `""` in `data/online.js`** | the server fills it in on every request (the game calls `/hack/online/<link>/api/...`) |
 
-How it runs there: in a sandboxed frame with no cookies and no storage of its own. `localStorage` is replaced by one that saves per account on the server (a guest gets no save and a new player id each visit); there is no `sessionStorage`, so **"reload keeps your place" keeps the place with the saves there** (stamped with the time, forgotten after three hours). `main` goes live about three minutes after a push; open tabs get a "New version: reload" button.
+How it runs there: in a sandboxed frame with no cookies and no storage of its own. `localStorage` is replaced by one that saves per account on the server (a guest gets no save and a new player id each visit); there is no `sessionStorage`, so **"reload keeps your place" keeps the place with the saves there** (stamped with the time, forgotten after twenty minutes without a screen change). `main` goes live about three minutes after a push; open tabs get a "New version: reload" button.
 
 What the game shows for the server's own answers (`js/live-data.js`): **403** "Link expired. Reload the page.", **503** "Multiplayer is switched off.", **502** "The server is down. Try again soon.", **400** the reason the server sent (a filtered nickname), **404** the duel room is gone.
 

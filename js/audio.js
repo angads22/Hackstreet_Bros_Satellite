@@ -246,8 +246,14 @@
     for (var i = 0; i < n; i++) { var x = i * 2 / (n - 1) - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
     return c;
   }
+  var launchBus = null;   // the lift-off's own bus, so SKIP and the SOUNDS switch can stop it
+  function stopLaunch() {
+    try { if (launchBus && ctx) { launchBus.gain.cancelScheduledValues(ctx.currentTime); launchBus.gain.setTargetAtTime(0, ctx.currentTime, 0.05); } } catch (e) { /* already over */ }
+    launchBus = null;
+  }
   function launch(t) {
     var dur = 6.2, bus = ctx.createGain();
+    launchBus = bus;
     bus.gain.setValueAtTime(0, t); bus.gain.linearRampToValueAtTime(1.25, t + 0.12);
     bus.gain.setValueAtTime(1.25, t + dur - 1.6); bus.gain.linearRampToValueAtTime(0.0001, t + dur);
     bus.connect(master);
@@ -327,7 +333,7 @@
     else if (prefs.music) unlock();
     refreshButtons();
   }
-  function setSfx(on) { prefs.sfx = !!on; save(); applyLevels(); refreshButtons(); if (on) sfx("click"); }
+  function setSfx(on) { prefs.sfx = !!on; save(); if (!on) stopLaunch(); applyLevels(); refreshButtons(); if (on) sfx("click"); }
 
   // ---------------------------------------------------------------- the page: two footer buttons, the era, the first gesture
   var btnMusic = null, btnSfx = null;
@@ -379,6 +385,7 @@
     sfx: sfx,
     setEra: setEra,
     duck: function (on) { ducked = !!on; duckAt = Date.now(); applyLevels(); },
+    stopLaunch: stopLaunch,
     state: function () { return { music: prefs.music, sfx: prefs.sfx, running: !!ctx && ctx.state === "running", era: era, supported: !!AC }; },
     toggleMusic: function () { setMusic(!prefs.music); },
     toggleSounds: function () { setSfx(!prefs.sfx); },

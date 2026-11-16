@@ -96,7 +96,7 @@ async function openFrom(p, key, part) {
     ok(same(await locked(p), ['rule-2', 'rule-3', 'discovery', 'voss', 'box']), 'the rest are locked: ' + JSON.stringify(await locked(p)));
     const dash = await p.locator('.jr-entry.locked .jr-text').allInnerTexts();
     ok(dash.length === 5 && dash.every(t => t.trim() === '???'), 'every locked entry reads ???');
-    ok(await p.locator('.jr-entry.known .jr-face').count() === 2 && await p.locator('.jr-entry.known .jr-face img, .jr-entry.known .jr-face svg').count() === 2, 'each known entry has a face');
+    ok(await p.locator('.jr-entry.known .jr-face').count() === 2 && await p.locator('.jr-entry.known .jr-face img, .jr-entry.known .jr-face svg, .jr-entry.known .jr-face canvas').count() === 2, 'each known entry has a face');
     ok(/NEXT\s*STEP 1/.test(await p.locator('[data-key="journal-next"]').innerText()), 'what to do next: step 1 (a few words)');
     ok(await p.evaluate(() => document.body.dataset.era) === '1958', 'Part 1 wears the 1958 look');
     ok(await T.noScroll(p), 'no sideways scroll');
@@ -272,12 +272,12 @@ async function openFrom(p, key, part) {
   {
     const { p: a } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': fx.saves['one-flight-normal'].raw });
     await openFrom(a, 'journal-mode-part2');
-    const direct = await a.locator('[data-key="journal-lenders"] .jr-face img').getAttribute('src').catch(() => null);
+    const direct = await a.locator('[data-key="journal-lenders"] .jr-face .portrait').getAttribute('data-face').catch(() => null);
     await a.close();
     const { p: c } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': fx.saves['one-flight-normal'].raw });
     await openFrom(c, 'journal-mode-part1');
     await tab(c, 2); await c.waitForTimeout(100);
-    const switched = await c.locator('[data-key="journal-lenders"] .jr-face img').getAttribute('src').catch(() => null);
+    const switched = await c.locator('[data-key="journal-lenders"] .jr-face .portrait').getAttribute('data-face').catch(() => null);
     ok(!!direct && direct === switched, 'the face drawn after switching from Part 1 is the one drawn when opened on Part 2');
     await c.close();
   }
@@ -339,7 +339,7 @@ async function openFrom(p, key, part) {
     const { p, errors } = await page(b, DESK, { 'gravitron-walkthrough-v1': WALK }, { block: [/js\/lowpoly\.js/], allow: /lowpoly\.js|ERR_FAILED/ });
     await openFrom(p, 'journal-mode-part1');
     ok(same(await known(p), ['setup', 'rule-1', 'rule-2', 'rule-3']), 'the same entries are known');
-    ok(await p.locator('.jr-entry.known .jr-face svg, .jr-entry.known .jr-face img').count() === 4, 'the pixel faces are drawn instead');
+    ok(await p.locator('.jr-entry.known .jr-face svg, .jr-entry.known .jr-face img, .jr-entry.known .jr-face canvas').count() === 4, 'the pixel faces are drawn instead');
     ok(await T.noScroll(p), 'no sideways scroll');
     ok(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
     await p.close();

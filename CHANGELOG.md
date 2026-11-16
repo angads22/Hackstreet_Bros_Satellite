@@ -4,6 +4,25 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 2.3 (November 16, 2026)
+
+Version 2.3 is a hardening release for the team's host. Touring the game under the host's strict content policy found that the map and the portraits would break there; that is fixed, and so are the two buttons that did nothing in its sandboxed frame.
+
+### Fixed
+
+- **The game works under the host's strict policy.** Found by touring it under the policy the host sets (styles, images, fonts and fetch only from the site itself): the map markers were unreachable (their positions were inline styles) and portraits and the minimap picture would not draw (`data:` images). Inline styles now go through the CSSOM, portraits and the minimap are canvases, the textures are files in `css/img/`, and `handoff/browser-tests/v22-csp.js` keeps it that way. The live NASA and NOAA calls are still blocked there and answered with the snapshot.
+- **RESET EVERYTHING and NEW COMEBACK work in the host's sandbox.** They used `window.confirm`, which a sandboxed frame answers "no" silently, so they did nothing there. The first press now asks ("SURE? ..."), the second does it.
+- **Sound fixes:** a win no longer plays the fail sound (the debrief layout changed in 2.1); SKIP and the SOUNDS switch stop the lift-off roar.
+- **Reload keeps your place for twenty minutes** (was three hours where the host has no tab storage), so a visit later opens the title screen.
+- **A duel room lives ten minutes from its last activity,** not from its creation.
+
+### Not in this version yet
+
+- **Accessibility audit on every screen and a phone layout for Build** (a phone is still about three screens tall on Build) were started and not finished; the work is saved on branches.
+- The host's Lighthouse score (63 on its play page) was measured: the game's own page scores 99 here with the host's rules, so the rest sits in the host's play page around it.
+- A full two-browser duel on the host has not been tested; a duel between two guests ends if either reloads. A quick flight does not come back after a reload.
+- Pushing the git tags (`v1.0` to `v2.3`) from a computer; cloud sessions cannot.
+
 ## 2.2 (November 16, 2026)
 
 Version 2.2 is the polish and safety release for the submission: you can borrow from every Part 2 screen, Normal and Hard give a sensible player a fair chance (measured with a new simulator), a few screens read better on a laptop and a phone, and the opening scene can no longer get stuck for a guest with no storage. The slides and the words for the project form are updated for the current game. Everything players already have is kept.

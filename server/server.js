@@ -124,6 +124,9 @@ function createServer(opts) {
     return "tie";
   }
   function view(room, id) {
+    // A room is kept ten minutes from its last activity (a create, a join, a result, or a seat that asks for the room), not
+    // ten minutes from creation: a duel that takes a few minutes to design and fly must not lose its second result.
+    if (id && (room.host.id === id || (room.guest && room.guest.id === id))) room.expires = now() + ttl;
     var done = !!(room.guest && room.host.result && room.guest.result);
     var stateName = !room.guest ? "waiting" : done ? "done" : "playing";
     var you = id && room.host.id === id ? "host" : id && room.guest && room.guest.id === id ? "guest" : null;

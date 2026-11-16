@@ -403,7 +403,10 @@ var PartExplainer = (function () {
     try {
       if (!has(id) || typeof document !== "object") return null;
       var s = story(id), fig = document.createElement("figure"), cap = document.createElement("figcaption"), holder = document.createElement("div");
-      holder.innerHTML = '<svg class="ex-svg" aria-hidden="true" focusable="false" viewBox="0 0 240 150" preserveAspectRatio="xMidYMid meet" style="--t:' + (LENGTH[s.kind] || 4) + 's">' + DRAW[s.kind](id) + "</svg>";
+      // style="..." in an HTML string is blocked by a strict style-src (the host's): it is written as data-style and applied
+      // through the CSSOM below, which is allowed
+      holder.innerHTML = ('<svg class="ex-svg" aria-hidden="true" focusable="false" viewBox="0 0 240 150" preserveAspectRatio="xMidYMid meet" style="--t:' + (LENGTH[s.kind] || 4) + 's">' + DRAW[s.kind](id) + "</svg>").replace(/ style="([^"]*)"/g, ' data-style="$1"');
+      [].forEach.call(holder.querySelectorAll("[data-style]"), function (n) { n.style.cssText = n.getAttribute("data-style"); n.removeAttribute("data-style"); });
       fig.className = "explainer ex-fig ex-kind-" + s.kind + (opts && opts.compact ? " ex-compact" : "");
       fig.setAttribute("data-part", id);
       fig.appendChild(holder.firstChild);
