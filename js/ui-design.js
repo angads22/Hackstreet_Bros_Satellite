@@ -3976,10 +3976,13 @@
     var hub = window.showComebackHub;
     if (typeof hub !== "function" || typeof getComeback !== "function") return false;
     var saved = rec.design;
+    // No run saved (the save was cleared elsewhere): only the difficulty picker and Part 1's last scene still make sense.
+    if (!comebackInfo() && rec.screen !== "comeback-start" && !(rec.screen === "intro" && !saved)) return false;
     if (saved && rec.screen !== "debrief" && rec.screen !== "intro" && typeof saved.contract === "string" && typeof newComebackDesign === "function") {
       var d = newComebackDesign(saved.contract);   // null: the contract is closed, an offer waits for its answer, or the run is over
       if (d) return fillDesign(d, saved) && placeDesign(d, rec);
-    } else if (!saved && rec.screen === "intro" && !comebackSaved() && !walkNext()) {
+    } else if (!saved && rec.screen === "intro" && !comebackSaved()) {
+      if (walkNext()) return false;
       showEpilogue();   // Part 1's last scene, before any comeback exists
       return true;
     }

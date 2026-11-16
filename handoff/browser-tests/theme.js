@@ -133,7 +133,7 @@ async function tour(viewport, fontsLabel) {
   await p.click('[data-key="debrief-workshop"]'); await waitHead(p, 'WORKSHOP');
   // a win: enough cash to pay it all, then the ending
   await p.evaluate(key => { const c = JSON.parse(localStorage.getItem(key)); c.treasury_musd = c.debt_musd + 1; localStorage.setItem(key, JSON.stringify(c)); }, KEY);
-  await p.reload(); await p.waitForTimeout(300);
+  await T.reopen(p); await p.waitForTimeout(300);
   await p.click('[data-key="part2-go"]'); await waitHead(p, 'WORKSHOP');
   await p.click('[data-key="pay-all"]'); await waitHead(p, 'WORKSHOP IS YOURS'); await visit('p2 ending', 'today');
   await p.click('[data-key="end-home"]'); await p.locator('.title').waitFor({ timeout: 5000 }); await visit('home again', 'home');

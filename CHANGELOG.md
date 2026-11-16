@@ -6,6 +6,8 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Fixed
 
+- **Reloading keeps your place.** F5 no longer sends you back to the title: the map, Build, Rocket Yard, Readiness, the workshop or the Quick menu come back with the same design. A flight in the air returns to Readiness (its launch cost comes back once); a debrief returns to the map or the workshop. A new tab, or HOME, opens on the title.
+
 - **Music no longer drops out.** If the browser suspended or interrupted the audio (a hidden tab, a phone call, power saving), the music stayed silent until you toggled it. It now resumes by itself, at the next click or key at the latest, and recovers from a failed schedule or a stuck launch ducking.
 
 ## 2.0 (November 15, 2026)
