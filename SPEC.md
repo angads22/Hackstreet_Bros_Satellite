@@ -202,6 +202,14 @@ Part 2 only. These make a flight a risk and give the comeback surprises between 
 - **Longer deadlines.** To leave room for a failed launch, new runs got six more months on each deadline (now 60 months on Easy, 54 on Normal and Hard).
 - **STORY SO FAR, a journal.** A front-end screen (a button on the base map, in the Part 2 workshop and on a home card) that lists, in a line or two each, what the player has learned so far in each part. It is drawn from `STORY.journal` in `js/ui-design.js`, has no back-end function and saves nothing.
 
+### Quick mode (approved November 16, version 2.1)
+
+The home page offers a **third mode, QUICK MODE**, beside Part 1 and Part 2 (this amends "only two modes" below: there are three). Its card opens a small menu: **QUICK FLIGHT** (solo, always available, needs no server), **1V1 DUEL** (online: the same flight against another player, under "Online features") and **LEADERBOARD** (online). A quick flight is one flight from a preset job chosen by a seed (the topic, the orbit, the 2026 era and the same cash for every player), scored by the science it returns against what it cost; the best score is kept in `localStorage` (`gravitron-quick-v1`). A quick flight never touches the stars record, Part 1 or a comeback in progress. With online features off, the duel and leaderboard entries are shown disabled with the one-line reason, and QUICK FLIGHT still plays. The small LEADERBOARD and DUEL row on the home page is replaced by this card.
+
+### UI review items built in 2.1
+
+Version 2.1 builds the items of `docs/ui-review.md` that the changelog lists as done: contract sort with a "best pay" label on Easy only, a ledger strip (CASH, DEBT, MONTHS LEFT; a tile flashes when an action changes it, never counts up), the interest tick and a deadline cue, a debrief that leads with the verdict and the money, a pace line on the mission's science bar, verdict gauges (DATA, COST, TIME) under the satellite, a progress count and ranked problems on Build. The rule from "Difficulty: how much help" holds: gauges and lines show **facts** on every level; a forecast, a net profit or an expected finish shows only on Easy and Normal, and Hard never gains a hidden aid. What is not built stays under "Not in this version yet" in the changelog (the phone layout for Build is one).
+
 ### Two game modes (approved November 15, replaces tier select)
 
 The home page offers **only two modes**. The era grid, the three levels as a separate choice and the 1957 campaign leave the screen. Their code stays (the back-end tests still use it), but no player reaches them.
