@@ -20,6 +20,13 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - Build: a line beside the next button says how many NO GO are left ("2 NO GO to fix"); the button still works.
 - Build (Easy and Normal): the satellite's stage carries the state: a red edge when there is too little power, a cross on a part that does not fit the body, broken waves when no data can reach the ground.
 - Build (Part 2): three gauges under the satellite, DATA against the contract's points, COST against the cash, TIME against the months left. Red with a cross only when the flight cannot work, amber with a triangle when thin. Easy adds the numbers, Hard gets the contract's terms and the design's amounts with no verdict.
+- **Contracts sorted by pay (Part 2).** The workshop lists contracts by net (the price less the cheapest cost to fly it); Easy marks the first BEST PAY, Normal sorts without a label, Hard keeps the order the offers came in. Back end: `getContractOrder()`.
+- **Ledger strip (Part 2).** CASH, DEBT and MONTHS LEFT sit at the top of every Part 2 screen; a tile flashes for 0.6 s when an action moves it (never counts up). Part 1 shows none. Back end: `getLedger()`.
+- **Interest tick.** The debt tile shows the interest the next month adds at today's rate (for example "+$0.15M INTEREST A MONTH"), real state only.
+- **Deadline cue.** With a quarter of the months left or less, the months tile turns to the warning colour with a warning icon and DEADLINE NEAR (no sound, no animation).
+- **A shorter workshop.** The loans and credit tiles and the contract cards are tighter, so the first FLY THIS is on screen at 1366x768 (1.5 screens tall instead of 1.86).
+- **Debrief leads with the verdict and the money.** One big line ("PAID IN PART: +$7.4M, debt $33M"; in Part 1 the step's verdict and the stars), then what limited the flight, then TRY THIS and the way on; the report, the ledgers and the rest fold under DETAILS (open after a win).
+- **Pace line on the mission's science bar.** A tick marks the contract's minimum; Easy and Normal also get a faint line at the expected finish (Hard only the tick). Back end: `getPaceLine()`.
 
 ## 2.0 (November 15, 2026)
 

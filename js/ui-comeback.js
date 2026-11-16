@@ -11,11 +11,11 @@
   if (!UI) return;   // ui-design.js failed to load; nothing to draw with
   var el = UI.el, num = UI.num, money = UI.money;
 
-  var QUARTER = 0.25;             // the countdown turns to the accent colour with this share of the months left
   var PAY_SHARES = [0.25, 0.5, 0.75];   // PAY BACK buttons: these shares of the most that is safe to pay, rounded down
   var COMEBACK = { comeback: true };    // stands in for a design when the story is asked for Ajay's lines
   var hub = { note: "", bad: false, fresh: false, debtFrom: null };   // the last payment's message, and the meter before it
 
+  function L0() { return window.StarlineLedger || null; }
   function info() {
     try { return typeof getComeback === "function" ? getComeback() : null; } catch (e) { return null; }
   }
@@ -55,7 +55,8 @@
     return el("article", { class: "cb-job" + (opts.brief ? " brief" : ""), "data-key": "job-" + k.topic }, [
       el("div", { class: "cb-job-top" }, [
         el("h3", null, [UI.icon(k.topic), String(k.topic_name).toUpperCase()]),
-        el("span", { class: "cb-tag", text: months(k.months_left) + " LEFT" })
+        el("span", { class: "cb-tag", text: months(k.months_left) + " LEFT" }),
+        opts.bestPay ? el("span", { class: "cb-best", "data-key": "best-pay", text: "BEST PAY" }) : null   // Easy only (getContractOrder)
       ]),
       opts.brief ? null : el("p", { class: "cb-client", text: k.client }),
       opts.brief ? null : el("p", { class: "cb-reason", text: k.reason }),
@@ -110,6 +111,7 @@
     var c = typeof newComeback === "function" ? newComeback(tierId) : null;
     if (!c) { showPicker(); return; }
     hub.note = ""; hub.debtFrom = null;
+    if (window.StarlineLedger) window.StarlineLedger.reset();   // a new run: no tile flashes for the old run's numbers
     if (typeof window.nextInterlude === "function" && window.nextInterlude({ fresh: true })) { window.showInterlude(showComebackHub); return; }   // js/ui-story.js
     UI.showBeats(line("intro"), kicker() + " · " + levelName(c.tier), showComebackHub, { doneLabel: "TO THE WORKSHOP" });
   }
@@ -294,39 +296,35 @@
     var borrowedNow = hub.fresh && hub.where === "borrow" && !hub.bad;   // the line after a loan
     if (!hub.fresh) { hub.note = ""; hub.debtFrom = null; }
     hub.fresh = false;
-    var late = c.months_left <= c.deadline_month * QUARTER;
+    var led = L0() ? L0().facts() : null;
+    var late = !!(led && led.deadline_near);
     var tooLate = noFlightInTime(c);
     var last = UI.list(c.missions)[UI.list(c.missions).length - 1];
     var from = hub.debtFrom; hub.debtFrom = null;
 
-    var stakes = el("div", { class: "cb-stakes" }, [
-      el("div", { class: "cb-stat cb-debt", "data-key": "stat-debt" }, [
-        el("span", { class: "cb-stat-label", text: "DEBT" }),
-        el("strong", { class: "cb-stat-value", id: "cb-debt", text: money(c.debt_musd) }),
-        meter({ debt: c.debt_musd, cash: c.cash_musd, start: c.start_debt_musd }, from,
-          "Debt " + money(c.debt_musd) + " of " + money(c.start_debt_musd) + " at the start; cash " + money(c.cash_musd)),
-        el("span", { class: "cb-note" }, "INTEREST " + num(c.interest_per_month * 100, 2) + "% A MONTH" +
-          (c.debt_paid_musd > 0 ? " · PAID BACK " + money(c.debt_paid_musd) : ""))
-      ]),
-      el("div", { class: "cb-stat", "data-key": "stat-cash" }, [
-        el("span", { class: "cb-stat-label", text: "CASH" }),
-        el("strong", { class: "cb-stat-value cash", id: "cb-cash", text: money(c.cash_musd) })
-      ]),
-      el("div", { class: "cb-stat" + (late || tooLate ? " warn" : ""), "data-key": "stat-months" }, [
-        el("span", { class: "cb-stat-label", text: "MONTHS LEFT" }),
-        el("strong", { class: "cb-stat-value", id: "cb-months", text: num(c.months_left, 0) }),
-        tooLate ? el("span", { class: "cb-note", role: "alert", text: "No flight can land before the deadline." })
-          : late ? el("span", { class: "cb-note", text: (line("hub", "late") || {}).text || "" }) : null
-      ])
-    ]);
+    // UI REVIEW (2.1, ledger-strip, interest-tick, deadline-cue): the three tiles are the ledger strip (js/ui-ledger.js); the debt
+    // meter and the "no flight" note ride inside their tiles. The cash, debt and months come from getLedger().
+    var L = L0();
+    var lateNote = tooLate ? el("span", { class: "cb-note", role: "alert", text: "No flight can land before the deadline." })
+      : late ? el("span", { class: "cb-note", text: (line("hub", "late") || {}).text || "" }) : null;
+    var stakes = L.strip({ ids: true, warn: tooLate,
+      debtExtra: [meter({ debt: c.debt_musd, cash: c.cash_musd, start: c.start_debt_musd }, from,
+        "Debt " + money(c.debt_musd) + " of " + money(c.start_debt_musd) + " at the start; cash " + money(c.cash_musd)),
+        c.debt_paid_musd > 0 ? el("span", { class: "cb-note" }, "PAID BACK " + money(c.debt_paid_musd)) : null],
+      monthsExtra: [lateNote] });
 
     var lowCredit = typeof c.credit === "number" && c.credit <= (c.seize_credit || 0) + 2 * (c.credit_per_loan || 8);
     var needName = typeof c.reputation === "number" && c.debt_musd <= 0 && c.reputation < c.reputation_goal;
     var situation = lowCredit ? line("hub", "credit") : needName ? line("hub", "name") : borrowedNow ? line("hub", "loaned")
       : !c.flights ? line("hub", "start") : c.debt_musd < c.start_debt_musd / 2 ? line("hub", "halfway")
       : last && last.payout_musd > 0 ? line("hub", "paid") : null;
-    var jobs = UI.list(c.contracts).map(function (k) {
-      return contractCard(k, { onFly: function () {
+    // UI REVIEW (2.1, contract-sort-best-pay): the back end orders the offers (Easy and Normal by net; Hard as they came)
+    // and names the best pay on Easy only.
+    var order = typeof getContractOrder === "function" ? getContractOrder() : null;
+    var offers = UI.list(c.contracts).slice();
+    if (order) offers.sort(function (a, b) { return order.ids.indexOf(a.id) - order.ids.indexOf(b.id); });
+    var jobs = offers.map(function (k) {
+      return contractCard(k, { bestPay: !!order && order.best_id === k.id, onFly: function () {
         var d = typeof newComebackDesign === "function" ? newComebackDesign(k.id) : null;
         hub.note = "";
         if (d) window.showDesignScreen("map", d); else showComebackHub();
