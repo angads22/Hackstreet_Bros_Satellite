@@ -387,7 +387,7 @@
     if (!status().on) return null;
     var run = typeof getRunScore === "function" ? getRunScore() : null;
     if (!run) return null;
-    return UI.button("SUBMIT SCORE", function () { showLeaderboard({ run: run }); }, { key: "end-submit", aria: "Submit your score to the leaderboard" });
+    return UI.button("SUBMIT SCORE", function () { showLeaderboard({ run: run }); }, { key: "end-submit", aria: "Submit score to the leaderboard" });
   }
 
   window.StarlineOnline = { submitButton: submitButton, showLeaderboard: showLeaderboard, showDuel: showDuel,

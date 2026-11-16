@@ -1609,6 +1609,8 @@ summary { min-width: 24px; padding: 0 4px; }
   summary, .nav-row .btn, .tab, .title-foot button, [data-key="part1-go"], [data-key="part2-go"], [data-key="reset-progress"], .blip { min-height: 44px !important; }
   summary, .blip { min-width: 44px !important; }
   summary { display: inline-flex; align-items: center; justify-content: center; }
+  /* a11y (2.1): the Quick mode button, the ASK buttons and the two sound switches are 44 px touch targets too */
+  [data-key="quick-go"], .ask, .preview .ask, .foot .snd { min-height: 44px !important; }
 }
 
 /* ---- Sound (js/audio.js): the two small footer switches ---- */

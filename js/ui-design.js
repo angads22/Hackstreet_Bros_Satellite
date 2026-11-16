@@ -2580,7 +2580,7 @@
     function draw1() {
       var last = at >= beats.length - 1;
       mount("intro", el("section", { class: "screen intro" }, [
-        el("div", { class: "kicker", text: String(kicker || "").toUpperCase() }),
+        el("div", { class: "kicker", role: "heading", "aria-level": "1", text: String(kicker || "").toUpperCase() }),   // a11y (2.1): a story beat has a heading
         el("div", { class: "intro-beats", "aria-live": "polite" }, [sayElement(beats[at])]),
         el("p", { class: "bar-note", text: (at + 1) + " / " + beats.length }),
         el("div", { class: "nav-row" }, [
@@ -2856,7 +2856,8 @@
     var fee = typeof partInfoFee === "function" ? partInfoFee(state.design, p.id, group) : 0;
     var button = el("button", {
       type: "button", class: "ask", "data-key": "ask-" + p.id + "-" + group,
-      "aria-label": "Ask the engineers for the " + INFO_WORD[group] + " of " + p.name + ", " + money(fee),
+      // a11y (2.1): the label starts with the words on the button ("ASK $0.04M"), so voice control can say what it sees
+      "aria-label": (short ? "Ask " : "Ask the engineers ") + money(fee) + " for the " + INFO_WORD[group] + " of " + p.name,
       onclick: function () { askEngineers(p, group, button); }
     }, [short ? "ASK " : "ASK THE ENGINEERS ", el("span", { class: "ask-fee", text: money(fee) })]);
     return el("div", { class: "ask-line", "data-key": "unknown-" + p.id + "-" + group }, [
@@ -3041,7 +3042,8 @@
   // What clicking the hovered part would change (previewToggle). There is one preview box: a redraw moves the box
   // already on the page into the new screen and a hover refills it, so its aria-live text is announced, not replaced.
   function drawPreview() {
-    var box = document.getElementById("preview") || el("div", { class: "panel preview", id: "preview", "aria-live": "polite" });
+    var box = document.getElementById("preview") || el("div", { class: "panel preview", id: "preview", "aria-live": "polite",
+      role: "region", "aria-label": "Part preview", tabindex: "0" });   // a11y (2.1): the preview scrolls, so the keyboard must be able to reach it
     fillPreview(box);
     return box;
   }
@@ -3700,7 +3702,7 @@
       sayLine("map"),
       el("div", { class: "map-layout" }, [
         el("div", { class: "stack" }, [board, refs.prompt]),
-        el("aside", { class: "panel" }, [
+        el("aside", { class: "panel", role: "region", "aria-label": "Places" }, [   // a11y (2.1): a labelled region (an aside may not sit inside main)
           el("h2", { text: "PLACES" }), legend,
           // The keys, for a keyboard (hidden on a touch screen, where the hint says to tap a place). On the map,
           // M and Esc go back into the place you stand at.

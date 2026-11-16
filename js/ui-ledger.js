@@ -74,7 +74,7 @@
     var app = document.getElementById("app");
     if (!app || !app.parentNode) return;
     if (!outer) {
-      outer = el("div", { class: "lstrip-host", id: "lstrip-host" });
+      outer = el("div", { class: "lstrip-host", id: "lstrip-host", role: "region", "aria-label": "Ledger" });   // a11y (2.1): a labelled landmark
       outer.hidden = true;
       app.parentNode.insertBefore(outer, app);
     }

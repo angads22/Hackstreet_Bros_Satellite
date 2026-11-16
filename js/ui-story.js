@@ -218,7 +218,7 @@
     var parts = { refuse: iv.buttons[0], sell: iv.buttons[1] };
     var last = iv.beats[iv.beats.length - 1];
     UI.mount("interlude-choice", el("section", { class: "screen intro story-offer" }, [
-      el("div", { class: "kicker", text: kicker(c) + " · THE OFFER" }),
+      el("div", { class: "kicker", role: "heading", "aria-level": "1", text: kicker(c) + " · THE OFFER" }),   // a11y (2.1): the offer has a heading
       el("div", { class: "intro-beats", "aria-live": "polite" }, [last ? UI.sayEl(last) : null]),
       UI.facts([["DEBT", money(c.debt_musd)], ["MONTHS LEFT", num(c.months_left, 0)]]),
       el("div", { class: "story-choices" }, [choice("refuse", parts.refuse), choice("sell", parts.sell)]),
@@ -337,7 +337,7 @@
       head: [UI.modes && UI.modes.part1 ? UI.modes.part1.kicker : "PART 1", "PART 1 COMPLETE"],
       buttons: [
         UI.button(["CONTINUE TO PART 2", " >"], go, { primary: true, key: "end-continue" }),
-        UI.button("PLAY AGAIN", function () { UI.startWalkStep(1); }, { key: "end-again", aria: "Play Part 1 again" }),
+        UI.button("PLAY AGAIN", function () { UI.startWalkStep(1); }, { key: "end-again", aria: "Play again: Part 1" }),
         UI.button(["< ", "HOME"], function () { UI.home(); }, { key: "end-home" })
       ]
     });
@@ -514,7 +514,7 @@
       if (!journalText()) return null;
       if (opts.ifAny && !unlocked(opts.part, journalContext(opts))) return null;
     } catch (e) { return null; }
-    return UI.button("JOURNAL", function () { openJournal(opts); }, { quiet: true, key: opts.key || "journal-open", aria: "Open the story so far" });
+    return UI.button("JOURNAL", function () { openJournal(opts); }, { quiet: true, key: opts.key || "journal-open", aria: "Journal: the story so far" });
   }
 
   window.nextInterlude = nextInterlude;
