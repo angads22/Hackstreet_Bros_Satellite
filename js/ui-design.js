@@ -377,7 +377,7 @@
         halfway: "Halfway there. The lenders have stopped calling twice a day.",
         late: "Clock's nearly out. Fly something cheap and sure.",
         loaned: "Cash in hand. The lenders will remember this.",
-        credit: "Credit is thin. One more loan could cost everything.",
+        credit: "Credit is poor. No loans now. Fall lower and they take everything.",   // credit 2.1: shown in the POOR band
         name: "Debt's clear. Now fly well and make them say our name."
       },
       // The debrief's last line: what the client says about the data (paid in full, in part, or not at all).
