@@ -95,3 +95,15 @@
   .screen.cb .cb-stakes-2 { grid-template-columns: minmax(0, 1fr); }
   .screen.cb .cb-stakes-2 .cb-stat { grid-template-columns: auto minmax(0, 1fr); }
 }
+
+/* ---- 2.1 fixes found by the theme check ---- */
+/* The credit score's WHY list takes the tile's full width (it shrank to its words, so the five bars were slivers and the
+   names stuck out of a 28px column). */
+.cb-why { grid-column: 1 / -1; align-self: stretch; width: 100%; min-width: 0; }
+.cb-factors { width: 100%; }
+.cb-factor { grid-template-columns: minmax(5.6em, 7em) 3em minmax(48px, 1fr); }
+.cb-factor-name { min-width: 0; white-space: nowrap; }
+@media (max-width: 720px) { .cb-factor { grid-template-columns: minmax(0, 1fr) auto; } }
+/* The mission bar's MIN label sits above its tick on the panel, in the panel's colours (it inherited the tick's light fill
+   as its background for contrast checks, and read as too faint). */
+.pace-label { color: var(--text); background: var(--surface); padding: 0 3px 1px; }
