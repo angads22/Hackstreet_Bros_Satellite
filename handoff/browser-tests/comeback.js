@@ -164,7 +164,7 @@ async function run(viewport, label) {
   ok((await T.throughBeats(p)).join('|') === after1.join('|'), "Mum's scene is the story text, beat by beat (" + after1.length + ' beats)');
   await T.waitHead(p, 'WORKSHOP');
   await shot('4b-after-mum');
-  ok(await p.locator('.intro').count() === 0 && await p.locator('.cb-log li').count() === 1 && await p.locator('#cb-cash').innerText() === money(h.cash_musd), 'workshop: one flight in the log, the new cash');
+  ok(await p.locator('.intro').count() === 0 && await p.locator('.cb-log li').count() === 1 && await p.locator('#cb-cash').innerText() === await p.evaluate(v => StarlineLedger.cashText(v), h.cash_musd), 'workshop: one flight in the log, the new cash');   // 2.1: the ledger strip keeps the cash's hundredths when it has them, like the header
   const first = p.locator('[data-key="pay-panel"] .btn').first();
   const amount = parseM(await first.innerText());
   await first.click(); await p.waitForTimeout(300);

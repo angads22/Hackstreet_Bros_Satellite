@@ -227,7 +227,8 @@ async function existing() {
     const ex = sv.expect, now = await p.evaluate(() => getComeback());
     ok(now && now.tier === ex.tier && Math.abs(now.cash_musd - ex.cash_musd) < 1e-6 && Math.abs(now.debt_musd - ex.debt_musd) < 1e-6 && now.month === ex.month && now.flights === ex.flights,
       `${name}: the back end carries the save over (same tier, cash, debt, month and flights)`);
-    ok(await p.locator('#cb-cash').innerText() === fmt(ex.cash_musd) && await p.locator('#cb-debt').innerText() === fmt(ex.debt_musd) &&
+    ok(await p.locator('#cb-cash').innerText() === await p.evaluate(v => StarlineLedger.cashText(v), ex.cash_musd) &&   // 2.1: the strip keeps the cash's hundredths
+        await p.locator('#cb-debt').innerText() === fmt(ex.debt_musd) &&
        await p.locator('#cb-months').innerText() === String(ex.deadline_month - ex.month), `${name}: the workshop shows the same cash, debt and months`);
     const rec = await p.evaluate(() => JSON.parse(localStorage.getItem('gravitron-seen-v1') || '{}'));
     const ids = [].concat(...Object.values(rec));
