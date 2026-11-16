@@ -93,7 +93,7 @@ async function normal(viewport, label) {
   // The rest of the flight: build it, launch, and read the ledger.
   await T.addParts(page, c.parts);
   if (viewport.width > 600) {
-    ok(new RegExp('^' + c.parts.length + ' parts').test(await page.locator('.bench-label span').innerText()), 'Normal: every part of the design was added, paid for or not (adding is not research)');
+    ok(new RegExp('^' + c.parts.length + ' parts').test(await page.locator('.bench-label span').first().innerText()), 'Normal: every part of the design was added, paid for or not (adding is not research)');
     await page.click('.nav-row .btn.primary'); await waitHead(page, 'LAUNCH VEHICLE');
     await page.click(`[data-key="rocket-${c.launcher}"]`);
     await page.click('.nav-row .btn.primary'); await waitHead(page, 'READINESS');

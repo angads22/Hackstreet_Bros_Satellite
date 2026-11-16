@@ -156,6 +156,9 @@ async function layout(p, name) {
     ok(await p.locator('.check-do').count() === 0, 'Hard: no action word on a problem');
     ok(!/PROFIT|NET|EXPECT/i.test(await txt(p, '.vstrip')), 'Hard: no forecast or net in the strip');
     await layout(p, 'Hard 390');
+    await p.click('[data-key="bin-instrument"]');
+    const laterBox = await p.locator('[data-key="later-instrument"]').boundingBox();
+    ok(laterBox && laterBox.height >= 44, 'Hard 390: SHOW LATER PARTS is a 44 px target (' + (laterBox && laterBox.height) + ')');
     await p.screenshot({ path: path.join(shots, 'uia-hard-390.png') });
     ok(errors.length === 0, 'Hard: no errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
     await ctx.close();

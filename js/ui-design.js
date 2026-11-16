@@ -3064,6 +3064,7 @@
     var chg = state.change; state.change = null;   // the drop-in animation runs on this draw only
     var bench = el("div", { class: "bench" }, [
       el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
+        el("span", { text: list(d.parts).length + " parts" }),
         el("span", { class: "progress-count" + (built < required.length ? " need" : " done"), "data-key": "progress-count",
           text: built + " of " + required.length + " needed" })]),
       satelliteArt(d, chg)

@@ -49,7 +49,7 @@
 }
 
 /* "SHOW LATER PARTS": the rest of a bin */
-.later { display: block; width: 100%; margin-top: 8px; min-height: 40px; padding: 4px 12px; background: var(--bg); color: var(--accent-ink); border: 2px solid var(--accent-ink); font: inherit; font-size: 20px; cursor: pointer; }
+.later { display: block; width: 100%; margin-top: 8px; min-height: 44px; padding: 4px 12px; background: var(--bg); color: var(--accent-ink); border: 2px solid var(--accent-ink); font: inherit; font-size: 20px; cursor: pointer; }
 .later:hover { background: var(--surface-2); }
 
 @media (max-width: 480px) {
