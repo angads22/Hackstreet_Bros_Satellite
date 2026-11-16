@@ -2727,3 +2727,15 @@ function newDuelDesign(seed) {
   d.duel = { seed: s.seed };
   return d;
 }
+
+// QUICK MODE (SPEC.md, "Quick mode"): a solo flight from a preset job. It reuses the duel's setup and design (a standalone
+// flight that never touches the stars record, Part 1 or the comeback). The QUICK SCORE is the science the flight returned
+// against what it cost, a plain ratio: round(QUICK_SCORE_K * science / cost_musd), with QUICK_SCORE_K = 100 (science points
+// per million dollars, times 100) and the cost never counted as less than 1 M$. result: { science, cost_musd } (the debrief's
+// science and the flight's total cost, launch included). No science, or a figure that is not a number, scores 0. Pure.
+var QUICK_SCORE_K = 100;
+function getQuickScore(result) {
+  var sci = result ? Number(result.science) : NaN, cost = result ? Number(result.cost_musd) : NaN;
+  if (!isFinite(sci) || !isFinite(cost) || sci <= 0) return 0;
+  return Math.round(QUICK_SCORE_K * sci / Math.max(1, cost));
+}
