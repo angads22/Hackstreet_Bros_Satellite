@@ -360,6 +360,7 @@ button:disabled { cursor: not-allowed; }
 .preview { height: clamp(190px, 36vh, 320px); overflow-y: auto; gap: 4px; }
 .part-picker { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .part-picker > .preview { position: sticky; top: var(--sticky-top, 0px); z-index: 3; }
+.stack > .preview { flex: none; height: clamp(170px, 27vh, 270px); }   /* wide Build: the preview sits at the top of the pinned side column, above the bars */
 .bench-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .workshop > .bins, .workshop > .stack { position: sticky; top: var(--sticky-top, 8px); align-self: start; max-height: calc(100vh - var(--sticky-top, 8px) - 8px); overflow-y: auto; }
 @media (min-width: 930px) { .workshop { --sticky-top: calc(var(--header-h) + 4px); } }   /* just under the sticky header */
@@ -1518,3 +1519,7 @@ summary { min-width: 24px; padding: 0 4px; }
 .foot .snd[aria-pressed="false"] { opacity: 0.7; }
 /* Phones: the sound switches and the version do not both fit beside RESET EVERYTHING on the home page: only the switches show there. */
 @media (max-width: 760px) { .is-home .foot { font-size: 0; } .is-home .foot .snd { margin-right: 0; margin-left: 10px; } }
+/* Wide Build: the preview is in the narrow side column, so its explainer stacks (picture, then words) and its height grows with the screen. */
+.stack > .preview .explainer.ex-compact { flex-direction: row; gap: 10px; }
+.stack > .preview .explainer.ex-compact .ex-svg { flex: 0 0 100px; width: 100px; border-width: 2px; }
+.stack > .preview { height: clamp(220px, 34vh, 340px); }
