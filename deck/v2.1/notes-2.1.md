@@ -1,6 +1,6 @@
 # GRAVITRON deck 2.1: speaker notes
 
-Built from the release/v2.1 branch (abc4acb). Speaking order: data and rules (Yareem), UI and UX (Angad), story (Ryan and Austin), game experience (Ajay), then proof and the close.
+Built from the release/v2.1 branch (abc4acb). Speaking order: data and rules (Yareem), UI and UX (Angad), story (Ryan and Austin), game experience (Ajay), then proof, SI use and the close.
 
 
 ## Slide 1
@@ -12,14 +12,12 @@ Sources: SPEC.md (what we are building; how we are judged); CHANGELOG.md, Unrele
 
 
 ## Slide 2
-DATA AND RULES (about 35 seconds, Yareem). Real data decides what happens. NASA FIRMS gives 3,693,555 fire detections for 2025; the NSIDC Sea Ice Index gives 4.75 million square kilometres of Arctic ice in September 2025; SILSO sunspot numbers drive solar storms; and the Canadian Space Agency's Alouette soundings, 699,369 of them, drive the ionosphere topic.
+DATA AND REALISM (about 40 seconds, Yareem). Real data decides what happens. NASA FIRMS gives 3,693,555 fire detections for 2025; the NSIDC Sea Ice Index gives 4.75 million square kilometres of Arctic ice in September 2025; SILSO sunspot numbers drive solar storms; and the Canadian Space Agency's Alouette soundings, 699,369 of them, drive the ionosphere topic. Orbit choice has a real cost: a low orbit sees 92 percent of the fire detections, a polar orbit all of them, one geostationary slot 69 percent. Each debrief sets your flight against the real record: in 2025 the Sun averaged 123 sunspots a month, and yearly averages from 1957 to 2025 ran from 4 to 269.
 
-Orbit choice has a real cost: a low orbit sees 92 percent of the fire detections, a polar orbit all of them, and one geostationary slot 69 percent. The small picture is a real debrief line: in 2025 the Sun averaged 123 sunspots a month, and yearly averages from 1957 to 2025 ran from 4 to 269.
+How is it realistic? The rules are eight real formulas with hand-worked tests: the rocket equation, orbital period, solar power, eclipse, battery size, image resolution, data budget and margins. The parts, rockets and missions follow real ones: Explorer 1, Vanguard, TIROS and Nimbus bodies, and 14 real missions to compare your design with. The animation is a real flight: a Part 1 satellite with batteries only, as Explorer 1 flew it, runs its battery down and goes silent, and the debrief says so, like Sputnik 1 after 21 days. The game does not forgive physics.
 
-The rules are hard limits on mass, power, budget and data, eight real formulas with hand-worked tests, 27 random events and 14 real missions to compare with. It plays offline from a snapshot; the live NOAA, NASA EONET and CWFIS feeds only add a "right now" line when online.
-
-Be honest: only FIRMS, NSIDC, SILSO and Alouette are marked downloaded and processed in SOURCES.md. Event odds, payouts and fees are game values, not facts.
-Sources: data/earth.js (detections 3693555, soundings 699369, orbit_view 0.921 / 1.0 / 0.687); SOURCES.md; CHANGELOG.md (2.0: 27 events after the five added); the debrief picture is a real 2.1 screen (clips p2-debrief details).
+Be honest: only FIRMS, NSIDC, SILSO and Alouette are marked downloaded and processed in SOURCES.md; many part figures still say NEEDS HUMAN CHECK, and numbers without a source are labelled ESTIMATE or GAME VALUE. Event odds, payouts and fees are game values, not facts. It plays offline; the live feeds only add a "right now" line when online.
+Sources: data/earth.js (detections 3693555, soundings 699369, orbit_view 0.921 / 1.0 / 0.687); SOURCES.md; CHANGELOG.md (0.5 "Rules": the eight formulas; 2.0: 27 events); SPEC.md (bodies ladder modelled on real spacecraft); data/missions.js (14); the failing flight is clip p1-fail-gif (Part 1, step 1, batteries only; no forced dice).
 
 
 ## Slide 3
@@ -58,10 +56,13 @@ Sources: CHANGELOG.md (2.0 "a rocket can fail at launch", events; Unreleased "De
 
 
 ## Slide 7
-PROOF, WHAT COMES NEXT, TEAM (about 35 seconds, everyone). Proof: eight real formulas with hand-worked tests, and 984 automated checks pass across 17 suites on the 2.1 build (for example comeback 151, migration 177, online 126, api 143, campaign 61, credit 56). It is plain HTML, CSS and JavaScript with no build step, it plays offline, and players keep their saves between versions (tested against saves from earlier versions).
+PROOF, SI USE, WHAT COMES NEXT, TEAM (about 45 seconds, everyone). Proof: eight real formulas with hand-worked tests, and 984 automated checks pass across 17 suites on the 2.1 build (for example comeback 151, migration 177, online 126, api 143, campaign 61, credit 56). It is plain HTML, CSS and JavaScript with no build step, it plays offline, and players keep their saves between versions.
 
-Not finished, said plainly: the leaderboard and the 1v1 duel are built and tested, but the server is not hosted, so those buttons say ONLINE OFF. Next steps from the engineers' plan: pay to expedite slow parts, count back from the launch slot, test blocks and schedule margin. The balance simulation was not re-measured with loans, launch failures and fees together.
+Use of super intelligence, which the submission form asks about. We worked with an SI assistant throughout. It wrote much of the game code, the tests and the documents, working from the team's design mock-up, directions and story. The team decided what the game is: the design, the story, the rules and what counts as realistic. Every number in the data files carries a source or is labelled ESTIMATE or GAME VALUE, and we say plainly that most sources still need a human check. The tests run on every build. The full record of where an SI worked, and the tools used, is SI_USE.md, and it is listed in SOURCES.md.
 
-Team: Yareem, data and rules; Angad, UI and UX; Ryan and Austin, story; Ajay, game experience. Every source is in SOURCES.md. The QR code is from the team's earlier deck: open it before presenting to confirm it still lands on the game.
+Not finished, said plainly: the leaderboard and the 1v1 duel are built and tested, but the server is not hosted, so those buttons say ONLINE OFF. Next steps from the engineers' plan: pay to expedite slow parts, count back from the launch slot, test blocks and schedule margin. The balance simulation was not re-measured with loans, launch failures and fees together. Quick mode, in the picture, is a one-flight game that works offline.
+
+Team: Yareem, data and rules; Angad, UI and UX; Ryan and Austin, story; Ajay, game experience. The QR code is from the team's earlier deck: open it before presenting to confirm it lands on the game.
 Under-18 rule: if any team member is under 18, show roles only, not names (slides 1 and 7).
-Sources: tests run on release/v2.1 (abc4acb) with node tests/<name>.js: formulas, api, campaign, comeback, credit, debrief, info, migration, online, saves, speed, uib, verdict, version, world, clarity, perf. NOT run: simulate, play, balance, redteam. CHANGELOG.md ("Not in this version yet"); ONLINE.md; docs/real-world-plan.md.
+Note for the team: this deck does not name the SI tool or models, by the team's house rule. The form field "Use of Super Intelligence (SI)" and SI_USE.md must name them.
+Sources: SPEC.md ("Submission checklist": the SI field; "Two game modes"); SI_USE.md; SOURCES.md ("Tools and other resources"); tests run on release/v2.1 (abc4acb) with node tests/<name>.js: formulas, api, campaign, comeback, credit, debrief, info, migration, online, saves, speed, uib, verdict, version, world, clarity, perf. NOT run: simulate, play, balance, redteam. CHANGELOG.md ("Not in this version yet"); ONLINE.md.

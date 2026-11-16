@@ -45,10 +45,10 @@ Speaking order: data and rules (Yareem), then UI and UX (Angad), the story (Ryan
 Sources: SPEC.md (what we are building; how we are judged); CHANGELOG.md, Unreleased and 2.0. The recording was made from the release/v2.1 branch (abc4acb); its footer still reads v2.0 until the team cuts the version. The page header says SNAPSHOT because the recording ran offline.`);
 }
 
-// ============ 2. REAL DATA ============
+// ============ 2. REAL DATA AND REAL ENGINEERING ============
 {
   const s = slide();
-  K.title(s, 'Real data runs the game');
+  K.title(s, 'Real data, real engineering');
   K.kicker(s, 'BACKEND  ·  DATA, RULES AND SIMULATION  ·  YAREEM');
   const cards = [
     ['NASA FIRMS', '3,693,555', 'fire detections in 2025'],
@@ -57,34 +57,36 @@ Sources: SPEC.md (what we are building; how we are judged); CHANGELOG.md, Unrele
     ['CSA ALOUETTE (CANADA)', '699,369', 'ionosphere soundings'],
   ];
   cards.forEach((c, i) => {
-    const x = MX + i * 3.12, y = 1.55;
-    K.panel(s, x, y, 2.95, 1.5, 'Card ' + c[0]);
-    K.label(s, c[0], x + 0.15, y + 0.12, 2.7, C.teal, 10);
-    K.text(s, [{ text: c[1], options: { bold: true, color: C.text } }], x + 0.15, y + 0.45, 2.7, 0.55, 26);
-    K.text(s, [G(c[2])], x + 0.15, y + 1.02, 2.7, 0.4, 12);
+    const x = MX + i * 3.12, y = 1.5;
+    K.panel(s, x, y, 2.95, 1.3, 'Card ' + c[0]);
+    K.label(s, c[0], x + 0.15, y + 0.1, 2.7, C.teal, 10);
+    K.text(s, [{ text: c[1], options: { bold: true, color: C.text } }], x + 0.15, y + 0.4, 2.7, 0.5, 24);
+    K.text(s, [G(c[2])], x + 0.15, y + 0.9, 2.7, 0.35, 12);
   });
-  K.label(s, 'SHARE OF 2025 FIRE DETECTIONS EACH ORBIT CAN SEE', MX, 3.3, 6.4, C.orange, 11);
+  K.label(s, 'FIRE DETECTIONS EACH ORBIT CAN SEE', MX, 2.98, 4.3, C.orange, 10);
   s.addChart(pres.charts.BAR, [{ name: 'Share seen', labels: ['Low Earth orbit', 'Polar orbit', 'Geostationary'], values: [92, 100, 69] }], {
-    x: MX, y: 3.55, w: 6.2, h: 2.5, barDir: 'bar', chartColors: [C.orange], catAxisOrientation: 'maxMin',
-    catAxisLabelColor: C.text, catAxisLabelFontFace: F.body, catAxisLabelFontSize: 14, valAxisHidden: true, valAxisMinVal: 0, valAxisMaxVal: 110,
+    x: MX, y: 3.25, w: 4.3, h: 2.2, barDir: 'bar', chartColors: [C.orange], catAxisOrientation: 'maxMin',
+    catAxisLabelColor: C.text, catAxisLabelFontFace: F.body, catAxisLabelFontSize: 12, valAxisHidden: true, valAxisMinVal: 0, valAxisMaxVal: 120,
     valGridLine: { style: 'none' }, catGridLine: { style: 'none' }, catAxisLineShow: false, showLegend: false, showValue: true,
-    dataLabelColor: C.text, dataLabelFontFace: F.body, dataLabelFontSize: 14, dataLabelFormatCode: '0"%"', dataLabelPosition: 'outEnd', barGapWidthPct: 45,
+    dataLabelColor: C.text, dataLabelFontFace: F.body, dataLabelFontSize: 12, dataLabelFormatCode: '0"%"', dataLabelPosition: 'outEnd', barGapWidthPct: 45,
   });
-  K.label(s, 'IN THE DEBRIEF: THE REAL RECORD', 7.15, 3.3, 5.6, C.orange, 11);
-  K.pic(s, 'crop-real-earth', 7.15, 3.65, 5.6, 1.5, 'The debrief compares the flight with the real sunspot record', 'left');
-  K.caption(s, 'Every debrief sets your flight against the real record.', 7.15, 5.22, 5.6);
-  K.panel(s, MX, 6.2, W - 2 * MX, 0.5, 'Rules strip');
-  K.text(s, [O('THE RULES  '), T('Hard limits on mass, power, budget and data  ·  8 real formulas  ·  27 events  ·  14 real missions'), ], MX + 0.15, 6.3, W - 2 * MX - 0.3, 0.3, 13, { valign: 'middle' });
-  K.caption(s, 'Plays offline from a data snapshot. Live NOAA, NASA EONET and CWFIS feeds add a "right now" line only when online.', MX, 6.82, 10.8);
+  K.label(s, 'WHEN IT GOES WRONG', 5.05, 2.98, 3.5, C.orange, 10);
+  const f = K.pic(s, 'p1-fail-gif', 5.05, 3.28, 3.5, 2.17, 'A battery-only satellite goes silent and the debrief says why', 'left');
+  K.label(s, 'IN THE DEBRIEF: THE REAL RECORD', 8.75, 2.98, 4.05, C.orange, 10);
+  K.pic(s, 'crop-real-earth', 8.75, 3.28, 4.05, 1.15, 'The debrief compares the flight with the real sunspot record', 'left');
+  K.text(s, [G('Every debrief sets your flight against the real record.')], 8.75, 4.62, 4.05, 0.7, 12);
+  K.panel(s, MX, 5.6, W - 2 * MX, 1.2, 'Realism panel');
+  K.label(s, 'WHY IT FEELS REAL', MX + 0.2, 5.68, 3, C.orange, 10);
+  K.text(s, [T('8 real formulas: rocket equation, orbital period, solar power, eclipse, battery size, image resolution, data budget and margins.')], MX + 0.2, 5.98, 5.6, 0.8, 13);
+  K.text(s, [T('Parts, rockets and missions follow real ones (Explorer 1, Vanguard, TIROS). A battery-only satellite goes silent, as Sputnik 1 did after 21 days.')], MX + 6.2, 5.98, 5.8, 0.8, 13);
+  K.caption(s, 'Plays offline from a data snapshot. Live NOAA, NASA EONET and CWFIS feeds add a "right now" line only when online. 27 events, 14 real missions to compare with.', MX, 6.88, 11.4);
   K.page(s, 2);
-  s.addNotes(`DATA AND RULES (about 35 seconds, Yareem). Real data decides what happens. NASA FIRMS gives 3,693,555 fire detections for 2025; the NSIDC Sea Ice Index gives 4.75 million square kilometres of Arctic ice in September 2025; SILSO sunspot numbers drive solar storms; and the Canadian Space Agency's Alouette soundings, 699,369 of them, drive the ionosphere topic.
+  s.addNotes(`DATA AND REALISM (about 40 seconds, Yareem). Real data decides what happens. NASA FIRMS gives 3,693,555 fire detections for 2025; the NSIDC Sea Ice Index gives 4.75 million square kilometres of Arctic ice in September 2025; SILSO sunspot numbers drive solar storms; and the Canadian Space Agency's Alouette soundings, 699,369 of them, drive the ionosphere topic. Orbit choice has a real cost: a low orbit sees 92 percent of the fire detections, a polar orbit all of them, one geostationary slot 69 percent. Each debrief sets your flight against the real record: in 2025 the Sun averaged 123 sunspots a month, and yearly averages from 1957 to 2025 ran from 4 to 269.
 
-Orbit choice has a real cost: a low orbit sees 92 percent of the fire detections, a polar orbit all of them, and one geostationary slot 69 percent. The small picture is a real debrief line: in 2025 the Sun averaged 123 sunspots a month, and yearly averages from 1957 to 2025 ran from 4 to 269.
+How is it realistic? The rules are eight real formulas with hand-worked tests: the rocket equation, orbital period, solar power, eclipse, battery size, image resolution, data budget and margins. The parts, rockets and missions follow real ones: Explorer 1, Vanguard, TIROS and Nimbus bodies, and 14 real missions to compare your design with. The animation is a real flight: a Part 1 satellite with batteries only, as Explorer 1 flew it, runs its battery down and goes silent, and the debrief says so, like Sputnik 1 after 21 days. The game does not forgive physics.
 
-The rules are hard limits on mass, power, budget and data, eight real formulas with hand-worked tests, 27 random events and 14 real missions to compare with. It plays offline from a snapshot; the live NOAA, NASA EONET and CWFIS feeds only add a "right now" line when online.
-
-Be honest: only FIRMS, NSIDC, SILSO and Alouette are marked downloaded and processed in SOURCES.md. Event odds, payouts and fees are game values, not facts.
-Sources: data/earth.js (detections 3693555, soundings 699369, orbit_view 0.921 / 1.0 / 0.687); SOURCES.md; CHANGELOG.md (2.0: 27 events after the five added); the debrief picture is a real 2.1 screen (clips p2-debrief details).`);
+Be honest: only FIRMS, NSIDC, SILSO and Alouette are marked downloaded and processed in SOURCES.md; many part figures still say NEEDS HUMAN CHECK, and numbers without a source are labelled ESTIMATE or GAME VALUE. Event odds, payouts and fees are game values, not facts. It plays offline; the live feeds only add a "right now" line when online.
+Sources: data/earth.js (detections 3693555, soundings 699369, orbit_view 0.921 / 1.0 / 0.687); SOURCES.md; CHANGELOG.md (0.5 "Rules": the eight formulas; 2.0: 27 events); SPEC.md (bodies ladder modelled on real spacecraft); data/missions.js (14); the failing flight is clip p1-fail-gif (Part 1, step 1, batteries only; no forced dice).`);
 }
 
 // ============ 3. ENGINEERS ============
@@ -121,9 +123,8 @@ Sources: docs/real-world-plan.md; data/parts.js (lead_months); CHANGELOG.md (2.0
   block(s, 'FEWER WORDS', 'Short cards and one hint at a time. A WHY box says when a part does not help the job.', X, 2.6, Wd, 1.3, 15);
   block(s, 'WHAT IT DOES', 'Click a part: a looping drawing shows what it does, and its catch.', X, 3.95, Wd, 1.05, 15);
   K.label(s, 'ON A PHONE, TOO', X, 5.05, Wd, C.orange, 11);
-  K.pic(s, 'phone-home', X, 5.35, 1.0, 1.75, 'Home page on a phone', 'left');
-  K.pic(s, 'phone-build', X + 1.15, 5.35, 1.0, 1.75, 'Build screen on a phone', 'left');
-  K.text(s, [G('390 px wide, with touch and keyboard.')], X + 2.45, 5.4, 2.2, 0.8, 13);
+  K.pic(s, 'phone-gif', X, 5.3, 1.0, 1.95, 'Build screen on a phone: tap a part twice to add it', 'left');
+  K.text(s, [G('Tap a part twice to add it. 390 px wide, with touch and keyboard.')], X + 1.3, 5.45, 3.2, 0.9, 13);
   K.page(s, 4);
   s.addNotes(`UI AND UX (about 35 seconds, Angad). The way through the game is one loop of seven stops: Mission Control, Tracking Station, Workshop, Rocket Yard, Launch Pad, Mission and Debrief. Our teammates told us three things about the screens: too many words, show the part being added to the satellite, and say what a part does. So now a tile flies from the card to the 3D satellite, the satellite thumps, the bars that changed flash with a chip such as plus 1 kg, and the NO GO count beside the next button falls as problems are fixed. Cards are short; a WHY box appears only when a part does not help the job; and clicking a part shows a looping drawing of what it does and its catch. The structure card now says what it CARRIES and what it WEIGHS, which fixes the "20 kg but you get 100 kg" confusion.
 
@@ -162,7 +163,7 @@ Sources: SPEC.md ("Two game modes"); CHANGELOG.md (1.0 "A dramatic story", "A ch
   K.kicker(s, 'GAME EXPERIENCE  ·  AJAY  ·  LAUNCH, MISSION, DEBRIEF');
   const row = [['p1-launch', 4.45, 'LAUNCH', 'Part 1: the whole lift-off, ending IN ORBIT.', 'The lift-off from the pad to orbit'],
                ['p2-mission', 3.75, 'MISSION', 'Part 2: months tick by, then an event stops the clock.', 'Part 2 mission with an event and its choices'],
-               ['p2-debrief', 3.75, 'DEBRIEF', 'Part 2: the verdict and the money come first.', 'Part 2 debrief: PAID with the profit']];
+               ['p2-debrief-gif', 3.75, 'DEBRIEF', 'Part 2: the verdict and the money come first.', 'Part 2 debrief: PAID with the profit']];
   let x = MX;
   row.forEach(r => {
     const m = K.pic(s, r[0], x, 1.5, r[1], 2.75, r[4], 'left');
@@ -183,30 +184,35 @@ Be honest: failure chances, event costs, payouts and fees are game values. The p
 Sources: CHANGELOG.md (2.0 "a rocket can fail at launch", events; Unreleased "Debrief leads with the verdict and the money"); data/launchers.js; SPEC.md ("Launch failures, complications and the story journal"); js/ui-mission.js. The NOT YET debrief is clips p1-fail.`);
 }
 
-// ============ 7. PROOF, TEAM, NEXT ============
+// ============ 7. PROOF, SI USE, NEXT, TEAM ============
 {
   const s = slide();
-  K.title(s, 'Built, checked, and what comes next');
-  K.kicker(s, 'PROOF  ·  TEAM  ·  NEXT');
-  const X = MX, Wd = 7.6;
-  block(s, 'PROOF', 'Eight real formulas with hand-worked tests. 984 automated checks pass across 17 suites.', X, 1.5, Wd, 1.0, 16, C.teal);
-  block(s, 'BUILT TO RUN ANYWHERE', 'Plain HTML, CSS and JavaScript, no build step. It plays offline. Saves carry over between versions.', X, 2.6, Wd, 1.1, 16, C.teal);
-  block(s, 'NOT FINISHED', 'The leaderboard and 1v1 duel are built, but our server is not hosted. Next: pay to expedite slow parts and count back from launch.', X, 3.85, Wd, 1.4, 16);
-  K.label(s, 'TEAM HACKSTREET BROS', X, 5.35, Wd, C.teal, 11);
-  K.text(s, [{ text: 'Yareem, data and rules  ·  Angad, UI and UX', options: { breakLine: true } }, { text: 'Ryan and Austin, story  ·  Ajay, game experience', options: {} }], X, 5.65, Wd, 0.9, 16);
-  K.caption(s, 'References: every source is listed in SOURCES.md.', X, 6.62, Wd);
-  s.addShape(pres.shapes.RECTANGLE, { x: 9.0, y: 1.5, w: 2.4, h: 2.4, fill: { color: 'FFFFFF' }, line: { color: C.edge, width: 0.75 }, objectName: 'QR frame' });
-  s.addImage({ path: path.join(D, 'assets', 'qr.png'), x: 9.1, y: 1.6, w: 2.2, h: 2.2, altText: 'QR code that opens the game', objectName: 'QR code' });
-  K.text(s, [{ text: 'Scan to play', options: { bold: true, color: C.text } }], 9.0, 4.0, 2.4, 0.35, 16, { align: 'center' });
-  s.addText('Design. Launch. Learn.', { x: 8.3, y: 5.0, w: 4.5, h: 0.8, fontFace: F.head, fontSize: 30, bold: true, color: C.orange, margin: 0, align: 'center', valign: 'middle', isTextBox: true, objectName: 'Closing line' });
+  K.title(s, 'Built, checked, and how we used SI');
+  K.kicker(s, 'PROOF  ·  USE OF SUPER INTELLIGENCE  ·  NEXT  ·  TEAM');
+  const X = MX, Wd = 7.4;
+  block(s, 'PROOF', 'Eight real formulas with hand-worked tests. 984 automated checks pass across 17 suites. Plain HTML, CSS and JavaScript, and it plays offline.', X, 1.45, Wd, 1.15, 14, C.teal);
+  block(s, 'HOW WE USED SI', 'SI wrote much of the code, tests and docs, from the team\'s design and story. The team set the rules, and every number is labelled sourced, estimate or game value. Most sources still need a human check.', X, 2.65, Wd, 1.55, 14, C.teal);
+  block(s, 'NOT FINISHED', 'The leaderboard and 1v1 duel are built, but our server is not hosted. Next: pay to expedite slow parts and count back from launch.', X, 4.25, Wd, 1.15, 14);
+  K.label(s, 'TEAM HACKSTREET BROS', X, 5.5, Wd, C.teal, 11);
+  K.text(s, [{ text: 'Yareem, data and rules  ·  Angad, UI and UX', options: { breakLine: true } }, { text: 'Ryan and Austin, story  ·  Ajay, game experience', options: {} }], X, 5.8, Wd, 0.8, 15);
+  K.caption(s, 'References and the full SI record: SOURCES.md and SI_USE.md.', X, 6.7, Wd);
+  s.addShape(pres.shapes.RECTANGLE, { x: 8.4, y: 1.45, w: 1.9, h: 1.9, fill: { color: 'FFFFFF' }, line: { color: C.edge, width: 0.75 }, objectName: 'QR frame' });
+  s.addImage({ path: path.join(D, 'assets', 'qr.png'), x: 8.48, y: 1.53, w: 1.74, h: 1.74, altText: 'QR code that opens the game', objectName: 'QR code' });
+  K.text(s, [{ text: 'Scan to play', options: { bold: true, color: C.text } }], 8.4, 3.4, 1.9, 0.3, 14, { align: 'center' });
+  s.addText('Design.\nLaunch.\nLearn.', { x: 10.6, y: 1.45, w: 2.2, h: 1.9, fontFace: F.head, fontSize: 24, bold: true, color: C.orange, margin: 0, valign: 'middle', isTextBox: true, objectName: 'Closing line' });
+  const q = K.pic(s, 'quick-gif', 8.4, 3.9, 4.4, 2.75, 'Quick mode: a menu, then one flight from a seeded job', 'left');
+  K.caption(s, 'Quick mode: one flight, a new job each time, works offline.', 8.4, q.y + q.h + 0.08, 4.4);
   K.page(s, 7);
-  s.addNotes(`PROOF, WHAT COMES NEXT, TEAM (about 35 seconds, everyone). Proof: eight real formulas with hand-worked tests, and 984 automated checks pass across 17 suites on the 2.1 build (for example comeback 151, migration 177, online 126, api 143, campaign 61, credit 56). It is plain HTML, CSS and JavaScript with no build step, it plays offline, and players keep their saves between versions (tested against saves from earlier versions).
+  s.addNotes(`PROOF, SI USE, WHAT COMES NEXT, TEAM (about 45 seconds, everyone). Proof: eight real formulas with hand-worked tests, and 984 automated checks pass across 17 suites on the 2.1 build (for example comeback 151, migration 177, online 126, api 143, campaign 61, credit 56). It is plain HTML, CSS and JavaScript with no build step, it plays offline, and players keep their saves between versions.
 
-Not finished, said plainly: the leaderboard and the 1v1 duel are built and tested, but the server is not hosted, so those buttons say ONLINE OFF. Next steps from the engineers' plan: pay to expedite slow parts, count back from the launch slot, test blocks and schedule margin. The balance simulation was not re-measured with loans, launch failures and fees together.
+Use of super intelligence, which the submission form asks about. We worked with an SI assistant throughout. It wrote much of the game code, the tests and the documents, working from the team's design mock-up, directions and story. The team decided what the game is: the design, the story, the rules and what counts as realistic. Every number in the data files carries a source or is labelled ESTIMATE or GAME VALUE, and we say plainly that most sources still need a human check. The tests run on every build. The full record of where an SI worked, and the tools used, is SI_USE.md, and it is listed in SOURCES.md.
 
-Team: Yareem, data and rules; Angad, UI and UX; Ryan and Austin, story; Ajay, game experience. Every source is in SOURCES.md. The QR code is from the team's earlier deck: open it before presenting to confirm it still lands on the game.
+Not finished, said plainly: the leaderboard and the 1v1 duel are built and tested, but the server is not hosted, so those buttons say ONLINE OFF. Next steps from the engineers' plan: pay to expedite slow parts, count back from the launch slot, test blocks and schedule margin. The balance simulation was not re-measured with loans, launch failures and fees together. Quick mode, in the picture, is a one-flight game that works offline.
+
+Team: Yareem, data and rules; Angad, UI and UX; Ryan and Austin, story; Ajay, game experience. The QR code is from the team's earlier deck: open it before presenting to confirm it lands on the game.
 Under-18 rule: if any team member is under 18, show roles only, not names (slides 1 and 7).
-Sources: tests run on release/v2.1 (abc4acb) with node tests/<name>.js: formulas, api, campaign, comeback, credit, debrief, info, migration, online, saves, speed, uib, verdict, version, world, clarity, perf. NOT run: simulate, play, balance, redteam. CHANGELOG.md ("Not in this version yet"); ONLINE.md; docs/real-world-plan.md.`);
+Note for the team: this deck does not name the SI tool or models, by the team's house rule. The form field "Use of Super Intelligence (SI)" and SI_USE.md must name them.
+Sources: SPEC.md ("Submission checklist": the SI field; "Two game modes"); SI_USE.md; SOURCES.md ("Tools and other resources"); tests run on release/v2.1 (abc4acb) with node tests/<name>.js: formulas, api, campaign, comeback, credit, debrief, info, migration, online, saves, speed, uib, verdict, version, world, clarity, perf. NOT run: simulate, play, balance, redteam. CHANGELOG.md ("Not in this version yet"); ONLINE.md.`);
 }
 
 (async () => {

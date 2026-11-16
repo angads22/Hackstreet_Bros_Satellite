@@ -17,6 +17,7 @@ function make(pres, manifest, mediaDir, variant) {
     let file = m.poster;
     if (m.kind === 'gif' && variant === 'full') file = m.gif;
     if (m.kind === 'gif' && variant === 'lite') file = m.lite || m.gif;
+    if (m.kind === 'gif' && variant === 'mini') file = m.mini || m.lite || m.gif;
     const dim = (m.kind === 'gif' && variant !== 'static') ? (m.gif_size || m.poster_size) : m.poster_size;
     used.push({ id, file });
     return { file: path.join(mediaDir, file), w: dim[0], h: dim[1], kind: m.kind };
