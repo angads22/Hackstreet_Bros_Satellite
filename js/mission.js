@@ -2298,6 +2298,47 @@ function getComeback() {
   };
 }
 
+// ---- UI review items (2.1): computed values only, no stored field, no save change.
+var DEADLINE_NEAR_SHARE = 0.25;      // GAME VALUE: the deadline is "near" with this share of the months, or less, left
+
+// The workshop's contract order (ui-review.md, "Workshop contract cards"). Easy ("on"): sorted by net, the contract's
+// price minus the cheapest cost to fly it (cheapestLaunchCost), and `best_id` names the first when it earns something.
+// Normal ("request"): the same order, no best_id. Hard ("off"): the offers as they came, no best_id, so the player
+// still decides. A contract nothing can launch for goes last. null unless a comeback is running.
+function getContractOrder() {
+  var c = getCampaign();
+  if (!isComeback(c) || c.finished) return null;
+  var t = getTier(c.tier), hints = t ? t.hints : "on";
+  var rows = contractsList(c).map(function (k, i) {
+    var cost = cheapestLaunchCost(c, k.topic, k.orbit);
+    return { id: k.id, i: i, net: isFinite(cost) ? round(k.price_musd - cost, 3) : null };
+  });
+  if (hints === "off") return { ids: rows.map(function (r) { return r.id; }), best_id: null };
+  rows.sort(function (a, b) {
+    var an = a.net === null ? -Infinity : a.net, bn = b.net === null ? -Infinity : b.net;
+    return bn - an || a.i - b.i;
+  });
+  var first = rows[0];
+  return { ids: rows.map(function (r) { return r.id; }),
+           best_id: hints === "on" && rows.length > 1 && first.net !== null && first.net > 0 ? first.id : null };
+}
+
+// The ledger strip's facts for any Part 2 screen: the cash, the debt, the months left, the interest the next month
+// adds to the debt at today's rate (real state: it moves with each payment, loan and flight), and whether the
+// deadline is near. null unless a comeback is running.
+function getLedger() {
+  var c = getCampaign();
+  if (!isComeback(c)) return null;
+  var left = Math.max(0, c.deadline_month - c.month);
+  return {
+    cash_musd: c.treasury_musd,
+    debt_musd: c.debt_musd,
+    months_left: left,
+    interest_month_musd: c.debt_musd > 0 ? round(accrueInterest(c.debt_musd, 1, monthlyRate(c)) - c.debt_musd, 3) : 0,
+    deadline_near: !c.finished && left <= c.deadline_month * DEADLINE_NEAR_SHARE
+  };
+}
+
 // Iron Eclipse's offer: once CAMPAIGN.comeback.buyout_after_flights flights are settled and the debt stands, it
 // offers to clear the whole debt for the workshop, the patents and Austin's notebook. Made once; it blocks the next
 // design (newComebackDesign returns null) until the player answers.
