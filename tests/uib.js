@@ -61,5 +61,24 @@ check("ledger: a payment lowers the debt and the interest tick", paid.ok && L2.d
 c = G.getCampaign(); c.debt_musd = 0; G.saveCampaign(c);
 check("ledger: no debt, no interest", G.getLedger().interest_month_musd === 0);
 
+// The pace line: the contract's minimum, and the expected finish on Easy and Normal only.
+var RAD = ["scintillation-counter", "solar-small", "mercury-battery", "radio-uhf", "command-timer", "spin-stabilised", "cubesat-12u"];
+check("pace line: null without a design", G.getPaceLine(null) === null);
+["training", "standard", "expert"].forEach(function (tier) {
+  G.newComeback(tier, 7);
+  var c = G.getCampaign();
+  var k = { id: "t-rad", topic: "radiation", orbit: null, client: "A test client", reason: "It tests things.", min_science: 60, price_musd: 10, bonus_musd: 2.5,
+            expires_month: c.month + 12, done: false, text: "A test contract." };
+  c.offers = (c.offers || []).concat([k]); G.saveCampaign(c);
+  var d = G.newComebackDesign("t-rad");
+  G.setOrbit(d, "leo"); G.setLauncher(d, "falcon-1" in {} ? "falcon-1" : G.LAUNCHERS[0].id);
+  RAD.forEach(function (p) { G.addPart(d, p); });
+  var pl = G.getPaceLine(d), target = G.getObjective("radiation").science_target;
+  check(tier + ": the minimum tick is the contract's minimum over the bar's target", pl && near(pl.min_share, Math.min(1, 60 / target), 0.001), JSON.stringify(pl));
+  var sci = G.previewScience(d);
+  if (G.getTier(tier).hints === "off") check(tier + " (Hard): the minimum only, no expected finish", pl.expected_share === null);
+  else check(tier + ": the expected finish is the forecast over the target", pl.expected_share === Math.max(0, Math.min(1, G.round(sci.total / target, 3))) && pl.expected_share > 0, String(pl.expected_share));
+});
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

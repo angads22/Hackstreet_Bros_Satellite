@@ -2323,6 +2323,20 @@ function getContractOrder() {
            best_id: hints === "on" && rows.length > 1 && first.net !== null && first.net > 0 ? first.id : null };
 }
 
+// The mission screen's pace line (ui-review.md, "Mission screen"): where the contract's minimum sits on the science bar,
+// and, on Easy and Normal only, where this design is expected to finish (the Build forecast, previewScience). Both are
+// shares of the bar's target, 0 to 1. Hard gets the minimum only: a forecast would be a hidden aid. null for a flight with
+// no open contract.
+function getPaceLine(design) {
+  var c = getCampaign();
+  if (!design || !design.comeback || !isComeback(c)) return null;
+  var k = openContract(c, design.contract), obj = getObjective(design.objective), t = getTier(c.tier);
+  if (!k || !obj || !(obj.science_target > 0)) return null;
+  var share = function (v) { return Math.max(0, Math.min(1, round(v / obj.science_target, 3))); };
+  var forecast = t && t.hints === "off" || !design.orbit ? null : share(previewScience(design).total);
+  return { min_share: share(k.min_science), expected_share: forecast };
+}
+
 // The ledger strip's facts for any Part 2 screen: the cash, the debt, the months left, the interest the next month
 // adds to the debt at today's rate (real state: it moves with each payment, loan and flight), and whether the
 // deadline is near. null unless a comeback is running.
