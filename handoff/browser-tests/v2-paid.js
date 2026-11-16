@@ -47,7 +47,7 @@ async function normal(viewport, label) {
   await page.goto(url); await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} }); await page.reload();
   const topic = await toBuild(page, 'standard');
   const INSTR = instrumentOf(topic), c = T.CONTRACT[topic];
-  await page.click('[data-key="bin-instrument"]');
+  await page.click('[data-key="bin-instrument"]'); await T.openLater(page, INSTR);   // v2.1: Part 2 shows six cards a bin
 
   ok(/WEIGHS|kg/i.test(await cardText(page, INSTR)), 'Normal: the card shows the sheet (mass and power are free)');
   ok(!/sci\/mo|m detail/.test(await cardText(page, INSTR)), 'Normal: the card hides the science a month');
@@ -82,7 +82,7 @@ async function normal(viewport, label) {
   ok(await page.locator('#preview .preview-line.fix').count() > 0 && /Fixes:/.test(await page.locator('#preview').innerText()), 'Normal: a paid dossier shows what the part fixes ("Fixes: ...")');
   ok(await asks(page) === 0 || await page.locator(`[data-key="ask-${INSTR}-dossier"]`).count() === 0, 'Normal: no ASK left for that part');
   // Once per run: change bins and come back, and it stays known; the same part's other groups were never charged twice.
-  await page.click('[data-key="bin-power"]'); await page.click('[data-key="bin-instrument"]');
+  await page.click('[data-key="bin-power"]'); await page.click('[data-key="bin-instrument"]'); await T.openLater(page, INSTR);
   ok(/sci\/mo/.test(await cardText(page, INSTR)) && near(await T.cashNow(page), cash2), 'Normal: it stays known, and nothing is charged again');
   // Another part is still "?".
   ok(await page.locator('.ask').count() > 0, 'Normal: the other instruments still say ?');
@@ -120,7 +120,7 @@ async function hard() {
   await T.noFonts(page);
   await page.goto(url); await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} }); await page.reload();
   const topic = await toBuild(page, 'expert'), INSTR = instrumentOf(topic);
-  await page.click('[data-key="bin-instrument"]');
+  await page.click('[data-key="bin-instrument"]'); await T.openLater(page, INSTR);
   const t = await cardText(page, INSTR), u = await slot(page, INSTR).innerText();
   ok(!/\bkg\b|\bW\b|sci\/mo/.test(t), 'Hard: the card shows no numbers: ' + t.slice(0, 80));
   ok(/SHEET \?/.test(u) && /SCIENCE \?/.test(u), 'Hard: SHEET ? and SCIENCE ? on the instrument card');
@@ -141,7 +141,7 @@ async function hard() {
   ok(await page.locator(`[data-key="part-${COMMS}"][aria-pressed="true"]`).count() === 1, 'Hard: a part can be added without asking');
   // Not enough cash: drive the cash down in the save, then ask.
   await page.evaluate(() => { const c = getCampaign(); c.treasury_musd = 0.03; saveCampaign(c); });
-  await page.click('[data-key="bin-instrument"]');
+  await page.click('[data-key="bin-instrument"]'); await T.openLater(page, INSTR);
   await page.click(`[data-key="ask-${INSTR}-performance"]`); await page.waitForTimeout(150);
   ok(await page.locator('.ask-fail').count() === 1 && /not enough cash/i.test(await page.locator('.ask-fail').innerText()), 'Hard: with too little cash the ASK says so and buys nothing');
   ok(near(await page.evaluate(() => getComeback().cash_musd), 0.03), 'Hard: the cash is untouched');

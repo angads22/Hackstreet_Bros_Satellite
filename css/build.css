@@ -27,8 +27,7 @@
 .vgauge.bad .vg-track { background: var(--stamp); }
 .vgauge.bad .vg-fill { background: var(--on-accent); }
 .vgauge.bad .vg-num, .vgauge.bad .vg-have { color: var(--on-accent); }
-/* Hard: facts, no verdict, nothing coloured */
-.vgauge.fact .vg-fill { background: var(--text-dim); }
+/* Hard: the contract's terms and the design's amounts as facts: no verdict, no colour, no bar */
 .vgauge.none .vg-fill { width: 0 !important; }
 
 /* problems: blockers first and big, warnings after and smaller */
@@ -64,3 +63,9 @@
   .vgauge.flash { animation: vg-flash 0.6s ease-out; }
   @keyframes vg-flash { from { outline: 3px solid var(--text); outline-offset: 1px; } to { outline: 3px solid transparent; outline-offset: 1px; } }
 }
+
+/* the stage carries the state (Easy and Normal): a red edge, and icon chips over the lower edge that never take a click */
+.sat-bench.low-power, .bench.low-power { outline: 3px solid var(--bad); outline-offset: -3px; }
+.sat-marks { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
+.sat-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--bg); color: var(--bad); border: 2px solid var(--bad); font-size: 20px; }
+.sat-mark svg.icon { margin: 0; }

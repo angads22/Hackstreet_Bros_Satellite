@@ -3069,6 +3069,9 @@
       satelliteArt(d, chg)
     ]);
 
+    // UIA (diegetic-sat): on Easy and Normal the stage carries the state (power glow, crosses, broken waves; js/ui-verdict.js)
+    if (window.StarlineVerdict && window.StarlineVerdict.mark) window.StarlineVerdict.mark(bench, d);
+
     var overview = el("div", { class: "panel" }, [
       el("h2", { text: "MISSION OVERVIEW" }),
       resourceBars(d),
@@ -3088,13 +3091,12 @@
     // standalone designs keep every card, locked ones included (the walkthrough's cards).
     var later = 0, laterOpen = !!(state.later && state.later[cat.id]);
     if (isTodayJob(d)) {
-      var onBoard = {};
+      var onBoard = {}, limit = window.StarlineVerdict ? window.StarlineVerdict.CARD_LIMIT : 6;
       list(d.parts).forEach(function (id) { onBoard[id] = true; });
       shelfParts = shelfParts.filter(function (p) { return onBoard[p.id] || !lockReason(state.avail.parts, p.id); });
-      if (shelfParts.length > CARD_LIMIT) {
-        later = shelfParts.length - CARD_LIMIT;
-        if (!laterOpen) shelfParts = shelfParts.filter(function (p, i) { return i < CARD_LIMIT || onBoard[p.id]; });
-      }
+      // Parts past the limit that are not on board are the "later" ones (a part on board always shows).
+      later = shelfParts.filter(function (p, i) { return i >= limit && !onBoard[p.id]; }).length;
+      if (later && !laterOpen) shelfParts = shelfParts.filter(function (p, i) { return i < limit || onBoard[p.id]; });
     }
     var shelf = el("div", { class: "panel" }, [
       el("h2", { text: "AVAILABLE " + cat.name }),
@@ -3120,8 +3122,8 @@
     ]);
   }
 
-  // UIA (cards-limit): a job set in today's era (Part 2 and the duel) trims the shelf; the cards per bin before "SHOW LATER PARTS".
-  var CARD_LIMIT = 6;
+  // UIA (cards-limit): a job set in today's era (Part 2 and the duel) trims the shelf to StarlineVerdict.CARD_LIMIT cards a bin.
+  // `d.quick` is the Quick mode builder's design flag, if it sets one; a design without it is simply not trimmed.
   function isTodayJob(d) { return !!(d && (d.comeback || d.duel || d.quick)); }
 
   // The bin Build opens on: the one a FIX line asked for, else the first required bin still empty (the team's line

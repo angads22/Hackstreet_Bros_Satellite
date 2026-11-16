@@ -39,5 +39,27 @@ var worst = V.ranked(G, G.newComebackDesign(k.id), ["no-launcher"]);
 var firstWarn = worst.map(function (r) { return r.kind; }).indexOf("warn");
 check("12 blockers rank before warnings", worst.length > 0 && worst[0].kind === "bad" && (firstWarn === -1 || worst.slice(firstWarn).every(function (r) { return r.kind === "warn"; })));
 check("13 every blocker kind has an action word or none (never a number)", ["mass", "power", "empty-power", "budget", "unknown-id"].every(function (id) { return !/\d/.test(V.action(id)); }) && V.action("empty-power") === "ADD ONE" && V.action("unknown-id") === "");
+// the stage's state (Easy and Normal): power, no downlink, a part that does not fit the body
+var bare = G.newComebackDesign(k.id);
+["smallsat-bus", "alouette-2-sounder", "cloud-photocell", "optical-camera"].forEach(function (id) { G.addPart(bare, id); });
+var st = V.stateOf(G, bare, G.PARTS), whole = V.stateOf(G, d, G.PARTS);
+check("15 stage state: a bare body with three instruments has no power, no downlink and one part too many",
+  st.power && st.link && st.crossed.length === 1 && st.crossed[0].id === "optical-camera", JSON.stringify(st));
+check("16 stage state: the contract design shows none of it", !whole.power && !whole.link && whole.crossed.length === 0, JSON.stringify(whole));
+// the card limit: for every topic a contract can name, at least one instrument that counts is among the first cards of its bin
+var tops = {}, hidden = [];
+["training", "standard", "expert"].forEach(function (t) {
+  for (var seed = 1; seed <= 40; seed++) {
+    G.newComeback(t, seed);
+    G.getComeback().contracts.forEach(function (c) {
+      var dd = G.newComebackDesign(c.id), av = G.getAvailability(dd);
+      var inst = G.PARTS.filter(function (p) { return p.category === "instrument" && !(av.parts[p.id] && av.parts[p.id].available === false); });
+      var shown = inst.slice(0, V.CARD_LIMIT).filter(function (p) { return (G.getPartFacts(dd, p.id) || {}).counts !== false; });
+      tops[c.topic] = true;
+      if (!shown.length && hidden.indexOf(c.topic) === -1) hidden.push(c.topic);
+    });
+  }
+});
+check("14 card limit: every topic keeps an instrument that counts in the first " + V.CARD_LIMIT + " cards", Object.keys(tops).length >= 5 && hidden.length === 0, Object.keys(tops).join(",") + (hidden.length ? "; hidden for " + hidden.join(",") : ""));
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

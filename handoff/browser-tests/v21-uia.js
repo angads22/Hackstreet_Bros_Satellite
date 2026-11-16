@@ -82,6 +82,18 @@ async function layout(p, name) {
     ok(await p.locator('[data-key="later-instrument"]').getAttribute('aria-expanded') === 'true', 'and says it is open');
     await p.click('[data-key="later-instrument"]');
     ok(await p.locator('.shelf .part').count() === first, 'SHOW FEWER closes it again');
+    // the stage carries the state: a bare body with three instruments (the body holds two), no panel, no radio
+    const lay = ['smallsat-bus', 'alouette-2-sounder', 'cloud-photocell', 'optical-camera'];
+    await p.click('[data-key="bin-structure"]'); await p.click('[data-key="part-smallsat-bus"]');
+    await p.click('[data-key="bin-instrument"]');
+    for (const id of lay.slice(1)) await p.click(`[data-key="part-${id}"]`);
+    ok(await p.locator('.sat-bench.low-power').count() === 1 && await p.locator('[data-key="mark-power"]').count() === 1, 'the stage: too little power glows red at its edge, with a power chip');
+    ok(await p.locator('[data-key="mark-link"]').count() === 1 && await p.locator('[data-key="mark-link"] svg').count() === 1, 'the stage: no radio shows broken waves');
+    ok(await p.locator('.sat-mark.part').count() === 1, 'the stage: the instrument that does not fit the body gets a cross (' + await p.locator('.sat-mark.part').first().getAttribute('aria-label') + ')');
+    ok(await p.evaluate(() => getComputedStyle(document.querySelector('.sat-marks')).pointerEvents) === 'none', 'the chips never take a click or a drag');
+    for (const id of lay.slice(1).reverse()) await p.click(`[data-key="part-${id}"]`);
+    await p.click('[data-key="bin-structure"]'); await p.click('[data-key="part-smallsat-bus"]');
+    ok(await p.locator('.sat-marks').count() === 0, 'the stage: the marks go when the problems do');
     // build it
     await T.addParts(p, T.CONTRACT.ionosphere.parts);
     const need = await txt(p, '[data-key="progress-count"]');
@@ -130,11 +142,17 @@ async function layout(p, name) {
     ({ ctx, page: p, errors } = await fresh(b, { width: 390, height: 844 }));
     await T.startComeback(p, 'expert'); await setup(p);
     ok(await toBuild(p, 'wildfire'), 'Hard: Build opens');
+    // Hard never gains an aid: the same bare design that marks the stage on Easy marks nothing here
+    await p.click('[data-key="bin-structure"]'); await p.click('[data-key="part-cubesat-12u"]');
+    await p.click('[data-key="bin-instrument"]'); await p.click('[data-key="part-thermal-imager"]');
+    ok(await p.locator('.sat-marks').count() === 0 && await p.locator('.low-power').count() === 0, 'Hard: the stage carries no state (no power glow, no chips)');
+    await p.click('[data-key="part-thermal-imager"]'); await p.click('[data-key="bin-structure"]'); await p.click('[data-key="part-cubesat-12u"]');
     await T.addParts(p, T.CONTRACT.wildfire.parts);
     const facts = await p.$$eval('.vgauge', es => es.map(e => ({ s: e.getAttribute('data-state'), icon: !!e.querySelector('.vg-state'), t: e.innerText.replace(/\s+/g, ' ') })));
     ok(facts.length === 3 && facts.every(f => f.s === 'fact' && !f.icon), 'Hard: three gauges, no verdict word or icon (' + facts.map(f => f.s).join(',') + ')');
     ok(facts.every(f => /\d/.test(f.t) && /NEEDS|CASH|LEFT/.test(f.t)), 'Hard: the contract\'s terms and the design\'s amounts as facts (' + facts.map(f => f.t).join(' | ') + ')');
     ok(await p.locator('.vgauge.thin, .vgauge.bad, .vgauge.flash').count() === 0, 'Hard: nothing is coloured as a verdict');
+    ok(await p.locator('.vstrip .vg-track, .vstrip .vg-fill').count() === 0, 'Hard: no bar that does the comparing, only the facts');
     ok(await p.locator('.check-do').count() === 0, 'Hard: no action word on a problem');
     ok(!/PROFIT|NET|EXPECT/i.test(await txt(p, '.vstrip')), 'Hard: no forecast or net in the strip');
     await layout(p, 'Hard 390');
