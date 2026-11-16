@@ -933,6 +933,7 @@ buyPartInfo(design, partId, group)    // ASK THE ENGINEERS: { ok, reason, cost_m
 getComebackEnding()             // the ending: a short chronicle of the comeback, won, lost or still running
 getRunScore(c)                  // the leaderboard score of a finished comeback (the saved one if c is left out); null while it runs
 getDuelSetup(seed)              // the duel's shared setup: topic, orbit, era, tier and cash; null without a usable seed
+getQuickScore(result)           // Quick mode's score (a pure function): round(100 x science / cost in $M, cost counted as at least 1); 0 with no science or a bad figure; result = { science, cost_musd }
 newDuelDesign(seed)             // a fresh standalone design for one duel flight; it never joins the comeback or the stars record
 ```
 
