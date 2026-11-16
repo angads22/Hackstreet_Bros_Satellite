@@ -1748,6 +1748,7 @@
   // click keeps the angle. "small" is a still pose. null when the 3D art is missing or fails, and
   // satelliteArt then draws the pixel satellite below.
   var satView = null, satLast = null;   // the bench view (for its angle) and the parts it showed last
+  var satWrap = null;                   // ADD-FX: the bench scene on the page now (its anchor() says where a part sits), or null
   function lpSatellite(design, change, size) {
     try {
       if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.satellite !== "function" ||
@@ -1760,7 +1761,7 @@
       canvas.width = 0; canvas.height = 0;   // nothing is drawn until the canvas is on the page
       canvas.className = "sat lp-sat";
       var view = LowPoly.view(canvas, wrap, { drag: !small, keys: false, fps: 30 });
-      if (!small) { satView = view; satLast = ids; }
+      if (!small) { satView = view; satLast = ids; satWrap = wrap; }
       // The "+ NAME" tag rises from where the new part settles. It is decoration: the canvas label names every part.
       var tag = null, added = !small && change && change.kind === "add" ? byId(parts, change.id) : null;
       var at = added && wrap.anchor ? wrap.anchor(added.id) : null;
@@ -1776,6 +1777,7 @@
   function satelliteArt(design, change, size) {
     var lp = lpSatellite(design, change, size);
     if (lp) return lp;
+    if (size !== "small") satWrap = null;   // ADD-FX: the pixel drawing has no scene to ask
     var ids = list(design && design.parts), parts = data("PARTS");
     var chosen = ids.map(function (id) { return byId(parts, id); }).filter(Boolean);
     var added = change && change.kind === "add" ? change.id : null;
@@ -2882,10 +2884,12 @@
       onclick: function () {
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
         if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
+        var fx = fxBefore(p, on, d);   // ADD-FX: what this click will say with motion (null with none), read before the design changes
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
         if (window.GravAudio) GravAudio.sfx(on ? "remove" : "add");   // sound: js/audio.js
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
+        if (fx) fxAfter(fx, p);   // ADD-FX
       },
       onfocus: preview,
       // Real mouse only: a phone tap also fires mouse enter/leave, which would undo the tap preview.
@@ -2909,6 +2913,88 @@
     if (!unknown.length) return card;
     return el("div", { class: "part-slot" }, [card, el("div", { class: "ask-lines" }, unknown.map(function (g) { return askLine(p, g, true); }))]);
   }
+  // ---------------------------------------------------------------- ADD-FX: the effect of a click on a part card (js/motion.js does the moving)
+  // Before the click: the numbers it will change (previewToggle's own delta, the one the preview shows) and, for a removal,
+  // where the part sits on the satellite (a fraction of the picture, no layout read). One frame after the redraw: where the
+  // card and the satellite are on the page, and the effect starts, so the click itself stays quick. With reduced motion, or
+  // without js/motion.js, nothing is read and nothing is drawn. Every number shown comes from the back end, never from a sum
+  // here, and a number the player has not paid the engineers for stays a "?" (the same sheetOk rule as the preview).
+  var previewMemo = null;
+  // previewToggle for the part, kept from the last time the preview asked: a click on the card the preview shows reads the very
+  // same answer (the design has not changed since: a redraw forgets it). Anything else asks again.
+  function previewOf(d, id) {
+    var key = id + "|" + list(d.parts).join(",") + "|" + d.orbit + "|" + d.launcher + "|" + d.objective + "|" + d.era + "|" + d.tier;
+    if (previewMemo && previewMemo.d === d && previewMemo.key === key) return previewMemo.t;
+    var t = previewToggle(d, id);
+    previewMemo = { d: d, key: key, t: t };
+    return t;
+  }
+  // The chips: one per number that changed, in the preview's words and units. good: whether the player would call it a gain.
+  function fxChips(p, t) {
+    var dl = t && t.delta ? t.delta : {}, out = [], sheetOk = infoKnown(p.id, "sheet");
+    function put(bar, v, text, up) { out.push({ bar: bar, text: text.toUpperCase(), good: up ? v > 0 : v < 0 }); }
+    function sg(v) { return v > 0 ? "+" : ""; }
+    if (sheetOk && dl.mass_kg) put("MASS", dl.mass_kg, sg(dl.mass_kg) + fine(dl.mass_kg) + " kg", false);
+    if (sheetOk && dl.power_draw_w) put("POWER", dl.power_draw_w, sg(dl.power_draw_w) + fine(dl.power_draw_w) + " W draw", false);
+    if (sheetOk && dl.power_gen_w) put("POWER", dl.power_gen_w, sg(dl.power_gen_w) + fine(dl.power_gen_w) + " W made", true);
+    if (dl.cost_musd) put("BUDGET", dl.cost_musd, (dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)), false);   // the price is the catalogue's and always shows
+    if (sheetOk && dl.data_returned_gb_day) put("DATA HOME", dl.data_returned_gb_day, dataText(dl.data_returned_gb_day, true) + "/day", true);   // dataText(.., true) writes the sign
+    return out;
+  }
+  function rectOf(node) {
+    var r = node.getBoundingClientRect();
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
+  }
+  function anchorOf(id) {
+    var at = satWrap && typeof satWrap.anchor === "function" ? satWrap.anchor(id) : null;
+    return at && isNum(at[0]) && isNum(at[1]) ? at : null;
+  }
+  // Where a part sits on the page (viewport pixels): its anchor on the 3D picture (at), else the SVG drawing's new part,
+  // else the middle of the picture.
+  function satPoint(at) {
+    var pic = document.querySelector(".bench .sat-bench");
+    if (!pic) return null;
+    var cv = pic.querySelector("canvas");
+    if (at && cv) {
+      var c = cv.getBoundingClientRect();
+      return { x: c.left + Math.min(1, Math.max(0, at[0])) * c.width, y: c.top + Math.min(1, Math.max(0, at[1] + 0.07)) * c.height };   // the anchor is the top of the part: a little lower is on it
+    }
+    var box = (pic.querySelector(".is-new") || pic.querySelector("svg") || pic).getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  }
+  function fxBefore(p, on, d) {
+    var M = window.GravMotion;
+    if (!M || typeof M.buildFx !== "function" || M.reduced()) return null;
+    try {
+      var rec = { kind: on ? "remove" : "add", icon: icon(p.category), at: on ? anchorOf(p.id) : null, items: fxChips(p, previewOf(d, p.id)), star: false, bodyBefore: (getTotals(d) || {}).body || null };
+      rec.bodyPart = p.category === "structure";
+      rec.sheetOk = infoKnown(p.id, "sheet");
+      return rec;
+    } catch (e) { return null; }
+  }
+  // A newer click cancels an effect still waiting for its frame.
+  var fxSeq = 0;
+  function fxAfter(rec, p) {
+    var mine = ++fxSeq;
+    var run = function () {
+      if (mine !== fxSeq) return;
+      try {
+        var card = document.querySelector('[data-key="part-' + p.id + '"]');   // rebuilt in the same place
+        rec.card = card ? rectOf(card) : null;
+        rec.sat = satPoint(rec.kind === "add" ? anchorOf(p.id) : rec.at);
+        // Fitting a body: the CARRIES figure (the back end's body.payload_kg, read after the click) is the star of it. With no body
+        // before it reads "+150 KG"; a swap to another body shows the new figure on its own, as it is not a sum.
+        var body = rec.kind === "add" && rec.bodyPart ? (getTotals(state.design) || {}).body : null;
+        if (body && isNum(body.payload_kg) && body.payload_kg > 0) {
+          rec.star = true;
+          if (rec.sheetOk) rec.items.push({ bar: "CARRIES", text: ((rec.bodyBefore ? "" : "+") + num(body.payload_kg, 0) + " KG").toUpperCase(), good: true, star: true });
+        }
+        window.GravMotion.buildFx(rec);
+      } catch (e) {}
+    };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run); else run();
+  }
+
   // A finger's first tap on a card: the card says that a second tap adds (or removes) it. One card at a time.
   function markArmed(card, on) {
     Array.prototype.slice.call(document.querySelectorAll(".part.armed")).forEach(function (n) {
@@ -2940,7 +3026,7 @@
     var touch = state.touch || touchScreen();
     box.appendChild(el("h2", { text: !touch ? "IF YOU CLICK" : state.hover ? "IF YOU TAP AGAIN" : "IF YOU TAP" }));
     var p = state.hover ? byId(data("PARTS"), state.hover) : null;
-    var t = p ? previewToggle(state.design, state.hover) : null;
+    var t = p ? previewOf(state.design, state.hover) : null;   // ADD-FX: kept, so a click reads the same answer
     if (!t) {
       box.appendChild(el("p", { class: "preview-empty", text: (touch ? "Tap" : "Point at") + " a part to see what it would change." }));
       return;
@@ -3037,6 +3123,7 @@
 
   function drawBuild() {
     var d = state.design;
+    previewMemo = null;   // ADD-FX: the design may have changed since the preview last asked
     var parts = data("PARTS");
     var count = {};
     list(d.parts).forEach(function (id) { var p = byId(parts, id); if (p) count[p.category] = (count[p.category] || 0) + 1; });
