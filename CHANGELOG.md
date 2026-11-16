@@ -4,6 +4,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+### Added
+
+- **Credit is a real credit score.** Ajay's credit now runs 300 to 850 like a FICO score (POOR, FAIR, GOOD, VERY GOOD, EXCEPTIONAL), worked out from his payments, what he owes, how long the run has lasted, new loans and his mix of credit; the band sets the interest and how much the lenders lend, none in POOR. A run saved before 2.1 keeps its credit on the new scale (`getComeback()` gains `credit_score`, `credit_band`, `credit_band_id`, `credit_factors`, `seize_score`).
+
 ### Fixed
 
 - **Music no longer drops out.** If the browser suspended or interrupted the audio (a hidden tab, a phone call, power saving), the music stayed silent until you toggled it. It now resumes by itself, at the next click or key at the latest, and recovers from a failed schedule or a stuck launch ducking.
