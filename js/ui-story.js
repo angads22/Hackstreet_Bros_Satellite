@@ -18,6 +18,7 @@
 
   var ENDINGS_KEY = "gravitron-endings-v1";
   var SEEN_KEY = "gravitron-seen-v1";
+  var seenMem = null;             // the seen record when storage keeps nothing (a guest, a frame with no storage): without it the opening scene would replay forever
   var KEEP_SEEDS = 12;            // the seen record keeps the newest runs only
   var IDS = ["box", "legend", "comeback", "close", "sold", "timeout", "broke"];
   // Shown until the story text supplies a title (and for the chips of endings it has no text for).
@@ -76,7 +77,7 @@
   }
   // The record is { "<seed>": [ids] }. A missing or broken record is empty; a run with no entry has not been seen by
   // this version (a comeback saved before the story existed, or one just begun: see backfill).
-  function seenAll() { var v = readJSON(SEEN_KEY); return v && typeof v === "object" && !isList(v) ? v : {}; }
+  function seenAll() { var v = readJSON(SEEN_KEY); return v && typeof v === "object" && !isList(v) ? v : seenMem || {}; }
   function seedKey(seed) { return typeof seed === "number" && isFinite(seed) ? String(seed) : "legacy"; }
   function hasRecord(seed) { return isList(seenAll()[seedKey(seed)]); }
   function seenFor(seed) { var l = seenAll()[seedKey(seed)]; return isList(l) ? l : []; }
@@ -86,6 +87,7 @@
     var keys = Object.keys(all);
     while (keys.length > KEEP_SEEDS) delete all[keys.shift()];
     writeJSON(SEEN_KEY, all);
+    seenMem = readJSON(SEEN_KEY) ? null : all;   // kept in memory only when the write did not stick
   }
   function markSeen(seed, id) {
     var l = seenFor(seed).slice();
@@ -93,6 +95,7 @@
     setSeen(seed, l);
   }
   function forget() {
+    seenMem = null;
     try { window.localStorage.removeItem(ENDINGS_KEY); window.localStorage.removeItem(SEEN_KEY); } catch (e) { /* storage blocked */ }
   }
 
@@ -305,6 +308,10 @@
     if (!t || !t.beats.length) {   // no text for it yet: the older ending lines say it
       var old = UI.list(UI.storyLine ? UI.storyLine("ending", { comeback: true }, e.won ? "won" : e.lost_reason === "cash" ? "cash" : "deadline") : []);
       t = { title: t ? t.title : "", kicker: t ? t.kicker : "", beats: beats(old, "partner"), line: t ? t.line : "" };
+    }
+    if (!e.won && e.lost_reason === "name") {   // the debt is paid but nobody knows the name: not the out-of-cash text (the id stays "broke")
+      t = { title: "NOBODY KNOWS THE NAME", kicker: "THE DEBT IS PAID",
+        beats: beats(UI.list(UI.storyLine ? UI.storyLine("ending", { comeback: true }, "name") : []), "partner"), line: "" };
     }
     var tot = e.totals || {};
     var stat = function (v, label) { return el("div", null, [el("strong", { text: v }), el("span", { text: label })]); };
