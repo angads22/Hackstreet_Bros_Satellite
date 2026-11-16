@@ -126,7 +126,7 @@ const errLists = [], allErrors = [];
   ok(await p.locator('[data-key="pace-exp"]').count() === 1, 'pace line (Normal): the expected-finish line');
   ok(await p.locator('.side-counter .month').count() === 1 && await p.locator('.mission-earth, .orbit-row canvas').count() >= 1, 'the big orbit and the side month counter are still there');
   await p.screenshot({ path: shots + '/uib-mission.png' });
-  await T.fly(p, 'first');
+  await T.fly(p, 'first', true);
   ok(await T.waitHead(p, 'DEBRIEF'), 'debrief');
   await p.waitForTimeout(400);
 
@@ -139,6 +139,7 @@ const errLists = [], allErrors = [];
     return { lead: at('[data-key="debrief-lead"]'), profit: at('[data-key="debrief-profit"]'), limit: at('.limit h2'), tryThis: at('.limit .try'), details: at('[data-key="debrief-details"]'), ledger: at('[data-key="cash-ledger"]'),
       open: document.querySelector('[data-key="debrief-details"]').open };
   });
+  ok(pos.open === false, 'DETAILS is folded when the debrief opens (a win included)');
   ok(pos.lead < pos.limit && pos.limit < pos.tryThis && pos.tryThis < pos.details, 'debrief order: verdict and money, what limited you, TRY THIS, DETAILS');
   ok(pos.profit !== null && pos.profit < pos.limit, 'the PROFIT line is kept, right under the verdict');
   ok(await p.locator('[data-key="debrief-details"] [data-key="cash-ledger"]').count() === 1 && await p.locator('[data-key="debrief-details"] [data-key="debt-ledger"]').count() === 1, 'the money ledgers are under DETAILS');
@@ -156,7 +157,7 @@ const errLists = [], allErrors = [];
     await T.launchContract(ph, 'solar');
     ok(await T.noScroll(ph) && await ph.locator('[data-key="pace-min"]').count() === 1 && await ph.locator('#lstrip-host .lstrip .lt').count() === 3, 'phone mission: three tiles and the pace tick, no sideways scroll');
     await ph.screenshot({ path: shots + '/uib-mission-390.png' });
-    await T.fly(ph, 'first');
+    await T.fly(ph, 'first', true);
     await T.waitHead(ph, 'DEBRIEF'); await ph.waitForTimeout(400);
     ok(await T.noScroll(ph) && await ph.locator('[data-key="debrief-lead"]').count() === 1 && await ph.locator('#lstrip-host .lstrip').count() === 1, 'phone debrief: the lead line and the strip, no sideways scroll');
     await ph.screenshot({ path: shots + '/uib-debrief-390.png' });

@@ -100,11 +100,16 @@ async function throughBeats(page) {
   return seen;
 }
 // Fly the mission at fast forward, answering every event with `choice` (first, or 'last'). Returns the event count.
-async function fly(page, choice) {
+// Version 2.1: the debrief folds everything but the verdict, what limited the flight and TRY THIS under DETAILS (a closed <details>
+// has no innerText), so fly() opens it for the tests that read the report; fly(page, choice, true) leaves it as the player sees it.
+async function fly(page, choice, keepFolded) {
   await page.click('button[aria-label="Fast forward"]');
   let events = 0;
   for (let i = 0; i < 600; i++) {
-    if (await head(page, 'DEBRIEF').count()) break;
+    if (await head(page, 'DEBRIEF').count()) {
+      if (!keepFolded) await page.evaluate(() => { const d = document.querySelector('[data-key="debrief-details"]'); if (d) d.open = true; });
+      break;
+    }
     if (await page.locator('[role="alertdialog"]').count()) {
       events++;
       const btns = page.locator('[role="alertdialog"] .choices .btn');
