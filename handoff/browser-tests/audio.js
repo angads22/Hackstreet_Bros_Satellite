@@ -44,6 +44,12 @@ const rms = p => p.evaluate(() => { const a = window.__an; if (!a) return -1; co
     await p.evaluate(() => GravAudio._test.suspend()); await p.waitForTimeout(200);
     await p.mouse.click(5, 5); await p.waitForTimeout(1200);
     ok(await p.evaluate(() => GravAudio.state().running), 'a click also brings it back');
+    // The launch is the loudest sound in the game: at least twice the music's level, and never clipping.
+    await p.evaluate(() => GravAudio.sfx('liftoff'));
+    let peak = 0; for (let i = 0; i < 12; i++) { await p.waitForTimeout(150); peak = Math.max(peak, await rms(p)); }
+    ok(peak > Math.max(0.06, level * 2), `the lift-off is loud (rms ${peak.toFixed(3)} against the music's ${level.toFixed(3)})`);
+    ok(peak < 0.9, 'and does not clip');
+    await p.waitForTimeout(5500);
     await p.evaluate(() => { window.__calls = []; const o = GravAudio.sfx; GravAudio.sfx = function (n, a) { window.__calls.push(n); return o.apply(this, arguments); }; });
     await p.click('[data-key="part2-go"]').catch(() => {});
     ok((await p.evaluate(() => window.__calls)).includes('click'), 'a button press ticks');

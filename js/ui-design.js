@@ -3766,7 +3766,7 @@
     try {
       var flat = d0 && d0.orbit && typeof LowPoly.scenes.earth === "function" && typeof LowPoly.scenes.satellite === "function" &&
         typeof LowPoly.scenes.satellite.flat === "function" ? LowPoly.scenes.satellite.flat({ parts: list(d0.parts), data: data("PARTS") }) : null;
-      if (flat) finale = LowPoly.scenes.earth({ orbitId: d0.orbit, objectiveId: d0.objective, spin: 6, lap: LAUNCH_LAP_S, mesh: flat.mesh, size: 2.3, finale: true });
+      if (flat) finale = LowPoly.scenes.earth({ orbitId: d0.orbit, objectiveId: d0.objective, spin: 6, lap: LAUNCH_LAP_S, mesh: flat.mesh, size: 1.1, finale: true });
       if (finale && !finale.orbit) finale = null;
     } catch (e0) { finale = null; }
     if (finale) {

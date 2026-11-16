@@ -238,6 +238,48 @@
     src.connect(f); f.connect(g); g.connect(sfxBus);
     src.start(t); src.stop(t + dur + 0.05);
   }
+  // The launch: ignition thump, a roaring engine with a crackle, a sub-bass you feel, and a rising whine as the rocket climbs.
+  // Played straight into the master (not the effects bus) so it is much louder than any other sound; the master compressor
+  // keeps it from clipping.
+  function softClip(k) {
+    var n = 2048, c = new Float32Array(n);
+    for (var i = 0; i < n; i++) { var x = i * 2 / (n - 1) - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
+    return c;
+  }
+  function launch(t) {
+    var dur = 6.2, bus = ctx.createGain();
+    bus.gain.setValueAtTime(0, t); bus.gain.linearRampToValueAtTime(1.25, t + 0.12);
+    bus.gain.setValueAtTime(1.25, t + dur - 1.6); bus.gain.linearRampToValueAtTime(0.0001, t + dur);
+    bus.connect(master);
+    function layer(freq0, freq1, type, level, q, shape) {   // filtered noise that sweeps
+      var src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = noise(); src.loop = true; f.type = type; f.Q.value = q || 0.7;
+      f.frequency.setValueAtTime(freq0, t); f.frequency.exponentialRampToValueAtTime(freq1, t + dur * 0.8);
+      g.gain.value = level; src.connect(f); f.connect(g); g.connect(shape || bus);
+      src.start(t); src.stop(t + dur + 0.1);
+      return g;
+    }
+    // ignition: a thump and a burst
+    tone(95, t, 0.7, "sine", 1.0, 28, 0.003); tone(55, t, 0.9, "sine", 0.9, 24, 0.003);
+    whoosh(t, 0.5, 2600, 300, 0.7, "lowpass");
+    // the roar and the rumble
+    layer(160, 700, "lowpass", 1.0, 0.8);                    // the body of the sound
+    var crack = layer(900, 4200, "bandpass", 0.9, 1.4);     // the hiss and crackle, chopped by a fast tremolo
+    var lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.type = "square"; lfo.frequency.setValueAtTime(24, t); lfo.frequency.linearRampToValueAtTime(46, t + dur);
+    lg.gain.value = 0.5; lfo.connect(lg); lg.connect(crack.gain); lfo.start(t); lfo.stop(t + dur + 0.1);
+    // a sub-bass you feel, pushed through a soft clipper for weight
+    var sub = ctx.createOscillator(), sg = ctx.createGain(), ws = ctx.createWaveShaper();
+    sub.type = "sawtooth"; sub.frequency.setValueAtTime(36, t); sub.frequency.exponentialRampToValueAtTime(74, t + dur * 0.8);
+    ws.curve = softClip(3.2); sg.gain.value = 0.55; sub.connect(ws); ws.connect(sg); sg.connect(bus);
+    sub.start(t); sub.stop(t + dur + 0.1);
+    // the climb: a rising whine
+    var whine = ctx.createOscillator(), wg = ctx.createGain(), wf = ctx.createBiquadFilter();
+    whine.type = "sawtooth"; whine.frequency.setValueAtTime(220, t + 0.8); whine.frequency.exponentialRampToValueAtTime(1500, t + dur - 1);
+    wf.type = "bandpass"; wf.frequency.value = 900; wf.Q.value = 0.9;
+    wg.gain.setValueAtTime(0, t + 0.8); wg.gain.linearRampToValueAtTime(0.22, t + 3); wg.gain.linearRampToValueAtTime(0, t + dur - 0.5);
+    whine.connect(wf); wf.connect(wg); wg.connect(bus); whine.start(t + 0.8); whine.stop(t + dur);
+  }
   var C5 = 72, E5 = 76, G5 = 79, C6 = 84;
   var EFFECTS = {
     click: function (t) { tone(1500, t, 0.05, "sine", 0.3); },
@@ -246,7 +288,7 @@
     deny: function (t) { tone(130, t, 0.16, "square", 0.16, 100); },
     tick: function (t) { tone(880, t, 0.07, "sine", 0.36); },
     hold: function (t) { tone(330, t, 0.1, "square", 0.12); tone(330, t + 0.16, 0.1, "square", 0.12); },
-    liftoff: function (t) { whoosh(t, 4.2, 140, 1400, 0.5, "lowpass"); tone(52, t, 4, "sine", 0.55, 80, 0.4); whoosh(t + 0.1, 3, 600, 2600, 0.12, "bandpass"); },
+    liftoff: function (t) { launch(t); },
     orbit: function (t) { [C5 - 12, G5 - 12, E5, C6].forEach(function (n, i) { tone(mtof(n), t + i * 0.18, 2.4, "sine", 0.22, null, 0.2); }); },
     star: function (t, i) { var n = [C5, E5, G5][i % 3]; tone(mtof(n), t, 0.35, "triangle", 0.34); tone(mtof(n + 12), t + 0.02, 0.5, "sine", 0.16); },
     stamp: function (t) { tone(110, t, 0.22, "sine", 0.6, 55); whoosh(t, 0.12, 3000, 500, 0.3, "bandpass"); },
