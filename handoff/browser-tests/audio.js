@@ -34,6 +34,16 @@ const rms = p => p.evaluate(() => { const a = window.__an; if (!a) return -1; co
     const level = await rms(p);
     ok(level > 0.0008, `the music makes a signal (rms ${level.toFixed(4)})`);
     ok(level < 0.5, 'and it is not loud');
+    // The browser suspends the audio (a hidden tab, a phone call, power saving): the music must come back by itself, and at
+    // the next click if the browser wants a gesture first.
+    ok(await p.evaluate(async () => { await GravAudio._test.suspend(); return GravAudio.state().running; }) === false, 'the audio can be suspended (the test does it)');
+    await p.waitForTimeout(1800);
+    ok(await p.evaluate(() => GravAudio.state().running), 'the watchdog resumes a suspended audio on its own');
+    await p.waitForTimeout(1500);
+    ok(await rms(p) > 0.0008, 'and the music is playing again');
+    await p.evaluate(() => GravAudio._test.suspend()); await p.waitForTimeout(200);
+    await p.mouse.click(5, 5); await p.waitForTimeout(1200);
+    ok(await p.evaluate(() => GravAudio.state().running), 'a click also brings it back');
     await p.evaluate(() => { window.__calls = []; const o = GravAudio.sfx; GravAudio.sfx = function (n, a) { window.__calls.push(n); return o.apply(this, arguments); }; });
     await p.click('[data-key="part2-go"]').catch(() => {});
     ok((await p.evaluate(() => window.__calls)).includes('click'), 'a button press ticks');
