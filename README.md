@@ -4,6 +4,8 @@ GRAVITRON, a browser game: design a satellite, launch it, learn why it flew or f
 
 ## Online features
 
+**To put the server online, read [`ONLINE.md`](ONLINE.md)** (the checklist, the smoke tests, and what can go wrong).
+
 Two optional features need a server: a **global leaderboard** (the best Part 2 runs) and a **quick 1v1 duel** (two players get the same job and cash, fly one flight each, and the higher science wins). The game is fully playable without them.
 
 **They are off by default, and off automatically when you run the game yourself.** The leaderboard and duel buttons are disabled (with the reason in one line) and the game sends no network request for them when the page is:
