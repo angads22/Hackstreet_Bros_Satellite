@@ -4,6 +4,8 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- **Quick mode.** The home page has a third card, QUICK MODE · 1V1 DUEL, that opens a menu: QUICK FLIGHT (solo, works offline: one flight from a seeded job, a new one each time, never touching your stars, Part 1 or a comeback), 1V1 DUEL and LEADERBOARD (shown disabled with the reason when online is off). The debrief shows a QUICK SCORE, `getQuickScore(result)` = round(100 × science ÷ cost in $M, cost counted as at least 1), best kept in `gravitron-quick-v1`; the small LEADERBOARD and DUEL row on the home page is gone.
+
 ## 2.0 (November 15, 2026)
 
 Version 2 turns the game into something you can play against other people, makes Normal and Hard cost real money to learn about, brings in what the two satellite engineers asked for, and adds music. The home page now opens as the home layout at once (desktop performance 94 to 99, from about 60). Everything players already have is kept: stars, Part 1 steps and a comeback in progress (an in-place upgrade, tested against real saves).

@@ -62,7 +62,7 @@ async function toMap(p) { if (!(await T.head(p, 'BASE MAP').count())) { await p.
   ok(/PARTNER|CUSTOMER/.test((await p.locator('.say-name').allInnerTexts()).join(' ')), "Ajay's chapter on the debrief");
   await p.screenshot({ path: path.join(shots, 'modern-debrief.png'), fullPage: true });
   await p.click('.limit .choices .btn >> text=HOME');
-  ok(await p.locator('.mode-card').count() === 2, 'HOME returns to the two modes');
+  ok(await p.locator('.mode-card').count() === 3, 'HOME returns to the three modes');
   ok(errors.length === 0, 'no errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await b.close();
   done();

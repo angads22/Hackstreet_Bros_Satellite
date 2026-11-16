@@ -41,6 +41,17 @@ const { ok, done } = T.checker();
       ok(errors.length === 0, 'no page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
       await p.close();
     }
+    // Quick mode (the third card): the same, and it opens the QUICK MODE menu
+    for (const where of ['h2', 'padding']) {
+      const { p, errors } = await fresh();
+      const card = p.locator('[data-key="mode-quick"]');
+      if (where === 'padding') { const bx = await card.boundingBox(); await p.mouse.click(bx.x + 40, bx.y + 6); }
+      else await p.click('[data-key="mode-quick"] h2');
+      ok(await p.locator('[data-key="quick-menu"]').waitFor({ timeout: 4000 }).then(() => true, () => false),
+        `Quick mode: a click on the panel's ${where} opens the QUICK MODE menu`);
+      ok(errors.length === 0, 'no page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
+      await p.close();
+    }
     // The button itself still works once (one press, not two)
     {
       const { p } = await fresh();
