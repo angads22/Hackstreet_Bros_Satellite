@@ -4,6 +4,8 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- Adding a part has a moment of its own on Build: a tile flies from the card to the satellite (and back on a removal), the satellite thumps, the bars that changed flash and show a chip like +45 KG, and fitting a body makes CARRIES jump. Quick, never in the way, still under reduced motion.
+
 ## 2.0 (November 15, 2026)
 
 Version 2 turns the game into something you can play against other people, makes Normal and Hard cost real money to learn about, brings in what the two satellite engineers asked for, and adds music. The home page now opens as the home layout at once (desktop performance 94 to 99, from about 60). Everything players already have is kept: stars, Part 1 steps and a comeback in progress (an in-place upgrade, tested against real saves).
