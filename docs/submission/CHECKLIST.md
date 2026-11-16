@@ -1,5 +1,7 @@
 # Before you press Submit for Judging
 
+> **2.2 note (November 16):** this pack was written against 2.1. Version 2.2 adds borrowing from every Part 2 screen and gives Normal and Hard more time (66 and 72 months); neither changes a claim in `FORM.md` or on the slides. Where this file says 2.1, read 2.2 for the game's footer.
+
 For the person who submits GRAVITRON 2.1. The words for each field are in `FORM.md`. Work down this list; every box is something only a person can do. Written November 16, 2026 against `origin/main` at `3647062` ("Version 2.1").
 
 The window closes **Sunday, November 15 at 11:59 p.m. in the Local Event's time zone** (`SPEC.md`, "Submission checklist"). Only the last saved submission is judged, and a team can resubmit until the window closes, so submit early and fix after.
@@ -19,7 +21,7 @@ Search `FORM.md` for `[TEAM`. None may reach the form.
 
 - [ ] Open every link in a **private window**: it must open with no login, permission or registration. A project the judges cannot open is not judged.
 - [ ] The repository `https://github.com/angads22/Hackstreet_Bros_Satellite` is **public**. (Not checkable from here.)
-- [ ] The hosted game shows **GRAVITRON v2.1** in its footer. If it shows v2.0, the host is serving an old copy: redeploy `main`.
+- [ ] The hosted game shows **GRAVITRON v2.2** in its footer. If it shows v2.1 or v2.0, the host is serving an old copy: redeploy `main`.
 - [ ] Play one flight on the hosted game in the private window: QUICK MODE, QUICK FLIGHT, to the debrief.
 - [ ] The demo is hosted on YouTube, Google Drive, GitHub, OneDrive or Dropbox. The form takes images only (JPG, PNG, GIF up to 10 MB), not a video or a document.
 - [ ] Optional: ask for a FortiGuard Web Filter classification for the hosted address (category "web-based application", company "N/A").
@@ -30,7 +32,7 @@ Over either limit, the project is not eligible for Global Judging. Everything in
 
 The deck in the repository (`deck/GRAVITRON.pptx`, last changed November 15) is the **0.9 beta deck**. Seven slides, so the count is right, but these are out of date:
 
-- [ ] Slide 1 says "v0.9 beta" and "Team: [__]". Put the team name and v2.1.
+- [ ] Slide 1 says "v0.9 beta" and "Team: [__]". Put the team name and the version (the game footer reads v2.2; the slides were built for 2.1 and nothing on them changed in 2.2).
 - [ ] Slide 6 is "Two parts, one story". There are three modes now: add Quick mode, and the credit score is 300 to 850 (the slide says credit "runs out").
 - [ ] Slide 7: the test counts are old (it says api 121, comeback 90, debrief 23, saves 32; today api 143, comeback 151, debrief 35, saves 35). It says "22 events" (there are 27) and lists launch failures as "Next" (they are built). It names "balance 53 (3 known gaps)", which was not re-run for 2.1: take it off or re-run it.
 - [ ] Slide 7 says "Works on a phone". `CHANGELOG.md` (2.0, "Not in this version yet") says the phone layout for Build is not built. Take the claim off unless someone checks it on a phone.
