@@ -2157,7 +2157,7 @@
     if (screen === "map") { mount(screen, drawMap()); return updateMap(true); }
     if (screen === "briefing") return mount(screen, drawBriefing());
     if (screen === "orbit") return mount(screen, drawOrbit());
-    if (screen === "build") return mount(screen, drawBuild());
+    if (screen === "build") { mount(screen, drawBuild()); return phoneBuild(); }   // PHONE (css/phone.css): the bin strip and the pinned bars
     if (screen === "launcher") return mount(screen, drawLauncher());
     if (screen === "review") return mount(screen, drawReview());
     return mount("title", drawTitle());
@@ -3271,11 +3271,29 @@
     return missing ? missing.id : state.bin;
   }
 
+  // PHONE (css/phone.css, up to 760px wide): the bins are one strip that scrolls sideways, pinned with the bars (and the
+  // Part 2 gauges) under it. Every redraw rebuilds the strip, so the open bin is brought back into view here, and the
+  // pinned rows' heights go to CSS (their sticky offsets). Returns the pinned height in px (0 on a wider screen).
+  function phoneBuild() {
+    var shop = document.querySelector(".workshop");
+    if (!shop || !(window.matchMedia && window.matchMedia("(max-width: 760px)").matches)) return 0;
+    var strip = shop.querySelector(".bins"), on = strip && strip.querySelector('.bin[aria-pressed="true"]');
+    if (on && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2;
+    var total = 0;
+    [["--ph-bins", strip], ["--ph-bars", shop.querySelector(".bars")], ["--ph-gauges", shop.querySelector(".vstrip")]].forEach(function (row) {
+      var pinned = row[1] && window.getComputedStyle(row[1]).position === "sticky";
+      var h = pinned ? row[1].offsetHeight : 0;
+      shop.style.setProperty(row[0], h + "px");
+      total += h;
+    });
+    return total;
+  }
+
   // A narrow screen stacks the Build screen: after a bin is picked, bring its parts (and the preview) into view.
   function showShelf() {
     var box = document.getElementById("part-picker");
     if (!box || !(window.matchMedia && window.matchMedia("(max-width: 929px)").matches)) return;
-    var top = box.getBoundingClientRect().top;
+    var top = box.getBoundingClientRect().top - phoneBuild();   // PHONE: the shelf lands under the pinned strip, not behind it
     if (top > window.innerHeight * 0.5 || top < 0) window.scrollTo(0, window.pageYOffset + top);
   }
 
@@ -4254,6 +4272,7 @@
       state.lastClickAt = Date.now();
     }, true);
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) WALK_MS = 0;
+    window.addEventListener("resize", phoneBuild);   // PHONE: a turned phone re-measures the pinned rows
     window.addEventListener("pagehide", function () { rememberPlace(state.screen); });   // RESUME: whatever changed since the last mount
     if (!resumePlace()) draw("title");   // RESUME: a reload keeps the place; a new tab, or a tab on the title, opens the title
   }

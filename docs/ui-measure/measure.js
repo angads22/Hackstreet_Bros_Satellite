@@ -140,6 +140,8 @@ async function run(vp, base) {
     if (kind === 'hover') { ctr.hovers++; await p.locator(sel).first().hover(at); }
     else if (kind === 'click') { ctr.clicks++; await p.locator(sel).first().click(at); }
   }
+  // 2.1: a bin shows its first six cards; a later part needs SHOW LATER PARTS first (a reach and a click, counted)
+  const later = async part => { if (!(await p.locator(`[data-key="part-${part}"]`).count()) && await p.locator('[data-key^="later-"][aria-expanded="false"]').count()) await reach('[data-key^="later-"][aria-expanded="false"]', 'click'); };
   const task = async (name, fn) => { const s = { ...ctr }; await fn(); res.tasks[name] = { scrolls: ctr.scrolls - s.scrolls, clicks: ctr.clicks - s.clicks, hovers: ctr.hovers - s.hovers, unreachable: (ctr.unreachable || 0) - (s.unreachable || 0) }; };
 
   await p.goto(base); await style(); await fonts(); await p.waitForTimeout(800);
@@ -154,7 +156,8 @@ async function run(vp, base) {
   });
   await capture('part1_build_full', 'part1_build');
   // ---- Part 2
-  await p.evaluate(() => localStorage.clear()); await p.goto(base); await style(); await p.waitForTimeout(600);
+  // 2.1: a reload keeps the place, so go home first (that forgets the place), then clear the save
+  await p.evaluate(() => { if (window.StarlineUI && window.StarlineUI.home) window.StarlineUI.home(); localStorage.clear(); try { sessionStorage.clear(); } catch (e) {} }); await p.goto(base); await style(); await p.waitForTimeout(600);
   await T.seedRuns(p); await p.click('[data-key="part2-go"]'); await capture('picker');
   await p.click('[data-key="level-standard"]'); await T.pastScenes(p); await T.waitHead(p, 'WORKSHOP');
   await capture('workshop');
@@ -166,8 +169,8 @@ async function run(vp, base) {
   await capture('build_empty', 'build');
   const inst = c.parts.find(x => T.BIN[x] === 'instrument');
   await task('P2: build a design and read whether it is good', async () => {
-    await reach('[data-key="bin-instrument"]', 'click'); await reach(`[data-key="part-${inst}"]`, 'hover');
-    for (const part of c.parts) { await reach(`[data-key="bin-${T.BIN[part]}"]`, 'click'); await reach(`[data-key="part-${part}"]`, 'click');
+    await reach('[data-key="bin-instrument"]', 'click'); await later(inst); await reach(`[data-key="part-${inst}"]`, 'hover');
+    for (const part of c.parts) { await reach(`[data-key="bin-${T.BIN[part]}"]`, 'click'); await later(part); await reach(`[data-key="part-${part}"]`, 'click');
       if (process.env.DEBUG) console.error('  added', part, await p.evaluate(s => { const e = document.querySelector(s); return e ? e.getAttribute('aria-pressed') + ' scrollY ' + Math.round(scrollY) + ' top ' + Math.round(e.getBoundingClientRect().top) : 'gone'; }, `[data-key="part-${part}"]`)); }
     await p.mouse.move(2, 2);
     await reach('[data-key="contract-pay"], .payout-line', null); await reach('.science-total', null); await reach('.bars', null);

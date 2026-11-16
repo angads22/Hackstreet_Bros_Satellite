@@ -1,0 +1,73 @@
+/* css/phone.css — PHONE: the Build screen on a phone (up to 760px wide). Nothing here applies to a wider screen.
+   The bins are one strip that scrolls sideways inside itself; the four bars (and the Part 2 gauges) stay pinned under
+   it, so a tap's effect is always in view; the shelf is two columns; the next button is one row. The pinned rows'
+   heights come from js/ui-design.js (phoneBuild) as --ph-bins, --ph-bars and --ph-gauges. Flat: no gradient, no shadow.
+   No new motion: nothing here animates. */
+@media (max-width: 760px) {
+  /* one column whose rows can be pinned (a pinned grid item stays inside its own row; a flex item does not) */
+  .workshop { display: flex; flex-direction: column; gap: 8px; }
+  .workshop > .stack, .workshop > .stack > .panel:first-child:not(.preview) { display: contents; }
+
+  /* 1. the bins: one strip, pinned at the top */
+  body .workshop > .bins { order: -6; position: sticky; top: 0; z-index: 5; flex-direction: row; flex-wrap: nowrap; align-items: stretch; gap: 6px;
+    align-self: stretch; width: 100%; min-width: 0; max-height: none; margin: 0; padding: 6px 0; border: 0; clip-path: none; background: var(--bg); background-image: none;
+    overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; }
+  .workshop > .bins::-webkit-scrollbar { display: none; }
+  .workshop > .bins > h2, .workshop > .stack > .panel:first-child > h2:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .workshop > .bins .bin { flex: 0 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "icon sub" "name name";
+    align-items: center; gap: 2px 6px; min-width: 44px; min-height: 48px; padding: 3px 8px; scroll-snap-align: center; }
+  .workshop > .bins .bin > svg { grid-area: icon; width: 22px; height: 22px; }
+  .workshop > .bins .bin-text { display: contents; }
+  .workshop > .bins .bin-name { grid-area: name; font-size: 17px; white-space: nowrap; }
+  .workshop > .bins .bin-sub { grid-area: sub; font-size: 16px; white-space: nowrap; }
+
+  /* 2. the four bars, 2x2 and slim, pinned under the strip; a bar's note is still read out */
+  .workshop .bars { order: -5; position: sticky; top: var(--ph-bins, 60px); z-index: 4; gap: 4px 12px; margin: 0; padding: 2px 0 6px; background: var(--bg); }
+  .workshop .bars .bar-top { flex-wrap: wrap; justify-content: space-between; gap: 0 6px; font-size: 17px; }
+  .workshop .bars .bar-top > span { white-space: nowrap; }
+  .workshop .bars .bar-name svg { width: 16px; height: 16px; }
+  .workshop .bars .bar-track { height: 6px; margin-top: 2px; }
+  .workshop .bars .bar-note { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* Part 2: the three gauges in one slim row, pinned under the bars */
+  .workshop .vstrip { order: -4; position: sticky; top: calc(var(--ph-bins, 60px) + var(--ph-bars, 62px)); z-index: 4; gap: 4px; padding-bottom: 4px; background: var(--bg); }
+  .workshop .vgauge { padding: 2px 6px 4px; }
+  .workshop .vg-top { font-size: 16px; gap: 0 4px; }
+  .workshop .vg-state svg { width: 14px; height: 14px; }
+  .workshop .vg-track { height: 6px; margin-top: 2px; }
+  .workshop .vg-num { margin-top: 2px; font-size: 15px; line-height: 1; }
+
+  /* 3. the preview is compact and stays under the pinned rows; the satellite is small */
+  .workshop .part-picker { order: -3; gap: 8px; }
+  .workshop .part-picker > .preview { top: calc(var(--ph-bins, 60px) + var(--ph-bars, 62px) + var(--ph-gauges, 0px)); height: clamp(92px, 15vh, 128px); padding: 6px 8px; }
+  .workshop > .bench-col > .payout { order: -2; }
+  .workshop > .stack > .panel + .panel { order: -1; }
+  .workshop .bench { order: 0; gap: 4px; }
+  .workshop .bench canvas.sat { max-height: 18vh; }
+  .workshop > .stack > .panel:first-child > * { order: 1; }
+  .workshop > .stack > .panel:first-child > .bars { order: -5; }
+
+  /* 4. the part cards: two columns where they fit (from 360px), each card a 44px target or taller */
+  .workshop .part-picker > .panel { padding: 8px; }
+  .workshop .shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .workshop .shelf .part { min-width: 0; min-height: 44px; padding: 6px 8px; }
+  .workshop .shelf .part-name { font-size: 21px; overflow-wrap: anywhere; }
+  .workshop .shelf .part-stats, .workshop .shelf .part-note { font-size: 17px; overflow-wrap: anywhere; }
+  .workshop .shelf .part-stat { white-space: normal; }
+  .workshop .shelf .part-carry { font-size: 18px; }
+
+  /* 5. the next button: one row, and the page ends below it, so it never rests on a control */
+  .workshop ~ .nav-row { gap: 4px 8px; padding: 6px 0; }
+  .workshop ~ .nav-row .btn { flex: 0 0 auto; padding-left: 10px; padding-right: 10px; font-size: 18px; }
+  .workshop ~ .nav-row .btn.primary { flex: 1 1 auto; min-width: 0; }
+  .workshop ~ .nav-row .next-why { font-size: 18px; }
+  .workshop { padding-bottom: 12px; }
+}
+/* narrower than 360px: one column of cards */
+@media (max-width: 359px) {
+  .workshop .shelf { grid-template-columns: minmax(0, 1fr); }
+}
+/* a short screen (a small or turned phone): only the strip and the bars stay pinned */
+@media (max-width: 760px) and (max-height: 620px) {
+  .workshop .vstrip, .workshop .part-picker > .preview { position: static; }
+}
