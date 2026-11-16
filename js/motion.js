@@ -186,11 +186,15 @@ var GravMotion = (function () {
     }
     // Sound (js/audio.js): a note per star as it lands, a thud for the stamp, then a win chord or a low fall.
     if (window.GravAudio && !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
-      for (var k = 0; k < starsWon; k++) (function (i) { setTimeout(function () { GravAudio.sfx("star", i); }, 150 + i * 150); })(k);
+      // The stars as the debrief draws them: the big stamp's own glyphs (2.1's verdict-first layout, .stamp-star.on) or the
+      // ledger head's stamp animated above. A debrief that shows no stamp at all (an ending screen) makes no result sound.
+      var soundStars = Math.max(starsWon, app.querySelectorAll(".stamp-star.on").length);
+      var hasStamp = !!(stamp || app.querySelector(".stamp, .stamp-star"));
       var paidNow = !!app.querySelector(".cb-result.paid");
-      if (paidNow || starsWon > 0) setTimeout(function () { GravAudio.sfx("stamp"); }, 480);
-      if (starsWon === 3 || paidNow) setTimeout(function () { GravAudio.sfx("win"); }, 620);
-      else if (stamp && starsWon === 0) setTimeout(function () { GravAudio.sfx("fail"); }, 400);
+      for (var k = 0; k < soundStars; k++) (function (i) { setTimeout(function () { GravAudio.sfx("star", i); }, 150 + i * 150); })(k);
+      if (paidNow || soundStars > 0) setTimeout(function () { GravAudio.sfx("stamp"); }, 480);
+      if (soundStars === 3 || paidNow) setTimeout(function () { GravAudio.sfx("win"); }, 620);
+      else if (hasStamp && soundStars === 0) setTimeout(function () { GravAudio.sfx("fail"); }, 400);
     }
     // The ledger rows (the score, or the money and the debt) come in order, after the stars.
     all(app, ".paper .row, .paper .total, .cb-row").forEach(function (r, i) {

@@ -1129,6 +1129,7 @@
       if (k === "class") node.className = v;
       else if (k === "text") node.textContent = v;
       else if (k.indexOf("on") === 0) node.addEventListener(k.slice(2), v);
+      else if (k === "style") node.style.cssText = String(v);   // the CSSOM, not the style attribute: a strict style-src (the host's) blocks the attribute
       else node.setAttribute(k, v === true ? "" : v);
     });
     (Array.isArray(kids) ? kids : [kids]).forEach(function (kid) {
@@ -1351,6 +1352,19 @@
     }));
   }
 
+  // A two-step confirm that works everywhere: window.confirm() is blocked (it answers "no" silently) in a sandboxed frame
+  // without allow-modals, which is how the team's host serves the game. The first press changes the button to its question,
+  // the second press within five seconds does it; the question goes back if nothing follows.
+  function twoStep(askLabel, doIt) {
+    return function (e) {
+      var b = e && e.currentTarget;
+      if (!b) { doIt(); return; }
+      if (b.getAttribute("data-armed") === "1") { b.removeAttribute("data-armed"); b.classList.remove("armed"); doIt(); return; }
+      var old = b.textContent;
+      b.textContent = askLabel; b.setAttribute("data-armed", "1"); b.classList.add("armed");
+      setTimeout(function () { if (b.getAttribute("data-armed") === "1") { b.textContent = old; b.removeAttribute("data-armed"); b.classList.remove("armed"); } }, 5000);
+    };
+  }
   function button(label, onClick, opts) {
     opts = opts || {};
     return el("button", { type: "button", class: "btn" + (opts.primary ? " primary" : "") + (opts.big ? " big" : "") + (opts.quiet ? " quiet" : ""),
@@ -1889,9 +1903,14 @@
         var c = document.createElement("canvas");
         c.width = 280; c.height = 280;
         if (!LowPoly.render(c, ps.scene)) return null;
-        FACES[fk] = { src: c.toDataURL("image/png"), alt: ps.label || "Portrait" };
+        FACES[fk] = { canvas: c, alt: ps.label || "Portrait" };   // kept as a canvas: a data: URL image is blocked by a strict img-src
       }
-      return el("img", { class: "portrait lp-face", src: FACES[fk].src, alt: FACES[fk].alt, width: 140, height: 140 });
+      var copy = document.createElement("canvas");
+      copy.width = 280; copy.height = 280;
+      copy.getContext("2d").drawImage(FACES[fk].canvas, 0, 0);
+      copy.className = "portrait lp-face"; copy.setAttribute("role", "img"); copy.setAttribute("aria-label", FACES[fk].alt);
+      copy.setAttribute("data-face", fk); copy.style.width = "140px"; copy.style.height = "140px";
+      return copy;
     } catch (e) { return null; }
   }
   // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
@@ -2689,8 +2708,7 @@
         el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
         el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next), quickCard()])   // QUICK MODE: the third card
       ]),
-      el("div", { class: "title-foot" }, [button("RESET EVERYTHING", function () {
-        if (!window.confirm("Erase everything? Your stars, your Part 1 steps and any comeback in progress will be gone.")) return;
+      el("div", { class: "title-foot" }, [button("RESET EVERYTHING", twoStep("SURE? ERASES STARS, STEPS AND YOUR COMEBACK", function () {
         // Everything the game saves: the stars, the Part 1 record and the comeback (a saved campaign).
         if (typeof resetProgress === "function") resetProgress();
         if (typeof resetCampaign === "function") resetCampaign();
@@ -2698,7 +2716,7 @@
         if (window.StarlineStory) window.StarlineStory.forget();   // the endings found and the interludes seen
         if (window.StarlineOnline) window.StarlineOnline.forgetQuick();   // QUICK MODE: the best quick score
         draw("title");
-      }, { quiet: true, key: "reset-progress" })])
+      }), { quiet: true, key: "reset-progress" })])
     ]);
   }
 
@@ -3610,7 +3628,7 @@
         var wrap = LowPoly.scenes.minimap({ width: 340, height: 204, places: PLACES, nodes: NODES, edges: EDGES });
         var c = document.createElement("canvas");
         c.width = 340; c.height = 204;
-        if (LowPoly.render(c, wrap.scene)) miniPicture = c.toDataURL("image/png");
+        if (LowPoly.render(c, wrap.scene)) miniPicture = c;   // a canvas: a data: URL image is blocked by a strict img-src
       }
     } catch (e) { miniPicture = ""; }
     return miniPicture;
@@ -3624,11 +3642,14 @@
       mini ? "minimap-art" : "map-art");
     var NS = "http://www.w3.org/2000/svg";
     if (picture) {
-      var image = document.createElementNS(NS, "image");
-      image.setAttribute("href", picture);
-      image.setAttribute("width", MAP_W); image.setAttribute("height", MAP_H);
-      image.setAttribute("preserveAspectRatio", "none");
-      svg.appendChild(image);
+      var holder = document.createElementNS(NS, "foreignObject");
+      holder.setAttribute("width", MAP_W); holder.setAttribute("height", MAP_H);
+      var copy = document.createElement("canvas");
+      copy.width = picture.width; copy.height = picture.height;
+      copy.getContext("2d").drawImage(picture, 0, 0);
+      copy.style.cssText = "width:100%;height:100%;display:block";
+      holder.appendChild(copy);
+      svg.appendChild(holder);
     }
     var line = document.createElementNS(NS, "polyline");
     line.setAttribute("class", "map-route");
@@ -3957,7 +3978,7 @@
       document.removeEventListener("keydown", onKeyShow, true);
       if (box && box.parentNode) box.parentNode.removeChild(box);
       launchShowing = false;
-      if (window.GravAudio) GravAudio.duck(false);
+      if (window.GravAudio) { GravAudio.duck(false); GravAudio.stopLaunch(); }   // SKIP or a key ends the lift-off sound too
       done();
     }
     // T-MINUS 00:00:05 ... 01, then 00:00:00 and LIFT-OFF; the status line follows the sequence.
@@ -4063,8 +4084,8 @@
 
   // Where the place is kept. A normal page: sessionStorage (this tab only). A sandboxed frame has none (the team's host
   // serves the game that way and gives it a localStorage that saves per account): there the place is kept with the saves,
-  // stamped with the time, and forgotten after RESUME_MAX_AGE_MS, so coming back another day opens the title screen.
-  var RESUME_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+  // stamped with the time, and forgotten after RESUME_MAX_AGE_MS (twenty minutes without a screen change), so a visit later opens the title screen.
+  var RESUME_MAX_AGE_MS = 20 * 60 * 1000;
   function sessionStore() {
     try {
       var s = window.sessionStorage;
@@ -4206,6 +4227,7 @@
     // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
     era: function (name) { markEra("era", name); },
     assist: assist,
+    twoStep: twoStep,
     checkLabel: checkLabel,   // UIA: js/ui-verdict.js names a problem the way the readiness review does
     infoKnown: infoKnown,   // paid part information: true when this group ("sheet", "performance", "dossier") of the part may be shown
     // BORROW from anywhere (2.1, js/ui-ledger.js): the cash moved under a design screen. Draw it again: the design in hand,

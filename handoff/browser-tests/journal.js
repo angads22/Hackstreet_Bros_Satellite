@@ -272,12 +272,12 @@ async function openFrom(p, key, part) {
   {
     const { p: a } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': fx.saves['one-flight-normal'].raw });
     await openFrom(a, 'journal-mode-part2');
-    const direct = await a.locator('[data-key="journal-lenders"] .jr-face img').getAttribute('src').catch(() => null);
+    const direct = await a.locator('[data-key="journal-lenders"] .jr-face .portrait').getAttribute('data-face').catch(() => null);
     await a.close();
     const { p: c } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': fx.saves['one-flight-normal'].raw });
     await openFrom(c, 'journal-mode-part1');
     await tab(c, 2); await c.waitForTimeout(100);
-    const switched = await c.locator('[data-key="journal-lenders"] .jr-face img').getAttribute('src').catch(() => null);
+    const switched = await c.locator('[data-key="journal-lenders"] .jr-face .portrait').getAttribute('data-face').catch(() => null);
     ok(!!direct && direct === switched, 'the face drawn after switching from Part 1 is the one drawn when opened on Part 2');
     await c.close();
   }

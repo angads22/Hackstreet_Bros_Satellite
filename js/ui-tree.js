@@ -25,6 +25,7 @@
       if (attrs[k] === null || attrs[k] === undefined || attrs[k] === false) return;
       if (k === "class") node.className = attrs[k];
       else if (k.indexOf("on") === 0) node.addEventListener(k.slice(2), attrs[k]);
+      else if (k === "style") node.style.cssText = String(attrs[k]);   // the CSSOM: a strict style-src blocks the style attribute
       else node.setAttribute(k, attrs[k]);
     });
     if (text !== undefined && text !== null) node.textContent = text;

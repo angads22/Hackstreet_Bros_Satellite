@@ -54,7 +54,7 @@ const KEY = 'gravitron-walkthrough-v1';
   await p.evaluate(() => localStorage.setItem('smdg-progress-v1', JSON.stringify({ best_stars: { training: 3 }, best_score: { training: 90 }, best_stars_by_era: { igy: 3 } })));
   await p.evaluate(() => { newComeback('standard'); });   // a comeback in progress: RESET EVERYTHING clears it too
   ok(await p.evaluate(() => getComeback() !== null && localStorage.getItem('smdg-campaign') !== null), 'a comeback is saved before the reset');
-  await p.click('[data-key="reset-progress"]');
+  await p.click('[data-key="reset-progress"]'); await p.click('[data-key="reset-progress"]');   // the first press asks, the second confirms (twoStep: window.confirm is blocked in a sandboxed frame)
   ok(await p.evaluate(() => getComeback() === null && localStorage.getItem('smdg-campaign') === null), 'RESET EVERYTHING clears the saved comeback');
   const after = await p.evaluate(k => [localStorage.getItem(k), JSON.parse(localStorage.getItem('smdg-progress-v1'))], KEY);
   ok(after[0] === null, 'RESET EVERYTHING removes the walkthrough record');

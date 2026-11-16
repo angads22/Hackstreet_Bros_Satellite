@@ -150,7 +150,7 @@ async function fly(p) {
     ok(JSON.stringify(await stored(p)) === JSON.stringify(before), 'HOME: everything saved is as it was');
 
     // RESET EVERYTHING also clears the best quick score.
-    await p.click('[data-key="reset-progress"]');
+    await p.click('[data-key="reset-progress"]'); await p.click('[data-key="reset-progress"]');   // the first press asks, the second confirms (twoStep: window.confirm is blocked in a sandboxed frame)
     await p.waitForSelector('[data-key="mode-quick"]');
     ok(await p.evaluate(() => localStorage.getItem('gravitron-quick-v1')) === null, 'RESET EVERYTHING clears the best quick score');
     ok(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.join(' / ') : ''));

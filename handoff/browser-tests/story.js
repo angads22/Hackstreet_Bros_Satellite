@@ -190,7 +190,7 @@ async function run(viewport, label) {
   // ---- the counter on the home page, then RESET EVERYTHING clears both records
   await p.evaluate(() => StarlineUI.home());
   ok(/ENDINGS 7 \/ 7/.test(await p.locator('[data-key="mode-part2"] .story-count').innerText()), 'home: ENDINGS 7 / 7 after all are found');
-  await p.click('[data-key="reset-progress"]');
+  await p.click('[data-key="reset-progress"]'); await p.click('[data-key="reset-progress"]');   // the first press asks, the second confirms (twoStep: window.confirm is blocked in a sandboxed frame)
   ok(await p.evaluate(([a, b]) => localStorage.getItem(a) === null && localStorage.getItem(b) === null, [FOUND, SEEN]), 'RESET EVERYTHING clears the endings found and the scenes seen');
   ok(/ENDINGS 0 \/ 7/.test(await p.locator('[data-key="mode-part1"] .story-count').innerText()), 'home after reset: ENDINGS 0 / 7');
 

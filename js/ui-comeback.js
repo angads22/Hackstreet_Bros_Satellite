@@ -369,9 +369,7 @@
       el("div", { class: "nav-row" }, [
         UI.button(["< ", "HOME"], function () { UI.home(); }, { key: "hub-home" }),
         window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ part: 2, back: showComebackHub, key: "hub-journal" }) : null,   // js/ui-story.js
-        UI.button("NEW COMEBACK", function () {
-          if (window.confirm("Start a new comeback? This one is lost.")) showPicker();
-        }, { quiet: true, key: "hub-new" })
+        UI.button("NEW COMEBACK", UI.twoStep("SURE? THIS ONE IS LOST", showPicker), { quiet: true, key: "hub-new" })
       ])
     ]));
   }

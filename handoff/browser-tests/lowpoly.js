@@ -94,7 +94,7 @@ async function lowPolyOn(viewport, label) {
   ok(a !== null && a !== b, 'the satellite turns slowly on the bench');
 
   // Portraits: the story speaker as a low-poly bust (an <img class="portrait">).
-  const face = page.locator('.say img.portrait').first();
+  const face = page.locator('.say .portrait').first();
   ok(await face.count() === 1 && (await face.getAttribute('alt')).length > 10, 'speaker portrait is a low-poly picture with alt text');
 
   // Readiness review: the chosen rocket on the pad, the small satellite.
@@ -271,7 +271,7 @@ async function lowPolyOn(viewport, label) {
     ok(al.same && al.worst <= 1, 'the canvas fills the map box and every marker sits on its place (within 1 px)');
     ok(await page.locator('.map canvas').getAttribute('aria-hidden') === 'true', 'the low-poly map is decoration (aria-hidden)');
     ok(await page.locator('.blip').count() === 5 && (await page.locator('.map .map-route').getAttribute('points')).split(' ').length >= 2, 'markers and the gold route stay on top');
-    ok(await page.locator('#minimap').isHidden() || await page.locator('#minimap image').count() === 1, 'the header minimap, when shown, is the low-poly picture');
+    ok(await page.locator('#minimap').isHidden() || await page.locator('#minimap foreignObject canvas').count() === 1, 'the header minimap, when shown, is the low-poly picture');
     // A new window size gives the map box a new shape: the scene is built again and still lines up.
     await page.setViewportSize({ width: viewport.width === 1280 ? 1000 : 360, height: viewport.height });
     await page.waitForTimeout(400);
@@ -283,7 +283,7 @@ async function lowPolyOn(viewport, label) {
   ok(await noSideScroll(page), 'Map: no sideways scroll');
   // The minimap inside a place.
   await page.click('[data-key="legend-briefing"]');
-  ok(await head(page, 'BRIEFING') && await page.locator('#minimap image').count() === 1, 'the header minimap is the low-poly picture, drawn once and kept');
+  ok(await head(page, 'BRIEFING') && await page.locator('#minimap foreignObject canvas').count() === 1, 'the header minimap is the low-poly picture, drawn once and kept');
 
   ok(errors.length === 0, 'no console or page errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await browser.close();
@@ -296,7 +296,7 @@ async function lowPolyBlocked(viewport, label) {
   await show(page, 'build', PARTS);
   ok(await head(page, 'BUILD'), 'Build screen');
   ok(await page.locator('.bench svg.sat').count() === 1 && await page.locator('.bench canvas').count() === 0, 'the bench shows the pixel satellite');
-  ok(await page.locator('.say svg.portrait').count() >= 1 && await page.locator('img.portrait').count() === 0, 'portraits are pixel art');
+  ok(await page.locator('.say svg.portrait').count() >= 1 && await page.locator('img.portrait, canvas.portrait').count() === 0, 'portraits are pixel art');
   await show(page, 'review', PARTS, 'small');
   ok(await page.locator('.pad svg.scene').count() === 1, 'the Readiness review shows the pixel pad');
   await page.click('.btn.big');
