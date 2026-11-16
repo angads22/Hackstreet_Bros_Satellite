@@ -4,6 +4,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+### Fixed
+
+- **Music no longer drops out.** If the browser suspended or interrupted the audio (a hidden tab, a phone call, power saving), the music stayed silent until you toggled it. It now resumes by itself, at the next click or key at the latest, and recovers from a failed schedule or a stuck launch ducking.
+
 ## 2.0 (November 15, 2026)
 
 Version 2 turns the game into something you can play against other people, makes Normal and Hard cost real money to learn about, brings in what the two satellite engineers asked for, and adds music. The home page now opens as the home layout at once (desktop performance 94 to 99, from about 60). Everything players already have is kept: stars, Part 1 steps and a comeback in progress (an in-place upgrade, tested against real saves).

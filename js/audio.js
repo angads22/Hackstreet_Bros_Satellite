@@ -29,7 +29,7 @@
   function save() { try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch (e) { /* not kept */ } }
 
   var ctx = null, master = null, musicBus = null, sfxBus = null, reverb = null, echo = null;
-  var era = "today", ducked = false, timer = null;
+  var era = "today", ducked = false, duckAt = 0, timer = null;
   var nextChord = 0, chordIndex = 0, nextBell = 0, nextCrack = 0, lastBell = -1;
   var MUSIC_LEVEL = 0.2, SFX_LEVEL = 0.42;
 
@@ -88,6 +88,7 @@
     var lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1800;
     echo.connect(lp); lp.connect(fb); fb.connect(echo); lp.connect(reverb);
     musicBus.connect(master);
+    ctx.onstatechange = function () { if (ctx && ctx.state !== "running") setTimeout(ensureRunning, 300); };
     return true;
   }
 
@@ -160,12 +161,45 @@
     src.start(t, rnd(0, 1.5), 0.02);
   }
 
+  // Runs every 400 ms while the music is on. It is also the watchdog: a browser can suspend or interrupt the audio (a
+  // hidden tab, a phone call, power saving, an audio device change) and then nothing would ever restart it, so a suspended
+  // context is resumed here, stale schedule times are brought back to now, a failed schedule is retried, and a duck that
+  // was never released is released.
+  function resync() {
+    var t = ctx.currentTime;
+    if (!(nextChord > t - 0.5 && nextChord < t + 40)) nextChord = t + 0.1;
+    if (!(nextBell > t - 0.5 && nextBell < t + 40)) nextBell = t + 1;
+    if (!(nextCrack > t - 0.5 && nextCrack < t + 40)) nextCrack = t + 0.3;
+  }
   function schedule() {
-    if (!ctx || ctx.state !== "running" || !prefs.music) return;
-    var horizon = ctx.currentTime + 1.6, m = mood();
-    while (nextChord < horizon) { playChord(Math.max(nextChord, ctx.currentTime + 0.05)); nextChord += m.bar; }
-    while (nextBell < horizon) { playBell(Math.max(nextBell, ctx.currentTime + 0.05)); nextBell += rnd(m.bellEvery[0], m.bellEvery[1]); }
-    if (m.crackle) while (nextCrack < horizon) { playCrackle(Math.max(nextCrack, ctx.currentTime + 0.05)); nextCrack += rnd(0.12, 0.7); }
+    if (!ctx || !prefs.music) return;
+    if (ctx.state !== "running") { ensureRunning(); return; }
+    if (ducked && Date.now() - duckAt > 30000) { ducked = false; applyLevels(); }   // the launch show lasts about 15 s
+    try {
+      resync();
+      var horizon = ctx.currentTime + 1.6, m = mood();
+      while (nextChord < horizon) { playChord(Math.max(nextChord, ctx.currentTime + 0.05)); nextChord += m.bar; }
+      while (nextBell < horizon) { playBell(Math.max(nextBell, ctx.currentTime + 0.05)); nextBell += rnd(m.bellEvery[0], m.bellEvery[1]); }
+      if (m.crackle) while (nextCrack < horizon) { playCrackle(Math.max(nextCrack, ctx.currentTime + 0.05)); nextCrack += rnd(0.12, 0.7); }
+    } catch (e) {
+      var t = ctx.currentTime;   // start the music over from now rather than fail on every tick
+      nextChord = t + 0.3; nextBell = t + 2; nextCrack = t + 0.5;
+    }
+  }
+
+  // Bring a context the browser suspended (or closed) back, if the player wants sound and the tab is showing.
+  function ensureRunning() {
+    if (!AC || document.hidden || !(prefs.music || prefs.sfx)) return;
+    if (ctx && ctx.state === "closed") { stopMusic(); ctx = null; noiseCache = null; if (!build()) return; }
+    if (!ctx) return;   // the first gesture creates the audio (unlock), never a page event
+    if (ctx.state === "running") return;
+    var c = ctx;
+    c.resume().then(function () {
+      if (c !== ctx || c.state !== "running") return;
+      applyLevels();
+      if (prefs.music) { if (timer) resync(); else startMusic(); }
+      refreshButtons();
+    }, function () { /* no gesture yet: the next click or key press tries again */ });
   }
 
   function musicLevel() { return prefs.music ? (ducked ? MUSIC_LEVEL * 0.3 : MUSIC_LEVEL) : 0; }
@@ -226,9 +260,9 @@
   function unlock() {
     if (!AC) return;
     if (!ctx && !build()) return;
-    var go = function () { applyLevels(); if (prefs.music) startMusic(); refreshButtons(); };
+    var go = function () { applyLevels(); if (prefs.music) { if (timer) resync(); else startMusic(); } refreshButtons(); };
     if (ctx.state === "running") go();
-    else ctx.resume().then(go, function () { /* stays silent */ });
+    else ctx.resume().then(go, function () { /* stays silent until the next gesture */ });
   }
 
   function sfx(name, arg) {
@@ -247,7 +281,7 @@
 
   function setMusic(on) {
     prefs.music = !!on; save();
-    if (ctx) { applyLevels(); if (prefs.music && ctx.state === "running") startMusic(); else if (!prefs.music) stopMusic(); }
+    if (ctx) { applyLevels(); if (!prefs.music) stopMusic(); else if (ctx.state === "running") { if (timer) resync(); else startMusic(); } else ensureRunning(); }
     else if (prefs.music) unlock();
     refreshButtons();
   }
@@ -280,9 +314,12 @@
     addButtons();
     readEra();
     try { new MutationObserver(readEra).observe(document.body, { attributes: true, attributeFilter: ["data-era"] }); } catch (e) { /* era stays */ }
-    var first = function () { document.removeEventListener("pointerdown", first, true); document.removeEventListener("keydown", first, true); unlock(); };
-    document.addEventListener("pointerdown", first, true);
-    document.addEventListener("keydown", first, true);
+    // Every gesture tries again: the first one may not count as a user activation (a touch's pointerdown, Shift), and the
+    // browser may suspend the audio later. Cheap when the audio is already running.
+    var gesture = function () { if (!ctx) unlock(); else if (ctx.state !== "running") ensureRunning(); else if (prefs.music && !timer) startMusic(); };
+    ["pointerdown", "pointerup", "touchend", "keydown", "click"].forEach(function (ev) { document.addEventListener(ev, gesture, true); });
+    window.addEventListener("focus", ensureRunning);
+    window.addEventListener("pageshow", ensureRunning);
     // A click on a button makes a small tick; the part cards make their own sounds (add, remove).
     document.addEventListener("click", function (e) {
       var b = e.target && e.target.closest && e.target.closest("button, .btn, .blip");
@@ -291,7 +328,7 @@
     }, true);
     document.addEventListener("visibilitychange", function () {
       if (!ctx) return;
-      if (document.hidden) ctx.suspend(); else if (prefs.music || prefs.sfx) ctx.resume();
+      if (document.hidden) ctx.suspend(); else ensureRunning();
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire();
@@ -299,9 +336,10 @@
   window.GravAudio = {
     sfx: sfx,
     setEra: setEra,
-    duck: function (on) { ducked = !!on; applyLevels(); },
+    duck: function (on) { ducked = !!on; duckAt = Date.now(); applyLevels(); },
     state: function () { return { music: prefs.music, sfx: prefs.sfx, running: !!ctx && ctx.state === "running", era: era, supported: !!AC }; },
     toggleMusic: function () { setMusic(!prefs.music); },
-    toggleSounds: function () { setSfx(!prefs.sfx); }
+    toggleSounds: function () { setSfx(!prefs.sfx); },
+    _test: { suspend: function () { return ctx && ctx.suspend(); }, close: function () { return ctx && ctx.close(); } }   // for the browser test only
   };
 })();
