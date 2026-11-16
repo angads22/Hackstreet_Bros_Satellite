@@ -15,7 +15,8 @@ Say:
 - Orbit choice has a real cost in the data: a low orbit sees 92% of the fire detections, a polar orbit all, one geostationary slot 69%.
 - 41 parts in 7 bins, 7 rockets, 3 orbits, 6 topics, 27 events, 14 real missions to compare against.
 - Eight real formulas, each with a hand-worked test. Over 900 automated checks pass (973 in 16 test files on the 2.1 build).
-- Be honest: five rows of `SOURCES.md` still need a human check. Live feeds (NOAA, NASA EONET, CWFIS) work only when online; otherwise it plays from a snapshot.
+- On slide 5 the flight is a wildfire contract: the line under the science bar reads "March: 288,836 fire detections worldwide (NASA FIRMS 2025)".
+- Be honest: five rows of `SOURCES.md` (the part lead times) still need a human check. Live feeds (NOAA, NASA EONET, CWFIS) work only when online; otherwise it plays from a snapshot.
 
 Do not say: "fires" (say "fire detections"), "live NASA data", a balance figure (not re-measured), any game value (cash, debt, payouts, odds) as fact.
 

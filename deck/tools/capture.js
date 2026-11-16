@@ -14,7 +14,7 @@ const shot = async (p, name) => { await p.evaluate(() => window.scrollTo(0, 0));
     await p.goto(url); await p.waitForSelector('[data-key="part2-go"]'); await p.waitForTimeout(1500);
     return p;
   };
-  try {
+  if (process.env.ONLY !== 'wildfire') try {
     let p = await open(1440, 900);
     await shot(p, 'home');
     await T.startComeback(p, 'standard');
@@ -38,6 +38,17 @@ const shot = async (p, name) => { await p.evaluate(() => window.scrollTo(0, 0));
     await p.waitForTimeout(2500); await shot(p, 'debrief');
     await p.context().close();
   } catch (e) { console.log('desktop flow failed: ' + e.message.split('\n')[0]); }
+  // Slide 5: a wildfire contract (the topic that runs on NASA FIRMS): the mission before its first event, then the debrief.
+  try {
+    let p = await open(1440, 900);
+    await T.startComeback(p, 'standard');
+    await T.launchContract(p, 'wildfire');
+    await p.waitForTimeout(900); await shot(p, 'mission-wildfire');
+    await T.fly(p, 'first', true);
+    await p.waitForTimeout(2500); await shot(p, 'debrief-wildfire');
+    await p.context().close();
+  } catch (e) { console.log('wildfire flow failed: ' + e.message.split('\n')[0]); }
+  if (process.env.ONLY === 'wildfire') { await b.close(); return; }
   try {
     let p = await open(1440, 900);
     await p.click('[data-key="mode-quick"]'); await p.waitForTimeout(1200);

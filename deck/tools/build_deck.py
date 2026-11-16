@@ -123,7 +123,7 @@ notes(s, "3 The loop. Criterion: PRESENTATION (the user experience, told as one 
 s = S[3]
 title(s, 'Every part costs mass, power and money')
 w, h = picture(s, 'Build', 'build.png', L, 1.55, w=7.9)
-text(s, 'Build caption', L, 1.55 + h + 0.15, 7.9, 0.4, 'Build: the satellite, three gauges and the live bars.', size=SMALL, color=MUTED)
+text(s, 'Build caption', L, 1.55 + h + 0.15, 7.9, 0.4, 'Build: the satellite, three gauges, the live bars. Money is a game value.', size=SMALL, color=MUTED)
 w2, h2 = picture(s, 'Review', 'review.png', 8.85, 1.55, w=3.88)
 text(s, 'Review caption', 8.85, 1.55 + h2 + 0.15, 3.88, 0.4, 'The review says GO or NO GO.', size=SMALL, color=MUTED)
 text(s, 'Facts', L, 1.55 + h + 0.75, R - L, 1.0, [[('41 parts, 7 rockets, 3 orbits.', True)], [('Eight real formulas, each with a hand-worked test.', False)]], after=2)
@@ -132,7 +132,7 @@ notes(s, "4 Build. Criterion: VALIDITY (scientifically sound, feasible, usable).
   "Eight real formulas with hand-worked tests: SPEC.md line 30; node tests/formulas.js passes (16 checks). "
   "The picture is Part 2 on Normal, a solar contract: the satellite drawn from the parts on board, the three gauges DATA, COST and TIME (new in 2.1), PROFIT, and the bars for mass, power, budget and data home. "
   "On Normal and Hard some part facts show '?' until you pay the engineers (2.0). The review picture is the same design: READY, ALL SYSTEMS GO. "
-  "Do not say: any dollar figure as fact. Money, payouts and odds are game values; part masses and powers are sourced in SOURCES.md, and five source rows still need a human check.")
+  "Do not say: any dollar figure as fact. Money, payouts and odds are game values; part masses and powers are sourced in SOURCES.md, and five lead-time source rows still need a human check.")
 
 # ---- 5 Fly and data (Relevance)
 s = S[4]
@@ -141,9 +141,9 @@ pw = (R - L - 0.25) / 2
 w, h = picture(s, 'Mission', 'mission.png', L, 1.55, w=pw)
 w2, h2 = picture(s, 'Debrief', 'debrief.png', L + pw + 0.25, 1.55, w=pw)
 cy = 1.55 + max(h, h2) + 0.13
-text(s, 'Mission caption', L, cy, pw, 0.3, 'Months tick by. An event stops the clock.', size=SMALL, color=MUTED)
+text(s, 'Mission caption', L, cy, pw, 0.3, 'March: 288,836 fire detections (NASA FIRMS 2025).', size=SMALL, color=MUTED)
 text(s, 'Debrief caption', L + pw + 0.25, cy, pw, 0.3, 'The debrief: the verdict, then what limited the flight.', size=SMALL, color=MUTED)
-by = cy + 0.5
+by = cy + 0.55
 text(s, 'Data sets', L, by, pw, 1.9, [[('Wildfire: ', True), ('NASA FIRMS', False)], [('Sea ice: ', True), ('NSIDC Sea Ice Index', False)],
                                       [('Sun: ', True), ('SILSO sunspots', False)], [('Ionosphere: ', True), ('CSA Alouette', False)]], after=2)
 text(s, 'Orbit fact', L + pw + 0.25, by, pw, 1.3, [('A low orbit ', True), ('sees 92% of the 3,693,555 fire detections. A polar orbit sees all.', False)])
@@ -154,7 +154,8 @@ notes(s, "5 Fly it. Criterion: RELEVANCE (NASA data is a core part, not an add-o
   "the Sun from the SILSO monthly sunspot number (Royal Observatory of Belgium, CC BY-NC 4.0); the ionosphere from the Canadian Space Agency's Alouette-1 soundings (699,369). "
   "Orbit coverage: data/earth.js wildfire.orbit_view is 0.921 low orbit, 1.0 polar, 0.687 one geostationary slot. "
   "Say 'fire detections', never 'fires': a MODIS detection is a hot pixel. The game plays from this snapshot offline; live feeds (NOAA SWPC, NASA EONET, CWFIS) refresh it only when online, so do not say 'live NASA data'. "
-  "The pictures are a Part 2 solar contract on Normal: an event (each choice shows its cost) and the debrief that leads with the verdict and the money (new in 2.1). "
+  "The pictures are a Part 2 wildfire contract on Normal. Left, month 3 of the flight: the line under the science bar reads 'March: 288,836 fire detections worldwide (NASA FIRMS 2025)', which is detections x monthly_share for March in data/earth.js. "
+  "Right, the debrief of the same flight, which leads with the verdict and the money (new in 2.1): PAID IN PART, then ATTITUDE CONTROL LIMITED THIS MISSION and TRY THIS. An event stops the clock during a flight and shows what each choice costs. "
   "Every dollar figure and score in the pictures is a game value.")
 
 # ---- 6 Story and modes (Creativity)
@@ -185,7 +186,7 @@ text(s, 'Proof', L, 1.55, 7.3, 5.3, [
     [('Tested: ', True), ('over 900 automated checks pass.', False)],
     [('Offline: ', True), ('no install. It plays from a data snapshot.', False)],
     [('Online: ', True), ('leaderboard and 1v1 duel are built, not hosted yet. Scores are self-reported.', False)],
-    [('Open: ', True), ('five source rows still need a human check.', False)],
+    [('Open: ', True), ('five lead-time sources still need a human check.', False)],
     [('SI: ', True), ('built with SI tools, recorded in SI_USE.md.', False)],
     [('Sources: ', True), ('SOURCES.md. ', False), ('Team: ', True), ('Yareem, data and rules. angads22, screens.', False)]], after=13)
 w, h = picture(s, 'Quick menu', 'quick.png', 8.3, 1.55, w=R - 8.3)
@@ -195,7 +196,7 @@ notes(s, "7 Proof. Criteria: VALIDITY and PRESENTATION (the whole project is jud
   "Tested: on the 2.1 build, node tests/<name>.js, all passing: formulas 16, api 143, campaign 61, comeback 151, debrief 35, migration 177, saves 35, clarity 30, info 45, online 126, world 19, credit 56, verdict 16, uib 49, speed 6, version 8 (973 checks in 16 files). "
   "Not rerun for this deck: tests/balance.js, tests/simulate.js, the browser scripts; CHANGELOG.md 2.0 says balance was not re-measured with loans, launch failures and fees together, so do not quote a balance figure. "
   "Online: the leaderboard and the 1v1 duel are written and tested (server/, node tests/online.js) but no server is hosted, so the buttons read ONLINE OFF; scores are self-reported (CHANGELOG.md 2.0). Never present them as live. "
-  "Open: five rows of SOURCES.md are marked NEEDS HUMAN CHECK. Structure: plain HTML, CSS and JavaScript, 15 data files with one global each, js/game.js never touches the page, fetch only in js/live-data.js; it plays offline from the snapshot in data/earth.js. "
+  "Open: five rows of SOURCES.md (lines 37 to 41, the part lead times and the supply chain) are marked NEEDS HUMAN CHECK. Structure: plain HTML, CSS and JavaScript, 15 data files with one global each, js/game.js never touches the page, fetch only in js/live-data.js; it plays offline from the snapshot in data/earth.js. "
   "SI: the use of SI is recorded in SI_USE.md and goes in the form field 'Use of Super Intelligence (SI)'. References: SOURCES.md (NASA data: FIRMS, NSIDC; partner and other data: SILSO, CSA Alouette). "
   "TO DO BY A PERSON: add the other members' names (story, game experience) to the Team line, or roles only if anyone is under 18 (event rule: no name, face or voice of a minor).")
 

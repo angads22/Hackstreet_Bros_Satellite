@@ -50,9 +50,9 @@ Each slide carries a small footer, "CRITERION" and the name.
 | 4 | The review says GO or NO GO | `deck/img/review.png` (READY, ALL SYSTEMS GO); `SPEC.md` readiness review |
 | 5 | Wildfire: NASA FIRMS. Sea ice: NSIDC Sea Ice Index. Sun: SILSO sunspots. Ionosphere: CSA Alouette | `data/earth.js`; `SOURCES.md` rows read "Downloaded and processed" |
 | 5 | A low orbit sees 92% of the 3,693,555 fire detections; a polar orbit sees all | `data/earth.js` `wildfire.detections` (3693555) and `wildfire.orbit_view` (leo 0.921, sso 1) |
-| 5 | Months tick by; an event stops the clock | `deck/img/mission.png` |
-| 5 | The debrief: the verdict, then what limited the flight | `CHANGELOG.md` Unreleased, "Debrief leads with the verdict and the money"; `deck/img/debrief.png` |
-| 5 | Money shown is a game value | `SPEC.md` line 66 |
+| 5 | March: 288,836 fire detections (NASA FIRMS 2025) | `deck/img/mission.png` (the line under the science bar); `data/earth.js` `wildfire.detections` x `monthly_share` for March (3693555 x 0.0782) |
+| 5 | The debrief: the verdict, then what limited the flight | `CHANGELOG.md` Unreleased, "Debrief leads with the verdict and the money"; `deck/img/debrief.png` (PAID IN PART, then ATTITUDE CONTROL LIMITED THIS MISSION) |
+| 4, 5, 6 | Money shown is a game value | `SPEC.md` line 66 |
 | 6 | Part 1, 1958: Austin Albert, NASA engineer, three guided steps | `CHANGELOG.md` 0.9 beta, "Part 1"; the home card shows steps 1 to 3 |
 | 6 | Part 2: his grandson Ajay flies satellites for paying customers to clear a debt | `CHANGELOG.md` 0.9 beta, "Part 2"; `deck/img/workshop.png` |
 | 6 | Quick mode: one flight, a new job each time | `CHANGELOG.md` Unreleased, "Quick mode" |
@@ -61,7 +61,7 @@ Each slide carries a small footer, "CRITERION" and the name.
 | 7 | Over 900 automated checks pass | Run on the 2.1 build, all passing: formulas 16, api 143, campaign 61, comeback 151, debrief 35, migration 177, saves 35, clarity 30, info 45, online 126, world 19, credit 56, verdict 16, uib 49, speed 6, version 8: 973 checks in 16 files |
 | 7 | No install; plays from a data snapshot | `data/earth.js`; fetch only in `js/live-data.js` |
 | 7 | Leaderboard and 1v1 duel are built, not hosted yet; scores are self-reported | `CHANGELOG.md` 2.0 ("Not in this version yet": the online features need a server); `node tests/online.js` (126 pass); `deck/img/quick.png` shows ONLINE OFF |
-| 7 | Five source rows still need a human check | `grep -c "NEEDS HUMAN CHECK" SOURCES.md` gives 5 |
+| 7 | Five lead-time sources still need a human check | `SOURCES.md` lines 37 to 41 (part lead times and the supply chain) are the five rows marked NEEDS HUMAN CHECK |
 | 7 | Built with SI tools, recorded in `SI_USE.md` | `SI_USE.md` |
 | 7 | Sources: `SOURCES.md` | `SPEC.md` line 1161 (the References list) |
 | 7 | Team: Yareem, data and rules. angads22, screens | `SPEC.md`, "Team roles" |
@@ -72,7 +72,7 @@ Also recounted, not on a slide: 6 topics, 27 events, 14 real missions, 3 difficu
 
 - Every picture was from 0.9 (two mode cards, no ledger strip, no gauges, a credit bar out of 100, "v0.9 beta"). All nine are now 2.1 screenshots; the three GIFs are gone, so the deck and its PDF show the same thing.
 - Stale facts fixed: "two modes" (three), "22 events" (27), "Next: launch failures" (built in 2.0), "when credit runs out" (credit is a 300 to 850 score), test counts, "v0.9 beta" (no version on a slide; the game's footer is the one place for it).
-- Taken off: the balance figure (not re-measured, `CHANGELOG.md` 2.0), the phone pictures and "works on a phone" (a phone layout for Build is not done), the visible `[__]` placeholders, the NO GO picture and the two story-card strips.
+- Taken off: the balance figure (not re-measured, `CHANGELOG.md` 2.0), the phone pictures and "works on a phone" (a phone layout for Build is not done), the visible `[__]` placeholders, the NO GO picture, the two story-card strips, and the event picture (events are in the notes for slide 5).
 - Added: a headline that states the point on every slide, body text at 24pt, a criterion footer, the data set behind each topic, "money is a game value", the online and SI lines.
 
 ## For a person to do
@@ -87,5 +87,6 @@ Also recounted, not on a slide: 6 topics, 27 events, 14 real missions, 3 difficu
 ## Things to know
 
 - Not claimed anywhere: "live NASA data", a live leaderboard or duel, any cash, debt, interest, payout or score as fact, `data/result_master.csv`, unchecked sources.
-- The pictures are a Part 2 run on Normal with a solar contract, opened from a file (header badge SNAPSHOT, Quick card ONLINE OFF), at 1440x900 and 2x.
+- The pictures are Part 2 runs on Normal, opened from a file (header badge SNAPSHOT, Quick card ONLINE OFF), at 1440x900 and 2x: a solar contract on slides 3 and 4, a wildfire contract on slide 5 (the topic that runs on NASA FIRMS).
+- The mission picture on slide 5 is cropped to the left of the screen so the NASA FIRMS line can be read; the science bar runs on to the right in the game.
 - `SI_USE.md` names tools, so the slide only points to it; its content belongs in the form field "Use of Super Intelligence (SI)".
