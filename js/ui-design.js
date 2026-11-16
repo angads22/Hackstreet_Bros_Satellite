@@ -2708,7 +2708,7 @@
         el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
         el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next), quickCard()])   // QUICK MODE: the third card
       ]),
-      el("div", { class: "title-foot" }, [button("RESET EVERYTHING", twoStep("SURE? ERASES STARS, STEPS AND YOUR COMEBACK", function () {
+      el("div", { class: "title-foot" }, [button("RESET EVERYTHING", twoStep("SURE? ERASE ALL", function () {
         // Everything the game saves: the stars, the Part 1 record and the comeback (a saved campaign).
         if (typeof resetProgress === "function") resetProgress();
         if (typeof resetCampaign === "function") resetCampaign();
