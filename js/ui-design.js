@@ -3083,8 +3083,12 @@
       shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
         : el("p", { class: "empty", text: "No parts in this bin yet." })
     ]);
-    // The preview sits on top of the shelf and stays in view while you scroll through the parts (CSS sticky).
-    var picker = el("div", { class: "part-picker", id: "part-picker" }, [drawPreview(), shelf]);
+    // On a wide screen the preview lives in the side column, above the bars, so it never covers the parts and stays in view
+    // while the shelf scrolls (that column is pinned). On a narrow screen there is no side column: it sits on top of the
+    // shelf and stays in view while you scroll through the parts (CSS sticky).
+    var wideBuild = !!(window.matchMedia && window.matchMedia("(min-width: 930px)").matches);
+    var pv = drawPreview();
+    var picker = el("div", { class: "part-picker", id: "part-picker" }, wideBuild ? [shelf] : [pv, shelf]);
 
     return el("section", { class: "screen" }, [
       head("3 · BUILD"),
@@ -3092,7 +3096,7 @@
       // On a wide screen the shelf sits under the satellite, and the side panels stay in view while you scroll: you
       // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
       el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
-        el("div", { class: "stack" }, [overview, sciencePanel(d)])]),
+        el("div", { class: "stack" }, wideBuild ? [pv, overview, sciencePanel(d)] : [overview, sciencePanel(d)])]),
       // With the rocket preset (Part 1), the next stop after the Workshop is the Launch Pad.
       navRow(isPreset("launcher") ? "review" : "launcher", true)
     ]);
