@@ -20,6 +20,9 @@ Built from `origin/release/v2.1` at abc4acb (the newest game; `main` was at 919f
 | 6 | Rockets can fail; LOW / MEDIUM / HIGH risk on cards; events show cost; the debrief leads with the verdict and money | `CHANGELOG.md` 2.0, Unreleased; `data/launchers.js`; recordings `p1-launch`, `p2-mission`, `p2-debrief` |
 | 7 | 984 checks pass across 17 suites | Run on `release/v2.1`: formulas 16, api 143, campaign 61, comeback 151, credit 56, debrief, info 45, migration 177, online 126, saves 35, speed 6, uib 49, verdict 16, version 8, world 19, clarity 30, perf 11 |
 | 7 | SI use: SI wrote much of the code, tests and docs from the team's design and story; numbers labelled sourced, ESTIMATE or GAME VALUE; most sources still need a human check | `SI_USE.md`; `SOURCES.md` ("Tools and other resources"); `SPEC.md` ("Submission checklist": the SI field) |
+| 4 | The base map: walk the gold route between seven stops | `CHANGELOG.md` 0.5 "Base map"; clip `map-gif` |
+| 5 | Iron Eclipse's offer, SELL or REFUSE, and one of seven endings (SOLD OUT) | `CHANGELOG.md` 1.0; `js/ui-story.js`; clip `offer-gif` (a real run: two flights, then the offer; flights played by the test helper, not by hand) |
+| 7 | Also in 2.1: music and sound made in the browser; story journal; saves carry over | `CHANGELOG.md` 2.0 (music, journal, saves); `js/audio.js` |
 | 7 | Quick mode: one flight, new job each time, offline | `CHANGELOG.md` Unreleased "Quick mode"; clip `quick-gif` |
 | 7 | Leaderboard and duel built but not hosted; next steps | `CHANGELOG.md` "Not in this version yet"; `ONLINE.md` |
 
@@ -28,6 +31,6 @@ Failure chances, event costs, payouts, fees, debt, credit numbers and lead times
 
 ## Open items for the team
 - SI use: the deck describes it without naming the tool or models (the team's house rule). The form field "Use of Super Intelligence (SI)" and `SI_USE.md` must name them.
-- QR code on slide 7 is copied from the earlier deck and could not be decoded here: open it before presenting.
-- Slides 1 and 7 list names. If anyone is under 18, show roles only (event checklist).
-- Picture notes: GIFs play in PowerPoint and Google Slides present mode; the PDF shows the last frame of each. 11 GIFs: home, failing flight, engineers' Build, borrow, part-add, phone, story, launch, mission, debrief result, Quick mode. Nothing used forced dice.
+- QR code on slide 7: copied from the earlier deck; the team says it works.
+- Names: team members' names are left off the deck on purpose. The local event tells minors not to use their own name in the submission, and NASA's guide bars images, audio or likeness of anyone under 18; ages are not known here. NASA's deck tips list member names, so add them back on slides 1 and 7 only if everyone is 18 or over. The characters Austin and Ajay are fiction and stay.
+- Picture notes: GIFs play in PowerPoint and Google Slides present mode; the PDF shows the last frame of each. 13 GIFs: home, failing flight, engineers' Build, borrow, part-add, map walk, phone, story, offer and ending, launch, mission, debrief result, Quick mode. Nothing used forced dice.
