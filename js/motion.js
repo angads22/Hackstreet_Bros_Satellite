@@ -334,6 +334,23 @@ var GravMotion = (function () {
     track.appendChild(seg);
   }
 
+  // Bring a bar into view inside its own scrolling column (the pinned side column on a wide Build screen), never by
+  // scrolling the page. The bottom 80px of the column sit under the pinned next button.
+  function showInColumn(node) {
+    try {
+      var sc = node.parentNode;
+      while (sc && sc.nodeType === 1) {
+        var oy = getComputedStyle(sc).overflowY;
+        if ((oy === "auto" || oy === "scroll") && sc.scrollHeight > sc.clientHeight + 4) break;
+        sc = sc.parentNode;
+      }
+      if (!sc || sc.nodeType !== 1 || sc === document.body || sc === document.documentElement) return;
+      var b = node.getBoundingClientRect(), c = sc.getBoundingClientRect();
+      if (b.bottom > c.bottom - 80) sc.scrollTop += b.bottom - (c.bottom - 80);
+      else if (b.top < c.top + 4) sc.scrollTop -= c.top + 4 - b.top;
+    } catch (e) { /* stays where it is */ }
+  }
+
   function barOf(app, name) {
     return all(app, ".bar").filter(function (b) {
       var n = b.querySelector(".bar-name");
@@ -389,6 +406,7 @@ var GravMotion = (function () {
         var bar = barOf(app, it.bar);
         var num = bar && bar.querySelector(".bar-top > span:last-child");
         if (!num || !it.text) return;
+        if (it.star) showInColumn(bar);   // fitting a body: its CARRIES bar may be below the fold of the pinned side column
         var r = num.getBoundingClientRect();
         if (r.bottom < head || r.top > vh) return;   // out of sight (or under the sticky header): nothing to point at
         // the chip floats up out of the number; with no room above it (the header) it floats down instead

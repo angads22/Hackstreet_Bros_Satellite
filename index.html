@@ -6,9 +6,6 @@
   <title>GRAVITRON: The Gravitronical Odyssey</title>
   <!-- Pixel fonts: self-hosted in css/fonts/ (@font-face in css/style.css), so there is no request to Google Fonts. A rel="preload" would log a CORS error when the game is opened as a file; it made no difference to the layout shift in the measurements (handoff/notes/v2-perf.md). -->
   <!-- Part 1 (1958) type (Courier Prime, Special Elite, Stardos Stencil): also in css/fonts/, fetched only when Part 1 uses it. -->
-  <!-- The two fonts of the first screen, fetched early so the pixel type is there at first paint (less layout shift). -->
-  <link rel="preload" href="css/fonts/PixelifySans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="css/fonts/VT323-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css?v=2.0">
   <link rel="stylesheet" href="css/story.css?v=2.0">
   <link rel="stylesheet" href="css/build.css?v=2.0">

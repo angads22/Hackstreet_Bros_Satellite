@@ -4,7 +4,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
-- **Ready for the team's host.** Reload keeps your place there too (the host's frame has no tab storage, so the place is kept with the saves and forgotten after three hours); the online screens say what the host means (link expired, multiplayer off, server down); the two first-screen fonts load early. A browser check serves the game from a token path inside a sandboxed frame.
+- **Ready for the team's host.** Reload keeps your place there too (the host's frame has no tab storage, so the place is kept with the saves and forgotten after three hours); the online screens say what the host means (link expired, multiplayer off, server down). A browser check serves the game from a token path inside a sandboxed frame.
 
 - **A launch you can feel.** The lift-off sound is rebuilt: an ignition thump, a roaring, crackling engine, a sub-bass you feel and a rising whine as the rocket climbs, much louder than any other sound (the music steps back). Off with the SOUNDS switch.
 - **A satellite the right size.** On the mission screen and in the launch finale your satellite is small next to the Earth, as it would be.

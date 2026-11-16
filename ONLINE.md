@@ -70,7 +70,7 @@ For the server side:
 
 - **QUICK MODE is in the repo from version 2.1** (a third card on the home page; the duel and the leaderboard are inside its menu). The stylesheet that restyled the old home-page online buttons as a DUEL card with a LEADERBOARD bar can be deleted: those buttons (`.online-row`) no longer exist.
 - **Not yet done:** a full two-browser duel on the host. A duel between two guests ends if either reloads (a guest's player id is new on every visit); logged-in players keep theirs.
-- **Checked on 2.1:** the phone map label "MISSION CONTROL" is not clipped (the floating label only shows for the next stop, which is never Mission Control in the three modes); the two first-screen fonts are preloaded to cut the late font swap.
+- **Checked on 2.1:** the phone map label "MISSION CONTROL" is not clipped (the floating label only shows for the next stop, which is never Mission Control in the three modes); a font preload was tried for the late font swap and taken out again: a preloaded font needs `crossorigin`, and that is refused when the game is opened from a file (a console error for a judge who opens `index.html` directly). The fonts stay `font-display: swap`.
 
 ## The off switch (do not "fix" this)
 
