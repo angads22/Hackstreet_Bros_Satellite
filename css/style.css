@@ -1620,3 +1620,6 @@ summary { min-width: 24px; padding: 0 4px; }
 .stack > .preview .explainer.ex-compact { flex-direction: row; gap: 10px; }
 .stack > .preview .explainer.ex-compact .ex-svg { flex: 0 0 100px; width: 100px; border-width: 2px; }
 .stack > .preview { height: clamp(220px, 34vh, 340px); }
+
+/* QA 2.1 (header-repeat): while the ledger strip shows CASH and DEBT, the header's copy of them takes no room (it stays in the page for a screen reader). */
+body:has(#lstrip-host:not([hidden])) .status-money { font-size: 0; letter-spacing: 0; }

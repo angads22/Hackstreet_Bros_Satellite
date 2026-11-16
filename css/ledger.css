@@ -95,3 +95,16 @@
   .screen.cb .cb-stakes-2 { grid-template-columns: minmax(0, 1fr); }
   .screen.cb .cb-stakes-2 .cb-stat { grid-template-columns: auto minmax(0, 1fr); }
 }
+
+/* QA 2.1 (build-fold): on a wide screen the strip above the design screens is one line per tile (the workshop keeps its
+   own taller strip), so Build's part cards start higher at 1366x768. */
+@media (min-width: 930px) {
+  .lstrip-host .lstrip .lt { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 12px; padding: 4px 12px 5px; }
+  .lstrip-host .lstrip .lt-value { font-size: 28px; }
+}
+/* QA 2.1 (build-fold): Part 2's Build stacks the satellite, the gauges and the pay line above the shelf. On a short wide
+   screen (a 1366x768 laptop) the satellite is a little smaller, so the first row of part cards is on the first screen. */
+@media (min-width: 930px) and (max-height: 820px) {
+  body:has(#lstrip-host:not([hidden])) .workshop .sat-bench { max-width: 204px; }
+  body:has(.workshop) .lstrip-host { margin-bottom: 0; }
+}
