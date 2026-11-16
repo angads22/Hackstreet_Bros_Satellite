@@ -2927,7 +2927,7 @@
     if (sheetOk && dl.power_draw_w) put("POWER", dl.power_draw_w, sg(dl.power_draw_w) + fine(dl.power_draw_w) + " W draw", false);
     if (sheetOk && dl.power_gen_w) put("POWER", dl.power_gen_w, sg(dl.power_gen_w) + fine(dl.power_gen_w) + " W made", true);
     if (dl.cost_musd) put("BUDGET", dl.cost_musd, (dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)), false);   // the price is the catalogue's and always shows
-    if (sheetOk && dl.data_returned_gb_day) put("DATA HOME", dl.data_returned_gb_day, sg(dl.data_returned_gb_day) + dataText(dl.data_returned_gb_day, true) + "/day", true);
+    if (sheetOk && dl.data_returned_gb_day) put("DATA HOME", dl.data_returned_gb_day, dataText(dl.data_returned_gb_day, true) + "/day", true);   // dataText(.., true) writes the sign
     return out;
   }
   function rectOf(node) {
