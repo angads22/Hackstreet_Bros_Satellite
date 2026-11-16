@@ -108,7 +108,7 @@
     return best;
   }
   function keepBest(score) {
-    bestMemory = Math.max(bestMemory, score);
+    bestMemory = Math.max(bestScore(), score);   // never lower than what is already kept (another tab may have saved more)
     try { if (window.localStorage) window.localStorage.setItem(QUICK_KEY, JSON.stringify({ best: bestMemory })); } catch (e) { /* memory copy still works */ }
   }
   function forgetQuick() {

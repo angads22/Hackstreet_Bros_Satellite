@@ -1,5 +1,5 @@
-// The online features (SPEC.md, "Online features"): the off switch, the home row, the leaderboard and the 1v1 duel.
-//   A. From a file: the LEADERBOARD and DUEL buttons are disabled with the reason, no request to a server leaves the page
+// The online features (SPEC.md, "Online features"): the off switch, the QUICK MODE menu, the leaderboard and the 1v1 duel.
+//   A. From a file: the QUICK MODE menu's LEADERBOARD and 1V1 DUEL buttons are disabled with the reason, no request to a server leaves the page
 //      (even with an endpoint set), the home page still fits the first screen at 1366x768 and 390 wide, and no console errors.
 //   B. With ?offline=1 on a public-looking address: off too, no request.
 //   C. On a public-looking address (https://gravitron.test, served from the repo with the real server/server.js behind
@@ -52,8 +52,10 @@ function watchApi(page) {
   page.on('request', r => { if (!known.test(r.url())) seen.push(r.method() + ' ' + r.url()); });
   return seen;
 }
+// Opens the QUICK MODE menu (the online entries live there since 2.1; v2-quick.js clicks the home card).
+const toMenu = p => p.evaluate(() => StarlineOnline.showQuickMenu());
 const fits = (p) => p.evaluate(() => {
-  const b = document.querySelector('.online-row'), r = b ? b.getBoundingClientRect() : null;
+  const b = document.querySelector('.mode-card:last-child'), r = b ? b.getBoundingClientRect() : null;
   const m = document.querySelector('.title-main').getBoundingClientRect();
   return { scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth, scrollH: document.documentElement.scrollHeight, innerH: window.innerHeight,
     rowBottom: r ? Math.round(r.bottom) : null, mainBottom: Math.round(m.bottom), rowRight: r ? Math.round(r.right) : null };
@@ -70,23 +72,27 @@ const fits = (p) => p.evaluate(() => {
     await T.noFonts(p);
     const seen = watchApi(p);
     await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
+    ok(await p.locator('.mode-card').count() === 3 && await p.locator('.online-row').count() === 0, 'the home page has three mode cards and no small online row');
+    ok(/ONLINE OFF/.test(await p.locator('[data-key="quick-state"]').innerText()), 'the QUICK MODE card says online is off');
+    await p.click('[data-key="quick-go"]');
     const lb = p.locator('[data-key="online-leaderboard"]'), du = p.locator('[data-key="online-duel"]');
-    ok(await lb.isVisible() && await du.isVisible(), 'the LEADERBOARD and DUEL buttons are on the home page');
-    ok(await lb.isDisabled() && await du.isDisabled(), 'both are disabled');
+    ok(await lb.isVisible() && await du.isVisible(), 'the LEADERBOARD and 1V1 DUEL buttons are on the QUICK MODE menu');
+    ok(await lb.isDisabled() && await du.isDisabled() && await p.locator('[data-key="quick-flight"]').isEnabled(), 'both are disabled, QUICK FLIGHT is not');
     const reason = await p.locator('[data-key="online-reason"]').innerText();
     ok(/ONLINE OFF/.test(reason) && /file/i.test(reason) && reason.split(/\s+/).length <= 8, 'one short line says why: "' + reason + '"');
-    ok(await p.locator('.mode-card').count() === 2, 'the two mode cards are still there');
+    await p.click('[data-key="online-home"]');   // QUICK MENU's foot button on the other screens; here it is HOME
+    await p.waitForSelector('.mode-card');
     const f = await fits(p);
     ok(f.scrollW <= f.innerW, 'no sideways scroll');
-    ok(f.rowBottom <= f.innerH && f.mainBottom <= f.innerH, `the home page still fits the first screen (row bottom ${f.rowBottom}, content bottom ${f.mainBottom}, screen ${f.innerH})`);
+    ok(f.rowBottom <= f.innerH && f.mainBottom <= f.innerH, `the home page still fits the first screen (last card bottom ${f.rowBottom}, content bottom ${f.mainBottom}, screen ${f.innerH})`);
     await p.screenshot({ path: path.join(shots, `online-home-file-${label}.png`) });
     // A returning player: Part 1 passed, a comeback saved (the JOURNAL button shows): the row still fits above RESET EVERYTHING.
     await p.evaluate(() => { localStorage.setItem('gravitron-walkthrough-v1', JSON.stringify({ done: { 1: 3, 2: 3, 3: 3 } })); newComeback('standard', 7); });
     await p.reload();
     await p.waitForTimeout(600);
-    const g = await p.evaluate(() => { const r = document.querySelector('.online-row').getBoundingClientRect(), f = document.querySelector('.title-foot').getBoundingClientRect();
+    const g = await p.evaluate(() => { const r = document.querySelector('.mode-card:last-child').getBoundingClientRect(), f = document.querySelector('.title-foot').getBoundingClientRect();
       return { rowBottom: Math.round(r.bottom), footTop: Math.round(f.top), sh: document.documentElement.scrollHeight, ih: window.innerHeight, sw: document.documentElement.scrollWidth, iw: window.innerWidth }; });
-    ok(g.rowBottom <= g.footTop && g.sh <= g.ih && g.sw <= g.iw, `a returning player's home page fits (row bottom ${g.rowBottom}, RESET top ${g.footTop}, page ${g.sh}/${g.ih})`);
+    ok(g.rowBottom <= g.footTop && g.sh <= g.ih && g.sw <= g.iw, `a returning player's home page fits (last card bottom ${g.rowBottom}, RESET top ${g.footTop}, page ${g.sh}/${g.ih})`);
     await p.screenshot({ path: path.join(shots, `online-home-returning-${label}.png`) });
     await p.evaluate(() => { localStorage.clear(); });
     await p.reload();
@@ -98,6 +104,7 @@ const fits = (p) => p.evaluate(() => {
       await LiveData.online.duelPoll('ABCD'), await LiveData.online.submitScore({ id: 'abcdefgh' })]);
     ok(calls.every(c => c.ok === false && c.reason), 'every call answers { ok: false, reason } without a server');
     await p.evaluate(() => { UI_HOME(); function UI_HOME() { StarlineUI.home(); } });
+    await toMenu(p);
     ok(await p.locator('[data-key="online-leaderboard"]').isDisabled(), 'redrawing the home page keeps them disabled');
     // The Part 2 ending offers no SUBMIT SCORE while online is off.
     await p.evaluate(() => {
@@ -130,6 +137,7 @@ const fits = (p) => p.evaluate(() => {
     const errors = T.watchErrors(p);
     const seen = watchApi(p);
     await p.goto(GAME + '/index.html?offline=1');
+    await toMenu(p);
     ok(await p.locator('[data-key="online-leaderboard"]').isDisabled() && await p.locator('[data-key="online-duel"]').isDisabled(), 'both buttons are disabled');
     ok(/offline/i.test(await p.locator('[data-key="online-reason"]').innerText()), 'the reason names the offline switch');
     await p.waitForTimeout(400);
@@ -145,10 +153,12 @@ const fits = (p) => p.evaluate(() => {
     const p = await ctx.newPage();
     const errors = T.watchErrors(p);
     await p.goto(GAME + '/index.html');
+    ok(/^ONLINE$/.test(await p.locator('[data-key="quick-state"]').innerText()), 'the QUICK MODE card says ONLINE');
+    await toMenu(p);
     ok(await p.locator('[data-key="online-leaderboard"]').isEnabled() && await p.locator('[data-key="online-duel"]').isEnabled(), 'on a public address with a server set, the buttons are enabled');
     ok(await p.locator('[data-key="online-reason"]').count() === 0, 'no "off" line is shown');
     ok(await p.evaluate(() => localStorage.getItem('gravitron-player-v1')) === null, 'nothing is stored before the player opens an online screen');
-    await p.click('[data-key="online-leaderboard"]');
+    await toMenu(p); await p.click('[data-key="online-leaderboard"]');
     await p.locator('[data-key="lb-list"]').waitFor();
     await p.waitForFunction(() => /No scores yet/.test(document.querySelector('[data-key="lb-list"]').innerText), null, { timeout: 5000 });
     ok(/self-reported/i.test(await p.locator('.preset-note').innerText()), 'the screen says scores are self-reported');
@@ -186,11 +196,12 @@ const fits = (p) => p.evaluate(() => {
     await p.evaluate(() => { ONLINE.endpoint = 'https://nowhere.gravitron.test'; });
     await ctx.route('https://nowhere.gravitron.test/**', r => r.abort());
     await p.click('[data-key="online-home"]');
-    await p.click('[data-key="online-leaderboard"]');
+    await toMenu(p); await p.click('[data-key="online-leaderboard"]');
     await p.waitForFunction(() => /Server not reachable/.test(document.querySelector('[data-key="lb-list"]').innerText), null, { timeout: 8000 });
     ok(await p.locator('[data-key="lb-retry"]').count() === 1, 'a failure says "Server not reachable" and offers RETRY');
-    await p.click('[data-key="online-home"]');
-    ok(await p.locator('[data-key="part1-go"]').isEnabled(), 'play is not blocked');
+    await p.click('[data-key="online-home"]');   // QUICK MENU
+    await p.evaluate(() => StarlineUI.home());
+    ok(await p.locator('[data-key="part1-go"]').isEnabled() && await p.locator('[data-key="quick-go"]').isEnabled(), 'play is not blocked');
     await ctx.close();
   }
 
@@ -209,7 +220,7 @@ const fits = (p) => p.evaluate(() => {
     const comeback = await H.evaluate(() => localStorage.getItem('smdg-campaign'));
     ok(!!comeback, 'the host has a comeback saved before the duel');
 
-    await H.click('[data-key="online-duel"]');
+    await toMenu(H); await H.click('[data-key="online-duel"]');
     await H.click('[data-key="duel-create"]');
     ok(/nickname/i.test(await H.locator('[data-key="duel-msg"]').innerText()), 'CREATE ROOM asks for a nickname first');
     await H.fill('[data-key="online-nick"]', 'Host');
@@ -219,7 +230,7 @@ const fits = (p) => p.evaluate(() => {
     ok(/^[A-Z]{4}$/.test(code), 'the host sees a four-letter code: ' + code);
     await H.screenshot({ path: path.join(shots, 'online-duel-room.png') });
 
-    await G.click('[data-key="online-duel"]');
+    await toMenu(G); await G.click('[data-key="online-duel"]');
     await G.fill('[data-key="online-nick"]', 'Guest');
     await G.fill('[data-key="duel-code"]', 'zz');
     await G.click('[data-key="duel-join"]');
