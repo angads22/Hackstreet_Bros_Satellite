@@ -7,6 +7,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 ## 2.1 (November 15, 2026)
 
 Version 2.1 makes the game quicker to pick up and harder to lose your place in. A third mode, QUICK MODE, sits on the home page; Part 2 shows your cash, debt and months on every screen, scores your credit the way a real lender does and sorts the contracts by pay; Build shows what a click did and whether the design meets the contract; a reload brings you back to where you were. Ajay's story now opens with what he has lost. Everything players already have is kept (an in-place upgrade, tested against real saves), and the game follows the rules of the team's host (relative addresses, nothing loaded from other websites, a sandboxed frame with no tab storage).
+- **Borrow from anywhere.** The CASH tile at the top of every Part 2 screen is a button: it opens a small BORROW panel (amount, fee, rate, credit score), and the screen you are on follows the new cash with your design kept. The flight waits while it is open.
+- **A launch you can feel.** The lift-off sound is rebuilt: an ignition thump, a roaring, crackling engine, a sub-bass you feel and a rising whine as the rocket climbs, much louder than any other sound (the music steps back). Off with the SOUNDS switch.
+- **A satellite the right size.** On the mission screen and in the launch finale your satellite is small next to the Earth, as it would be.
+### Changed
 
 ### Added
 

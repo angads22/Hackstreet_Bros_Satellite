@@ -188,20 +188,15 @@
   }
 
   // ---- loans, credit and a name (SPEC.md, "Loans, credit and a name"). Every number comes from getComeback / borrow.
-  var BORROW_SHARES = [0.25, 0.5, 1];   // BORROW buttons: these shares of the most the lenders will lend now, rounded down
-
-  function borrowAmounts(c) {
-    var max = c.max_borrow_musd || 0, out = [], step = max >= 4 ? 1 : 0.1;
-    BORROW_SHARES.forEach(function (sh) {
-      var v = Math.floor(max * sh / step + 1e-9) * step;
-      v = Math.round(v * 10) / 10;
-      if (v > 0 && out.indexOf(v) === -1) out.push(v);
-    });
-    return out;
-  }
+  // BORROW from anywhere (2.1): the amounts and the loan itself live in js/ui-ledger.js (one set of rules for this panel and
+  // for the borrow panel behind the CASH tile).
+  function borrowAmounts(c) { return L0() ? L0().borrowAmounts(c) : []; }
 
   function takeLoan(amount) {
-    var r = typeof borrow === "function" ? borrow(amount) : { ok: false, reason: "Borrowing is not available." };
+    afterLoan(L0() ? L0().loan(amount) : { ok: false, reason: "Borrowing is not available." });
+  }
+  // What the workshop shows after a loan (or a refusal), whichever control took it. fromPanel: the borrow panel keeps the focus.
+  function afterLoan(r, fromPanel) {
     var after = info();   // credit 2.1: the score and band the loan left, read from the back end
     hub.note = r && r.ok ? "Borrowed " + money(r.borrowed_musd) + " (fee " + money(r.fee_musd) + " added to the debt). Debt now " + money(r.debt_musd) +
       ". Score now " + num(r.credit_score, 0) + (after && after.credit_band ? " " + after.credit_band : "") + "." : (r && r.reason) || "That loan did not go through.";
@@ -214,7 +209,7 @@
     showComebackHub();
     window.scrollTo(0, y);
     var msg = document.getElementById("borrow-note");
-    if (msg) msg.focus();
+    if (msg && !fromPanel) msg.focus();
   }
 
   // A plain bar from 0 to 100 (or to `top`), with an optional line (the seize line) and a label for screen readers.
@@ -424,5 +419,5 @@
   window.showComebackStart = showComebackStart;
   window.showComebackHub = showComebackHub;
   window.showComebackEnding = showComebackEnding;
-  window.StarlineComeback = { contractCard: contractCard, meter: meter, showPicker: showPicker };
+  window.StarlineComeback = { contractCard: contractCard, meter: meter, showPicker: showPicker, afterLoan: afterLoan };
 })();
