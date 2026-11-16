@@ -330,8 +330,7 @@
       el("div", { class: "ledger-head" }, [
         el("h1", { text: "MISSION REPORT" }),
         starStamp(d.stars)
-      ]),
-      nextStarLine(d, PARTS_OF_SCORE)
+      ])
     ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
     ]));
@@ -372,6 +371,7 @@
       el("h2", null, [UI.icon(limitIcon(d)) || UI.icon(d.limiting), limitingHeading(d)]),
       d.paragraph ? el("p", { text: d.paragraph }) : null,
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
+      nextStarLine(d, PARTS_OF_SCORE),   // what the next star needs: a few words, kept out of the fold with TRY THIS
       buttons
     ]);
     var more = el("details", { class: "more debrief-details", "data-key": "debrief-details", open: !!(result && result.comeback_over) }, [
