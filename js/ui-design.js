@@ -1992,6 +1992,8 @@
     if (isComebackDesign(state.design)) return "PART 2 · " + comebackLevel(state.design.tier);
     var step = walkStepOf(state.design);
     if (step) return "PART 1 · STEP " + step;
+    // QA 2.1 (quick-header): a QUICK FLIGHT says QUICK MODE in the header, not the sandbox's name.
+    if (state.design && state.design.duel && window.StarlineOnline && window.StarlineOnline.isQuick(state.design)) return "QUICK MODE";
     var t = tier();
     return t ? t.name.toUpperCase() : "";
   }
@@ -2016,9 +2018,15 @@
     node.tabIndex = 0;
   }
 
+  // QA 2.1 (header-repeat): in Part 2 the cash and the debt are in the ledger strip right under the header. The header keeps
+  // the words (the tests and a screen reader read them) in a span that the style sheet folds away while the strip shows.
   function setStatus(text) {
     var node = document.getElementById("status");
-    if (node) node.textContent = text;
+    if (!node) return;
+    text = String(text);
+    var cut = text.indexOf(" · CASH ");
+    node.textContent = cut > 0 && text.indexOf("PART 2 · MONTH") === 0 ? text.slice(0, cut) : text;
+    if (cut > 0 && text.indexOf("PART 2 · MONTH") === 0) node.appendChild(el("span", { class: "status-money", text: text.slice(cut) }));
   }
 
   function designStatus() {

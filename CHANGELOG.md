@@ -12,6 +12,13 @@ Version 2.1 makes the game quicker to pick up and harder to lose your place in. 
 - **A satellite the right size.** On the mission screen and in the launch finale your satellite is small next to the Earth, as it would be.
 ### Changed
 
+- **The header says the money once.** In Part 2 the cash and the debt show in the ledger strip only; the header keeps the month and fits one line.
+- **Build's parts on the first screen.** On a laptop (1366x768) Part 2's ledger strip is one line above the design screens and the bench satellite is smaller, so the first part cards show without scrolling.
+- **A quick flight's header says QUICK MODE,** not the sandbox's name.
+- **Part 1's debrief says the step result once,** in the big line; the banner under it shows only when it adds something.
+- **The "Third star: ..." line under TRY THIS is readable** (it had the paper's ink on a dark box).
+- **All the bars in view on a laptop.** On a short wide screen the IF YOU CLICK box is shorter and drops its picture, so the DATA HOME and CARRIES bars sit above the bottom row and a fitted body's CARRIES chip shows again.
+- **Ajay's story starts with a loss.** His girlfriend Mara leaves and both parents disown him; their letter after flight one is about the house and the deed.
 ### Added
 
 - **Credit is a real credit score** (300 to 850, POOR to EXCEPTIONAL): worked out from payments, debt, history, new loans and mix; the band sets the interest and the loan limit; a 2.0 save keeps its credit.
