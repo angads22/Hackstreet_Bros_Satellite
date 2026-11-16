@@ -77,16 +77,16 @@ async function run(viewport, label) {
   await p.reload(); await p.click('[data-key="part2-go"]');
   ok(await T.waitHead(p, 'WORKSHOP') && !(await inInterlude(p)), 'after a reload: CONTINUE goes straight to the workshop');
 
-  // ---- flight 1 -> Mum's call, once
+  // ---- flight 1 -> the parents' letter, once
   ok(await p.evaluate(FLY) >= 0, 'flight 1 settled');
   const mum = await beatsOf(p, 'after-1', 'interlude');
   await p.evaluate(() => window.showComebackHub());
-  ok(await inInterlude(p) && /MUM/.test(await p.locator('.intro .say-name').innerText()), 'after flight 1: Mum calls (her portrait and name)');
-  ok(await p.locator('.intro .portrait').count() === 1, "Mum's scene has a portrait");
-  ok((await through(p)).join('|') === mum.join('|'), "Mum's scene is the story text, beat by beat");
-  ok(await T.waitHead(p, 'WORKSHOP'), "Mum's call ends at the workshop");
+  ok(await inInterlude(p) && /MUM/.test(await p.locator('.intro .say-name').innerText()), 'after flight 1: the parents write (their portrait and name)');
+  ok(await p.locator('.intro .portrait').count() === 1, "the parents' scene has a portrait");
+  ok((await through(p)).join('|') === mum.join('|'), "the parents' scene is the story text, beat by beat");
+  ok(await T.waitHead(p, 'WORKSHOP'), "the parents' scene ends at the workshop");
   await p.evaluate(() => window.showComebackHub());
-  ok(!(await inInterlude(p)), "the workshop again: Mum's call does not repeat");
+  ok(!(await inInterlude(p)), "the workshop again: the parents' scene does not repeat");
 
   // ---- flight 2 -> the offer: it blocks the workshop's contracts until answered; REFUSE
   await p.evaluate(FLY);
@@ -143,7 +143,7 @@ async function run(viewport, label) {
   await through(p);
   await p.evaluate(FLY);
   await p.evaluate(() => window.showComebackHub());
-  ok(await inInterlude(p), 'a new run (new seed): Mum calls again (each run has its own record)');
+  ok(await inInterlude(p), 'a new run (new seed): the parents write again (each run has its own record)');
   await through(p);
 
   // ---- SELL: the ending, recorded
@@ -238,11 +238,11 @@ async function existing() {
     ok(await T.waitHead(p, 'WORKSHOP') && !(await inInterlude(p)), `${name}: after a reload: still nothing replays`);
     const kept = await p.evaluate(keys => keys.map(k => localStorage.getItem(k)), ['smdg-progress-v1', 'gravitron-walkthrough-v1']);
     ok(kept[0] === fx.progress['smdg-progress-v1'] && kept[1] === fx.progress['gravitron-walkthrough-v1'], `${name}: the stars and the Part 1 record are exactly as they were`);
-    // what comes next is still shown: the first flight on a fresh run brings Mum's call; later runs follow the normal rules
+    // what comes next is still shown: the first flight on a fresh run brings the parents' letter; later runs follow the normal rules
     if (ex.flights === 0) {
       await p.evaluate(FLY);
       await p.evaluate(() => window.showComebackHub());
-      ok(await inInterlude(p) && /MUM/.test(await p.locator('.intro .say-name').innerText()), `${name}: the first flight after the update brings Mum's call`);
+      ok(await inInterlude(p) && /MUM/.test(await p.locator('.intro .say-name').innerText()), `${name}: the first flight after the update brings the parents' letter`);
     }
     ok(errors.length === 0, `${name}: no console or page errors` + (errors.length ? ': ' + errors.join(' / ') : ''));
     await p.close();

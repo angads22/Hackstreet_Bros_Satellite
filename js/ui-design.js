@@ -155,12 +155,12 @@
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
   //
-  // THE ARC (fiction; Voss, Austin, Ajay, Priya and Iron Eclipse are invented, and no line below states a game number).
+  // THE ARC (fiction; Voss, Austin, Ajay, Priya, Mara and Iron Eclipse are invented, and no line below states a game number).
   //   Part 1: Austin hears Sputnik beep over his workshop, builds three satellites by the rules in his notebook, and
   //   his counter falls silent at altitude (the discovery). His rival Marcus Voss takes the credit, blames him when
   //   the bigger satellite is lost on the pad, leaves to found Iron Eclipse. The notebook goes into a box.
-  //   Part 2: Ajay opens the box. His motives arrive as the run goes on: the lenders and the workshop (start), Mum's
-  //   house (after-1), Iron Eclipse and the buyout (offer, refused), Austin's last page and his name (after-3),
+  //   Part 2: Ajay opens the box. His motives arrive as the run goes on: the lenders and the workshop, Mara leaving
+  //   and both parents disowning him (start), the parents' letter about the house and the deed (after-1), Iron Eclipse and the buyout (offer, refused), Austin's last page and his name (after-3),
   //   the stakes restated (final). `why` is read by the number of flights, so it follows the same order.
   //
   // NEW KEYS (read by js/ui-story.js; every beat is { who, text }, one sentence, a scene is at most six beats):
@@ -169,7 +169,7 @@
   //     that also carries .sell, .refuse, .sell_hint and .refuse_hint (the labels and one-line hints of its two buttons).
   //     `start` repeats `intro` (the same six beats); show only one of them.
   //   STORY.ajay.endings = { legend, comeback, close, sold, timeout, broke }, each { title, kicker, beats, line }.
-  //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), mum.
+  //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), girl (Mara), parents (Mum and Dad).
   //   STORY.journal = { title, part1, part2, next, locked }: the STORY SO FAR screen. part1 and part2 are lists of
   //     { id, who, text, when }: one or two short lines each. `when` names the moment that unlocks the entry (js/ui-story.js
   //     decides when it has come: start, step-1, step-2, step-3, offer, refused, sold, after-1, after-3). `next` holds the
@@ -178,7 +178,7 @@
     title: "GRAVITRON",
     subtitle: "The Gravitronical Odyssey",
     speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK",
-                rival: "IRON ECLIPSE", mum: "MUM" },
+                rival: "IRON ECLIPSE", girl: "MARA", parents: "MUM AND DAD" },
 
     // The home page: one card per mode. No game numbers here (every number on screen comes from the back end).
     modes: {
@@ -352,22 +352,23 @@
              notebook: "notebook", "event-calibration": "notebook", why: "partner", hub: "partner", contract: "customer" },
       // Shown once, when a comeback starts (after the difficulty), then the workshop. interludes.start repeats it.
       intro: [
-        { who: "partner", text: "Ajay Albert. Last year you borrowed a fortune to start Albert Orbital." },
-        { who: "partner", text: "It never flew. The money went on a launch party, a logo and an office with a slide." },
+        { who: "partner", text: "Ajay Albert. Albert Orbital never flew. The money went on a launch party and a logo." },
+        { who: "girl", text: "I'm leaving, Ajay. My things are in the car. I can't do another launch party." },
+        { who: "parents", text: "We signed that loan with our house. As of today we disown you. No calls, no money." },
         { who: "partner", text: "The lenders want it back by the deadline, or they take your grandfather's workshop." },
         { who: "notebook", text: "To whoever opens this: build it cheap, build it right, and bring the data home." },
-        { who: "customer", text: "Iron Eclipse sells data for a fortune. Bring it cheaper and we will pay." },
-        { who: "partner", text: "Pick a contract. Every satellite that delivers pays the debt down." }
+        { who: "customer", text: "Iron Eclipse sells data for a fortune. Bring it cheaper and we will pay." }
       ],
       // The workshop (the hub): why Ajay keeps going, one line, chosen by the number of flights so far. The order is the
-      // order of the story: the lenders, Mum, Iron Eclipse, Austin's name, then the lines that repeat.
+      // order of the story: the lenders, the parents, Iron Eclipse, Austin's name, then the lines that repeat.
       why: [
         "The lenders don't want satellites. They want the workshop.",
-        "Mum co-signed the loan with her house. No pressure.",
+        "Mum and Dad's house is on the loan. They won't pick up.",
         "Iron Eclipse bought your patents for pocket change. They're laughing.",
         "Grandpa's name belongs on that door. Put it back.",
         "Albert Orbital was a joke. Albert Orbital Two doesn't have to be.",
-        "Customers are tired of Iron Eclipse prices. That's your opening."
+        "Customers are tired of Iron Eclipse prices. That's your opening.",
+        "Mara said you never finish anything. Finish this."
       ],
       // The workshop's situation lines: before the first flight, after a paid one, under half the debt, and when a
       // quarter of the months or less is left.
@@ -399,10 +400,10 @@
       interludes: {
         start: [],   // filled from `intro` after this object
         "after-1": [
-          { who: "mum", text: "Ajay? A man from the bank came to the house today. He was very polite." },
-          { who: "mum", text: "I signed that loan with you, love. With the house. Our house." },
-          { who: "partner", text: "You did tell her it was safe, right?" },
-          { who: "mum", text: "I believe in you. Please don't make me regret it." }
+          { who: "parents", text: "Ajay. The bank holds the deed to our house now. That is your loan." },
+          { who: "parents", text: "Every month you are late, they come a step closer to our front door." },
+          { who: "parents", text: "We are not writing to forgive you. We are writing so you know the cost." },
+          { who: "partner", text: "A letter, by hand, no return address. You could not call them if you tried." }
         ],
         offer: [
           { who: "rival", text: "Ajay Albert. Iron Eclipse has been watching your little flights." },
@@ -421,11 +422,11 @@
           { who: "partner", text: "Voss founded Iron Eclipse. This was never only about the debt, Ajay. It is his name." }
         ],
         final: [
-          { who: "partner", text: "Almost there. The workshop, Mum's house and Austin's name ride on one more flight." }
+          { who: "partner", text: "Almost there. The workshop, your parents' house and Austin's name ride on one more flight." }
         ]
       },
       // The seven endings are Part 1's `box` (STORY.austin.endings) and these six. Each stands alone: `sold` can come
-      // before the last page is found, `legend` can come on Easy before it, and `broke` before Mum has called.
+      // before the last page is found, `legend` can come on Easy before it, and `broke` before the parents' letter.
       endings: {
         legend: {
           title: "HIS NAME, RESTORED",
@@ -433,7 +434,7 @@
           beats: [
             { who: "partner", text: "The last payment clears. The lenders go quiet. The workshop is yours." },
             { who: "notebook", text: "The last page, folded small: his design was right. Marcus Voss changed it." },
-            { who: "mum", text: "Your grandfather would have cried, love. Then he would have asked what is next." },
+            { who: "parents", text: "The deed is ours again. Come on Sunday, if you want to." },
             { who: "partner", text: "Fresh paint over the workshop door: AUSTIN ALBERT, ROCKET ENGINEER." }
           ],
           line: "Voss took the credit. You took it back."
@@ -443,7 +444,7 @@
           kicker: "THE DEBT IS PAID",
           beats: [
             { who: "partner", text: "The last payment clears. The lenders send a very polite letter." },
-            { who: "mum", text: "The house is safe, love. Please, no more launch parties." },
+            { who: "parents", text: "The house is ours again. We are not ready to say more." },
             { who: "customer", text: "Another contract? Iron Eclipse is starting to notice you." },
             { who: "notebook", text: "Well done, Ajay. Now build the next one." }
           ],
@@ -454,7 +455,7 @@
           kicker: "THE LAST DAY",
           beats: [
             { who: "partner", text: "The last payment lands with hours to spare. The lenders' van is already outside." },
-            { who: "mum", text: "I had started packing the kitchen, love. Then your message came." },
+            { who: "partner", text: "Your parents stand at their gate, boxes taped behind them. They say nothing." },
             { who: "partner", text: "They drive off empty-handed. The whole street watches from its windows." },
             { who: "notebook", text: "Margins. It is the first thing I wrote and the last thing you learned." }
           ],
@@ -466,7 +467,7 @@
           beats: [
             { who: "rival", text: "Debt cleared, as promised. The workshop, the patents and the notebook are ours now." },
             { who: "rival", text: "We will thank your grandfather in the small print. Very small." },
-            { who: "mum", text: "You saved the house, love. I know what it cost you." },
+            { who: "parents", text: "The house is safe. We said it would end like this." },
             { who: "partner", text: "The van pulls away with the box. You watch until the street is empty." }
           ],
           line: "There was one page at the bottom of the box. Nobody will ever read it."
@@ -477,7 +478,7 @@
           beats: [
             { who: "partner", text: "The deadline passes. The lenders do not wait for your next launch." },
             { who: "partner", text: "Two men in grey coats change the lock on your grandfather's workshop." },
-            { who: "mum", text: "My name is on that loan, love. So is the house. We will manage." },
+            { who: "partner", text: "The same men pin a notice to your parents' door. Your phone stays silent." },
             { who: "notebook", text: "The calendar never read my notebook either." }
           ],
           line: "The calendar won. Next time, so will you."
@@ -488,7 +489,7 @@
           beats: [
             { who: "partner", text: "The account is empty. There is no rocket left that you can pay for." },
             { who: "partner", text: "The lenders have a word for this: default. They say it very politely." },
-            { who: "mum", text: "My name is on that loan, love, and so is the house. Please don't say sorry." },
+            { who: "partner", text: "Nobody rings. Mara's side of the wardrobe is still empty." },
             { who: "notebook", text: "Every part costs money and weight. I wrote that on page one." }
           ],
           line: "Build cheaper, build right, and try again."
@@ -645,7 +646,9 @@
     ],
     part2: [
       { id: "lenders", who: "partner", when: "start", text: "The lenders want the debt back, or they take Grandpa's workshop." },
-      { id: "mum", who: "mum", when: "after-1", text: "Mum co-signed the loan with the house. Our house." },
+      { id: "girl", who: "girl", when: "start", text: "Mara packed her things and left. No more launch parties." },
+      { id: "disowned", who: "parents", when: "start", text: "Mum and Dad disowned you. No calls, no money." },
+      { id: "house", who: "parents", when: "after-1", text: "They signed with their house. The bank holds the deed." },
       { id: "iron-eclipse", who: "rival", when: "offer", text: "Iron Eclipse bought your patents for almost nothing." },
       { id: "offer", who: "rival", when: "offer", text: "It will clear the debt, for the workshop and the notebook." },
       { id: "refused", who: "partner", when: "refused", text: "You said no. Now you have to win it." },
@@ -994,7 +997,7 @@
   }
 
   // speakerArt(who) -> a 16 x 16 pixel portrait (the same size and class as directorArt), or null for an unknown speaker.
-  // Four silhouettes: two colleagues, a bun and goggles, a wide-brimmed hat, and a book with no face.
+  // Six silhouettes: two colleagues, a bun and goggles, a wide-brimmed hat, a book with no face, Mara (story 2.1) and Mum and Dad.
   function speakerArt(who) {
     var P = PAL;
     var rects, label;
@@ -1040,6 +1043,26 @@
         [11, 4, 1, 1, P.gold], [9, 6, 1, 2, P.blue], [12, 6, 1, 2, P.blue], [10, 6, 2, 2, P.navy],
         [9, 10, 1, 1, P.muted], [11, 10, 1, 1, P.muted], [13, 10, 1, 1, P.muted],
         [7, 12, 2, 4, P.red], [10, 14, 5, 1, P.gold], [15, 14, 1, 1, P.red], [9, 14, 1, 1, P.sky]
+      ];
+    } else if (who === "girl") {
+      // Mara, who leaves: long dark hair, a blue coat, a gold suitcase at her side (no low-poly bust; this is her face).
+      label = "Portrait of Mara, in a coat, with a suitcase";
+      rects = [
+        [0, 0, 16, 16, P.portrait],
+        [4, 2, 8, 3, P.hair], [3, 3, 1, 9, P.hair], [12, 3, 1, 9, P.hair],
+        [5, 5, 6, 5, P.skin], [6, 7, 1, 1, P.sky], [9, 7, 1, 1, P.sky], [7, 9, 2, 1, P.mouth],
+        [7, 10, 2, 1, P.skin], [3, 11, 8, 5, P.blue], [6, 11, 4, 1, P.ink],
+        [12, 12, 4, 4, P.gold], [13, 11, 2, 1, P.muted]
+      ];
+    } else if (who === "parents") {
+      // Mum and Dad: two figures side by side, grey hair on the one behind, a red cardigan and a navy coat.
+      label = "Portrait of Mum and Dad, side by side";
+      rects = [
+        [0, 0, 16, 16, P.portrait],
+        [10, 3, 5, 2, P.line], [10, 5, 5, 5, P.skin], [11, 6, 1, 1, P.sky], [13, 6, 1, 1, P.sky], [11, 8, 3, 1, P.mouth],
+        [11, 10, 3, 1, P.skin], [9, 11, 7, 5, P.navy],
+        [3, 2, 5, 3, P.hair], [2, 4, 1, 5, P.hair], [3, 5, 5, 5, P.skin], [4, 6, 1, 1, P.sky], [6, 6, 1, 1, P.sky],
+        [4, 8, 3, 1, P.mouth], [4, 10, 3, 1, P.skin], [1, 11, 9, 5, P.red], [4, 11, 3, 1, P.ink]
       ];
     } else return null;
     return art("0 0 16 16", rects, label, "portrait");
@@ -1869,7 +1892,7 @@
   }
   // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
   // else null (the caller then shows the director).
-  var FACE_OF = { rival: "director", mum: "partner" };   // speakers drawn with another speaker's bust
+  var FACE_OF = { rival: "director" };   // speakers drawn with another speaker's bust (story 2.1: Mara and the parents use speakerArt's pixel faces)
   function speakerFace(who) {
     who = FACE_OF[who] || who;
     return lpFace(who) || (typeof speakerArt === "function" ? speakerArt(who) : null);

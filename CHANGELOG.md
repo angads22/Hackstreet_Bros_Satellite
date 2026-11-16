@@ -4,6 +4,10 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+### Changed
+
+- **Ajay's story starts with a loss.** In Part 2 his girlfriend, Mara, leaves him and both parents disown him (they co-signed the loan with their house); after the first flight their letter makes the house and the deed personal. No one who left rings up warmly: the endings give a single cool line, or silence.
+
 ### Fixed
 
 - **Music no longer drops out.** If the browser suspended or interrupted the audio (a hidden tab, a phone call, power saving), the music stayed silent until you toggled it. It now resumes by itself, at the next click or key at the latest, and recovers from a failed schedule or a stuck launch ducking.
