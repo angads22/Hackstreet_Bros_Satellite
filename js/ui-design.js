@@ -4176,6 +4176,15 @@
     assist: assist,
     checkLabel: checkLabel,   // UIA: js/ui-verdict.js names a problem the way the readiness review does
     infoKnown: infoKnown,   // paid part information: true when this group ("sheet", "performance", "dossier") of the part may be shown
+    // BORROW from anywhere (2.1, js/ui-ledger.js): the cash moved under a design screen. Draw it again: the design in hand,
+    // the open bin and the scroll stay. Never during the lift-off, and never on the mission, the debrief or the workshop.
+    cashMoved: function () {
+      if (!state.design || launchShowing || ["map"].concat(DESIGN_STEPS).indexOf(state.screen) === -1) return false;
+      var y = window.scrollY;
+      redraw();
+      window.scrollTo(0, y);
+      return true;
+    },
     mount: function (screen, node) {
       state.screen = screen;
       markHome(screen);

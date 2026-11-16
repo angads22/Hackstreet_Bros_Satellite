@@ -113,14 +113,14 @@
   // The Earth's satellite flies at the mission's pace: held while the mission is paused or an event waits for an
   // answer, five times faster in fast-forward (a month per 60 ms instead of 300). Under reduced motion it never moves.
   function setPace() {
-    if (run && run.earth && typeof run.earth.setRate === "function") run.earth.setRate(run.paused || run.waiting ? 0 : run.fast ? TICK_MS / FAST_MS : 1);
+    if (run && run.earth && typeof run.earth.setRate === "function") run.earth.setRate(run.paused || run.waiting || run.held ? 0 : run.fast ? TICK_MS / FAST_MS : 1);
   }
 
   function schedule() {
     if (run.finishing) return;   // the mission is over: nothing may cancel the walk to the debrief
     stopTimer();
     setPace();
-    if (run.paused || run.waiting) return;
+    if (run.paused || run.waiting || run.held) return;
     run.timer = setTimeout(tick, run.fast ? FAST_MS : TICK_MS);
   }
 
@@ -798,4 +798,11 @@
   }
 
   window.showMissionScreen = showMissionScreen;
+  // BORROW from anywhere (2.1, js/ui-ledger.js): the flight waits while the borrow panel is open and goes on when it closes.
+  // The player's own PAUSE is left as it was; a mission that is over is not touched.
+  window.StarlineMission = { hold: function (on) {
+    if (!run || run.finishing) return;
+    run.held = !!on;
+    schedule();
+  } };
 })();
