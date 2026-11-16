@@ -6,6 +6,9 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 - **A launch you can feel.** The lift-off sound is rebuilt: an ignition thump, a roaring, crackling engine, a sub-bass you feel and a rising whine as the rocket climbs, much louder than any other sound (the music steps back). Off with the SOUNDS switch.
 - **A satellite the right size.** On the mission screen and in the launch finale your satellite is small next to the Earth, as it would be.
+### Changed
+
+- **Ajay's story starts with a loss.** His girlfriend Mara leaves and both parents disown him; their letter after flight one is about the house and the deed.
 
 ### Fixed
 

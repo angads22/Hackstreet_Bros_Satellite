@@ -5,7 +5,7 @@ Tone: a reckless founder, kept light. Short lines (one sentence each, under abou
 ## Intro (when a comeback starts), six beats
 
 1. partner: "Ajay Albert. Last year you borrowed a fortune to start Albert Orbital."
-2. partner: "It never flew. The money went on a launch party, a logo and an office with a slide."
+2. girl (Mara): "I'm leaving, Ajay. My things are in the car. I can't do another launch party." (2.1: parents disown him in beat 3)
 3. partner: "The lenders want it back by the deadline, or they take your grandfather's workshop."
 4. notebook: "To whoever opens this: build it cheap, build it right, and bring the data home."
 5. customer: "Iron Eclipse charges a fortune for data. Bring it cheaper and we will pay."
@@ -14,7 +14,7 @@ Tone: a reckless founder, kept light. Short lines (one sentence each, under abou
 ## Why Ajay keeps going (one shown on the hub, rotating by flight count)
 
 - "The lenders don't want satellites. They want their money."
-- "Mum co-signed the loan with her house. No pressure."
+- "Mum and Dad's house is on the loan. They won't pick up."
 - "Iron Eclipse bought your patents for pocket change. They're laughing."
 - "Grandpa Austin was right about all of this. Somebody has to prove it."
 - "Albert Orbital was a joke. Albert Orbital 2 doesn't have to be."

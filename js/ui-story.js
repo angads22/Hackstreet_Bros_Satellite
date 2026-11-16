@@ -31,7 +31,7 @@
   // The old three kinds, kept as the class names the earlier ending used.
   var KINDS = { legend: "won", comeback: "won", close: "won", sold: "sold", timeout: "deadline", broke: "cash" };
   // Names for speakers the story text may not have named yet.
-  var SPEAKER_NAMES = { rival: "IRON ECLIPSE", mum: "MUM", partner: "YOUR PARTNER" };
+  var SPEAKER_NAMES = { rival: "IRON ECLIPSE", girl: "MARA", parents: "MUM AND DAD", partner: "YOUR PARTNER" };
   var OFFER = { id: "offer", sell: "SELL", refuse: "REFUSE",
                 beats: [{ who: "rival", text: "Iron Eclipse will clear the debt today. In return, the workshop." }] };
 

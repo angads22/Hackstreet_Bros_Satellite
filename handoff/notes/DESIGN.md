@@ -34,7 +34,7 @@ Progress for Part 1 is a front-end record in localStorage (`gravitron-walkthroug
 1. The lenders: pay the debt back before they take the workshop.
 2. Austin's name: prove his grandfather's ideas were right, decades late.
 3. His own name: prove "Albert Orbital" was not a joke.
-4. His mother co-signed the loan with her house.
+4. His girlfriend, Mara, leaves him, and both parents, who co-signed the loan with their house, disown him (2.1).
 5. Iron Eclipse, the giant rival, bought his failed company's patents for almost nothing and now laughs at him.
 6. Customers with real problems will pay for data, if he can deliver it cheaper than Iron Eclipse:
    - wildfire: an insurer pricing fire risk; a fire service that needs hot spots overnight.

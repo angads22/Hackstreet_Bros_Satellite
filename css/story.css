@@ -92,7 +92,8 @@ body:has(#app[data-screen="journal"]) .objective { display: none; }
 /* Colour by who is speaking (the notebook is the accent, the rival the warning colour). */
 .jr-entry.who-notebook { --jr: var(--accent-ink); }
 .jr-entry.who-rival { --jr: var(--bad); }
-.jr-entry.who-mum { --jr: var(--info-ink); }
+.jr-entry.who-girl { --jr: var(--info-ink); }
+.jr-entry.who-parents { --jr: var(--info-ink); }
 .jr-entry.who-partner { --jr: var(--info-ink); }
 .jr-entry.who-customer { --jr: var(--info-ink); }
 .jr-entry.who-team { --jr: var(--text-dim); }

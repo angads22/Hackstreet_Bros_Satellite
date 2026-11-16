@@ -160,10 +160,10 @@ async function run(viewport, label) {
   // ---- back at the workshop: the flight log, then PAY BACK
   await p.click('[data-key="debrief-workshop"]');
   const after1 = await p.evaluate(() => StarlineUI.story().ajay.interludes['after-1'].map(b => b.text));
-  ok(await p.locator('.intro').count() === 1 && /MUM/.test(await p.locator('.intro .say-name').innerText()), 'after the first flight: Mum calls before the workshop (an interlude)');
-  ok((await T.throughBeats(p)).join('|') === after1.join('|'), "Mum's scene is the story text, beat by beat (" + after1.length + ' beats)');
+  ok(await p.locator('.intro').count() === 1 && /MUM/.test(await p.locator('.intro .say-name').innerText()), 'after the first flight: the parents write before the workshop (an interlude)');
+  ok((await T.throughBeats(p)).join('|') === after1.join('|'), "the parents' scene is the story text, beat by beat (" + after1.length + ' beats)');
   await T.waitHead(p, 'WORKSHOP');
-  await shot('4b-after-mum');
+  await shot('4b-after-parents');
   ok(await p.locator('.intro').count() === 0 && await p.locator('.cb-log li').count() === 1 && await p.locator('#cb-cash').innerText() === await p.evaluate(v => StarlineLedger.cashText(v), h.cash_musd), 'workshop: one flight in the log, the new cash');   // 2.1: the ledger strip keeps the cash's hundredths when it has them, like the header
   const first = p.locator('[data-key="pay-panel"] .btn').first();
   const amount = parseM(await first.innerText());
