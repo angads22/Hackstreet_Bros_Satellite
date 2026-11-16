@@ -2163,13 +2163,14 @@
   }
 
   // Every place has a way out to the map. CONTINUE walks you to the next place.
-  function navRow(nextTo, nextOk) {
+  function navRow(nextTo, nextOk, why) {
     // The button follows the gold route, forwards or back (after a redesign, a FIX link or a new NO GO).
     var gps = waypoint();
     if (nextTo && gps !== state.screen) nextTo = gps;
     var next = byId(PLACES, nextTo);
     return el("div", { class: "nav-row" }, [
       button(["< ", "MAP [M]"], openMap, { aria: "MAP [M]: back to the base map" }),
+      why || null,   // UIA (next-blocked-reason): one line saying what blocks the next stop; the button is never disabled by it
       next ? button(["GO TO " + next.name, " >"], function () { travel(nextTo); },
         { primary: true, disabled: !nextOk, aria: "Go to " + next.name.toLowerCase() }) : null
     ]);
@@ -3141,7 +3142,7 @@
       var slot = body && body.slots ? body.slots[c.id] : null;
       var noRoom = !!body && c.id !== "structure" && !(slot && slot.max);
       var over = noRoom ? n > 0 : !!slot && slot.used > slot.max;
-      var sub = need ? "Needed" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
+      var sub = need ? "Empty" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
         : slot ? slot.used + " / " + slot.max + (slot.max === 1 ? " slot" : " slots") : n ? n + " on board" : c.sub;
       return el("button", {
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
@@ -3155,13 +3156,20 @@
       ]);
     })));
 
-    var built = cats.filter(function (c) { return count[c.id]; }).length;
+    // UIA (progress-count): one count of the bins a design must fill ("4 of 6 needed"), beside the satellite.
+    var required = cats.filter(function (c) { return c.required; });
+    var built = required.filter(function (c) { return count[c.id]; }).length;
     var chg = state.change; state.change = null;   // the drop-in animation runs on this draw only
     var bench = el("div", { class: "bench" }, [
       el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
-        el("span", { text: list(d.parts).length + " parts · " + built + " of " + cats.length + " systems" })]),
+        el("span", { text: list(d.parts).length + " parts" }),
+        el("span", { class: "progress-count" + (built < required.length ? " need" : " done"), "data-key": "progress-count",
+          text: built + " of " + required.length + " needed" })]),
       satelliteArt(d, chg)
     ]);
+
+    // UIA (diegetic-sat): on Easy and Normal the stage carries the state (power glow, crosses, broken waves; js/ui-verdict.js)
+    if (window.StarlineVerdict && window.StarlineVerdict.mark) window.StarlineVerdict.mark(bench, d);
 
     var overview = el("div", { class: "panel" }, [
       el("h2", { text: "MISSION OVERVIEW" }),
@@ -3169,17 +3177,33 @@
       longPoleLine(d),
       bodyCard(body),
       el("h2", { class: "divided", text: "PROBLEMS" }),
-      checkList(d, { short: true, skip: ["no-launcher"] })
+      // UIA (problems-ranked): blockers first and big, then warnings; "No problems" when empty (js/ui-verdict.js)
+      window.StarlineVerdict ? window.StarlineVerdict.problems(d, ["no-launcher"]) : checkList(d, { short: true, skip: ["no-launcher"] })
     ]);
 
     var shelfParts = parts.filter(function (p) { return p.category === cat.id; });
     // What exists in this era first; what arrives later after it, greyed out.
     shelfParts = shelfParts.filter(function (p) { return !lockReason(state.avail.parts, p.id); })
       .concat(shelfParts.filter(function (p) { return !!lockReason(state.avail.parts, p.id); }));
+    // UIA (cards-limit): in today's jobs (Part 2, the duel) a part that has been replaced is not greyed but gone, and a bin
+    // shows its first CARD_LIMIT parts; "SHOW LATER PARTS" opens the rest. Parts on board always show. Part 1 and the
+    // standalone designs keep every card, locked ones included (the walkthrough's cards).
+    var later = 0, laterOpen = !!(state.later && state.later[cat.id]);
+    if (isTodayJob(d)) {
+      var onBoard = {}, limit = window.StarlineVerdict ? window.StarlineVerdict.CARD_LIMIT : 6;
+      list(d.parts).forEach(function (id) { onBoard[id] = true; });
+      shelfParts = shelfParts.filter(function (p) { return onBoard[p.id] || !lockReason(state.avail.parts, p.id); });
+      // Parts past the limit that are not on board are the "later" ones (a part on board always shows).
+      later = shelfParts.filter(function (p, i) { return i >= limit && !onBoard[p.id]; }).length;
+      if (later && !laterOpen) shelfParts = shelfParts.filter(function (p, i) { return i < limit || onBoard[p.id]; });
+    }
     var shelf = el("div", { class: "panel" }, [
       el("h2", { text: "AVAILABLE " + cat.name }),
       shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
-        : el("p", { class: "empty", text: "No parts in this bin yet." })
+        : el("p", { class: "empty", text: "No parts in this bin yet." }),
+      later ? el("button", { type: "button", class: "later", "data-key": "later-" + cat.id, "aria-expanded": laterOpen ? "true" : "false",
+        onclick: function () { state.later = state.later || {}; state.later[cat.id] = !laterOpen; redraw(); } },
+        laterOpen ? "SHOW FEWER PARTS" : "SHOW LATER PARTS") : null
     ]);
     // On a wide screen the preview lives in the side column, above the bars, so it never covers the parts and stays in view
     // while the shelf scrolls (that column is pinned). On a narrow screen there is no side column: it sits on top of the
@@ -3193,12 +3217,17 @@
       sayLine("build"),
       // On a wide screen the shelf sits under the satellite, and the side panels stay in view while you scroll: you
       // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
-      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
+      // UIA (verdict-gauges): DATA, COST and TIME against the contract, under the satellite (Part 2)
+      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, window.StarlineVerdict ? window.StarlineVerdict.strip(d) : null, payoutLine(d), picker]),
         el("div", { class: "stack" }, wideBuild ? [pv, overview, sciencePanel(d)] : [overview, sciencePanel(d)])]),
       // With the rocket preset (Part 1), the next stop after the Workshop is the Launch Pad.
-      navRow(isPreset("launcher") ? "review" : "launcher", true)
+      navRow(isPreset("launcher") ? "review" : "launcher", true, window.StarlineVerdict ? window.StarlineVerdict.nextWhy(d, ["no-launcher"]) : null)
     ]);
   }
+
+  // UIA (cards-limit): a job set in today's era (Part 2 and the duel) trims the shelf to StarlineVerdict.CARD_LIMIT cards a bin.
+  // `d.quick` is the Quick mode builder's design flag, if it sets one; a design without it is simply not trimmed.
+  function isTodayJob(d) { return !!(d && (d.comeback || d.duel || d.quick)); }
 
   // The bin Build opens on: the one a FIX line asked for, else the first required bin still empty (the team's line
   // talks about it), else the one the player had open. Chosen on the way in (go), never on a redraw, so the shelf
@@ -3999,6 +4028,7 @@
     // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
     era: function (name) { markEra("era", name); },
     assist: assist,
+    checkLabel: checkLabel,   // UIA: js/ui-verdict.js names a problem the way the readiness review does
     infoKnown: infoKnown,   // paid part information: true when this group ("sheet", "performance", "dossier") of the part may be shown
     mount: function (screen, node) {
       state.screen = screen;

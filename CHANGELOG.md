@@ -12,6 +12,12 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 - **Music no longer drops out.** If the browser suspended or interrupted the audio (a hidden tab, a phone call, power saving), the music stayed silent until you toggled it. It now resumes by itself, at the next click or key at the latest, and recovers from a failed schedule or a stuck launch ducking.
 - **Quick mode.** The home page has a third card, QUICK MODE · 1V1 DUEL, that opens a menu: QUICK FLIGHT (solo, works offline: one flight from a seeded job, a new one each time, never touching your stars, Part 1 or a comeback), 1V1 DUEL and LEADERBOARD (shown disabled with the reason when online is off). The debrief shows a QUICK SCORE, `getQuickScore(result)` = round(100 × science ÷ cost in $M, cost counted as at least 1), best kept in `gravitron-quick-v1`; the small LEADERBOARD and DUEL row on the home page is gone.
 - Adding a part has a moment of its own on Build: a tile flies from the card to the satellite (and back on a removal), the satellite thumps, the bars that changed flash and show a chip like +45 KG, and fitting a body makes CARRIES jump. Quick, never in the way, still under reduced motion.
+- Build: one count beside the satellite ("4 of 6 needed", only the bins a design must fill) instead of "Needed" on every empty bin.
+- Build: the problem list puts every NO GO first and big (a cross, the name, an action word on Easy and Normal), then the warnings; no problems says "No problems".
+- Build (Part 2): a bin shows its first six parts and SHOW LATER PARTS opens the rest; parts that have been replaced are gone, not greyed. Part 1 keeps all its cards.
+- Build: a line beside the next button says how many NO GO are left ("2 NO GO to fix"); the button still works.
+- Build (Easy and Normal): the satellite's stage carries the state: a red edge when there is too little power, a cross on a part that does not fit the body, broken waves when no data can reach the ground.
+- Build (Part 2): three gauges under the satellite, DATA against the contract's points, COST against the cash, TIME against the months left. Red with a cross only when the flight cannot work, amber with a triangle when thin. Easy adds the numbers, Hard gets the contract's terms and the design's amounts with no verdict.
 
 ## 2.0 (November 15, 2026)
 
