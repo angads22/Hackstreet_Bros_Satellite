@@ -113,14 +113,14 @@
   // The Earth's satellite flies at the mission's pace: held while the mission is paused or an event waits for an
   // answer, five times faster in fast-forward (a month per 60 ms instead of 300). Under reduced motion it never moves.
   function setPace() {
-    if (run && run.earth && typeof run.earth.setRate === "function") run.earth.setRate(run.paused || run.waiting ? 0 : run.fast ? TICK_MS / FAST_MS : 1);
+    if (run && run.earth && typeof run.earth.setRate === "function") run.earth.setRate(run.paused || run.waiting || run.held ? 0 : run.fast ? TICK_MS / FAST_MS : 1);
   }
 
   function schedule() {
     if (run.finishing) return;   // the mission is over: nothing may cancel the walk to the debrief
     stopTimer();
     setPace();
-    if (run.paused || run.waiting) return;
+    if (run.paused || run.waiting || run.held) return;
     run.timer = setTimeout(tick, run.fast ? FAST_MS : TICK_MS);
   }
 
@@ -365,7 +365,9 @@
     var side = el("div", { class: "panel limit" }, [
       d.stars === 3 ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
       UI.quickScoreBlock ? UI.quickScoreBlock(done, d) : null,   // QUICK MODE (js/ui-online.js): the QUICK SCORE leads a quick flight's debrief
-      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
+      // QA 2.1 (step-result-once): the big line above already says "STEP 1 PASSED" or "STEP 1: NOT YET"; the banner stays in
+      // the page (walk-dup: not drawn) and shows only when it adds something (NOT THIS TIME: STEP n STAYS PASSED).
+      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info") + (walk.kept ? "" : " walk-dup"), role: "status",
         text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
       // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them. A standalone
       // flight that opens one gets a button that starts it (unlockButtons, under the advice).
@@ -798,4 +800,11 @@
   }
 
   window.showMissionScreen = showMissionScreen;
+  // BORROW from anywhere (2.1, js/ui-ledger.js): the flight waits while the borrow panel is open and goes on when it closes.
+  // The player's own PAUSE is left as it was; a mission that is over is not touched.
+  window.StarlineMission = { hold: function (on) {
+    if (!run || run.finishing) return;
+    run.held = !!on;
+    schedule();
+  } };
 })();

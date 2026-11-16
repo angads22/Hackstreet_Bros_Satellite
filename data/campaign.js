@@ -23,8 +23,8 @@ const CAMPAIGN = {
   comeback: {
     tiers: {                  // per difficulty (tier id): Easy, Normal and Hard
       training: { cash_musd: 6, debt_musd: 30, deadline_months: 60, loan_cap_musd: 20, reputation_goal: 12 },   // GAME VALUES
-      standard: { cash_musd: 4, debt_musd: 40, deadline_months: 54, loan_cap_musd: 25, reputation_goal: 20 },   // GAME VALUES
-      expert:   { cash_musd: 3, debt_musd: 45, deadline_months: 54, loan_cap_musd: 30, reputation_goal: 28 }    // GAME VALUES (and 3 events a flight, from data/tiers.js)
+      standard: { cash_musd: 4, debt_musd: 40, deadline_months: 66, loan_cap_musd: 25, reputation_goal: 20 },   // GAME VALUES
+      expert:   { cash_musd: 3, debt_musd: 45, deadline_months: 72, loan_cap_musd: 30, reputation_goal: 28 }    // GAME VALUES (and 3 events a flight, from data/tiers.js)
     },
     // Loans, credit and a name (SPEC.md, "Loans, credit and a name"). All GAME VALUES.
     // What is left of the old 0 to 100 "credit" block: the loan fee, the smallest payment that counts, and the name.

@@ -4,6 +4,37 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 2.2 (November 16, 2026)
+
+Version 2.2 is the polish and safety release for the submission: you can borrow from every Part 2 screen, Normal and Hard give a sensible player a fair chance (measured with a new simulator), a few screens read better on a laptop and a phone, and the opening scene can no longer get stuck for a guest with no storage. The slides and the words for the project form are updated for the current game. Everything players already have is kept.
+
+### Added
+
+- **Borrow from anywhere.** The CASH tile at the top of every Part 2 screen is a button: it opens a small BORROW panel (amount, fee, rate, credit score), and the screen you are on follows the new cash with your design kept. The flight waits while it is open.
+- **Submission pack and slides.** `docs/submission/FORM.md` has the words for each field of the project form and `docs/submission/CHECKLIST.md` what a person must do before pressing submit; the slides in `deck/` are rebuilt for 2.2 (fresh screenshots, one point per slide, a judging criterion on each) with a claims table (`deck/claims.md`) and speaker briefs. `tests/sim.js` is a seeded simulator that measures win rates.
+
+### Changed
+
+- **Normal and Hard get more time.** A new comeback has 66 months on Normal and 72 on Hard (was 54 on both): measured with the new simulator (`tests/sim.js`, 10 seeds), a sensible player now wins Normal 60% of the time (20% before) and an expert 100%; on Hard an expert wins 40% and a sensible player none; a careless player never wins on any level. Easy is unchanged (a sensible player wins every time). A comeback already saved keeps its own deadline.
+- **The header says the money once.** In Part 2 the cash and the debt show in the ledger strip only; the header keeps the month and fits one line.
+- **Build's parts on the first screen.** On a laptop (1366x768) Part 2's ledger strip is one line above the design screens and the bench satellite is smaller, so the first part cards show without scrolling.
+- **A quick flight's header says QUICK MODE,** not the sandbox's name.
+- **Part 1's debrief says the step result once,** in the big line; the banner under it shows only when it adds something.
+- **The "Third star: ..." line under TRY THIS is readable** (it had the paper's ink on a dark box).
+- **All the bars in view on a laptop.** On a short wide screen the IF YOU CLICK box is shorter and drops its picture, so the DATA HOME and CARRIES bars sit above the bottom row and a fitted body's CARRIES chip shows again.
+
+### Fixed
+
+- **The opening scene no longer replays forever** when storage keeps nothing (a guest on the host). A debt-free loss with no name shows its own ending text instead of the out-of-cash one.
+
+### Not in this version yet
+
+- **Accessibility audit on every screen and a phone layout for Build** were started and not finished (a phone is still about three screens tall on Build). The host's Lighthouse score (63 on its play page) was not reproduced and is not fixed here.
+- **The online features need the server.** The team's host runs it; run the game yourself (a file, localhost, a private network) and the leaderboard and duel are off while QUICK FLIGHT still plays. A full two-browser duel on the host has not been tested; a duel between two guests ends if either reloads.
+- A quick flight does not come back after a reload (the Quick menu does).
+- **Steps 3 to 6 of the real-world plan** (counting back from the launch slot, paying to expedite, test blocks, heritage).
+- Pushing the git tags (`v1.0`, `v2.0`, `v2.1`, `v2.2`) from a computer; cloud sessions cannot.
+
 ## 2.1 (November 15, 2026)
 
 Version 2.1 makes the game quicker to pick up and harder to lose your place in. A third mode, QUICK MODE, sits on the home page; Part 2 shows your cash, debt and months on every screen, scores your credit the way a real lender does and sorts the contracts by pay; Build shows what a click did and whether the design meets the contract; a reload brings you back to where you were. Ajay's story now opens with what he has lost. Everything players already have is kept (an in-place upgrade, tested against real saves), and the game follows the rules of the team's host (relative addresses, nothing loaded from other websites, a sandboxed frame with no tab storage).

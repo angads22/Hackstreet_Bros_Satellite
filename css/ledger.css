@@ -20,9 +20,26 @@
   .lt-flash { animation: lt-flash 0.6s ease-out; }
   @keyframes lt-flash { from { outline-color: var(--accent-ink); background: var(--surface-3); } to { outline-color: transparent; background: var(--surface); } }
 }
+/* ---- BORROW from anywhere (version 2.1): the CASH tile is a button; the borrow panel is one flat box over a plain dim. */
+.lstrip button.lt { margin: 0; border-width: 0 0 0 4px; border-style: solid; border-color: transparent; border-radius: 0; font: inherit; color: inherit; text-align: left; align-items: stretch; min-height: 44px; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.lstrip button.lt:hover { background: var(--surface-2); }
+.lstrip button.lt:focus-visible { outline: 3px solid var(--accent-ink); outline-offset: -3px; }
+.lt-act { font-family: var(--font-head); font-weight: 700; letter-spacing: 1px; color: var(--accent-ink); }
+.bp-scrim { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: center; padding: 12vh 12px 12px; overflow: auto; background: rgba(0, 0, 0, 0.6); }
+.bp { display: grid; gap: 12px; width: min(100%, 460px); padding: 14px 16px 16px; background: var(--surface); border: 3px solid var(--accent); }
+.bp h2 { margin: 0; }
+.bp-amounts, .bp-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.bp-amounts .btn { min-width: 96px; justify-content: center; }
+.bp-amounts .btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.bp-amounts .btn[aria-pressed="true"]:focus-visible { outline-color: var(--text); }
+.bp-facts { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.bp-fact { display: flex; flex-direction: column; min-width: 0; }
+.bp-fact strong { font-family: var(--font-head); font-size: 24px; line-height: 1.1; }
+.bp .cb-note { margin: 0; }
 @media (max-width: 480px) {
   .lstrip { gap: 6px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr); }
   .lstrip .lt { padding: 5px 7px 6px; border-left-width: 3px; }
+  .lstrip button.lt { border-left-width: 3px; }
   .lt-label { font-size: 15px; letter-spacing: 1px; }
   .lt-value { font-size: 26px; }
   .lt-sub, .lstrip .cb-note { font-size: 16px; }
@@ -107,3 +124,17 @@
 /* The mission bar's MIN label sits above its tick on the panel, in the panel's colours (it inherited the tick's light fill
    as its background for contrast checks, and read as too faint). */
 .pace-label { color: var(--text); background: var(--surface); padding: 0 3px 1px; }
+/* QA 2.1 (build-fold): on a wide screen the strip above the design screens is one line per tile (the workshop keeps its
+   own taller strip), so Build's part cards start higher at 1366x768. */
+@media (min-width: 930px) {
+  .lstrip-host .lstrip .lt { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 12px; padding: 4px 12px 5px; }
+  .lstrip-host .lstrip .lt-value { font-size: 28px; }
+}
+/* QA 2.1 (build-fold): Part 2's Build stacks the satellite, the gauges and the pay line above the shelf. On a short wide
+   screen (a 1366x768 laptop) the satellite is a little smaller, so the first row of part cards is on the first screen. */
+@media (min-width: 930px) and (max-height: 820px) {
+  body:has(#lstrip-host:not([hidden])) .workshop .sat-bench { max-width: 204px; }
+  body:has(.workshop) .lstrip-host { margin-bottom: 0; }
+}
+/* QA 2.1 (cash-one-line): on a phone a cash figure with cents ("$15.48M") broke over two lines in its tile. */
+@media (max-width: 480px) { .lt-value { font-size: 23px; } }
