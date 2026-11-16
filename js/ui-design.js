@@ -185,7 +185,9 @@
       part1: { kicker: "PART 1 · 1958", name: "AUSTIN'S FIRST SATELLITE", pitch: "Three short missions, one idea each.", tag: "START HERE" },
       part2: { kicker: "PART 2 · TODAY", name: "AJAY'S COMEBACK", pitch: "Austin's grandson owes the bank. Sell satellite data, pay it back in time.",
                // The difficulty, in plain words, by tier id (the tier's own name is shown small beside it).
-               levels: { training: "EASY", standard: "NORMAL", expert: "HARD" } }
+               levels: { training: "EASY", standard: "NORMAL", expert: "HARD" } },
+      // QUICK MODE (js/ui-online.js): the third card. Its state line ("ONLINE" / "ONLINE OFF") comes from LiveData.onlineStatus().
+      quick: { kicker: "QUICK MODE", name: "1V1 DUEL", label: "PLAY" }
     },
 
     // ------------------------------------------------ Story 1: Austin Albert, Part 1 (the 1958 walkthrough)
@@ -2561,7 +2563,7 @@
     draw1();
   }
 
-  // ---- the home page: the title and two mode cards. Every star comes from the walkthrough record.
+  // ---- the home page: the title and three mode cards. Every star comes from the walkthrough record.
   function comebackSaved() {
     try {
       if (typeof getComeback !== "function") return false;
@@ -2576,17 +2578,17 @@
     // A click anywhere on the panel presses its button (the stretched hit area of the CSS is not trusted in every
     // browser), except on another button in it (JOURNAL). The button stays the one real control for keyboard and
     // screen readers; a disabled one ("COMING NEXT") does nothing.
-    var card = el("div", { class: "mode-card" + (lead ? " lead" : "") + (go && go.disabled ? " off" : ""), "data-key": key, onclick: function (e) {
+    var card = el("div", { class: "mode-card" + (lead ? " lead" : "") + (go && go.disabled ? " off" : "") + (extra.plain ? " quick" : ""), "data-key": key, onclick: function (e) {
       var t = e.target;
       if (t && t.closest && t.closest("button, a, .mode-go .btn")) return;
       if (go && !go.disabled) go.click();
     } }, [
       el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
       el("h2", { text: M.name }),
-      window.StarlineStory ? window.StarlineStory.counter() : null,
+      window.StarlineStory && !extra.plain ? window.StarlineStory.counter() : null,   // QUICK MODE: extra.plain, no endings count
       el("div", { class: "mode-foot" }, [extra.state || el("span"),
         // JOURNAL (js/ui-story.js): only when this part has something in it, and absent when that file is.
-        window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ part: key === "mode-part1" ? 1 : 2,
+        window.StarlineStory && window.StarlineStory.journalButton && !extra.plain ? window.StarlineStory.journalButton({ part: key === "mode-part1" ? 1 : 2,
           ifAny: true, back: function () { showDesignScreen("title"); }, key: "journal-" + key }) : null,
         el("div", { class: "mode-go" }, [go])])
     ]);
@@ -2621,8 +2623,17 @@
         { primary: ready, disabled: !ready, key: "part2-go", aria: label + ", " + M.kicker + ", " + M.name }));
   }
 
+  // QUICK MODE (js/ui-online.js): the third card, one row: the kicker with the state line, the name and the button. Always
+  // enabled (QUICK FLIGHT needs no server); it opens the QUICK MODE menu. Not drawn when js/ui-online.js is missing.
+  function quickCard() {
+    var O = window.StarlineOnline, M = STORY.modes.quick;
+    if (!O || !O.showQuickMenu) return null;
+    return modeEntry("mode-quick", M, false, { plain: true, tag: el("span", { class: "mode-state", "data-key": "quick-state", text: O.quickState() }) },
+      button([M.label, " >"], function () { O.showQuickMenu(); }, { primary: true, key: "quick-go", aria: M.label + ", " + M.kicker + ", " + M.name }));
+  }
+
   // The home page, a console title screen: the low-poly scene fills the first screen, the drawn title and one line over
-  // its sky, then the two modes as a menu. The entry to play next is solid: Part 1 until its three steps pass, then Part 2.
+  // its sky, then the three modes as a menu. The entry to play next is solid: Part 1 until its three steps pass, then Part 2.
   function drawTitle() {
     setStatus("Space Mission Design Game");
     state.locked = false;
@@ -2634,8 +2645,7 @@
       el("div", { class: "title-main" }, [
         logotype(String(STORY.title || "GRAVITRON").toUpperCase()),
         el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)]),
-        window.StarlineOnline ? window.StarlineOnline.homeRow() : null   // ONLINE (js/ui-online.js): LEADERBOARD and DUEL, quiet
+        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next), quickCard()])   // QUICK MODE: the third card
       ]),
       el("div", { class: "title-foot" }, [button("RESET EVERYTHING", function () {
         if (!window.confirm("Erase everything? Your stars, your Part 1 steps and any comeback in progress will be gone.")) return;
@@ -2644,6 +2654,7 @@
         if (typeof resetCampaign === "function") resetCampaign();
         walkForget();
         if (window.StarlineStory) window.StarlineStory.forget();   // the endings found and the interludes seen
+        if (window.StarlineOnline) window.StarlineOnline.forgetQuick();   // QUICK MODE: the best quick score
         draw("title");
       }, { quiet: true, key: "reset-progress" })])
     ]);
@@ -2663,7 +2674,7 @@
     return card;
   }
   function presetNote(screen) {
-    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : state.design && state.design.duel ? "Set for the duel." : "Set for this step." }) : null;
+    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : state.design && state.design.duel ? (window.StarlineOnline && window.StarlineOnline.isQuick(state.design) ? "Set for this flight." : "Set for the duel.") : "Set for this step." }) : null;
   }
 
   // ---------------------------------------------------------------- 1 Briefing

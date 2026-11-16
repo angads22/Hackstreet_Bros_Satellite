@@ -1,11 +1,15 @@
-// js/ui-online.js — the online screens: LEADERBOARD and the quick 1v1 DUEL (SPEC.md, "Online features").
-// They exist only when LiveData.onlineStatus() says on (a public address and ONLINE.endpoint set); otherwise the home
-// page shows the two buttons disabled with the reason, and nothing here sends anything. Every call goes through
+// js/ui-online.js — QUICK MODE (SPEC.md, "Quick mode") and the online screens: LEADERBOARD and the quick 1v1 DUEL
+// (SPEC.md, "Online features"). The home page has one QUICK MODE card; it opens the QUICK MODE menu: QUICK FLIGHT (solo,
+// always on), 1V1 DUEL and LEADERBOARD. The last two exist only when LiveData.onlineStatus() says on (a public address
+// and ONLINE.endpoint set); otherwise the menu shows them disabled with the reason, and nothing here sends anything. Every call goes through
 // LiveData.online.* (js/live-data.js, the only file that fetches). A failed call says "Server not reachable" and never
 // blocks play. Every number comes from the back end (getRunScore, getDuelSetup, getDebrief, the server's answers).
-// Saved on this device: gravitron-player-v1 ({ id, nickname }): a random id and the nickname the player typed.
+// Saved on this device: gravitron-player-v1 ({ id, nickname }): a random id and the nickname the player typed; and
+// gravitron-quick-v1 ({ best }): the best QUICK SCORE (getQuickScore, js/mission.js).
 // A duel flight is a standalone design marked design.duel (js/mission.js): it never touches the comeback save or the stars.
-// Shared names: window.StarlineOnline { homeRow, submitButton, showLeaderboard, showDuel }; StarlineUI.duelButtons.
+// A QUICK FLIGHT is the duel's standalone design (newDuelDesign) from a seed this device picks; the debrief tells it from a
+// duel by the seed it remembers here (quick), so it never shows SEND RESULT and never reaches the stars or a comeback.
+// Shared names: window.StarlineOnline { submitButton, showLeaderboard, showDuel, showQuickMenu, isQuick, forgetQuick }; StarlineUI.duelButtons.
 (function () {
   "use strict";
 
@@ -64,15 +68,18 @@
 
   // ---------------------------------------------------------------- shared bits
   var epoch = 0;   // a screen change ends every wait that belongs to the screen before it
-  function open(screen, kicker, title, children, onHome) {
+  // opts.status: the header status (default "ONLINE"); opts.back: { label, go } for the button at the foot (default HOME).
+  function open(screen, kicker, title, children, onHome, opts) {
+    opts = opts || {};
     epoch++;
     UI.leaveMission();
     UI.era("today");
-    UI.setStatus("ONLINE");
+    UI.setStatus(opts.status || "ONLINE");
+    var back = opts.back || { label: "HOME", go: onHome || function () { UI.home(); } };
     var node = el("section", { class: "screen online", "data-key": "online-" + screen }, [
       el("div", { class: "screen-head" }, [el("span", { class: "kicker", text: kicker }), el("h1", { text: title })])
     ].concat(children).concat([
-      el("div", { class: "nav-row" }, [UI.button(["< ", "HOME"], onHome || function () { UI.home(); }, { key: "online-home" })])
+      el("div", { class: "nav-row" }, [UI.button(["< ", back.label], back.go, { key: "online-home" })])
     ]));
     UI.mount("online-" + screen, node);
     return node;
@@ -80,16 +87,101 @@
   function say(node, text, bad) { node.textContent = text || ""; node.className = "online-msg" + (bad ? " bad" : ""); }
   function offScreen(title) {
     var st = status();
-    open("off", "ONLINE OFF", title, [el("p", { class: "online-msg", text: st.reason || "No server is set.", role: "status" })]);
+    open("off", "ONLINE OFF", title, [el("p", { class: "online-msg", text: st.reason || "No server is set.", role: "status" })], null, { back: QUICK_BACK });
   }
 
-  // ---------------------------------------------------------------- the home page row
-  function homeRow() {
-    var st = status(), off = !st.on;
-    return el("div", { class: "online-row", "data-key": "online-row" }, [
-      UI.button("LEADERBOARD", function () { showLeaderboard(); }, { quiet: true, disabled: off, key: "online-leaderboard" }),
-      UI.button("DUEL", function () { showDuel(); }, { quiet: true, disabled: off, key: "online-duel" }),
-      off ? el("span", { class: "online-note", "data-key": "online-reason", text: "ONLINE OFF · " + st.reason }) : null
+  // ---------------------------------------------------------------- QUICK MODE: the menu, QUICK FLIGHT, the best score
+  var QUICK_KEY = "gravitron-quick-v1";
+  var QUICK_BACK = { label: "QUICK MENU", go: function () { showQuickMenu(); } };   // the foot button of the screens the menu opens
+  var quick = null;       // { seed, job, result } for the quick flight in hand (job: the last topic and orbit, so the next one differs)
+  var lastJob = "";
+  var bestMemory = 0;
+
+  // The best QUICK SCORE on this device: { best } in localStorage, guarded (a copy in memory when storage is blocked).
+  function bestScore() {
+    var best = bestMemory;
+    try {
+      var raw = window.localStorage ? window.localStorage.getItem(QUICK_KEY) : null;
+      var o = raw ? JSON.parse(raw) : null;
+      if (o && isFinite(o.best) && o.best > best) best = Math.round(o.best);
+    } catch (e) { /* storage blocked or garbage: the memory copy */ }
+    return best;
+  }
+  function keepBest(score) {
+    bestMemory = Math.max(bestMemory, score);
+    try { if (window.localStorage) window.localStorage.setItem(QUICK_KEY, JSON.stringify({ best: bestMemory })); } catch (e) { /* memory copy still works */ }
+  }
+  function forgetQuick() {
+    bestMemory = 0; quick = null; lastJob = "";
+    try { if (window.localStorage) window.localStorage.removeItem(QUICK_KEY); } catch (e) { /* nothing to clear */ }
+  }
+  // Is this design the quick flight in hand? (A duel's seed comes from the server; a quick flight's from this device.)
+  function isQuick(design) { return !!(quick && design && design.duel && design.duel.seed === quick.seed); }
+
+  // The card's state line on the home page.
+  function quickState() { return status().on ? "ONLINE" : "ONLINE OFF"; }
+
+  // The menu: QUICK FLIGHT always; 1V1 DUEL and LEADERBOARD when online is on, else disabled under the one-line reason.
+  function showQuickMenu() {
+    var st = status(), off = !st.on, best = bestScore();
+    var children = [el("div", { class: "quick-menu", "data-key": "quick-menu" }, [
+      UI.button(["QUICK FLIGHT", " >"], function () { startQuick(); }, { primary: true, key: "quick-flight" }),
+      UI.button("1V1 DUEL", function () { showDuel(); }, { disabled: off, key: "online-duel" }),
+      UI.button("LEADERBOARD", function () { showLeaderboard(); }, { disabled: off, key: "online-leaderboard" })
+    ])];
+    if (off) children.push(el("p", { class: "online-msg", "data-key": "online-reason", text: "ONLINE OFF · " + st.reason }));
+    if (best > 0) children.push(el("p", { class: "online-you", "data-key": "quick-best-menu", text: "BEST " + num(best, 0) }));
+    return open("quick-menu", "QUICK MODE", "PICK ONE", children, null, { status: "QUICK MODE" });
+  }
+
+  // A new seed each time, and a job (topic and orbit) other than the last one when the data has more than one.
+  function pickSeed() {
+    var seed = 1, tries = 0, job = "";
+    do {
+      seed = Math.floor(Math.random() * 1e9);
+      var s = typeof getDuelSetup === "function" ? getDuelSetup(seed) : null;
+      job = s ? s.objective + "/" + s.orbit : "";
+      tries++;
+    } while (job && job === lastJob && tries < 30);
+    return { seed: seed, job: job };
+  }
+  function startQuick() {
+    if (typeof getDuelSetup !== "function" || typeof newDuelDesign !== "function") { showQuickMenu(); return; }
+    var pick = pickSeed(), setup = getDuelSetup(pick.seed);
+    if (!setup) { showQuickMenu(); return; }
+    duel = null;
+    lastJob = pick.job;
+    quick = { seed: pick.seed, result: null };
+    var topic = UI.byId(UI.data("OBJECTIVES"), setup.objective), orbit = UI.byId(UI.data("ORBITS"), setup.orbit);
+    open("quick-intro", "QUICK MODE", "YOUR FLIGHT", [
+      el("div", { class: "panel online-room", "data-key": "quick-job" }, [
+        UI.facts([["Topic", topic ? topic.name : setup.objective], ["Orbit", orbit ? orbit.name : setup.orbit], ["Cash", money(setup.cash_musd)]])]),
+      el("div", { class: "nav-row" }, [UI.button(["START", " >"], function () {
+        var d = newDuelDesign(pick.seed);
+        if (!d) { showQuickMenu(); return; }
+        window.showDesignScreen("map", d);
+      }, { primary: true, key: "quick-start" })])
+    ], null, { status: "QUICK MODE", back: QUICK_BACK });
+  }
+
+  // The debrief's buttons for a quick flight: the QUICK SCORE (getQuickScore: science against cost), the best kept on this
+  // device, then PLAY AGAIN (a new seed), QUICK MENU and HOME. Nothing is sent anywhere.
+  function quickButtons(done, d) {
+    var cost = done.mission && done.mission.launch_totals ? done.mission.launch_totals.cost_musd : (typeof getTotals === "function" ? getTotals(done.design).cost_musd : 0);
+    if (!quick.result || quick.result.done !== done) {   // counted once per flight: a redraw of the debrief keeps the same answer
+      var score = typeof getQuickScore === "function" ? getQuickScore({ science: d.science || 0, cost_musd: cost || 0 }) : 0, before = bestScore();
+      keepBest(score);
+      quick.result = { done: done, score: score, fresh: score > before && score > 0, best: Math.max(before, score) };
+    }
+    var r = quick.result;
+    return el("div", { class: "stack" }, [
+      el("div", { class: "stack online-result", "data-key": "quick-result" }, [
+        el("p", { class: "online-big", "data-key": "quick-score", text: "QUICK SCORE " + num(r.score, 0) }),
+        el("p", { class: "online-msg" + (r.fresh ? " fresh" : ""), "data-key": "quick-best", role: "status", text: r.fresh ? "NEW BEST" : "BEST " + num(r.best, 0) })]),
+      el("div", { class: "choices" }, [
+        UI.button(["PLAY AGAIN", " >"], function () { startQuick(); }, { primary: true, key: "quick-again" }),
+        UI.button("QUICK MENU", function () { showQuickMenu(); }, { key: "quick-menu-back" }),
+        UI.button("HOME", function () { UI.home(); }, { key: "quick-home" })])
     ]);
   }
 
@@ -123,7 +215,7 @@
       children.push(el("div", { class: "online-line" }, [nick.node]));
     }
     children.push(youLine, list);
-    var node = open("leaderboard", "ONLINE", "LEADERBOARD", children);
+    var node = open("leaderboard", "ONLINE", "LEADERBOARD", children, null, run ? null : { back: QUICK_BACK });   // from the ending: HOME
     var mine = epoch;
 
     function load() {
@@ -185,7 +277,7 @@
       el("div", { class: "panel online-duel" }, [
         el("div", { class: "online-line" }, [create]),
         el("div", { class: "online-line" }, [codeInput, join])]),
-      msg]);
+      msg], null, { back: QUICK_BACK });
   }
 
   // The host's room: the code to share, and a wait (the server is asked every ONLINE.poll_ms) until the other player joins.
@@ -212,6 +304,7 @@
   function intro(room) {
     var setup = typeof getDuelSetup === "function" ? getDuelSetup(room.seed) : null;
     if (!setup) { showDuel(); return; }
+    quick = null;   // a duel flight is not a quick flight
     var topic = UI.byId(UI.data("OBJECTIVES"), setup.objective), orbit = UI.byId(UI.data("ORBITS"), setup.orbit);
     var foe = (room.players || []).filter(function (p) { return p.role !== room.you; })[0];
     open("intro", "DUEL", "YOUR FLIGHT", [
@@ -228,6 +321,7 @@
 
   // The debrief's buttons for a duel flight: SEND RESULT, then who won (the server decides, so both players read the same).
   function duelButtons(done, d) {
+    if (isQuick(done.design)) return quickButtons(done, d);   // QUICK MODE: the same debrief hook, a different set of buttons
     var box = el("div", { class: "stack online-result", "data-key": "duel-result" });
     var msg = el("p", { class: "online-msg", role: "status", "data-key": "duel-result-msg" });
     var verdict = el("div", { class: "online-verdict", "data-key": "duel-verdict", "aria-live": "polite" });
@@ -286,5 +380,6 @@
     return UI.button("SUBMIT SCORE", function () { showLeaderboard({ run: run }); }, { key: "end-submit", aria: "Submit your score to the leaderboard" });
   }
 
-  window.StarlineOnline = { homeRow: homeRow, submitButton: submitButton, showLeaderboard: showLeaderboard, showDuel: showDuel };
+  window.StarlineOnline = { submitButton: submitButton, showLeaderboard: showLeaderboard, showDuel: showDuel,
+    showQuickMenu: showQuickMenu, quickState: quickState, isQuick: isQuick, forgetQuick: forgetQuick };
 })();
