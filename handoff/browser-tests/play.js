@@ -22,7 +22,7 @@ async function run(viewport, label) {
 
   // ---- the home page: two modes and nothing else
   ok(await page.locator('.big-title').isVisible(), 'title shows');
-  ok(await page.locator('.mode-card').count() === 2, 'exactly two mode cards');
+  ok(await page.locator('.mode-card').count() === 3, 'exactly three mode cards (Part 1, Part 2, Quick mode)');
   ok(await page.locator('.era, .tier-btn, .campaign-panel').count() === 0, 'no era grid, level buttons or campaign panel');
   const p1 = await page.locator('[data-key="mode-part1"]').innerText();
   ok(/PART 1/.test(p1) && /1958/.test(p1) && /AUSTIN'S FIRST SATELLITE/.test(p1) && /START HERE/.test(p1), 'Part 1 card: 1958, Austin, START HERE');
@@ -232,7 +232,7 @@ async function run(viewport, label) {
   await page.click('[data-key="end-continue"]');
   ok(await page.locator('.cb-level').count() === 3, 'CONTINUE TO PART 2 opens Part 2: the difficulty picker');
   await page.click('[data-key="picker-home"]');
-  ok(await page.locator('.mode-card').count() === 2, 'HOME from the picker returns to the home page');
+  ok(await page.locator('.mode-card').count() === 3, 'HOME from the picker returns to the home page');
   ok(/PLAY AGAIN/.test(await page.locator('[data-key="part1-go"]').innerText()) && await page.locator('[data-key="mode-part1"] .tag').count() === 0,
     'home: PLAY AGAIN and no START HERE tag');
   ok(await page.locator('.mode-steps li.passed').count() === 3, 'home: all three steps passed');

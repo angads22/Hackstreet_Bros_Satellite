@@ -152,6 +152,19 @@ function gameTests() {
   check("3 a duel flight leaves the stars record exactly as it was", JSON.stringify(G2.getProgress()) === progress);
   check("3 a duel flight creates no comeback or campaign save", G2.getCampaign() === null || G2.getCampaign() === undefined || !G2.getComeback());
   check("3 recordResult is still once-only for a duel", G2.recordResult(m2) === rec);
+  // QUICK MODE: the quick score is science against cost (100 x science / cost, cost never under 1 M$), pure, and 0 without science.
+  check("3 getQuickScore: 100 x science / cost, rounded", G2.getQuickScore({ science: 120, cost_musd: 60 }) === 200 && G2.getQuickScore({ science: 10, cost_musd: 3 }) === 333);
+  check("3 getQuickScore: a cheaper flight with the same science scores more", G2.getQuickScore({ science: 100, cost_musd: 40 }) > G2.getQuickScore({ science: 100, cost_musd: 80 }));
+  check("3 getQuickScore: more science at the same cost scores more", G2.getQuickScore({ science: 150, cost_musd: 50 }) > G2.getQuickScore({ science: 100, cost_musd: 50 }));
+  check("3 getQuickScore: no science, a bad figure or nothing scores 0",
+    G2.getQuickScore({ science: 0, cost_musd: 50 }) === 0 && G2.getQuickScore({ science: -5, cost_musd: 50 }) === 0 && G2.getQuickScore({ science: NaN, cost_musd: 50 }) === 0 &&
+    G2.getQuickScore({ science: 50, cost_musd: NaN }) === 0 && G2.getQuickScore(null) === 0 && G2.getQuickScore() === 0);
+  check("3 getQuickScore: a cost under 1 M$ counts as 1 (never infinite)", G2.getQuickScore({ science: 5, cost_musd: 0 }) === 500 && G2.getQuickScore({ science: 5, cost_musd: -2 }) === 500);
+  var qIn = { science: 80, cost_musd: 40 }, qBefore = JSON.stringify(qIn);
+  G2.getQuickScore(qIn);
+  check("3 getQuickScore writes nothing", JSON.stringify(qIn) === qBefore && JSON.stringify(G2.getProgress()) === progress);
+  var dq = G2.getDebrief(m2), qCost = m2.launch_totals ? m2.launch_totals.cost_musd : G2.getTotals(d2).cost_musd, qScore = G2.getQuickScore({ science: dq.science, cost_musd: qCost });
+  check("3 getQuickScore: a real quick flight scores above 0 and keeps the record untouched", qScore > 0 && JSON.stringify(G2.getProgress()) === progress, dq.science + " science, " + qCost + " M$ -> " + qScore);
   // A normal standalone flight still records (the guard is only for duels).
   var d3 = G2.newDesign("training"); G2.setObjective(d3, "radiation"); G2.setOrbit(d3, "leo"); G2.setLauncher(d3, "juno-1");
   ["explorer-body", "spin-stabilised", "cosmic-ray-counter", "minitrack-beacon", "command-timer", "silicon-cells"].forEach(function (p) { G2.addPart(d3, p); });

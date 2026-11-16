@@ -22,7 +22,7 @@ const KEY = 'gravitron-walkthrough-v1';
     await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
     ok(await p.evaluate(() => typeof LowPoly === 'undefined'), 'LowPoly is missing');
     ok(await p.locator('canvas.lp-hero').count() === 0, 'no hero canvas');
-    ok(await p.locator('.big-title').isVisible() && await p.locator('.mode-card').count() === 2, 'title and both mode cards show');
+    ok(await p.locator('.big-title').isVisible() && await p.locator('.mode-card').count() === 3, 'title and the three mode cards show');
     ok(await T.noScroll(p), 'no sideways scroll');
     await p.screenshot({ path: path.join(shots, `home-nolowpoly-${label}.png`), fullPage: true });
     await p.click('[data-key="part1-go"]');
