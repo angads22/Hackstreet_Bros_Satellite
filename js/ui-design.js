@@ -1909,7 +1909,7 @@
       copy.width = 280; copy.height = 280;
       copy.getContext("2d").drawImage(FACES[fk].canvas, 0, 0);
       copy.className = "portrait lp-face"; copy.setAttribute("role", "img"); copy.setAttribute("aria-label", FACES[fk].alt);
-      copy.setAttribute("data-face", fk); copy.style.width = "140px"; copy.style.height = "140px";
+      copy.setAttribute("data-face", fk);   // its size comes from the CSS (.portrait, .say .portrait), as the img's did
       return copy;
     } catch (e) { return null; }
   }

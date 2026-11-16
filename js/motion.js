@@ -349,9 +349,13 @@ var GravMotion = (function () {
         sc = sc.parentNode;
       }
       if (!sc || sc.nodeType !== 1 || sc === document.body || sc === document.documentElement) return;
-      var b = node.getBoundingClientRect(), c = sc.getBoundingClientRect();
-      if (b.bottom > c.bottom - 80) sc.scrollTop += b.bottom - (c.bottom - 80);
-      else if (b.top < c.top + 4) sc.scrollTop -= c.top + 4 - b.top;
+      // by offsets inside the column, not by rectangles: the bar may still be animating (a transform) when this runs
+      var y = 0, n = node;
+      while (n && n !== sc && n.offsetParent !== undefined) { y += n.offsetTop; n = n.offsetParent; }
+      if (n !== sc) return;
+      var h = node.offsetHeight;
+      if (y + h > sc.scrollTop + sc.clientHeight - 80) sc.scrollTop = y + h - sc.clientHeight + 80;
+      else if (y < sc.scrollTop + 4) sc.scrollTop = Math.max(0, y - 4);
     } catch (e) { /* stays where it is */ }
   }
 

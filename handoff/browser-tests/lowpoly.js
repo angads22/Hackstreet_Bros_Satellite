@@ -95,7 +95,7 @@ async function lowPolyOn(viewport, label) {
 
   // Portraits: the story speaker as a low-poly bust (an <img class="portrait">).
   const face = page.locator('.say .portrait').first();
-  ok(await face.count() === 1 && (await face.getAttribute('alt')).length > 10, 'speaker portrait is a low-poly picture with alt text');
+  ok(await face.count() === 1 && ((await face.getAttribute('alt')) || (await face.getAttribute('aria-label')) || '').length > 10, 'speaker portrait is a low-poly picture with alt text');
 
   // Readiness review: the chosen rocket on the pad, the small satellite.
   await show(page, 'review', PARTS, 'small');
