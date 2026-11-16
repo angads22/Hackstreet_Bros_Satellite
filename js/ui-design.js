@@ -368,7 +368,7 @@
         "Grandpa's name belongs on that door. Put it back.",
         "Albert Orbital was a joke. Albert Orbital Two doesn't have to be.",
         "Customers are tired of Iron Eclipse prices. That's your opening.",
-        "Mara said you never finish anything. Finish this."
+        "Mara left over the launch parties. Fly something worth a party."
       ],
       // The workshop's situation lines: before the first flight, after a paid one, under half the debt, and when a
       // quarter of the months or less is left.
@@ -456,7 +456,7 @@
           beats: [
             { who: "partner", text: "The last payment lands with hours to spare. The lenders' van is already outside." },
             { who: "partner", text: "Your parents stand at their gate, boxes taped behind them. They say nothing." },
-            { who: "partner", text: "They drive off empty-handed. The whole street watches from its windows." },
+            { who: "partner", text: "The lenders drive off empty-handed. The whole street watches from its windows." },
             { who: "notebook", text: "Margins. It is the first thing I wrote and the last thing you learned." }
           ],
           line: "You made it by a hair. Next time, leave more room."

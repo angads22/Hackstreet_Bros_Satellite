@@ -6,7 +6,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Changed
 
-- **Ajay's story starts with a loss.** In Part 2 his girlfriend, Mara, leaves him and both parents disown him (they co-signed the loan with their house); after the first flight their letter makes the house and the deed personal. No one who left rings up warmly: the endings give a single cool line, or silence.
+- **Ajay's story starts with a loss.** His girlfriend Mara leaves and both parents disown him; their letter after flight one is about the house and the deed.
 
 ### Fixed
 
