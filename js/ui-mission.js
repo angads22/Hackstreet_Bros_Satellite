@@ -339,6 +339,7 @@
     var win = d.stars >= 3 || !!(walk && walk.passed) || outcome === "paid";
     var side = el("div", { class: "panel limit" }, [
       d.stars === 3 ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
+      UI.quickScoreBlock ? UI.quickScoreBlock(done, d) : null,   // QUICK MODE (js/ui-online.js): the QUICK SCORE leads a quick flight's debrief
       comeback ? comebackBlock(done, d, result, landed, outcome) : null,
       walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
         text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,

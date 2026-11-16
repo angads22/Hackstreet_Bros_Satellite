@@ -87,7 +87,7 @@ async function fly(p) {
     ok(/ONLINE OFF/.test(reason) && /file/i.test(reason) && T.words(reason) <= 8, 'one short line says why: "' + reason + '"');
     ok(await p.locator('[data-key="quick-best-menu"]').count() === 0, 'no best score yet, none shown');
     ok(await T.noScroll(p), 'the menu has no sideways scroll');
-    await p.screenshot({ path: path.join(shots, `quick-menu-${label}.png`) });
+    await p.waitForTimeout(700); await p.screenshot({ path: path.join(shots, `quick-menu-${label}.png`) });
     await p.click('[data-key="online-home"]');
     await p.waitForSelector('[data-key="mode-quick"]');
     ok(true, 'HOME returns to the home page');
@@ -124,7 +124,9 @@ async function fly(p) {
     ok(await p.locator('[data-key="duel-send"]').count() === 0 && await p.locator('[data-key="redesign"]').count() === 0, 'no SEND RESULT and no REDESIGN on a quick flight');
     ok(await p.locator('[data-key="quick-again"]').count() === 1 && await p.locator('[data-key="quick-menu-back"]').count() === 1 && await p.locator('[data-key="quick-home"]').count() === 1, 'PLAY AGAIN, QUICK MENU and HOME are there');
     ok(!/QUICK SCORE.*=|science \/ cost/i.test(await p.locator('body').innerText()), 'the formula is not on screen');
-    await p.locator('[data-key="quick-result"]').scrollIntoViewIfNeeded();
+    await p.waitForTimeout(3500);   // the debrief reveals itself first
+    const qb = await p.locator('[data-key="quick-best"]').boundingBox();
+    ok(qb && qb.y + qb.height <= 768, 'the QUICK SCORE and the best show without scrolling (bottom at ' + (qb && Math.round(qb.y + qb.height)) + ' of 768)');
     await p.screenshot({ path: path.join(shots, 'quick-debrief.png') });
     ok(JSON.stringify(await stored(p)) === JSON.stringify(before), 'the stars record, Part 1 and the comeback are byte for byte the same after the flight');
 

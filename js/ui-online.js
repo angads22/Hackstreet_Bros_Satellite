@@ -164,25 +164,35 @@
     ], null, { status: "QUICK MODE", back: QUICK_BACK });
   }
 
-  // The debrief's buttons for a quick flight: the QUICK SCORE (getQuickScore: science against cost), the best kept on this
-  // device, then PLAY AGAIN (a new seed), QUICK MENU and HOME. Nothing is sent anywhere.
-  function quickButtons(done, d) {
-    var cost = done.mission && done.mission.launch_totals ? done.mission.launch_totals.cost_musd : (typeof getTotals === "function" ? getTotals(done.design).cost_musd : 0);
-    if (!quick.result || quick.result.done !== done) {   // counted once per flight: a redraw of the debrief keeps the same answer
+  // The QUICK SCORE of the flight in the debrief (getQuickScore: science against cost) and the best kept on this device. Counted
+  // once per flight (a redraw of the debrief keeps the same answer). Null when the flight is not a quick flight. It leads the
+  // debrief's side panel (js/ui-mission.js), so it shows without scrolling.
+  function quickResult(done, d) {
+    if (!isQuick(done.design)) return null;
+    if (!quick.result || quick.result.done !== done) {
+      var cost = done.mission && done.mission.launch_totals ? done.mission.launch_totals.cost_musd : (typeof getTotals === "function" ? getTotals(done.design).cost_musd : 0);
       var score = typeof getQuickScore === "function" ? getQuickScore({ science: d.science || 0, cost_musd: cost || 0 }) : 0, before = bestScore();
       keepBest(score);
       quick.result = { done: done, score: score, fresh: score > before && score > 0, best: Math.max(before, score) };
     }
-    var r = quick.result;
-    return el("div", { class: "stack" }, [
-      el("div", { class: "stack online-result", "data-key": "quick-result" }, [
-        el("p", { class: "online-big", "data-key": "quick-score", text: "QUICK SCORE " + num(r.score, 0) }),
-        el("p", { class: "online-msg" + (r.fresh ? " fresh" : ""), "data-key": "quick-best", role: "status", text: r.fresh ? "NEW BEST" : "BEST " + num(r.best, 0) })]),
-      el("div", { class: "choices" }, [
-        UI.button(["PLAY AGAIN", " >"], function () { startQuick(); }, { primary: true, key: "quick-again" }),
-        UI.button("QUICK MENU", function () { showQuickMenu(); }, { key: "quick-menu-back" }),
-        UI.button("HOME", function () { UI.home(); }, { key: "quick-home" })])
-    ]);
+    return quick.result;
+  }
+  function quickScoreBlock(done, d) {
+    var r = quickResult(done, d);
+    if (!r) return null;
+    return el("div", { class: "stack online-result", "data-key": "quick-result" }, [
+      el("p", { class: "online-big", "data-key": "quick-score", text: "QUICK SCORE " + num(r.score, 0) }),
+      el("p", { class: "online-msg" + (r.fresh ? " fresh" : ""), "data-key": "quick-best", role: "status", text: r.fresh ? "NEW BEST" : "BEST " + num(r.best, 0) })]);
+  }
+  UI.quickScoreBlock = quickScoreBlock;
+
+  // The debrief's buttons for a quick flight: PLAY AGAIN (a new seed), QUICK MENU and HOME. Nothing is sent anywhere.
+  function quickButtons(done, d) {
+    quickResult(done, d);   // counted even when the score block was not drawn
+    return el("div", { class: "choices" }, [
+      UI.button(["PLAY AGAIN", " >"], function () { startQuick(); }, { primary: true, key: "quick-again" }),
+      UI.button("QUICK MENU", function () { showQuickMenu(); }, { key: "quick-menu-back" }),
+      UI.button("HOME", function () { UI.home(); }, { key: "quick-home" })]);
   }
 
   // ---------------------------------------------------------------- the leaderboard
