@@ -111,6 +111,7 @@
     var c = typeof newComeback === "function" ? newComeback(tierId) : null;
     if (!c) { showPicker(); return; }
     hub.note = ""; hub.debtFrom = null;
+    if (window.StarlineLedger) window.StarlineLedger.reset();   // a new run: no tile flashes for the old run's numbers
     if (typeof window.nextInterlude === "function" && window.nextInterlude({ fresh: true })) { window.showInterlude(showComebackHub); return; }   // js/ui-story.js
     UI.showBeats(line("intro"), kicker() + " · " + levelName(c.tier), showComebackHub, { doneLabel: "TO THE WORKSHOP" });
   }

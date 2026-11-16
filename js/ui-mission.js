@@ -348,8 +348,8 @@
     // shows the stars landing and the real discovery, open, so the side panel does not repeat it.
     var win = d.stars >= 3 || !!(walk && walk.passed) || outcome === "paid";
     // UI REVIEW (2.1, debrief-reorder): the verdict stamp and the money change as one big line, then what limited the
-    // flight, then TRY THIS and the buttons; everything else is folded under DETAILS (open after a win, or when the
-    // comeback is over, so the result moment and the ending's money stay in sight). Every number is the back end's.
+    // flight, then TRY THIS and the buttons; a win's result moment (stars and the discovery) stays open under them; everything
+    // else is folded under DETAILS (open when the comeback is over, so the ending's money stays in sight). Every number is the back end's.
     var buttons = walk ? walkButtons(walk, done.design, d)
       : comeback ? comebackButtons(result)
       : done.design.duel && UI.duelButtons ? UI.duelButtons(done, d)   // ONLINE-DUEL (js/ui-online.js): SEND RESULT and who won
@@ -374,10 +374,9 @@
       el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
       buttons
     ]);
-    var more = el("details", { class: "more debrief-details", "data-key": "debrief-details", open: !!(win || (result && result.comeback_over)) }, [
+    var more = el("details", { class: "more debrief-details", "data-key": "debrief-details", open: !!(result && result.comeback_over) }, [
       el("summary", { text: "DETAILS" }),
       teamLine(done.design, d),
-      win ? winMoment(d) : null,
       el("div", { class: "debrief-more-body" }, [
         paper,
         comeback ? comebackBlock(done, d, result, landed, outcome) : null,
@@ -396,6 +395,7 @@
       debriefLead(done, d, result, outcome, walk),
       comeback ? profitBand(done) : null,
       side,
+      win ? winMoment(d) : null,   // the stars landing and the real discovery: the result moment, open, under the way on
       more,
       // The client's (or the team's) last word stays the last line of the screen, as before.
       comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null

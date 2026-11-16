@@ -149,6 +149,24 @@ const errLists = [], allErrors = [];
   await p.screenshot({ path: shots + '/uib-debrief.png' });
   await p.context().close();
 
+  // ---- a phone (390): the mission and the debrief with the strip, the pace line and the lead line; the strip never leaks to the workshop twice or to the home page
+  {
+    const ph = await open(390, 844);
+    await T.startComeback(ph, 'standard');
+    await T.launchContract(ph, 'solar');
+    ok(await T.noScroll(ph) && await ph.locator('[data-key="pace-min"]').count() === 1 && await ph.locator('#lstrip-host .lstrip .lt').count() === 3, 'phone mission: three tiles and the pace tick, no sideways scroll');
+    await ph.screenshot({ path: shots + '/uib-mission-390.png' });
+    await T.fly(ph, 'first');
+    await T.waitHead(ph, 'DEBRIEF'); await ph.waitForTimeout(400);
+    ok(await T.noScroll(ph) && await ph.locator('[data-key="debrief-lead"]').count() === 1 && await ph.locator('#lstrip-host .lstrip').count() === 1, 'phone debrief: the lead line and the strip, no sideways scroll');
+    await ph.screenshot({ path: shots + '/uib-debrief-390.png' });
+    await ph.click('[data-key="debrief-workshop"]'); await T.pastScenes(ph); await T.waitHead(ph, 'WORKSHOP');
+    ok(await ph.locator('.lstrip:visible').count() === 1, 'back at the workshop: exactly one strip is showing');
+    await ph.click('[data-key="hub-home"]'); await ph.waitForSelector('[data-key="part2-go"]');
+    ok(await ph.locator('.lstrip:visible').count() === 0, 'home page: no strip');
+    await ph.context().close();
+  }
+
   // ---- Hard: the order they came in, no BEST PAY
   p = await open(1366, 768);
   await T.startComeback(p, 'expert');

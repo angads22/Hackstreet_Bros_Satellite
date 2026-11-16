@@ -66,6 +66,7 @@
 
   // ---- the persistent strip: above #app on every Part 2 screen except the workshop (which draws its own)
   function isPart2() {
+    if (document.body && document.body.classList.contains("is-home")) return false;   // the home page never shows it
     var name = UI.tierName ? UI.tierName() : "";
     return /^PART 2/.test(name);
   }
@@ -96,7 +97,7 @@
     refresh();
   }
 
-  window.StarlineLedger = { strip: strip, refresh: refresh, cashText: cashText, facts: facts };
+  window.StarlineLedger = { strip: strip, refresh: refresh, cashText: cashText, facts: facts, reset: function () { last = null; } };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })();
