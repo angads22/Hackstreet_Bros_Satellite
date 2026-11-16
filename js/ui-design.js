@@ -2088,6 +2088,7 @@
     app.appendChild(node);
     setStep(screen);
     setHint(screen);
+    rememberPlace(screen);   // RESUME: a reload puts the player back here
     if (window.GravMotion) GravMotion.mounted(app, screen, sayKey);   // entry animations only when the screen changes
   }
 
@@ -2496,14 +2497,21 @@
     while (state.reached + 1 < DESIGN_STEPS.length && isPreset(DESIGN_STEPS[state.reached + 1])) state.reached++;
   }
 
-  function startWalkStep(step) {
+  // A fresh design for a step, with the step's own presets (startWalkStep, and RESUME's rebuild after a reload).
+  function walkDesign(step) {
     var cfg = walkConfig(step);
-    if (!cfg || typeof newDesign !== "function") return showDesignScreen("title");
+    if (!cfg || typeof newDesign !== "function") return null;
     var d = newDesign(cfg.tier);
     if (cfg.era && typeof setEra === "function") setEra(d, cfg.era);
     if (cfg.objective) setObjective(d, cfg.objective);
     if (cfg.orbit) setOrbit(d, cfg.orbit);
     if (cfg.launcher) setLauncher(d, cfg.launcher);
+    return d;
+  }
+
+  function startWalkStep(step) {
+    var d = walkDesign(step);
+    if (!d) return showDesignScreen("title");
     stopWalking();
     state.walk = { step: step, design: d };
     state.design = d;
@@ -4009,6 +4017,121 @@
     go(screenName || "briefing");
   }
 
+  // ---------------------------------------------------------------- RESUME: reload keeps your place (SPEC.md, "Reload keeps your place")
+  // The place is kept for this browser tab only (sessionStorage), so a new tab opens on the title screen, and the title (HOME,
+  // RESET EVERYTHING) forgets it. The record holds the screen and ids, never a game number: { mode, screen, step, bin, reached,
+  // player, design } with mode "part1", "part2", "quick" or "other" ("other" is not put back). A design is rebuilt through the
+  // back end's own functions (the step's presets, the open contract) and the stored ids are checked, never adopted as parsed.
+  // A flight that was in the air comes back at its Readiness screen: the first getCampaign() after the reload gives its launch
+  // money back (js/mission.js, refundLostFlights), so launching again pays once. A debrief has recorded its flight: it comes
+  // back at the workshop or the map. Nothing here moves money or records a flight.
+  var SESSION_KEY = "gravitron-session-v1";
+  var RESUME_SCREEN = { map: "map", briefing: "briefing", orbit: "orbit", build: "build", launcher: "launcher", review: "review",
+                        mission: "review", debrief: "map", intro: "map" };   // where a design screen comes back
+  var PART2_SCREENS = { "comeback": 1, "comeback-start": 1, "comeback-end": 1, "interlude-choice": 1 };
+
+  function sessionStore() { try { return window.sessionStorage || null; } catch (e) { return null; } }
+  function planOf(d) {
+    var plan = { tier: d.tier, era: d.era || null, objective: d.objective || null, orbit: d.orbit || null, launcher: d.launcher || null,
+                 parts: list(d.parts).slice() };
+    if (d.comeback) plan.contract = d.contract || null;
+    return plan;
+  }
+  function rememberPlace(screen) {
+    try {
+      var store = sessionStore();
+      if (!store) return;
+      if (screen === "title") { store.removeItem(SESSION_KEY); return; }
+      if (screen === "journal") return;   // opened from another screen: the place before it stays
+      var d = state.design, step = walkStepOf(d), mode;
+      if (/^(online-)?quick/.test(screen)) mode = "quick";
+      else if (d) mode = step ? "part1" : d.comeback && !d.duel ? "part2" : "other";
+      else mode = screen === "intro" || PART2_SCREENS[screen] ? "part2" : "other";
+      var rec = { mode: mode, screen: screen };
+      if (d && (mode === "part1" || mode === "part2")) {
+        rec.step = step; rec.bin = state.bin || null; rec.reached = state.reached; rec.player = state.player; rec.design = planOf(d);
+      }
+      store.setItem(SESSION_KEY, JSON.stringify(rec));
+    } catch (e) { /* storage blocked: the title opens next time */ }
+  }
+  function readPlace() {
+    try {
+      var store = sessionStore(), raw = store ? store.getItem(SESSION_KEY) : null, rec = raw ? JSON.parse(raw) : null;
+      return rec && typeof rec === "object" && typeof rec.screen === "string" && typeof rec.mode === "string" ? rec : null;
+    } catch (e) { return null; }
+  }
+  function knownId(find, id) { return id === null || id === undefined || (typeof id === "string" && typeof find === "function" && !!find(id)); }
+  // The stored choices onto a fresh design that already holds the step's or the contract's presets (a preset stays).
+  // False when an id no longer exists.
+  function fillDesign(d, saved) {
+    if (!saved || typeof saved !== "object" || !Array.isArray(saved.parts) || saved.parts.length > 60) return false;
+    if (!knownId(typeof getObjective === "function" ? getObjective : null, saved.objective) ||
+        !knownId(typeof getOrbit === "function" ? getOrbit : null, saved.orbit) ||
+        !knownId(typeof getLauncher === "function" ? getLauncher : null, saved.launcher)) return false;
+    if (!saved.parts.every(function (id) { return typeof id === "string" && typeof getPart === "function" && !!getPart(id); })) return false;
+    if (!d.objective && saved.objective) setObjective(d, saved.objective);
+    if (!d.orbit && saved.orbit) setOrbit(d, saved.orbit);
+    if (!d.launcher && saved.launcher) setLauncher(d, saved.launcher);
+    saved.parts.forEach(function (id) { addPart(d, id); });
+    return true;
+  }
+  // The design on its screen, with the same open buildings and the same parts bin.
+  function placeDesign(d, rec) {
+    var screen = RESUME_SCREEN[rec.screen];
+    if (!screen) return false;
+    var bin = typeof rec.bin === "string" && categories().some(function (c) { return c.id === rec.bin; }) ? rec.bin : null;
+    stopWalking();
+    state.design = d;
+    state.locked = false;
+    state.reached = isNum(rec.reached) ? Math.max(0, Math.min(DESIGN_STEPS.length - 1, Math.floor(rec.reached))) : 0;
+    state.player = ["gate"].concat(DESIGN_STEPS).indexOf(rec.player) !== -1 ? rec.player : "gate";
+    state.bin = bin;
+    state.binFor = d;
+    bumpReached();
+    go(screen, bin);
+    return true;
+  }
+  function resumePart1(rec) {
+    var step = rec.step;
+    if (step !== Math.floor(step) || step < 1 || step > WALK_STEPS.length) return false;
+    var d = walkDesign(step);
+    if (!d || !fillDesign(d, rec.design)) return false;
+    state.walk = { step: step, design: d };
+    return placeDesign(d, rec);
+  }
+  function resumePart2(rec) {
+    var hub = window.showComebackHub;
+    if (typeof hub !== "function" || typeof getComeback !== "function") return false;
+    var saved = rec.design;
+    // No run saved (the save was cleared elsewhere): only the difficulty picker and Part 1's last scene still make sense.
+    if (!comebackInfo() && rec.screen !== "comeback-start" && !(rec.screen === "intro" && !saved)) return false;
+    if (saved && rec.screen !== "debrief" && rec.screen !== "intro" && typeof saved.contract === "string" && typeof newComebackDesign === "function") {
+      var d = newComebackDesign(saved.contract);   // null: the contract is closed, an offer waits for its answer, or the run is over
+      if (d) return fillDesign(d, saved) && placeDesign(d, rec);
+    } else if (!saved && rec.screen === "intro" && !comebackSaved()) {
+      if (walkNext()) return false;
+      showEpilogue();   // Part 1's last scene, before any comeback exists
+      return true;
+    }
+    hub();   // the workshop (it shows any scene that is due and the ending of a finished run), or the picker when no run is saved
+    return true;
+  }
+  // True when the place was put back. Any failure leaves the title to be drawn.
+  function resumePlace() {
+    var rec = readPlace();
+    if (!rec) return false;
+    try {
+      if (rec.mode === "part1") return resumePart1(rec);
+      if (rec.mode === "part2") return resumePart2(rec);
+      if (rec.mode === "quick") {
+        var O = window.StarlineOnline;   // js/ui-online.js (Quick mode): the menu
+        if (O && typeof O.showQuickMenu === "function") { O.showQuickMenu(); return true; }
+      }
+    } catch (e) { /* a place that cannot be put back: the title opens */ }
+    state.design = null; state.walk = null; state.locked = false; state.reached = 0; state.player = "gate";
+    return false;
+  }
+
   window.showDesignScreen = showDesignScreen;
   window.StarlineUI = {
     el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, profitLine: profitLine, starsText: starsText,
@@ -4040,6 +4163,7 @@
       app.appendChild(node);
       setStep(screen);
       setHint(screen);
+      rememberPlace(screen);   // RESUME: a reload puts the player back here
       if (window.GravMotion) GravMotion.mounted(app, screen);
       app.focus();
       window.scrollTo(0, 0);
@@ -4083,7 +4207,8 @@
       state.lastClickAt = Date.now();
     }, true);
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) WALK_MS = 0;
-    draw("title");
+    window.addEventListener("pagehide", function () { rememberPlace(state.screen); });   // RESUME: whatever changed since the last mount
+    if (!resumePlace()) draw("title");   // RESUME: a reload keeps the place; a new tab, or a tab on the title, opens the title
   }
 
   // perf: index.html defers every script, so this file runs before the later ui-*.js files (ui-comeback.js defines window.showComebackStart).

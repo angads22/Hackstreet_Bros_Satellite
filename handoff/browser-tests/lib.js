@@ -194,5 +194,13 @@ async function stars(page) {
   return parseInt(label, 10);
 }
 
-module.exports = { args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
+// v2.1: a reload keeps the place (js/ui-design.js, RESUME). For a test that means "a returning player sees the home page":
+// reload, and if the page came back to a screen (the workshop, a design), leave through HOME, what a new tab shows.
+async function reopen(page) {
+  await page.reload();
+  if (!(await page.locator('.big-title').count())) await page.evaluate(() => window.StarlineUI.home());
+  await page.locator('.big-title').waitFor({ timeout: 10000 });
+}
+
+module.exports = { reopen, args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
   CONTRACT, SEEDS, seedRuns, pastScenes, addParts, openLater, buyInfo, buyBin, cashNow, throughBeats, fly, stars, startComeback, launchContract };

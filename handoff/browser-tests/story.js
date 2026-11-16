@@ -43,6 +43,7 @@ const inInterlude = p => p.locator('.intro').count().then(n => n > 0);
 const seenIds = p => p.evaluate(k => { const v = JSON.parse(localStorage.getItem(k) || '{}'); return [].concat(...Object.values(v)); }, SEEN);
 const foundIds = p => p.evaluate(k => JSON.parse(localStorage.getItem(k) || '[]'), FOUND);
 
+const reopen = T.reopen;   // v2.1: a reload keeps the place; this reloads and, if a screen came back, leaves through HOME (what a new tab shows)
 async function run(viewport, label) {
   console.log(`[story ${label}]`);
   const b = await chromium.launch();
@@ -74,7 +75,7 @@ async function run(viewport, label) {
   ok(Number.isInteger(seed), `the run has a seed (${seed})`);
   await p.evaluate(() => window.showComebackHub());
   ok(!(await inInterlude(p)), 'the workshop again: the opening scene does not come back');
-  await p.reload(); await p.click('[data-key="part2-go"]');
+  await reopen(p); await p.click('[data-key="part2-go"]');
   ok(await T.waitHead(p, 'WORKSHOP') && !(await inInterlude(p)), 'after a reload: CONTINUE goes straight to the workshop');
 
   // ---- flight 1 -> Mum's call, once
@@ -134,7 +135,7 @@ async function run(viewport, label) {
   ok(!(await inInterlude(p)), 'no scene repeats');
   const all = await seenIds(p);
   ok(['start', 'after-1', 'offer', 'refused', 'after-3', 'final'].every(x => all.includes(x)) && new Set(all).size === all.length, `all six scenes seen once each (${all.join(', ')})`);
-  await p.reload(); await p.click('[data-key="part2-go"]');
+  await reopen(p); await p.click('[data-key="part2-go"]');
   ok(await T.waitHead(p, 'WORKSHOP') && !(await inInterlude(p)), 'after a reload nothing is shown twice');
 
   // ---- the debrief's way back to the workshop calls the interlude too (a fresh run, flight 1 flown in the page, then the debrief button)
@@ -234,7 +235,7 @@ async function existing() {
     ok(ids.includes('start') && (ex.flights < 1 || ids.includes('after-1')), `${name}: the moments already behind it are marked seen (${ids.join(', ') || 'none'})`);
     await p.evaluate(() => window.showComebackHub());
     ok(!(await inInterlude(p)), `${name}: the workshop again: still nothing replays`);
-    await p.reload(); await p.click('[data-key="part2-go"]');
+    await reopen(p); await p.click('[data-key="part2-go"]');
     ok(await T.waitHead(p, 'WORKSHOP') && !(await inInterlude(p)), `${name}: after a reload: still nothing replays`);
     const kept = await p.evaluate(keys => keys.map(k => localStorage.getItem(k)), ['smdg-progress-v1', 'gravitron-walkthrough-v1']);
     ok(kept[0] === fx.progress['smdg-progress-v1'] && kept[1] === fx.progress['gravitron-walkthrough-v1'], `${name}: the stars and the Part 1 record are exactly as they were`);

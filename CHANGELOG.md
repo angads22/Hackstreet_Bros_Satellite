@@ -9,6 +9,8 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Fixed
 
+- **Reloading keeps your place.** F5 no longer sends you back to the title: the map, Build, Rocket Yard, Readiness, the workshop or the Quick menu come back with the same design. A flight in the air returns to Readiness (its launch cost comes back once); a debrief returns to the map or the workshop. A new tab, or HOME, opens on the title.
+
 - **Music no longer drops out.** If the browser suspended or interrupted the audio (a hidden tab, a phone call, power saving), the music stayed silent until you toggled it. It now resumes by itself, at the next click or key at the latest, and recovers from a failed schedule or a stuck launch ducking.
 - **Quick mode.** The home page has a third card, QUICK MODE · 1V1 DUEL, that opens a menu: QUICK FLIGHT (solo, works offline: one flight from a seeded job, a new one each time, never touching your stars, Part 1 or a comeback), 1V1 DUEL and LEADERBOARD (shown disabled with the reason when online is off). The debrief shows a QUICK SCORE, `getQuickScore(result)` = round(100 × science ÷ cost in $M, cost counted as at least 1), best kept in `gravitron-quick-v1`; the small LEADERBOARD and DUEL row on the home page is gone.
 - Adding a part has a moment of its own on Build: a tile flies from the card to the satellite (and back on a removal), the satellite thumps, the bars that changed flash and show a chip like +45 KG, and fitting a body makes CARRIES jump. Quick, never in the way, still under reduced motion.

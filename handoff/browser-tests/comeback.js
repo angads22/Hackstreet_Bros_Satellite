@@ -229,7 +229,7 @@ async function run(viewport, label) {
     'var s = c.offers.filter(function (k) { return k.topic === "solar"; })[0];' +
     'if (s && !c.offers.some(function (k) { return k.topic === "solar" && !k.done; })) c.offers.push(Object.assign({}, s, { id: s.id + "-again", done: false, expires_month: c.month + 12 }));' +
     'c.knowledge_science.solar = 0;');
-  await p.reload(); await T.seedRuns(p); await p.click('[data-key="part2-go"]'); await T.pastScenes(p); await T.waitHead(p, 'WORKSHOP');
+  await T.reopen(p); await T.seedRuns(p); await p.click('[data-key="part2-go"]'); await T.pastScenes(p); await T.waitHead(p, 'WORKSHOP');
   ok(/No flight can land before the deadline/.test(await p.locator('[data-key="stat-months"]').innerText()) &&
      /warn/.test(await p.locator('[data-key="stat-months"]').getAttribute('class')), 'workshop: the countdown warns that no flight can land in time');
   ok(await p.locator('[data-key="fly-solar"]').count() === 1, 'a solar contract is open (opened again if needed)');
@@ -272,7 +272,7 @@ async function run(viewport, label) {
   ok(await p.locator('.cb-level').count() === 3, 'TRY AGAIN opens the picker');
   await p.click('[data-key="level-training"]'); await T.throughBeats(p); await T.waitHead(p, 'WORKSHOP');
   await editSave(p, 'c.treasury_musd = c.debt_musd + 1; c.reputation = 999;');
-  await p.reload(); await T.seedRuns(p);
+  await T.reopen(p); await T.seedRuns(p);
   ok(/^CONTINUE/.test(await p.locator('[data-key="part2-go"]').innerText()), 'home: a comeback running reads CONTINUE');
   await p.click('[data-key="part2-go"]'); await T.waitHead(p, 'WORKSHOP');
   ok(await p.locator('[data-key="pay-all"]').count() === 1, 'PAY ALL appears once the cash covers the debt');

@@ -97,25 +97,30 @@ const KEY = 'gravitron-walkthrough-v1';
   // ---- The real Part 2 (js/ui-comeback.js and the back end's getComeback): START, CONTINUE while a comeback runs,
   // START again once it is finished, and a getComeback that throws does not crash the home page.
   console.log('[Part 2, real screens]');
-  const r = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const rctx = await b.newContext({ viewport: { width: 1280, height: 800 } });
+  let r = await rctx.newPage();
   const rErrors = T.watchErrors(r);
+  // v2.1: a reload keeps the place (js/ui-design.js, RESUME), so a returning player who should see the home page is a new tab of the same browser.
+  const tabErrors = [];
+  const newTab = async () => { const n = await rctx.newPage(); tabErrors.push(T.watchErrors(n)); await T.noFonts(n); await n.goto(url); await r.close(); r = n; };
   await T.noFonts(r);
   await r.goto(url); await r.evaluate(() => localStorage.clear()); await r.reload();
   ok(/^START/.test(await r.locator('[data-key="part2-go"]').innerText()), 'no comeback saved: Part 2 reads START');
   await r.click('[data-key="part2-go"]');
   ok(await r.locator('.cb-level').count() === 3, 'START opens the difficulty picker (three cards)');
   await r.evaluate(() => newComeback('standard'));
-  await r.reload();
+  await newTab();   // v2.1: was a reload (a reload now stays on the picker's place)
   ok(/^CONTINUE/.test(await r.locator('[data-key="part2-go"]').innerText()), 'a comeback running: Part 2 reads CONTINUE');
   await r.click('[data-key="part2-go"]');
   await T.throughBeats(r);   // a comeback not yet begun in the page: Ajay's opening scene comes first, once
   ok(await T.waitHead(r, 'WORKSHOP'), 'CONTINUE opens the workshop');
   await r.evaluate(() => { const c = JSON.parse(localStorage.getItem('smdg-campaign')); c.finished = true; c.won = false; c.month = c.deadline_month; localStorage.setItem('smdg-campaign', JSON.stringify(c)); });
-  await r.reload();
+  await newTab();   // v2.1: was a reload (a reload now stays in the workshop)
   ok(/^START/.test(await r.locator('[data-key="part2-go"]').innerText()), 'a finished comeback: Part 2 reads START');
   await r.evaluate(() => { window.getComeback = function () { throw new Error('not ready'); }; window.StarlineUI.home(); });
   ok(/^START/.test(await r.locator('[data-key="part2-go"]').innerText()), 'a getComeback that throws: START, no crash');
-  ok(rErrors.length === 0, 'no console or page errors' + (rErrors.length ? ': ' + rErrors.join(' / ') : ''));
+  const allErrors = rErrors.concat(...tabErrors);
+  ok(allErrors.length === 0, 'no console or page errors' + (allErrors.length ? ': ' + allErrors.join(' / ') : ''));
   await r.close();
   await b.close();
   done();
