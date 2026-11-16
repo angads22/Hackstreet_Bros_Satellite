@@ -108,3 +108,5 @@
   body:has(#lstrip-host:not([hidden])) .workshop .sat-bench { max-width: 204px; }
   body:has(.workshop) .lstrip-host { margin-bottom: 0; }
 }
+/* QA 2.1 (cash-one-line): on a phone a cash figure with cents ("$15.48M") broke over two lines in its tile. */
+@media (max-width: 480px) { .lt-value { font-size: 23px; } }

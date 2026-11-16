@@ -1635,3 +1635,5 @@ body:has(#lstrip-host:not([hidden])) .status-money { font-size: 0; letter-spacin
   .stack > .preview { height: 176px; }
   .stack > .preview .explainer.ex-compact .ex-svg { display: none; }
 }
+/* QA 2.1 (header-one-line): on a wide screen the header's status line ("PART 1 · STEP 1 · 1958 · SPENT ...") has room for one line beside the minimap. */
+@media (min-width: 1200px) { .brand { flex: 0 1 auto; max-width: 640px; } }
