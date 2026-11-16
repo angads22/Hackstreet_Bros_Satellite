@@ -1,3 +1,5 @@
+**Judges: play GRAVITRON here: https://is.gd/hackstreetbros**
+
 # Hackstreet_Bros_Satellite
 
 GRAVITRON, a browser game: design a satellite, launch it, learn why it flew or failed. Plain HTML, CSS and JavaScript, no build step: open `index.html`.
