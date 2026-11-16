@@ -2946,7 +2946,7 @@
     var cv = pic.querySelector("canvas");
     if (at && cv) {
       var c = cv.getBoundingClientRect();
-      return { x: c.left + Math.min(1, Math.max(0, at[0])) * c.width, y: c.top + Math.min(1, Math.max(0, at[1])) * c.height };
+      return { x: c.left + Math.min(1, Math.max(0, at[0])) * c.width, y: c.top + Math.min(1, Math.max(0, at[1] + 0.07)) * c.height };   // the anchor is the top of the part: a little lower is on it
     }
     var box = (pic.querySelector(".is-new") || pic.querySelector("svg") || pic).getBoundingClientRect();
     return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
