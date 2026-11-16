@@ -9,6 +9,9 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 ### Changed
 
 - **Ajay's story starts with a loss.** His girlfriend Mara leaves and both parents disown him; their letter after flight one is about the house and the deed.
+### Added
+
+- **Credit is a real credit score** (300 to 850, POOR to EXCEPTIONAL): worked out from payments, debt, history, new loans and mix; the band sets the interest and the loan limit; a 2.0 save keeps its credit.
 
 ### Fixed
 

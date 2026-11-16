@@ -992,6 +992,21 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-credit .cb-bar-fill { background: var(--accent); }
 .cb-credit.warn .cb-bar-fill { background: var(--bad); }
 .cb-bar-line { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--text); }
+/* credit 2.1: the score, its band and the WHY list of the five factors (flat, no motion of its own) */
+.cb-credit-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px; }
+.cb-band { font-family: var(--font-head); font-weight: 700; font-size: clamp(20px, 3vw, 28px); letter-spacing: 2px; color: var(--info-ink); }
+.cb-band.warn { color: var(--accent-ink); }
+.cb-band.bad { color: var(--bad); }
+.cb-credit.tone-warn { border-color: var(--accent); }
+.cb-why summary { cursor: pointer; color: var(--info-ink); font-size: 18px; letter-spacing: 2px; padding: 2px 0; }
+.cb-factors { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.cb-factor { display: grid; grid-template-columns: minmax(0, 7em) 3em minmax(0, 1fr); align-items: center; gap: 8px; font-size: 18px; color: var(--text-dim); }
+.cb-factor-weight { text-align: right; }
+.cb-factor-bar { position: relative; height: 10px; background: var(--bg); border: 2px solid var(--border); border-radius: 6px; overflow: hidden; }
+.cb-factor-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--info); transition: width 0.8s ease-out; }
+.cb-credit.tone-warn .cb-factor-fill { background: var(--accent); }
+.cb-credit.tone-bad .cb-factor-fill { background: var(--bad); }
+@media (max-width: 720px) { .cb-factor { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; } .cb-factor-bar { grid-column: 1 / -1; } }
 .cb-note { font-size: 20px; color: var(--text-dim); }
 .cb-note.bad { color: var(--bad); }
 .cb-note.good { color: var(--info-ink); }
@@ -1052,7 +1067,7 @@ img.lp-face { background: var(--pal-portrait); object-fit: cover; }
 .cb-scene { display: block; width: 100%; height: auto; aspect-ratio: 16 / 7; }
 .cb-epilogue { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
-  .cb-meter-debt, .cb-meter-cash, .cb-bar-fill { transition: none; }
+  .cb-meter-debt, .cb-meter-cash, .cb-bar-fill, .cb-factor-fill { transition: none; }
   .cb-stamp { animation: none; }
 }
 

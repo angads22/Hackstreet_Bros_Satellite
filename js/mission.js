@@ -1020,6 +1020,17 @@ function upgradeCampaign(c) {
     var start = legacy !== undefined && wasOld ? legacy : t ? t.debt_musd : undefined;
     if (isNumber(start)) { c.start_debt_musd = start; changed = true; }
   }
+  // 2.1 (real credit scores): a run saved with the old 0 to 100 `credit` keeps it as its starting point. It becomes the run's
+  // starting score, offset by what its history has moved the score since, so the score today is the old credit on the new
+  // scale (300 + 5.5 per point) and no existing player loses anything. Scores are 300 or more, so a value above 100 is a
+  // converted one and a second pass changes nothing.
+  var s = scoreConfig();
+  if (s && isNumber(c.credit) && c.credit <= 100 && comebackTier(c) && isNumber(c.treasury_musd) && isNumber(c.debt_musd)) {
+    var mapped = Math.round(s.legacy_base + s.legacy_per_point * Math.max(0, c.credit));   // a whole score, like every score
+    if (!c.finished && c.debt_musd > 0 && mapped <= s.seize) mapped = s.seize + 1;   // the old seize line (30) is 465 here: a running run is not seized by the move
+    c.credit = Math.max(101, round(mapped - scoreMovement(c, c.debt_musd, c.treasury_musd, 0), 3));
+    changed = true;
+  }
   return changed;
 }
 
@@ -1910,31 +1921,132 @@ function accrueInterest(debt, months, rate) {
 }
 
 // ---- loans, credit and reputation (SPEC.md, "Loans, credit and a name")
-// Credit starts full and only the lenders' patience pays for it: each loan, each month Ajay is behind and each
-// lost satellite lowers it; a good flight and a real payment give a little back. Lower credit means dearer
-// interest. At the seize line the lenders take everything. Winning needs the debt at 0 AND a name: reputation
-// from the stars Ajay's satellites earn. A save without these fields starts at full credit and no name.
-function creditConfig() { var cfg = comebackConfig(); return cfg && cfg.credit ? cfg.credit : null; }
-function clampCredit(x) { return Math.max(0, Math.min(100, round(x, 1))); }
-function creditOf(c) { var k = creditConfig(); return isNumber(c.credit) ? c.credit : (k ? k.start : 100); }
+// Credit is a real credit score (version 2.1): 300 to 850, worked out from the run's history by creditScore(c), a pure
+// function of the saved log, the missions, the month and the current cash and debt (nothing about it is stored). It uses
+// the five FICO factors with their published weights. Every factor is measured against the day the comeback began, so
+// every run starts at CAMPAIGN.comeback.score.start (720, GOOD) on every difficulty. The band sets the interest spread and
+// the share of the loan cap the lenders will lend; at the seize line the lenders take everything. Winning needs the debt
+// at 0 AND a name: reputation from the stars Ajay's satellites earn.
+function creditConfig() { var cfg = comebackConfig(); return cfg && cfg.credit && cfg.score ? cfg.credit : null; }
+function scoreConfig() { var cfg = comebackConfig(); return cfg && cfg.score ? cfg.score : null; }
 function reputationOf(c) { return isNumber(c.reputation) ? c.reputation : 0; }
 function reputationGoal(c) { var t = comebackTier(c); return t && isNumber(t.reputation_goal) ? t.reputation_goal : 0; }
-function seizeLine() { var k = creditConfig(); return k ? k.seize : 0; }
-// The monthly interest right now: the base rate plus a spread that grows as credit falls.
-function monthlyRate(c) {
-  var cfg = comebackConfig(), k = creditConfig();
-  if (!cfg) return 0;
-  return k ? round(cfg.interest_per_month + k.interest_spread * (100 - creditOf(c)) / 100, 5) : cfg.interest_per_month;
+function seizeLine() { var s = scoreConfig(); return s ? s.seize : 0; }
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+
+// The band a score is in: { id, name, from, to, spread, cap_share } (FICO's own bands), or null with no score data.
+function creditBand(score) {
+  var s = scoreConfig();
+  if (!s) return null;
+  var band = s.bands[0];
+  s.bands.forEach(function (b) { if (score >= b.from) band = b; });
+  return band;
 }
-// The most the lenders will still lend: a cap that shrinks with credit, less what was already borrowed. Zero
-// when one more loan would drop credit to the seize line (the game does not let a loan end the game by itself).
+
+var CREDIT_FACTORS = [   // the five FICO factors, in FICO's order; `name` is the short label the screens show
+  { id: "payment", name: "Payments" }, { id: "owed", name: "Debt" }, { id: "length", name: "History" },
+  { id: "new", name: "New loans" }, { id: "mix", name: "Mix" }
+];
+
+// Months with the debt above the cash. The cash of each past month is not saved, so: every month of the run while the debt
+// is above the cash now; once the cash has caught up, the months up to the flight before the last one settled; with the
+// debt paid, the months up to the last payment.
+function lateMonthsFor(c, debt, cash) {
+  if (debt > cash) return c.month || 0;
+  if (!(debt > 0)) {   // nothing owed: the months stop counting at the last payment
+    return (c.log || []).reduce(function (m, e) { return e.kind === "payment" ? Math.max(m, e.month || 0) : m; }, 0);
+  }
+  var ms = c.missions || [];
+  return ms.length >= 2 ? (ms[ms.length - 2].month || 0) : 0;
+}
+// What the five factors read from: the saved history of run `c`, with `debt` and `cash` standing for its money (so a loan can
+// be tried before it is taken: `loan` is that loan's amount, 0 for none).
+function scoreState(c, debt, cash, loan) {
+  var s = scoreConfig(), k = creditConfig(), t = comebackTier(c), sd = startDebt(c);
+  var st = { month: c.month || 0, debt: debt, cash: cash, late: lateMonthsFor(c, debt, cash), pays: 0, paid: 0, recent: loan > 0 ? 1 : 0,
+             lost: (c.missions || []).filter(function (m) { return m.ended_early; }).length,
+             start_debt: sd, limit: Math.max(1e-6, sd + (t ? t.loan_cap_musd || 0 : 0)) };
+  (c.log || []).forEach(function (e) {
+    if (e.kind === "loan" && (e.month || 0) > st.month - s.new.recent_months) st.recent++;
+    else if (e.kind === "payment") { st.paid += e.musd || 0; if ((e.musd || 0) >= k.min_payment_musd) st.pays++; }
+  });
+  return st;
+}
+// The day the comeback began: no history, the opening cash and the debt it started with.
+function scoreStart(c) {
+  var t = comebackTier(c), sd = startDebt(c);
+  return { month: 0, debt: sd, cash: t ? t.cash_musd : 0, late: 0, pays: 0, paid: 0, recent: 0, lost: 0, start_debt: sd,
+           limit: Math.max(1e-6, sd + (t ? t.loan_cap_musd || 0 : 0)) };
+}
+// Each factor from 0 (worst) to 1 (best).
+function scoreFactorValues(st) {
+  var s = scoreConfig(), p = s.payment, onTime = p.grace_months + st.pays * p.payment_months, lateEq = st.late + p.lost_months * Math.pow(st.lost, p.lost_power);
+  return {
+    payment: onTime / (onTime + lateEq),                                                                  // on-time months against late ones
+    owed: 1 - clamp01((st.debt - s.owed.cash_share * Math.max(0, Math.min(st.cash, st.debt))) / st.limit),   // the debt (less some of the cash) against the debt owed at the start plus the loan cap
+    length: clamp01(st.month / s.length.full_months),                                                     // months of history
+    new: 1 - clamp01(st.recent / s.new.full_loans),                                                       // loans taken lately
+    mix: 0.5 + 0.5 * clamp01(st.paid / Math.max(1e-6, st.start_debt))                                     // having borrowed (always) and paid back
+  };
+}
+// The run's starting score: CAMPAIGN.comeback.score.start, or (a save upgraded from before 2.1) the old credit carried over.
+function creditStart(c) { var s = scoreConfig(); return isNumber(c.credit) && c.credit > 100 ? c.credit : s.start; }
+// How far the five weighted factors have moved the score from the day the run began, in score points.
+function scoreMovement(c, debt, cash, loan) {
+  var s = scoreConfig(), f = scoreFactorValues(scoreState(c, debt, cash, loan)), f0 = scoreFactorValues(scoreStart(c)), sum = 0;
+  CREDIT_FACTORS.forEach(function (x) { sum += s.weights[x.id] * (f[x.id] - f0[x.id]); });
+  return (s.max - s.min) * sum;
+}
+function scoreRound(s, x) { return Math.max(s.min, Math.min(s.max, Math.round(x))); }
+// The credit score of a comeback right now (a whole number, 300 to 850), or null when it is not a comeback.
+function creditScore(c) { return creditScoreWith(c, c.debt_musd, c.treasury_musd); }
+// The same score with another debt and cash (settleComeback: the score the hub showed before the launch was paid for).
+function creditScoreWith(c, debt, cash) {
+  var s = scoreConfig();
+  if (!s || !isComeback(c)) return null;
+  return scoreRound(s, creditStart(c) + scoreMovement(c, debt, cash, 0));
+}
+// The score a loan of `amount` would leave (the amount and its fee on the debt, the amount in the cash, one more loan).
+function scoreAfterLoan(c, amount) {
+  var s = scoreConfig(), k = creditConfig(), a = round(amount, 3), fee = round(a * k.loan_fee, 3);
+  return scoreRound(s, creditStart(c) + scoreMovement(c, c.debt_musd + a + fee, c.treasury_musd + a, a));
+}
+// The five factors for the screens: [{ id, name, weight, value }], value 0 to 1, nothing in them but facts.
+function creditFactors(c) {
+  var s = scoreConfig();
+  if (!s || !isComeback(c)) return [];
+  var f = scoreFactorValues(scoreState(c, c.debt_musd, c.treasury_musd, 0));
+  return CREDIT_FACTORS.map(function (x) { return { id: x.id, name: x.name, weight: s.weights[x.id], value: round(f[x.id], 2) }; });
+}
+// The old 0 to 100 credit, derived from the score for code that still reads it.
+function creditOld(score) { var s = scoreConfig(); return s ? round((score - s.legacy_base) / s.legacy_per_point, 1) : null; }
+
+// The monthly interest right now: the base rate plus the spread of the band the score is in.
+function monthlyRate(c) {
+  var cfg = comebackConfig(), s = scoreConfig();
+  if (!cfg) return 0;
+  var band = s && isComeback(c) ? creditBand(creditScore(c)) : null;
+  return band ? round(cfg.interest_per_month + band.spread, 5) : cfg.interest_per_month;
+}
+// What the band's share of the loan cap still leaves to borrow (not counting the seize line).
+function borrowRoom(c) {
+  var t = comebackTier(c), band = creditBand(creditScore(c));
+  return round(t.loan_cap_musd * band.cap_share - (c.borrowed_musd || 0), 3);
+}
+// The most the lenders will still lend: the band's share of the cap, less what was already borrowed. Zero in POOR and when
+// even the smallest loan would drop the score to the seize line (the game does not let a loan end the game by itself); a
+// bigger loan is cut back to the largest one that leaves the score above it.
 function maxBorrow(c) {
-  var k = creditConfig(), t = comebackTier(c);
-  if (!k || !t || !isNumber(t.loan_cap_musd) || !isComeback(c) || c.finished) return 0;
-  var credit = creditOf(c);
-  if (credit - k.per_loan <= k.seize) return 0;
-  var cap = round(t.loan_cap_musd * credit / 100, 3);
-  return Math.max(0, round(cap - (c.borrowed_musd || 0), 3));
+  var k = creditConfig(), s = scoreConfig(), t = comebackTier(c);
+  if (!k || !s || !t || !isNumber(t.loan_cap_musd) || !isComeback(c) || c.finished) return 0;
+  var room = borrowRoom(c);
+  function ok(a) { return scoreAfterLoan(c, a) > s.seize; }
+  if (!(room > 0) || !ok(0.001)) return 0;
+  if (ok(room)) return room;
+  var lo = 0.001, hi = room;
+  for (var i = 0; i < 40; i++) { var mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; }
+  var best = Math.floor(lo * 1000 + 1e-9) / 1000;
+  return round(ok(best) ? best : Math.max(0.001, best - 0.001), 3);
 }
 
 // ---- contracts: the comeback's offers, with a client and a reason
@@ -2135,7 +2247,7 @@ function safePayMax(c) {
 }
 
 // Why a comeback is lost right now, or null. One check, after every flight and every payment.
-// "seized": credit fell to the seize line with debt left. "deadline": time ran out with debt left. "name": the
+// "seized": the credit score fell to the seize line with debt left. "deadline": time ran out with debt left. "name": the
 // debt is paid but the deadline came before Ajay made a name. "cash": nothing left can launch and no loan helps.
 function comebackLoss(c) {
   if (!isComeback(c) || c.won) return null;
@@ -2143,7 +2255,7 @@ function comebackLoss(c) {
     if (reputationOf(c) >= reputationGoal(c)) return null;
     return c.month >= c.deadline_month || c.treasury_musd + maxBorrow(c) < comebackCheapest(c) ? "name" : null;
   }
-  if (creditConfig() && creditOf(c) <= seizeLine()) return "seized";
+  if (scoreConfig() && creditScore(c) <= seizeLine()) return "seized";
   if (c.month >= c.deadline_month) return "deadline";
   if (c.treasury_musd >= c.debt_musd) return null;           // it can still pay the lenders off today
   if (c.treasury_musd + maxBorrow(c) < comebackCheapest(c)) return "cash";   // no open contract can be flown, even with a loan
@@ -2235,7 +2347,6 @@ function newComeback(tierId, seed) {
     log: [],
     complications: [],              // what has gone wrong (or right) between flights, shown once in the workshop
     info: {},                       // part information bought from the engineers: part id -> the groups known (buyPartInfo)
-    credit: creditConfig() ? creditConfig().start : 100,   // the lenders' patience, 0 to 100
     reputation: 0,                                          // a name: grows with the stars Ajay's satellites earn
     borrowed_musd: 0,                                       // loans taken so far (not counting their fees)
     finished: false,
@@ -2267,13 +2378,17 @@ function getComeback() {
     cash_musd: c.treasury_musd,
     debt_musd: c.debt_musd,
     start_debt_musd: startDebt(c),
-    interest_per_month: monthlyRate(c),               // the rate right now: it rises as credit falls
+    interest_per_month: monthlyRate(c),               // the rate right now: the base rate plus the band's spread
     base_interest_per_month: cfg ? cfg.interest_per_month : 0,
-    credit: creditOf(c),
-    seize_credit: seizeLine(),
+    credit_score: creditScore(c),                     // the real-style score, 300 to 850 (creditScore)
+    credit_band: creditBand(creditScore(c)).name,     // POOR, FAIR, GOOD, VERY GOOD or EXCEPTIONAL
+    credit_band_id: creditBand(creditScore(c)).id,    // poor, fair, good, very_good or exceptional
+    credit_factors: creditFactors(c),                 // the five factors: { id, name, weight, value 0..1 }
+    credit: creditOld(creditScore(c)),                // the old 0 to 100 credit, derived (older code reads it)
+    seize_score: seizeLine(),
+    seize_credit: creditOld(seizeLine()),
     max_borrow_musd: maxBorrow(c),
     loan_fee: creditConfig() ? creditConfig().loan_fee : 0,
-    credit_per_loan: creditConfig() ? creditConfig().per_loan : 0,
     borrowed_musd: c.borrowed_musd || 0,
     reputation: reputationOf(c),
     reputation_goal: reputationGoal(c),
@@ -2500,21 +2615,20 @@ function payDebt(amountMusd) {
   c.treasury_musd = round(c.treasury_musd - amount, 3);
   c.debt_musd = round(c.debt_musd - amount, 3);
   (c.log = c.log || []).push({ year: c.year, month: c.month, kind: "payment", musd: amount });
-  var k = creditConfig();
-  if (k && amount >= k.min_payment_musd) c.credit = clampCredit(creditOf(c) + k.per_payment);   // a real payment earns a little trust
-  checkComebackEnd(c);
+  checkComebackEnd(c);   // a real payment lifts the score by itself: it is in the log
   saveCampaign(c);
-  return { ok: true, reason: null, paid_musd: amount, cash_musd: c.treasury_musd, debt_musd: c.debt_musd, credit: creditOf(c), won: !!c.won };
+  return { ok: true, reason: null, paid_musd: amount, cash_musd: c.treasury_musd, debt_musd: c.debt_musd, credit_score: creditScore(c),
+           credit: creditOld(creditScore(c)), won: !!c.won };
 }
 
-// BORROW: the lenders lend more cash. The loan and its fee are added to the debt, credit drops, and the amount
-// is capped by max_borrow_musd. Refuses what is not a positive number and more than the cap; refuses when
-// one more loan would put credit on the seize line. Returns the new cash, debt and credit.
+// BORROW: the lenders lend more cash. The loan and its fee are added to the debt, the score drops (more owed, a new loan),
+// and the amount is capped by max_borrow_musd. Refuses what is not a positive number and more than the cap; refuses in
+// POOR; refuses when the loan would drop the score to the seize line. Returns the new cash, debt and credit score.
 function borrow(amountMusd) {
   var c = getCampaign();
   function no(reason) {
     return { ok: false, reason: reason, borrowed_musd: 0, fee_musd: 0, cash_musd: c ? c.treasury_musd : null, debt_musd: c ? c.debt_musd : null,
-             credit: c ? creditOf(c) : null, max_borrow_musd: c ? maxBorrow(c) : 0 };
+             credit_score: c ? creditScore(c) : null, credit: c ? creditOld(creditScore(c)) : null, max_borrow_musd: c ? maxBorrow(c) : 0 };
   }
   var k = creditConfig();
   if (!isComeback(c)) { c = null; return no("No comeback is running."); }
@@ -2524,20 +2638,20 @@ function borrow(amountMusd) {
   if (amountMusd <= 0) return no("Borrow more than nothing.");
   var amount = round(amountMusd, 3);
   if (amount <= 0) return no("Borrow at least $0.001M.");
-  var max = maxBorrow(c);
-  if (max <= 0) return no(creditOf(c) - k.per_loan <= k.seize ? "The lenders will lend no more: one more loan and they take everything."
-                                                              : "You have borrowed all the lenders allow at this credit.");
+  var band = creditBand(creditScore(c)), max = maxBorrow(c);
+  if (band.cap_share <= 0) return no("The lenders lend nothing at a " + band.name + " score.");
+  if (max <= 0) return no(borrowRoom(c) > 0 ? "The lenders will lend no more: one more loan and they take everything."
+                                            : "You have borrowed all the lenders allow at this score.");
   if (amount > max + 1e-9) return no("The lenders will lend at most $" + max + "M now.");
   var fee = round(amount * k.loan_fee, 3);
   c.treasury_musd = round(c.treasury_musd + amount, 3);
   c.debt_musd = round(c.debt_musd + amount + fee, 3);
   c.borrowed_musd = round((c.borrowed_musd || 0) + amount, 3);
-  c.credit = clampCredit(creditOf(c) - k.per_loan);
   (c.log = c.log || []).push({ year: c.year, month: c.month, kind: "loan", musd: amount, fee_musd: fee });
   checkComebackEnd(c);
   saveCampaign(c);
   return { ok: true, reason: null, borrowed_musd: amount, fee_musd: fee, cash_musd: c.treasury_musd, debt_musd: c.debt_musd,
-           credit: creditOf(c), max_borrow_musd: maxBorrow(c) };
+           credit_score: creditScore(c), credit: creditOld(creditScore(c)), max_borrow_musd: maxBorrow(c) };
 }
 
 // ---- complications: small things that go wrong (or right) in the workshop between flights
@@ -2591,6 +2705,7 @@ function applyComplication(c) {
 // Called from settleCampaign for a comeback flight: the contract pays, events cost cash, months pass and
 // the debt grows; then contracts expire and refill, and the comeback may end.
 function settleComeback(c, mission, debrief, result) {
+  var scoreBefore = creditScoreWith(c, c.debt_musd, c.treasury_musd + (mission.launch_totals ? mission.launch_totals.cost_musd : 0));   // what the hub showed before the launch was paid
   var obj = mission.design.objective;
   var newData = newDataFor(getObjective(obj), c.knowledge_science[obj] || 0, mission.science);
   c.knowledge_science[obj] = (c.knowledge_science[obj] || 0) + newData;
@@ -2601,14 +2716,10 @@ function settleComeback(c, mission, debrief, result) {
   c.debt_musd = accrueInterest(c.debt_musd, used, monthlyRate(c));   // at the rate this credit earns
   var interest = round(c.debt_musd - debtBefore, 3);
   c.month += used;
-  // Credit and a name: stars earn trust and reputation, a lost satellite and every month behind cost trust.
-  var kc = creditConfig(), creditBefore = creditOf(c);
-  if (kc) {
-    var delta = (debrief.stars || 0) * kc.per_star - (mission.ended_early ? kc.per_lost_satellite : 0) -
-      (c.debt_musd > c.treasury_musd ? used * kc.per_late_month : 0);
-    c.credit = clampCredit(creditBefore + delta);
-    c.reputation = round(reputationOf(c) + (debrief.stars || 0) * kc.reputation_per_star, 1);
-  }
+  // A name: the stars earn reputation. The credit score needs nothing here: a lost satellite (the mission below), the months
+  // behind and the debt are all read from the run when the score is worked out.
+  var kc = creditConfig();
+  if (kc) c.reputation = round(reputationOf(c) + (debrief.stars || 0) * kc.reputation_per_star, 1);
   c.year = comebackStartYear() + Math.floor(c.month / 12);
   c.science_pts = round((c.science_pts || 0) + newData, 1);
   var newLessons = mission.launch_failed ? [] : lessonsFrom(mission, debrief, c).filter(function (l) { return c.lessons.indexOf(l) === -1; });
@@ -2662,8 +2773,9 @@ function settleComeback(c, mission, debrief, result) {
   result.lost_reason = lostReason(c);
   result.launch_failed = !!mission.launch_failed;
   result.complication = (c.complications || []).filter(function (e) { return e.flight === c.flights; })[0] || null;   // the one that struck after this flight
-  result.credit = creditOf(c);
-  result.credit_change = round(creditOf(c) - creditBefore, 1);
+  result.credit_score = creditScore(c);
+  result.credit_change = creditScore(c) - scoreBefore;   // score points
+  result.credit = creditOld(creditScore(c));
   result.reputation = reputationOf(c);
   result.reputation_goal = reputationGoal(c);
 }

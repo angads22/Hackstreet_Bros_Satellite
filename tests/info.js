@@ -100,8 +100,8 @@ function known(G, d, part) { return GROUPS.map(function (g) { return G.partInfoK
 
 // ---- 5b. No dead end: a fee that would leave the cash (and the loans still allowed) unable to pay for any launch is refused.
 (function () {
-  var f = start("hard"), G = f.G, c = G.getCampaign(), k = G.CAMPAIGN.comeback.credit, fee = G.CAMPAIGN.comeback.info_fee_musd;
-  c.credit = k.seize + k.per_loan;   // one more loan would put credit on the seize line: no loan helps
+  var f = start("hard"), G = f.G, c = G.getCampaign(), k = G.CAMPAIGN.comeback.score, fee = G.CAMPAIGN.comeback.info_fee_musd;
+  c.credit = k.seize + 20;   // a run that began in POOR (above the seize line): the lenders lend nothing, so no loan helps
   G.saveCampaign(c);
   var h = G.getComeback(), cheapest = h.cheapest_launch_musd;
   check("5b the setup: no loan is allowed and a launch has a price", h.max_borrow_musd === 0 && cheapest > 0, JSON.stringify({ max: h.max_borrow_musd, cheapest: cheapest }));
