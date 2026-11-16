@@ -27,18 +27,45 @@ const CAMPAIGN = {
       expert:   { cash_musd: 3, debt_musd: 45, deadline_months: 54, loan_cap_musd: 30, reputation_goal: 28 }    // GAME VALUES (and 3 events a flight, from data/tiers.js)
     },
     // Loans, credit and a name (SPEC.md, "Loans, credit and a name"). All GAME VALUES.
+    // What is left of the old 0 to 100 "credit" block: the loan fee, the smallest payment that counts, and the name.
+    // The score itself is in `score` below (version 2.1).
     credit: {
-      start: 100,                 // credit runs 0 to 100
-      seize: 30,                  // at or below this the lenders take everything and the comeback is lost
-      per_loan: 12,               // credit lost for each loan
-      per_late_month: 0.8,        // credit lost for each month that passes with the debt above the cash
-      per_lost_satellite: 10,     // credit lost when a satellite is lost before its mission ends
-      per_star: 2,                // credit gained for each star a flight earns
-      per_payment: 1,             // credit gained for a payment of at least min_payment_musd
-      min_payment_musd: 1,
+      min_payment_musd: 1,        // a payment of at least this counts as an on-time payment
       loan_fee: 0.05,             // share of a loan added to the debt on top of the loan
-      interest_spread: 0.02,      // extra monthly interest at zero credit; it scales with the credit lost
       reputation_per_star: 2      // reputation gained for each star a flight earns
+    },
+    // The credit score (version 2.1): a real FICO-style score, 300 to 850, worked out from the run's history (mission.js,
+    // creditScore) from the five real factors with their real weights. GAME VALUES, tuned so a sensible player stays GOOD or
+    // better and a careless one falls to POOR. Every run starts at `start`; the factors are measured against that day.
+    score: {
+      min: 300,                   // FICO: the lowest score
+      max: 850,                   // FICO: the highest score
+      start: 720,                 // Ajay's score on the day the comeback starts (GOOD)
+      seize: 500,                 // at or below this, with debt left, the lenders take everything
+      // A save from before 2.1 kept `credit` from 0 to 100; it is shown as base + per_point x credit (mission.js, upgradeCampaign).
+      legacy_base: 300,
+      legacy_per_point: 5.5,
+      // The five FICO factors and the weights FICO publishes. They add up to 1.
+      weights: { payment: 0.35, owed: 0.30, length: 0.15, new: 0.10, mix: 0.10 },
+      // FICO's own bands. `spread` is added to the base monthly interest (a lower band costs more); `cap_share` is the share
+      // of the difficulty's loan cap the lenders will lend in that band (POOR: nothing).
+      bands: [
+        { id: "poor",        name: "POOR",       from: 300, to: 579, spread: 0.015,  cap_share: 0 },
+        { id: "fair",        name: "FAIR",       from: 580, to: 669, spread: 0.008,  cap_share: 0.5 },
+        { id: "good",        name: "GOOD",       from: 670, to: 739, spread: 0,      cap_share: 1 },
+        { id: "very_good",   name: "VERY GOOD",  from: 740, to: 799, spread: -0.001, cap_share: 1.1 },
+        { id: "exceptional", name: "EXCEPTIONAL", from: 800, to: 850, spread: -0.002, cap_share: 1.2 }
+      ],
+      // Payment history: on-time months against late ones. `grace_months` of clean history to begin with; each real payment
+      // adds `payment_months` on-time months; every month with the debt above the cash counts late; a lost satellite counts
+      // as `lost_months` late months.
+      payment: { grace_months: 30, payment_months: 6, lost_months: 15 },
+      // Amounts owed: the debt, less `cash_share` of the cash, against the debt Ajay began with plus the loan cap.
+      owed: { cash_share: 0.5 },
+      // Length of history: the run's months, full at `full_months`.
+      length: { full_months: 48 },
+      // New credit: loans taken in the last `recent_months`; `full_loans` of them is the worst.
+      new: { recent_months: 12, full_loans: 3 }
     },
     // Paying engineers for part information (SPEC.md, "Paying engineers for part information"). A part's information is
     // three groups: sheet (mass, power, data rate), performance (what it measures, science a month) and dossier (its
