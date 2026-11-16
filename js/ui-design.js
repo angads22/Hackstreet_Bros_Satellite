@@ -4053,7 +4053,31 @@
                         mission: "review", debrief: "map", intro: "map" };   // where a design screen comes back
   var PART2_SCREENS = { "comeback": 1, "comeback-start": 1, "comeback-end": 1, "interlude-choice": 1 };
 
-  function sessionStore() { try { return window.sessionStorage || null; } catch (e) { return null; } }
+  // Where the place is kept. A normal page: sessionStorage (this tab only). A sandboxed frame has none (the team's host
+  // serves the game that way and gives it a localStorage that saves per account): there the place is kept with the saves,
+  // stamped with the time, and forgotten after RESUME_MAX_AGE_MS, so coming back another day opens the title screen.
+  var RESUME_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+  function sessionStore() {
+    try {
+      var s = window.sessionStorage;
+      if (s) { s.setItem(SESSION_KEY + "-probe", "1"); s.removeItem(SESSION_KEY + "-probe"); return s; }
+    } catch (e) { /* no sessionStorage here */ }
+    try {
+      var ls = window.localStorage;
+      if (!ls) return null;
+      return {
+        getItem: function (k) {
+          try {
+            var o = JSON.parse(ls.getItem(k) || "null");
+            if (!o || typeof o.at !== "number" || typeof o.rec !== "string" || Date.now() - o.at > RESUME_MAX_AGE_MS || o.at > Date.now() + 60000) { ls.removeItem(k); return null; }
+            return o.rec;
+          } catch (e) { return null; }
+        },
+        setItem: function (k, v) { ls.setItem(k, JSON.stringify({ at: Date.now(), rec: v })); },
+        removeItem: function (k) { ls.removeItem(k); }
+      };
+    } catch (e2) { return null; }
+  }
   function planOf(d) {
     var plan = { tier: d.tier, era: d.era || null, objective: d.objective || null, orbit: d.orbit || null, launcher: d.launcher || null,
                  parts: list(d.parts).slice() };

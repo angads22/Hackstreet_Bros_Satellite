@@ -165,7 +165,11 @@
       clearTimeout(timer);
       var j = x.json && typeof x.json === "object" ? x.json : null;
       if (x.status >= 200 && x.status < 300 && j) { j.ok = true; return j; }
-      return { ok: false, status: x.status, reason: j && typeof j.reason === "string" && j.reason ? j.reason : FAIL };   // status: 404 means the room is gone
+      // The host in front of the server answers for itself too (ONLINE.md): 403 the game link expired, 503 multiplayer was
+      // switched off, 502 the server is down. A 400 carries its own reason (a filtered nickname). 404: the room is gone.
+      var hostSays = x.status === 403 ? "Link expired. Reload the page." : x.status === 503 ? "Multiplayer is switched off."
+        : x.status === 502 ? "The server is down. Try again soon." : "";
+      return { ok: false, status: x.status, reason: j && typeof j.reason === "string" && j.reason ? j.reason : hostSays || FAIL };
     }, function () { clearTimeout(timer); return { ok: false, reason: FAIL }; });
   }
 
