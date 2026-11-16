@@ -42,7 +42,7 @@
       if (opts.ids) attrs["data-key"] = key;
       var node = el("div", attrs, [
         el("span", { class: "lt-label", text: label }),
-        el("strong", { class: "lt-value", id: pre + (kind === "months" ? "months" : kind), text: value })
+        el("strong", { class: "lt-value" + (opts.ids ? " cb-stat-value" : ""), id: pre + (kind === "months" ? "months" : kind), text: value })
       ].concat(extra || []));
       tiles.push(node);
       if (moved[kind]) {
