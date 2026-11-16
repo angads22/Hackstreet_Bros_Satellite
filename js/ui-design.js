@@ -155,12 +155,12 @@
   // result); notebook takes a screen name ("briefing", "orbit", "build", "launcher", "review",
   // "mission-start") or the getDebrief result; event-calibration takes the choice index (0 or 1).
   //
-  // THE ARC (fiction; Voss, Austin, Ajay, Priya and Iron Eclipse are invented, and no line below states a game number).
+  // THE ARC (fiction; Voss, Austin, Ajay, Priya, Mara and Iron Eclipse are invented, and no line below states a game number).
   //   Part 1: Austin hears Sputnik beep over his workshop, builds three satellites by the rules in his notebook, and
   //   his counter falls silent at altitude (the discovery). His rival Marcus Voss takes the credit, blames him when
   //   the bigger satellite is lost on the pad, leaves to found Iron Eclipse. The notebook goes into a box.
-  //   Part 2: Ajay opens the box. His motives arrive as the run goes on: the lenders and the workshop (start), Mum's
-  //   house (after-1), Iron Eclipse and the buyout (offer, refused), Austin's last page and his name (after-3),
+  //   Part 2: Ajay opens the box. His motives arrive as the run goes on: the lenders and the workshop, Mara leaving
+  //   and both parents disowning him (start), the parents' letter about the house and the deed (after-1), Iron Eclipse and the buyout (offer, refused), Austin's last page and his name (after-3),
   //   the stakes restated (final). `why` is read by the number of flights, so it follows the same order.
   //
   // NEW KEYS (read by js/ui-story.js; every beat is { who, text }, one sentence, a scene is at most six beats):
@@ -169,7 +169,7 @@
   //     that also carries .sell, .refuse, .sell_hint and .refuse_hint (the labels and one-line hints of its two buttons).
   //     `start` repeats `intro` (the same six beats); show only one of them.
   //   STORY.ajay.endings = { legend, comeback, close, sold, timeout, broke }, each { title, kicker, beats, line }.
-  //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), mum.
+  //   Speakers: team, partner, customer, notebook, rival (Iron Eclipse), girl (Mara), parents (Mum and Dad).
   //   STORY.journal = { title, part1, part2, next, locked }: the STORY SO FAR screen. part1 and part2 are lists of
   //     { id, who, text, when }: one or two short lines each. `when` names the moment that unlocks the entry (js/ui-story.js
   //     decides when it has come: start, step-1, step-2, step-3, offer, refused, sold, after-1, after-3). `next` holds the
@@ -178,14 +178,16 @@
     title: "GRAVITRON",
     subtitle: "The Gravitronical Odyssey",
     speakers: { team: "YOUR TEAM", partner: "YOUR PARTNER", customer: "THE CUSTOMER", notebook: "AUSTIN'S NOTEBOOK",
-                rival: "IRON ECLIPSE", mum: "MUM" },
+                rival: "IRON ECLIPSE", girl: "MARA", parents: "MUM AND DAD" },
 
     // The home page: one card per mode. No game numbers here (every number on screen comes from the back end).
     modes: {
       part1: { kicker: "PART 1 · 1958", name: "AUSTIN'S FIRST SATELLITE", pitch: "Three short missions, one idea each.", tag: "START HERE" },
       part2: { kicker: "PART 2 · TODAY", name: "AJAY'S COMEBACK", pitch: "Austin's grandson owes the bank. Sell satellite data, pay it back in time.",
                // The difficulty, in plain words, by tier id (the tier's own name is shown small beside it).
-               levels: { training: "EASY", standard: "NORMAL", expert: "HARD" } }
+               levels: { training: "EASY", standard: "NORMAL", expert: "HARD" } },
+      // QUICK MODE (js/ui-online.js): the third card. Its state line ("ONLINE" / "ONLINE OFF") comes from LiveData.onlineStatus().
+      quick: { kicker: "QUICK MODE", name: "1V1 DUEL", label: "PLAY" }
     },
 
     // ------------------------------------------------ Story 1: Austin Albert, Part 1 (the 1958 walkthrough)
@@ -352,22 +354,23 @@
              notebook: "notebook", "event-calibration": "notebook", why: "partner", hub: "partner", contract: "customer" },
       // Shown once, when a comeback starts (after the difficulty), then the workshop. interludes.start repeats it.
       intro: [
-        { who: "partner", text: "Ajay Albert. Last year you borrowed a fortune to start Albert Orbital." },
-        { who: "partner", text: "It never flew. The money went on a launch party, a logo and an office with a slide." },
+        { who: "partner", text: "Ajay Albert. Albert Orbital never flew. The money went on a launch party and a logo." },
+        { who: "girl", text: "I'm leaving, Ajay. My things are in the car. I can't do another launch party." },
+        { who: "parents", text: "We signed that loan with our house. As of today we disown you. No calls, no money." },
         { who: "partner", text: "The lenders want it back by the deadline, or they take your grandfather's workshop." },
         { who: "notebook", text: "To whoever opens this: build it cheap, build it right, and bring the data home." },
-        { who: "customer", text: "Iron Eclipse sells data for a fortune. Bring it cheaper and we will pay." },
-        { who: "partner", text: "Pick a contract. Every satellite that delivers pays the debt down." }
+        { who: "customer", text: "Iron Eclipse sells data for a fortune. Bring it cheaper and we will pay." }
       ],
       // The workshop (the hub): why Ajay keeps going, one line, chosen by the number of flights so far. The order is the
-      // order of the story: the lenders, Mum, Iron Eclipse, Austin's name, then the lines that repeat.
+      // order of the story: the lenders, the parents, Iron Eclipse, Austin's name, then the lines that repeat.
       why: [
         "The lenders don't want satellites. They want the workshop.",
-        "Mum co-signed the loan with her house. No pressure.",
+        "Mum and Dad's house is on the loan. They won't pick up.",
         "Iron Eclipse bought your patents for pocket change. They're laughing.",
         "Grandpa's name belongs on that door. Put it back.",
         "Albert Orbital was a joke. Albert Orbital Two doesn't have to be.",
-        "Customers are tired of Iron Eclipse prices. That's your opening."
+        "Customers are tired of Iron Eclipse prices. That's your opening.",
+        "Mara left over the launch parties. Fly something worth a party."
       ],
       // The workshop's situation lines: before the first flight, after a paid one, under half the debt, and when a
       // quarter of the months or less is left.
@@ -377,7 +380,7 @@
         halfway: "Halfway there. The lenders have stopped calling twice a day.",
         late: "Clock's nearly out. Fly something cheap and sure.",
         loaned: "Cash in hand. The lenders will remember this.",
-        credit: "Credit is thin. One more loan could cost everything.",
+        credit: "Credit is poor. No loans now. Fall lower and they take everything.",   // credit 2.1: shown in the POOR band
         name: "Debt's clear. Now fly well and make them say our name."
       },
       // The debrief's last line: what the client says about the data (paid in full, in part, or not at all).
@@ -399,10 +402,10 @@
       interludes: {
         start: [],   // filled from `intro` after this object
         "after-1": [
-          { who: "mum", text: "Ajay? A man from the bank came to the house today. He was very polite." },
-          { who: "mum", text: "I signed that loan with you, love. With the house. Our house." },
-          { who: "partner", text: "You did tell her it was safe, right?" },
-          { who: "mum", text: "I believe in you. Please don't make me regret it." }
+          { who: "parents", text: "Ajay. The bank holds the deed to our house now. That is your loan." },
+          { who: "parents", text: "Every month you are late, they come a step closer to our front door." },
+          { who: "parents", text: "We are not writing to forgive you. We are writing so you know the cost." },
+          { who: "partner", text: "A letter, by hand, no return address. You could not call them if you tried." }
         ],
         offer: [
           { who: "rival", text: "Ajay Albert. Iron Eclipse has been watching your little flights." },
@@ -421,11 +424,11 @@
           { who: "partner", text: "Voss founded Iron Eclipse. This was never only about the debt, Ajay. It is his name." }
         ],
         final: [
-          { who: "partner", text: "Almost there. The workshop, Mum's house and Austin's name ride on one more flight." }
+          { who: "partner", text: "Almost there. The workshop, your parents' house and Austin's name ride on one more flight." }
         ]
       },
       // The seven endings are Part 1's `box` (STORY.austin.endings) and these six. Each stands alone: `sold` can come
-      // before the last page is found, `legend` can come on Easy before it, and `broke` before Mum has called.
+      // before the last page is found, `legend` can come on Easy before it, and `broke` before the parents' letter.
       endings: {
         legend: {
           title: "HIS NAME, RESTORED",
@@ -433,7 +436,7 @@
           beats: [
             { who: "partner", text: "The last payment clears. The lenders go quiet. The workshop is yours." },
             { who: "notebook", text: "The last page, folded small: his design was right. Marcus Voss changed it." },
-            { who: "mum", text: "Your grandfather would have cried, love. Then he would have asked what is next." },
+            { who: "parents", text: "The deed is ours again. Come on Sunday, if you want to." },
             { who: "partner", text: "Fresh paint over the workshop door: AUSTIN ALBERT, ROCKET ENGINEER." }
           ],
           line: "Voss took the credit. You took it back."
@@ -443,7 +446,7 @@
           kicker: "THE DEBT IS PAID",
           beats: [
             { who: "partner", text: "The last payment clears. The lenders send a very polite letter." },
-            { who: "mum", text: "The house is safe, love. Please, no more launch parties." },
+            { who: "parents", text: "The house is ours again. We are not ready to say more." },
             { who: "customer", text: "Another contract? Iron Eclipse is starting to notice you." },
             { who: "notebook", text: "Well done, Ajay. Now build the next one." }
           ],
@@ -454,8 +457,8 @@
           kicker: "THE LAST DAY",
           beats: [
             { who: "partner", text: "The last payment lands with hours to spare. The lenders' van is already outside." },
-            { who: "mum", text: "I had started packing the kitchen, love. Then your message came." },
-            { who: "partner", text: "They drive off empty-handed. The whole street watches from its windows." },
+            { who: "partner", text: "Your parents stand at their gate, boxes taped behind them. They say nothing." },
+            { who: "partner", text: "The lenders drive off empty-handed. The whole street watches from its windows." },
             { who: "notebook", text: "Margins. It is the first thing I wrote and the last thing you learned." }
           ],
           line: "You made it by a hair. Next time, leave more room."
@@ -466,7 +469,7 @@
           beats: [
             { who: "rival", text: "Debt cleared, as promised. The workshop, the patents and the notebook are ours now." },
             { who: "rival", text: "We will thank your grandfather in the small print. Very small." },
-            { who: "mum", text: "You saved the house, love. I know what it cost you." },
+            { who: "parents", text: "The house is safe. We said it would end like this." },
             { who: "partner", text: "The van pulls away with the box. You watch until the street is empty." }
           ],
           line: "There was one page at the bottom of the box. Nobody will ever read it."
@@ -477,7 +480,7 @@
           beats: [
             { who: "partner", text: "The deadline passes. The lenders do not wait for your next launch." },
             { who: "partner", text: "Two men in grey coats change the lock on your grandfather's workshop." },
-            { who: "mum", text: "My name is on that loan, love. So is the house. We will manage." },
+            { who: "partner", text: "The same men pin a notice to your parents' door. Your phone stays silent." },
             { who: "notebook", text: "The calendar never read my notebook either." }
           ],
           line: "The calendar won. Next time, so will you."
@@ -488,7 +491,7 @@
           beats: [
             { who: "partner", text: "The account is empty. There is no rocket left that you can pay for." },
             { who: "partner", text: "The lenders have a word for this: default. They say it very politely." },
-            { who: "mum", text: "My name is on that loan, love, and so is the house. Please don't say sorry." },
+            { who: "partner", text: "Nobody rings. Mara's side of the wardrobe is still empty." },
             { who: "notebook", text: "Every part costs money and weight. I wrote that on page one." }
           ],
           line: "Build cheaper, build right, and try again."
@@ -645,7 +648,9 @@
     ],
     part2: [
       { id: "lenders", who: "partner", when: "start", text: "The lenders want the debt back, or they take Grandpa's workshop." },
-      { id: "mum", who: "mum", when: "after-1", text: "Mum co-signed the loan with the house. Our house." },
+      { id: "girl", who: "girl", when: "start", text: "Mara packed her things and left. No more launch parties." },
+      { id: "disowned", who: "parents", when: "start", text: "Mum and Dad disowned you. No calls, no money." },
+      { id: "house", who: "parents", when: "after-1", text: "They signed with their house. The bank holds the deed." },
       { id: "iron-eclipse", who: "rival", when: "offer", text: "Iron Eclipse bought your patents for almost nothing." },
       { id: "offer", who: "rival", when: "offer", text: "It will clear the debt, for the workshop and the notebook." },
       { id: "refused", who: "partner", when: "refused", text: "You said no. Now you have to win it." },
@@ -994,7 +999,7 @@
   }
 
   // speakerArt(who) -> a 16 x 16 pixel portrait (the same size and class as directorArt), or null for an unknown speaker.
-  // Four silhouettes: two colleagues, a bun and goggles, a wide-brimmed hat, and a book with no face.
+  // Six silhouettes: two colleagues, a bun and goggles, a wide-brimmed hat, a book with no face, Mara (story 2.1) and Mum and Dad.
   function speakerArt(who) {
     var P = PAL;
     var rects, label;
@@ -1040,6 +1045,26 @@
         [11, 4, 1, 1, P.gold], [9, 6, 1, 2, P.blue], [12, 6, 1, 2, P.blue], [10, 6, 2, 2, P.navy],
         [9, 10, 1, 1, P.muted], [11, 10, 1, 1, P.muted], [13, 10, 1, 1, P.muted],
         [7, 12, 2, 4, P.red], [10, 14, 5, 1, P.gold], [15, 14, 1, 1, P.red], [9, 14, 1, 1, P.sky]
+      ];
+    } else if (who === "girl") {
+      // Mara, who leaves: long dark hair, a blue coat, a gold suitcase at her side (no low-poly bust; this is her face).
+      label = "Portrait of Mara, in a coat, with a suitcase";
+      rects = [
+        [0, 0, 16, 16, P.portrait],
+        [4, 2, 8, 3, P.hair], [3, 3, 1, 9, P.hair], [12, 3, 1, 9, P.hair],
+        [5, 5, 6, 5, P.skin], [6, 7, 1, 1, P.sky], [9, 7, 1, 1, P.sky], [7, 9, 2, 1, P.mouth],
+        [7, 10, 2, 1, P.skin], [3, 11, 8, 5, P.blue], [6, 11, 4, 1, P.ink],
+        [12, 12, 4, 4, P.gold], [13, 11, 2, 1, P.muted]
+      ];
+    } else if (who === "parents") {
+      // Mum and Dad: two figures side by side, grey hair on the one behind, a red cardigan and a navy coat.
+      label = "Portrait of Mum and Dad, side by side";
+      rects = [
+        [0, 0, 16, 16, P.portrait],
+        [10, 3, 5, 2, P.line], [10, 5, 5, 5, P.skin], [11, 6, 1, 1, P.sky], [13, 6, 1, 1, P.sky], [11, 8, 3, 1, P.mouth],
+        [11, 10, 3, 1, P.skin], [9, 11, 7, 5, P.navy],
+        [3, 2, 5, 3, P.hair], [2, 4, 1, 5, P.hair], [3, 5, 5, 5, P.skin], [4, 6, 1, 1, P.sky], [6, 6, 1, 1, P.sky],
+        [4, 8, 3, 1, P.mouth], [4, 10, 3, 1, P.skin], [1, 11, 9, 5, P.red], [4, 11, 3, 1, P.ink]
       ];
     } else return null;
     return art("0 0 16 16", rects, label, "portrait");
@@ -1746,6 +1771,7 @@
   // click keeps the angle. "small" is a still pose. null when the 3D art is missing or fails, and
   // satelliteArt then draws the pixel satellite below.
   var satView = null, satLast = null;   // the bench view (for its angle) and the parts it showed last
+  var satWrap = null;                   // ADD-FX: the bench scene on the page now (its anchor() says where a part sits), or null
   function lpSatellite(design, change, size) {
     try {
       if (typeof LowPoly !== "object" || !LowPoly || !LowPoly.scenes || typeof LowPoly.scenes.satellite !== "function" ||
@@ -1758,7 +1784,7 @@
       canvas.width = 0; canvas.height = 0;   // nothing is drawn until the canvas is on the page
       canvas.className = "sat lp-sat";
       var view = LowPoly.view(canvas, wrap, { drag: !small, keys: false, fps: 30 });
-      if (!small) { satView = view; satLast = ids; }
+      if (!small) { satView = view; satLast = ids; satWrap = wrap; }
       // The "+ NAME" tag rises from where the new part settles. It is decoration: the canvas label names every part.
       var tag = null, added = !small && change && change.kind === "add" ? byId(parts, change.id) : null;
       var at = added && wrap.anchor ? wrap.anchor(added.id) : null;
@@ -1774,6 +1800,7 @@
   function satelliteArt(design, change, size) {
     var lp = lpSatellite(design, change, size);
     if (lp) return lp;
+    if (size !== "small") satWrap = null;   // ADD-FX: the pixel drawing has no scene to ask
     var ids = list(design && design.parts), parts = data("PARTS");
     var chosen = ids.map(function (id) { return byId(parts, id); }).filter(Boolean);
     var added = change && change.kind === "add" ? change.id : null;
@@ -1869,7 +1896,7 @@
   }
   // The face for a story speaker: the low-poly bust, else the pixel portrait (speakerArt, in the STORY block),
   // else null (the caller then shows the director).
-  var FACE_OF = { rival: "director", mum: "partner" };   // speakers drawn with another speaker's bust
+  var FACE_OF = { rival: "director" };   // speakers drawn with another speaker's bust (story 2.1: Mara and the parents use speakerArt's pixel faces)
   function speakerFace(who) {
     who = FACE_OF[who] || who;
     return lpFace(who) || (typeof speakerArt === "function" ? speakerArt(who) : null);
@@ -2084,6 +2111,7 @@
     app.appendChild(node);
     setStep(screen);
     setHint(screen);
+    rememberPlace(screen);   // RESUME: a reload puts the player back here
     if (window.GravMotion) GravMotion.mounted(app, screen, sayKey);   // entry animations only when the screen changes
   }
 
@@ -2159,13 +2187,14 @@
   }
 
   // Every place has a way out to the map. CONTINUE walks you to the next place.
-  function navRow(nextTo, nextOk) {
+  function navRow(nextTo, nextOk, why) {
     // The button follows the gold route, forwards or back (after a redesign, a FIX link or a new NO GO).
     var gps = waypoint();
     if (nextTo && gps !== state.screen) nextTo = gps;
     var next = byId(PLACES, nextTo);
     return el("div", { class: "nav-row" }, [
       button(["< ", "MAP [M]"], openMap, { aria: "MAP [M]: back to the base map" }),
+      why || null,   // UIA (next-blocked-reason): one line saying what blocks the next stop; the button is never disabled by it
       next ? button(["GO TO " + next.name, " >"], function () { travel(nextTo); },
         { primary: true, disabled: !nextOk, aria: "Go to " + next.name.toLowerCase() }) : null
     ]);
@@ -2491,14 +2520,21 @@
     while (state.reached + 1 < DESIGN_STEPS.length && isPreset(DESIGN_STEPS[state.reached + 1])) state.reached++;
   }
 
-  function startWalkStep(step) {
+  // A fresh design for a step, with the step's own presets (startWalkStep, and RESUME's rebuild after a reload).
+  function walkDesign(step) {
     var cfg = walkConfig(step);
-    if (!cfg || typeof newDesign !== "function") return showDesignScreen("title");
+    if (!cfg || typeof newDesign !== "function") return null;
     var d = newDesign(cfg.tier);
     if (cfg.era && typeof setEra === "function") setEra(d, cfg.era);
     if (cfg.objective) setObjective(d, cfg.objective);
     if (cfg.orbit) setOrbit(d, cfg.orbit);
     if (cfg.launcher) setLauncher(d, cfg.launcher);
+    return d;
+  }
+
+  function startWalkStep(step) {
+    var d = walkDesign(step);
+    if (!d) return showDesignScreen("title");
     stopWalking();
     state.walk = { step: step, design: d };
     state.design = d;
@@ -2561,7 +2597,7 @@
     draw1();
   }
 
-  // ---- the home page: the title and two mode cards. Every star comes from the walkthrough record.
+  // ---- the home page: the title and three mode cards. Every star comes from the walkthrough record.
   function comebackSaved() {
     try {
       if (typeof getComeback !== "function") return false;
@@ -2576,17 +2612,17 @@
     // A click anywhere on the panel presses its button (the stretched hit area of the CSS is not trusted in every
     // browser), except on another button in it (JOURNAL). The button stays the one real control for keyboard and
     // screen readers; a disabled one ("COMING NEXT") does nothing.
-    var card = el("div", { class: "mode-card" + (lead ? " lead" : "") + (go && go.disabled ? " off" : ""), "data-key": key, onclick: function (e) {
+    var card = el("div", { class: "mode-card" + (lead ? " lead" : "") + (go && go.disabled ? " off" : "") + (extra.plain ? " quick" : ""), "data-key": key, onclick: function (e) {
       var t = e.target;
       if (t && t.closest && t.closest("button, a, .mode-go .btn")) return;
       if (go && !go.disabled) go.click();
     } }, [
       el("div", { class: "mode-top" }, [el("span", { class: "kicker", text: M.kicker }), extra.tag || null]),
       el("h2", { text: M.name }),
-      window.StarlineStory ? window.StarlineStory.counter() : null,
+      window.StarlineStory && !extra.plain ? window.StarlineStory.counter() : null,   // QUICK MODE: extra.plain, no endings count
       el("div", { class: "mode-foot" }, [extra.state || el("span"),
         // JOURNAL (js/ui-story.js): only when this part has something in it, and absent when that file is.
-        window.StarlineStory && window.StarlineStory.journalButton ? window.StarlineStory.journalButton({ part: key === "mode-part1" ? 1 : 2,
+        window.StarlineStory && window.StarlineStory.journalButton && !extra.plain ? window.StarlineStory.journalButton({ part: key === "mode-part1" ? 1 : 2,
           ifAny: true, back: function () { showDesignScreen("title"); }, key: "journal-" + key }) : null,
         el("div", { class: "mode-go" }, [go])])
     ]);
@@ -2621,8 +2657,17 @@
         { primary: ready, disabled: !ready, key: "part2-go", aria: label + ", " + M.kicker + ", " + M.name }));
   }
 
+  // QUICK MODE (js/ui-online.js): the third card, one row: the kicker with the state line, the name and the button. Always
+  // enabled (QUICK FLIGHT needs no server); it opens the QUICK MODE menu. Not drawn when js/ui-online.js is missing.
+  function quickCard() {
+    var O = window.StarlineOnline, M = STORY.modes.quick;
+    if (!O || !O.showQuickMenu) return null;
+    return modeEntry("mode-quick", M, false, { plain: true, tag: el("span", { class: "mode-state", "data-key": "quick-state", text: O.quickState() }) },
+      button([M.label, " >"], function () { O.showQuickMenu(); }, { primary: true, key: "quick-go", aria: M.label + ", " + M.kicker + ", " + M.name }));
+  }
+
   // The home page, a console title screen: the low-poly scene fills the first screen, the drawn title and one line over
-  // its sky, then the two modes as a menu. The entry to play next is solid: Part 1 until its three steps pass, then Part 2.
+  // its sky, then the three modes as a menu. The entry to play next is solid: Part 1 until its three steps pass, then Part 2.
   function drawTitle() {
     setStatus("Space Mission Design Game");
     state.locked = false;
@@ -2634,8 +2679,7 @@
       el("div", { class: "title-main" }, [
         logotype(String(STORY.title || "GRAVITRON").toUpperCase()),
         el("p", { class: "tagline", text: "Design a satellite. Launch it. Learn why." }),
-        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next)]),
-        window.StarlineOnline ? window.StarlineOnline.homeRow() : null   // ONLINE (js/ui-online.js): LEADERBOARD and DUEL, quiet
+        el("nav", { class: "modes", "aria-label": "Game modes" }, [part1Card(part1Next), part2Card(!part1Next), quickCard()])   // QUICK MODE: the third card
       ]),
       el("div", { class: "title-foot" }, [button("RESET EVERYTHING", function () {
         if (!window.confirm("Erase everything? Your stars, your Part 1 steps and any comeback in progress will be gone.")) return;
@@ -2644,6 +2688,7 @@
         if (typeof resetCampaign === "function") resetCampaign();
         walkForget();
         if (window.StarlineStory) window.StarlineStory.forget();   // the endings found and the interludes seen
+        if (window.StarlineOnline) window.StarlineOnline.forgetQuick();   // QUICK MODE: the best quick score
         draw("title");
       }, { quiet: true, key: "reset-progress" })])
     ]);
@@ -2663,7 +2708,7 @@
     return card;
   }
   function presetNote(screen) {
-    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : state.design && state.design.duel ? "Set for the duel." : "Set for this step." }) : null;
+    return isPreset(screen) ? el("p", { class: "preset-note", text: isComebackDesign(state.design) ? "Set by the contract." : state.design && state.design.duel ? (window.StarlineOnline && window.StarlineOnline.isQuick(state.design) ? "Set for this flight." : "Set for the duel.") : "Set for this step." }) : null;
   }
 
   // ---------------------------------------------------------------- 1 Briefing
@@ -2871,10 +2916,12 @@
       onclick: function () {
         // On touch screens there is no hover: the first tap previews, a second tap toggles.
         if (state.touch && !state.armed) { preview(); state.armed = true; markArmed(card, on); return; }
+        var fx = fxBefore(p, on, d);   // ADD-FX: what this click will say with motion (null with none), read before the design changes
         state.change = { id: p.id, kind: on ? "remove" : "add" };   // the satellite animates this once
         if (window.GravAudio) GravAudio.sfx(on ? "remove" : "add");   // sound: js/audio.js
         if (on) removePart(d, p.id); else addPart(d, p.id);
         redraw();
+        if (fx) fxAfter(fx, p);   // ADD-FX
       },
       onfocus: preview,
       // Real mouse only: a phone tap also fires mouse enter/leave, which would undo the tap preview.
@@ -2898,6 +2945,88 @@
     if (!unknown.length) return card;
     return el("div", { class: "part-slot" }, [card, el("div", { class: "ask-lines" }, unknown.map(function (g) { return askLine(p, g, true); }))]);
   }
+  // ---------------------------------------------------------------- ADD-FX: the effect of a click on a part card (js/motion.js does the moving)
+  // Before the click: the numbers it will change (previewToggle's own delta, the one the preview shows) and, for a removal,
+  // where the part sits on the satellite (a fraction of the picture, no layout read). One frame after the redraw: where the
+  // card and the satellite are on the page, and the effect starts, so the click itself stays quick. With reduced motion, or
+  // without js/motion.js, nothing is read and nothing is drawn. Every number shown comes from the back end, never from a sum
+  // here, and a number the player has not paid the engineers for stays a "?" (the same sheetOk rule as the preview).
+  var previewMemo = null;
+  // previewToggle for the part, kept from the last time the preview asked: a click on the card the preview shows reads the very
+  // same answer (the design has not changed since: a redraw forgets it). Anything else asks again.
+  function previewOf(d, id) {
+    var key = id + "|" + list(d.parts).join(",") + "|" + d.orbit + "|" + d.launcher + "|" + d.objective + "|" + d.era + "|" + d.tier;
+    if (previewMemo && previewMemo.d === d && previewMemo.key === key) return previewMemo.t;
+    var t = previewToggle(d, id);
+    previewMemo = { d: d, key: key, t: t };
+    return t;
+  }
+  // The chips: one per number that changed, in the preview's words and units. good: whether the player would call it a gain.
+  function fxChips(p, t) {
+    var dl = t && t.delta ? t.delta : {}, out = [], sheetOk = infoKnown(p.id, "sheet");
+    function put(bar, v, text, up) { out.push({ bar: bar, text: text.toUpperCase(), good: up ? v > 0 : v < 0 }); }
+    function sg(v) { return v > 0 ? "+" : ""; }
+    if (sheetOk && dl.mass_kg) put("MASS", dl.mass_kg, sg(dl.mass_kg) + fine(dl.mass_kg) + " kg", false);
+    if (sheetOk && dl.power_draw_w) put("POWER", dl.power_draw_w, sg(dl.power_draw_w) + fine(dl.power_draw_w) + " W draw", false);
+    if (sheetOk && dl.power_gen_w) put("POWER", dl.power_gen_w, sg(dl.power_gen_w) + fine(dl.power_gen_w) + " W made", true);
+    if (dl.cost_musd) put("BUDGET", dl.cost_musd, (dl.cost_musd > 0 ? "+" : "-") + money(Math.abs(dl.cost_musd)), false);   // the price is the catalogue's and always shows
+    if (sheetOk && dl.data_returned_gb_day) put("DATA HOME", dl.data_returned_gb_day, dataText(dl.data_returned_gb_day, true) + "/day", true);   // dataText(.., true) writes the sign
+    return out;
+  }
+  function rectOf(node) {
+    var r = node.getBoundingClientRect();
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
+  }
+  function anchorOf(id) {
+    var at = satWrap && typeof satWrap.anchor === "function" ? satWrap.anchor(id) : null;
+    return at && isNum(at[0]) && isNum(at[1]) ? at : null;
+  }
+  // Where a part sits on the page (viewport pixels): its anchor on the 3D picture (at), else the SVG drawing's new part,
+  // else the middle of the picture.
+  function satPoint(at) {
+    var pic = document.querySelector(".bench .sat-bench");
+    if (!pic) return null;
+    var cv = pic.querySelector("canvas");
+    if (at && cv) {
+      var c = cv.getBoundingClientRect();
+      return { x: c.left + Math.min(1, Math.max(0, at[0])) * c.width, y: c.top + Math.min(1, Math.max(0, at[1] + 0.07)) * c.height };   // the anchor is the top of the part: a little lower is on it
+    }
+    var box = (pic.querySelector(".is-new") || pic.querySelector("svg") || pic).getBoundingClientRect();
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  }
+  function fxBefore(p, on, d) {
+    var M = window.GravMotion;
+    if (!M || typeof M.buildFx !== "function" || M.reduced()) return null;
+    try {
+      var rec = { kind: on ? "remove" : "add", icon: icon(p.category), at: on ? anchorOf(p.id) : null, items: fxChips(p, previewOf(d, p.id)), star: false, bodyBefore: (getTotals(d) || {}).body || null };
+      rec.bodyPart = p.category === "structure";
+      rec.sheetOk = infoKnown(p.id, "sheet");
+      return rec;
+    } catch (e) { return null; }
+  }
+  // A newer click cancels an effect still waiting for its frame.
+  var fxSeq = 0;
+  function fxAfter(rec, p) {
+    var mine = ++fxSeq;
+    var run = function () {
+      if (mine !== fxSeq) return;
+      try {
+        var card = document.querySelector('[data-key="part-' + p.id + '"]');   // rebuilt in the same place
+        rec.card = card ? rectOf(card) : null;
+        rec.sat = satPoint(rec.kind === "add" ? anchorOf(p.id) : rec.at);
+        // Fitting a body: the CARRIES figure (the back end's body.payload_kg, read after the click) is the star of it. With no body
+        // before it reads "+150 KG"; a swap to another body shows the new figure on its own, as it is not a sum.
+        var body = rec.kind === "add" && rec.bodyPart ? (getTotals(state.design) || {}).body : null;
+        if (body && isNum(body.payload_kg) && body.payload_kg > 0) {
+          rec.star = true;
+          if (rec.sheetOk) rec.items.push({ bar: "CARRIES", text: ((rec.bodyBefore ? "" : "+") + num(body.payload_kg, 0) + " KG").toUpperCase(), good: true, star: true });
+        }
+        window.GravMotion.buildFx(rec);
+      } catch (e) {}
+    };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run); else run();
+  }
+
   // A finger's first tap on a card: the card says that a second tap adds (or removes) it. One card at a time.
   function markArmed(card, on) {
     Array.prototype.slice.call(document.querySelectorAll(".part.armed")).forEach(function (n) {
@@ -2929,7 +3058,7 @@
     var touch = state.touch || touchScreen();
     box.appendChild(el("h2", { text: !touch ? "IF YOU CLICK" : state.hover ? "IF YOU TAP AGAIN" : "IF YOU TAP" }));
     var p = state.hover ? byId(data("PARTS"), state.hover) : null;
-    var t = p ? previewToggle(state.design, state.hover) : null;
+    var t = p ? previewOf(state.design, state.hover) : null;   // ADD-FX: kept, so a click reads the same answer
     if (!t) {
       box.appendChild(el("p", { class: "preview-empty", text: (touch ? "Tap" : "Point at") + " a part to see what it would change." }));
       return;
@@ -3026,6 +3155,7 @@
 
   function drawBuild() {
     var d = state.design;
+    previewMemo = null;   // ADD-FX: the design may have changed since the preview last asked
     var parts = data("PARTS");
     var count = {};
     list(d.parts).forEach(function (id) { var p = byId(parts, id); if (p) count[p.category] = (count[p.category] || 0) + 1; });
@@ -3043,7 +3173,7 @@
       var slot = body && body.slots ? body.slots[c.id] : null;
       var noRoom = !!body && c.id !== "structure" && !(slot && slot.max);
       var over = noRoom ? n > 0 : !!slot && slot.used > slot.max;
-      var sub = need ? "Needed" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
+      var sub = need ? "Empty" : noRoom ? (n ? n + " on board, no room" : "No room on this body")
         : slot ? slot.used + " / " + slot.max + (slot.max === 1 ? " slot" : " slots") : n ? n + " on board" : c.sub;
       return el("button", {
         type: "button", class: "bin", "aria-pressed": cat.id === c.id ? "true" : "false", "data-key": "bin-" + c.id,
@@ -3057,13 +3187,20 @@
       ]);
     })));
 
-    var built = cats.filter(function (c) { return count[c.id]; }).length;
+    // UIA (progress-count): one count of the bins a design must fill ("4 of 6 needed"), beside the satellite.
+    var required = cats.filter(function (c) { return c.required; });
+    var built = required.filter(function (c) { return count[c.id]; }).length;
     var chg = state.change; state.change = null;   // the drop-in animation runs on this draw only
     var bench = el("div", { class: "bench" }, [
       el("div", { class: "bench-label" }, [el("strong", { text: "YOUR SATELLITE" }),
-        el("span", { text: list(d.parts).length + " parts · " + built + " of " + cats.length + " systems" })]),
+        el("span", { text: list(d.parts).length + " parts" }),
+        el("span", { class: "progress-count" + (built < required.length ? " need" : " done"), "data-key": "progress-count",
+          text: built + " of " + required.length + " needed" })]),
       satelliteArt(d, chg)
     ]);
+
+    // UIA (diegetic-sat): on Easy and Normal the stage carries the state (power glow, crosses, broken waves; js/ui-verdict.js)
+    if (window.StarlineVerdict && window.StarlineVerdict.mark) window.StarlineVerdict.mark(bench, d);
 
     var overview = el("div", { class: "panel" }, [
       el("h2", { text: "MISSION OVERVIEW" }),
@@ -3071,17 +3208,33 @@
       longPoleLine(d),
       bodyCard(body),
       el("h2", { class: "divided", text: "PROBLEMS" }),
-      checkList(d, { short: true, skip: ["no-launcher"] })
+      // UIA (problems-ranked): blockers first and big, then warnings; "No problems" when empty (js/ui-verdict.js)
+      window.StarlineVerdict ? window.StarlineVerdict.problems(d, ["no-launcher"]) : checkList(d, { short: true, skip: ["no-launcher"] })
     ]);
 
     var shelfParts = parts.filter(function (p) { return p.category === cat.id; });
     // What exists in this era first; what arrives later after it, greyed out.
     shelfParts = shelfParts.filter(function (p) { return !lockReason(state.avail.parts, p.id); })
       .concat(shelfParts.filter(function (p) { return !!lockReason(state.avail.parts, p.id); }));
+    // UIA (cards-limit): in today's jobs (Part 2, the duel) a part that has been replaced is not greyed but gone, and a bin
+    // shows its first CARD_LIMIT parts; "SHOW LATER PARTS" opens the rest. Parts on board always show. Part 1 and the
+    // standalone designs keep every card, locked ones included (the walkthrough's cards).
+    var later = 0, laterOpen = !!(state.later && state.later[cat.id]);
+    if (isTodayJob(d)) {
+      var onBoard = {}, limit = window.StarlineVerdict ? window.StarlineVerdict.CARD_LIMIT : 6;
+      list(d.parts).forEach(function (id) { onBoard[id] = true; });
+      shelfParts = shelfParts.filter(function (p) { return onBoard[p.id] || !lockReason(state.avail.parts, p.id); });
+      // Parts past the limit that are not on board are the "later" ones (a part on board always shows).
+      later = shelfParts.filter(function (p, i) { return i >= limit && !onBoard[p.id]; }).length;
+      if (later && !laterOpen) shelfParts = shelfParts.filter(function (p, i) { return i < limit || onBoard[p.id]; });
+    }
     var shelf = el("div", { class: "panel" }, [
       el("h2", { text: "AVAILABLE " + cat.name }),
       shelfParts.length ? el("div", { class: "shelf" }, shelfParts.map(partCard))
-        : el("p", { class: "empty", text: "No parts in this bin yet." })
+        : el("p", { class: "empty", text: "No parts in this bin yet." }),
+      later ? el("button", { type: "button", class: "later", "data-key": "later-" + cat.id, "aria-expanded": laterOpen ? "true" : "false",
+        onclick: function () { state.later = state.later || {}; state.later[cat.id] = !laterOpen; redraw(); } },
+        laterOpen ? "SHOW FEWER PARTS" : "SHOW LATER PARTS") : null
     ]);
     // On a wide screen the preview lives in the side column, above the bars, so it never covers the parts and stays in view
     // while the shelf scrolls (that column is pinned). On a narrow screen there is no side column: it sits on top of the
@@ -3095,12 +3248,17 @@
       sayLine("build"),
       // On a wide screen the shelf sits under the satellite, and the side panels stay in view while you scroll: you
       // always see what a click did to the bars. On a narrow screen the shelf comes straight after the bins (CSS order).
-      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, payoutLine(d), picker]),
+      // UIA (verdict-gauges): DATA, COST and TIME against the contract, under the satellite (Part 2)
+      el("div", { class: "workshop" }, [bins, el("div", { class: "bench-col" }, [bench, window.StarlineVerdict ? window.StarlineVerdict.strip(d) : null, payoutLine(d), picker]),
         el("div", { class: "stack" }, wideBuild ? [pv, overview, sciencePanel(d)] : [overview, sciencePanel(d)])]),
       // With the rocket preset (Part 1), the next stop after the Workshop is the Launch Pad.
-      navRow(isPreset("launcher") ? "review" : "launcher", true)
+      navRow(isPreset("launcher") ? "review" : "launcher", true, window.StarlineVerdict ? window.StarlineVerdict.nextWhy(d, ["no-launcher"]) : null)
     ]);
   }
+
+  // UIA (cards-limit): a job set in today's era (Part 2 and the duel) trims the shelf to StarlineVerdict.CARD_LIMIT cards a bin.
+  // `d.quick` is the Quick mode builder's design flag, if it sets one; a design without it is simply not trimmed.
+  function isTodayJob(d) { return !!(d && (d.comeback || d.duel || d.quick)); }
 
   // The bin Build opens on: the one a FIX line asked for, else the first required bin still empty (the team's line
   // talks about it), else the one the player had open. Chosen on the way in (go), never on a redraw, so the shelf
@@ -3882,6 +4040,145 @@
     go(screenName || "briefing");
   }
 
+  // ---------------------------------------------------------------- RESUME: reload keeps your place (SPEC.md, "Reload keeps your place")
+  // The place is kept for this browser tab only (sessionStorage), so a new tab opens on the title screen, and the title (HOME,
+  // RESET EVERYTHING) forgets it. The record holds the screen and ids, never a game number: { mode, screen, step, bin, reached,
+  // player, design } with mode "part1", "part2", "quick" or "other" ("other" is not put back). A design is rebuilt through the
+  // back end's own functions (the step's presets, the open contract) and the stored ids are checked, never adopted as parsed.
+  // A flight that was in the air comes back at its Readiness screen: the first getCampaign() after the reload gives its launch
+  // money back (js/mission.js, refundLostFlights), so launching again pays once. A debrief has recorded its flight: it comes
+  // back at the workshop or the map. Nothing here moves money or records a flight.
+  var SESSION_KEY = "gravitron-session-v1";
+  var RESUME_SCREEN = { map: "map", briefing: "briefing", orbit: "orbit", build: "build", launcher: "launcher", review: "review",
+                        mission: "review", debrief: "map", intro: "map" };   // where a design screen comes back
+  var PART2_SCREENS = { "comeback": 1, "comeback-start": 1, "comeback-end": 1, "interlude-choice": 1 };
+
+  // Where the place is kept. A normal page: sessionStorage (this tab only). A sandboxed frame has none (the team's host
+  // serves the game that way and gives it a localStorage that saves per account): there the place is kept with the saves,
+  // stamped with the time, and forgotten after RESUME_MAX_AGE_MS, so coming back another day opens the title screen.
+  var RESUME_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+  function sessionStore() {
+    try {
+      var s = window.sessionStorage;
+      if (s) { s.setItem(SESSION_KEY + "-probe", "1"); s.removeItem(SESSION_KEY + "-probe"); return s; }
+    } catch (e) { /* no sessionStorage here */ }
+    try {
+      var ls = window.localStorage;
+      if (!ls) return null;
+      return {
+        getItem: function (k) {
+          try {
+            var o = JSON.parse(ls.getItem(k) || "null");
+            if (!o || typeof o.at !== "number" || typeof o.rec !== "string" || Date.now() - o.at > RESUME_MAX_AGE_MS || o.at > Date.now() + 60000) { ls.removeItem(k); return null; }
+            return o.rec;
+          } catch (e) { return null; }
+        },
+        setItem: function (k, v) { ls.setItem(k, JSON.stringify({ at: Date.now(), rec: v })); },
+        removeItem: function (k) { ls.removeItem(k); }
+      };
+    } catch (e2) { return null; }
+  }
+  function planOf(d) {
+    var plan = { tier: d.tier, era: d.era || null, objective: d.objective || null, orbit: d.orbit || null, launcher: d.launcher || null,
+                 parts: list(d.parts).slice() };
+    if (d.comeback) plan.contract = d.contract || null;
+    return plan;
+  }
+  function rememberPlace(screen) {
+    try {
+      var store = sessionStore();
+      if (!store) return;
+      if (screen === "title") { store.removeItem(SESSION_KEY); return; }
+      if (screen === "journal") return;   // opened from another screen: the place before it stays
+      var d = state.design, step = walkStepOf(d), mode;
+      if (/^(online-)?quick/.test(screen)) mode = "quick";
+      else if (d) mode = step ? "part1" : d.comeback && !d.duel ? "part2" : "other";
+      else mode = screen === "intro" || PART2_SCREENS[screen] ? "part2" : "other";
+      var rec = { mode: mode, screen: screen };
+      if (d && (mode === "part1" || mode === "part2")) {
+        rec.step = step; rec.bin = state.bin || null; rec.reached = state.reached; rec.player = state.player; rec.design = planOf(d);
+      }
+      store.setItem(SESSION_KEY, JSON.stringify(rec));
+    } catch (e) { /* storage blocked: the title opens next time */ }
+  }
+  function readPlace() {
+    try {
+      var store = sessionStore(), raw = store ? store.getItem(SESSION_KEY) : null, rec = raw ? JSON.parse(raw) : null;
+      return rec && typeof rec === "object" && typeof rec.screen === "string" && typeof rec.mode === "string" ? rec : null;
+    } catch (e) { return null; }
+  }
+  function knownId(find, id) { return id === null || id === undefined || (typeof id === "string" && typeof find === "function" && !!find(id)); }
+  // The stored choices onto a fresh design that already holds the step's or the contract's presets (a preset stays).
+  // False when an id no longer exists.
+  function fillDesign(d, saved) {
+    if (!saved || typeof saved !== "object" || !Array.isArray(saved.parts) || saved.parts.length > 60) return false;
+    if (!knownId(typeof getObjective === "function" ? getObjective : null, saved.objective) ||
+        !knownId(typeof getOrbit === "function" ? getOrbit : null, saved.orbit) ||
+        !knownId(typeof getLauncher === "function" ? getLauncher : null, saved.launcher)) return false;
+    if (!saved.parts.every(function (id) { return typeof id === "string" && typeof getPart === "function" && !!getPart(id); })) return false;
+    if (!d.objective && saved.objective) setObjective(d, saved.objective);
+    if (!d.orbit && saved.orbit) setOrbit(d, saved.orbit);
+    if (!d.launcher && saved.launcher) setLauncher(d, saved.launcher);
+    saved.parts.forEach(function (id) { addPart(d, id); });
+    return true;
+  }
+  // The design on its screen, with the same open buildings and the same parts bin.
+  function placeDesign(d, rec) {
+    var screen = RESUME_SCREEN[rec.screen];
+    if (!screen) return false;
+    var bin = typeof rec.bin === "string" && categories().some(function (c) { return c.id === rec.bin; }) ? rec.bin : null;
+    stopWalking();
+    state.design = d;
+    state.locked = false;
+    state.reached = isNum(rec.reached) ? Math.max(0, Math.min(DESIGN_STEPS.length - 1, Math.floor(rec.reached))) : 0;
+    state.player = ["gate"].concat(DESIGN_STEPS).indexOf(rec.player) !== -1 ? rec.player : "gate";
+    state.bin = bin;
+    state.binFor = d;
+    bumpReached();
+    go(screen, bin);
+    return true;
+  }
+  function resumePart1(rec) {
+    var step = rec.step;
+    if (step !== Math.floor(step) || step < 1 || step > WALK_STEPS.length) return false;
+    var d = walkDesign(step);
+    if (!d || !fillDesign(d, rec.design)) return false;
+    state.walk = { step: step, design: d };
+    return placeDesign(d, rec);
+  }
+  function resumePart2(rec) {
+    var hub = window.showComebackHub;
+    if (typeof hub !== "function" || typeof getComeback !== "function") return false;
+    var saved = rec.design;
+    // No run saved (the save was cleared elsewhere): only the difficulty picker and Part 1's last scene still make sense.
+    if (!comebackInfo() && rec.screen !== "comeback-start" && !(rec.screen === "intro" && !saved)) return false;
+    if (saved && rec.screen !== "debrief" && rec.screen !== "intro" && typeof saved.contract === "string" && typeof newComebackDesign === "function") {
+      var d = newComebackDesign(saved.contract);   // null: the contract is closed, an offer waits for its answer, or the run is over
+      if (d) return fillDesign(d, saved) && placeDesign(d, rec);
+    } else if (!saved && rec.screen === "intro" && !comebackSaved()) {
+      if (walkNext()) return false;
+      showEpilogue();   // Part 1's last scene, before any comeback exists
+      return true;
+    }
+    hub();   // the workshop (it shows any scene that is due and the ending of a finished run), or the picker when no run is saved
+    return true;
+  }
+  // True when the place was put back. Any failure leaves the title to be drawn.
+  function resumePlace() {
+    var rec = readPlace();
+    if (!rec) return false;
+    try {
+      if (rec.mode === "part1") return resumePart1(rec);
+      if (rec.mode === "part2") return resumePart2(rec);
+      if (rec.mode === "quick") {
+        var O = window.StarlineOnline;   // js/ui-online.js (Quick mode): the menu
+        if (O && typeof O.showQuickMenu === "function") { O.showQuickMenu(); return true; }
+      }
+    } catch (e) { /* a place that cannot be put back: the title opens */ }
+    state.design = null; state.walk = null; state.locked = false; state.reached = 0; state.player = "gate";
+    return false;
+  }
+
   window.showDesignScreen = showDesignScreen;
   window.StarlineUI = {
     el: el, art: art, icon: icon, facts: facts, button: button, num: num, money: money, profitLine: profitLine, starsText: starsText,
@@ -3901,6 +4198,7 @@
     // The era look: era("today") before a screen's pictures are drawn (the Part 2 screens), era() the era of the design in hand.
     era: function (name) { markEra("era", name); },
     assist: assist,
+    checkLabel: checkLabel,   // UIA: js/ui-verdict.js names a problem the way the readiness review does
     infoKnown: infoKnown,   // paid part information: true when this group ("sheet", "performance", "dossier") of the part may be shown
     mount: function (screen, node) {
       state.screen = screen;
@@ -3912,6 +4210,7 @@
       app.appendChild(node);
       setStep(screen);
       setHint(screen);
+      rememberPlace(screen);   // RESUME: a reload puts the player back here
       if (window.GravMotion) GravMotion.mounted(app, screen);
       app.focus();
       window.scrollTo(0, 0);
@@ -3955,7 +4254,8 @@
       state.lastClickAt = Date.now();
     }, true);
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) WALK_MS = 0;
-    draw("title");
+    window.addEventListener("pagehide", function () { rememberPlace(state.screen); });   // RESUME: whatever changed since the last mount
+    if (!resumePlace()) draw("title");   // RESUME: a reload keeps the place; a new tab, or a tab on the title, opens the title
   }
 
   // perf: index.html defers every script, so this file runs before the later ui-*.js files (ui-comeback.js defines window.showComebackStart).

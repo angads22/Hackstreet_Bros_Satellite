@@ -160,11 +160,11 @@ async function run(viewport, label) {
   // ---- back at the workshop: the flight log, then PAY BACK
   await p.click('[data-key="debrief-workshop"]');
   const after1 = await p.evaluate(() => StarlineUI.story().ajay.interludes['after-1'].map(b => b.text));
-  ok(await p.locator('.intro').count() === 1 && /MUM/.test(await p.locator('.intro .say-name').innerText()), 'after the first flight: Mum calls before the workshop (an interlude)');
-  ok((await T.throughBeats(p)).join('|') === after1.join('|'), "Mum's scene is the story text, beat by beat (" + after1.length + ' beats)');
+  ok(await p.locator('.intro').count() === 1 && /MUM/.test(await p.locator('.intro .say-name').innerText()), 'after the first flight: the parents write before the workshop (an interlude)');
+  ok((await T.throughBeats(p)).join('|') === after1.join('|'), "the parents' scene is the story text, beat by beat (" + after1.length + ' beats)');
   await T.waitHead(p, 'WORKSHOP');
-  await shot('4b-after-mum');
-  ok(await p.locator('.intro').count() === 0 && await p.locator('.cb-log li').count() === 1 && await p.locator('#cb-cash').innerText() === money(h.cash_musd), 'workshop: one flight in the log, the new cash');
+  await shot('4b-after-parents');
+  ok(await p.locator('.intro').count() === 0 && await p.locator('.cb-log li').count() === 1 && await p.locator('#cb-cash').innerText() === await p.evaluate(v => StarlineLedger.cashText(v), h.cash_musd), 'workshop: one flight in the log, the new cash');   // 2.1: the ledger strip keeps the cash's hundredths when it has them, like the header
   const first = p.locator('[data-key="pay-panel"] .btn').first();
   const amount = parseM(await first.innerText());
   await first.click(); await p.waitForTimeout(300);
@@ -229,7 +229,7 @@ async function run(viewport, label) {
     'var s = c.offers.filter(function (k) { return k.topic === "solar"; })[0];' +
     'if (s && !c.offers.some(function (k) { return k.topic === "solar" && !k.done; })) c.offers.push(Object.assign({}, s, { id: s.id + "-again", done: false, expires_month: c.month + 12 }));' +
     'c.knowledge_science.solar = 0;');
-  await p.reload(); await T.seedRuns(p); await p.click('[data-key="part2-go"]'); await T.pastScenes(p); await T.waitHead(p, 'WORKSHOP');
+  await T.reopen(p); await T.seedRuns(p); await p.click('[data-key="part2-go"]'); await T.pastScenes(p); await T.waitHead(p, 'WORKSHOP');
   ok(/No flight can land before the deadline/.test(await p.locator('[data-key="stat-months"]').innerText()) &&
      /warn/.test(await p.locator('[data-key="stat-months"]').getAttribute('class')), 'workshop: the countdown warns that no flight can land in time');
   ok(await p.locator('[data-key="fly-solar"]').count() === 1, 'a solar contract is open (opened again if needed)');
@@ -272,7 +272,7 @@ async function run(viewport, label) {
   ok(await p.locator('.cb-level').count() === 3, 'TRY AGAIN opens the picker');
   await p.click('[data-key="level-training"]'); await T.throughBeats(p); await T.waitHead(p, 'WORKSHOP');
   await editSave(p, 'c.treasury_musd = c.debt_musd + 1; c.reputation = 999;');
-  await p.reload(); await T.seedRuns(p);
+  await T.reopen(p); await T.seedRuns(p);
   ok(/^CONTINUE/.test(await p.locator('[data-key="part2-go"]').innerText()), 'home: a comeback running reads CONTINUE');
   await p.click('[data-key="part2-go"]'); await T.waitHead(p, 'WORKSHOP');
   ok(await p.locator('[data-key="pay-all"]').count() === 1, 'PAY ALL appears once the cash covers the debt');
@@ -297,7 +297,8 @@ async function reduced() {
   await T.noFonts(p);
   await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload(); await T.seedRuns(p);
   await T.startComeback(p, 'training');
-  await editSave(p, 'c.treasury_musd = c.debt_musd + 1;');
+  // Paying the debt only wins with a name too (SPEC.md, "Loans, credit and a name"): the same save edit as the won ending above.
+  await editSave(p, 'c.treasury_musd = c.debt_musd + 1; c.reputation = 999;');
   await p.evaluate(() => window.showComebackHub());
   const tr = await p.locator('.cb-meter-debt').evaluate(n => getComputedStyle(n).transitionDuration);
   ok(tr === '0s', 'reduced motion: the meter does not slide (' + tr + ')');

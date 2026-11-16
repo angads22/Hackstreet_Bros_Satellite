@@ -17,7 +17,7 @@ const A = STORY.austin, J = STORY.ajay;
 
 const MAX_BEAT = 100;                 // characters in one beat or ending line
 const MAX_SCENE = 6;                  // beats in one scene
-const SPEAKERS = ['team', 'partner', 'customer', 'notebook', 'rival', 'mum'];
+const SPEAKERS = ['team', 'partner', 'customer', 'notebook', 'rival', 'girl', 'parents'];
 const isBeat = x => x && typeof x === 'object' && typeof x.who === 'string' && SPEAKERS.includes(x.who) && typeof x.text === 'string' && x.text.length > 0;
 const stats = { beats: 0, scenes: 0, longest: 0, longestText: '' };
 function scene(name, beats, min, max) {
@@ -36,7 +36,7 @@ function ending(name, e, beatMin, beatMax) {
 }
 
 // ---- speakers
-ok(STORY.speakers.rival === 'IRON ECLIPSE' && STORY.speakers.mum === 'MUM', 'speakers: rival is IRON ECLIPSE, mum is MUM');
+ok(STORY.speakers.rival === 'IRON ECLIPSE' && STORY.speakers.girl === 'MARA' && STORY.speakers.parents === 'MUM AND DAD' && STORY.speakers.mum === undefined, 'speakers: rival is IRON ECLIPSE, girl is MARA, parents are MUM AND DAD');
 ['team', 'partner', 'customer', 'notebook'].forEach(k => ok(typeof STORY.speakers[k] === 'string', `speakers: ${k} is still there`));
 
 // ---- Part 1: Austin
@@ -73,8 +73,14 @@ scene('interludes.final', I.final, 1, 1);
 ok(I.offer.sell === 'SELL' && I.offer.refuse === 'REFUSE', 'interludes.offer.sell is SELL and .refuse is REFUSE');
 ok(typeof I.offer.sell_hint === 'string' && I.offer.sell_hint.length <= MAX_BEAT && typeof I.offer.refuse_hint === 'string' && I.offer.refuse_hint.length <= MAX_BEAT, 'interludes.offer has a one-line sell_hint and refuse_hint');
 ok(/^Almost there\./.test(I.final[0].text), 'interludes.final starts "Almost there."');
-ok(I['after-1'][0].who === 'mum' && I.offer[0].who === 'rival' && I['after-3'][0].who === 'notebook', 'mum calls in after-1, the rival offers, the notebook speaks in after-3');
+ok(I['after-1'][0].who === 'parents' && I.offer[0].who === 'rival' && I['after-3'][0].who === 'notebook', 'the parents write in after-1, the rival offers, the notebook speaks in after-3');
+const startWho = I.start.map(x => x.who);
+ok(startWho.includes('girl') && startWho.includes('parents') && /disown/.test(I.start.find(x => x.who === 'parents').text), 'start: the girlfriend leaves and the parents disown him');
+ok(startWho.indexOf('girl') < startWho.indexOf('parents') && startWho.indexOf('parents') < startWho.indexOf('notebook'), 'start: the loss comes before the notebook');
+ok(I.final[0].text.indexOf('Mum') === -1, 'final: no Mum');
 const E = J.endings;
+ok(!/\blove\b|\bMum\b|\bmother\b/i.test(JSON.stringify(Object.values(E).map(e => e.beats.map(x => x.text)))), 'no ending has a warm Mum line');
+ok(Object.values(E).every(e => e.beats.filter(x => x.who === 'parents').length <= 1), 'in every ending the parents say at most one line (a thaw is a single line)');
 ['legend', 'comeback', 'close', 'sold', 'timeout', 'broke'].forEach(id => ending(`ajay.endings.${id}`, E && E[id], 3, 4));
 ok(E && Object.keys(E).length === 6, 'ajay.endings has exactly the six Part 2 endings (the seventh is austin.endings.box)');
 const titles = [A.endings.box].concat(Object.values(E)).map(e => e.title);

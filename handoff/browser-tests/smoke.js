@@ -11,7 +11,7 @@ const { ok, done } = T.checker();
   const errors = T.watchErrors(p);
   await T.noFonts(p);
   await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
-  ok(await p.locator('.mode-card').count() === 2, 'home page: two modes');
+  ok(await p.locator('.mode-card').count() === 3, 'home page: three modes');
   await p.click('[data-key="part1-go"]'); await T.throughBeats(p);
   ok(await T.waitHead(p, 'BASE MAP'), 'the map');
   await p.screenshot({ path: path.join(shots, 'smoke-map.png') });

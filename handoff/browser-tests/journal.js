@@ -4,7 +4,7 @@
 // Checks, with the real back end and a fixed seed (T.seedRuns, T.pastScenes):
 //   - the text: every entry short, no digits, $ or %, never "AI", a known speaker, a known unlock moment;
 //   - nothing unlocked, no button on the home cards; Part 1 steps unlock rules as they are reached, the discovery, Voss and the box when step 3 passes;
-//   - Part 2: a new run knows the lenders only; Mum after flight 1 (flown for real); the offer and what the player chose
+//   - Part 2: a new run knows the lenders, Mara and the disowning; the parents' house after flight 1 (flown for real); the offer and what the player chose
 //     (REFUSE keeps SOLD locked, SELL shows it and the run's end); the stakes and the next step come from getComeback();
 //   - the 0.9 saves in tests/fixtures/player-0.9.json show a sensible journal without replaying a scene and without writing anything;
 //   - opens from the map (Part 1 and Part 2 designs) and the workshop and returns; Esc and BACK; keyboard reachable with a visible focus;
@@ -103,7 +103,7 @@ async function openFrom(p, key, part) {
     await p.screenshot({ path: path.join(shots, `journal-part1-step1-${label}.png`) });
     // the other part, a new player: Part 2 is all locked, and says where to start
     await tab(p, 2);
-    ok((await known(p)).length === 0 && (await locked(p)).length === 7, 'Part 2 before any run: all seven locked');
+    ok((await known(p)).length === 0 && (await locked(p)).length === 9, 'Part 2 before any run: all nine locked');
     ok(/comeback from the home page/i.test(await p.locator('[data-key="journal-next"]').innerText()), 'it says to start the comeback from the home page');
     ok(await p.evaluate(() => document.body.dataset.era) === 'today', 'Part 2 wears the modern look');
     ok(await p.locator('.jr-now .facts').count() === 0, 'no stakes before a run');
@@ -152,7 +152,7 @@ async function openFrom(p, key, part) {
     const before = await storage(p);
     await openFrom(p, 'hub-journal');
     ok(await p.locator('[data-key="journal-tab-2"][aria-pressed="true"]').count() === 1, 'from the workshop it opens on the Part 2 list');
-    ok(same(await known(p), ['lenders']), 'a new run knows the lenders only: ' + JSON.stringify(await known(p)));
+    ok(same(await known(p), ['lenders', 'girl', 'disowned']), 'a new run knows the lenders, Mara leaving and the parents disowning him: ' + JSON.stringify(await known(p)));
     const stakes = await p.evaluate(() => { const c = getComeback(), U = window.StarlineUI; return { debt: U.money(c.debt_musd), months: U.num(c.months_left, 0) }; });
     const facts = await p.locator('.jr-now .facts').innerText();
     ok(facts.includes(stakes.debt) && facts.includes(stakes.months) && /DEBT/.test(facts) && /MONTHS LEFT/.test(facts), `the stakes come from the back end: ${stakes.debt} and ${stakes.months} months`);
@@ -171,14 +171,14 @@ async function openFrom(p, key, part) {
       await p.click('[data-key="journal-back"]');
       ok(await T.waitHead(p, 'BASE MAP'), 'BACK returns to the Part 2 map');
       await p.keyboard.press('m'); await p.waitForTimeout(100);
-      // back to the workshop and fly one contract: Mum calls after flight 1
+      // back to the workshop and fly one contract: the parents' letter comes after flight 1
       await p.click('[data-key="map-workshop"]'); await T.waitHead(p, 'WORKSHOP');
       await T.launchContract(p, 'solar'); await T.fly(p, 'first'); await T.waitHead(p, 'DEBRIEF');
       await p.click('[data-key="debrief-workshop"]');
       await T.pastScenes(p);
-      ok(await T.waitHead(p, 'WORKSHOP'), 'after the debrief and Mum\'s scene: the workshop');
+      ok(await T.waitHead(p, 'WORKSHOP'), 'after the debrief and the parents\' letter: the workshop');
       await openFrom(p, 'hub-journal');
-      ok(same(await known(p), ['lenders', 'mum']), 'after flight 1 Mum is in the journal: ' + JSON.stringify(await known(p)));
+      ok(same(await known(p), ['lenders', 'girl', 'disowned', 'house']), 'after flight 1 the parents\' house is in the journal: ' + JSON.stringify(await known(p)));
       ok(/DEBT/.test(await p.locator('.jr-now .facts').innerText()), 'the stakes are still shown');
       await p.screenshot({ path: path.join(shots, `journal-part2-after1-${label}.png`) });
       await p.keyboard.press('Escape');
@@ -200,8 +200,8 @@ async function openFrom(p, key, part) {
       const { p, errors } = await page(b, DESK, store);
       ok(await p.evaluate(() => getComeback().buyout) === 'offered', 'the saved run has the offer open');
       await openFrom(p, 'journal-mode-part2');
-      ok(!(await known(p)).includes('offer') && !(await known(p)).includes('refused') && (await known(p)).includes('mum'),
-        'before the offer is seen: Mum is known, the offer and the answer are not: ' + JSON.stringify(await known(p)));
+      ok(!(await known(p)).includes('offer') && !(await known(p)).includes('refused') && (await known(p)).includes('house'),
+        'before the offer is seen: the house is known, the offer and the answer are not: ' + JSON.stringify(await known(p)));
       ok(/Answer Iron Eclipse/i.test(await p.locator('[data-key="journal-next"]').innerText()), 'it says to answer Iron Eclipse first');
       await p.click('[data-key="journal-back"]');
       await p.click('[data-key="part2-go"]');
@@ -254,14 +254,14 @@ async function openFrom(p, key, part) {
     const { p, errors } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': JSON.stringify(base), 'gravitron-seen-v1': seen });
     const before = await storage(p);
     await openFrom(p, 'journal-mode-part2');
-    ok(same(await known(p), ['lenders', 'mum', 'iron-eclipse', 'offer', 'refused', 'last-page']), 'with the last page seen: it is known, SOLD stays locked: ' + JSON.stringify(await known(p)));
+    ok(same(await known(p), ['lenders', 'girl', 'disowned', 'house', 'iron-eclipse', 'offer', 'refused', 'last-page']), 'with the last page seen: it is known, SOLD stays locked: ' + JSON.stringify(await known(p)));
     ok((await locked(p)).join() === 'sold', 'only SOLD is still ???');
     await p.click('[data-key="journal-back"]');
     ok(await storage(p) === before, 'nothing written to storage');
     // a scene the record has not marked is not shown, whatever the run has done: the record wins when it exists
     const { p: q } = await page(b, DESK, { 'smdg-progress-v1': PROGRESS, 'gravitron-walkthrough-v1': WALK, 'smdg-campaign': JSON.stringify(base), 'gravitron-seen-v1': JSON.stringify({ 4242: ['start'] }) });
     await openFrom(q, 'journal-mode-part2');
-    ok(!(await known(q)).includes('mum') && !(await known(q)).includes('last-page'), 'a seen record that lacks a scene keeps it locked: ' + JSON.stringify(await known(q)));
+    ok(!(await known(q)).includes('house') && !(await known(q)).includes('last-page'), 'a seen record that lacks a scene keeps it locked: ' + JSON.stringify(await known(q)));
     await q.close();
     ok(errors.length === 0, 'no console errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
     await p.close();
@@ -294,7 +294,7 @@ async function openFrom(p, key, part) {
       await openFrom(p, 'journal-mode-part1');
       ok(same(await known(p), ['setup', 'rule-1', 'rule-2', 'rule-3']), `[${label}] ${name}: Part 1 (steps one and two passed) shows the setup and the three rules`);
       await tab(p, 2);
-      const k = await known(p), want = ['lenders'].concat(c.flights >= 1 ? ['mum'] : []);
+      const k = await known(p), want = ['lenders', 'girl', 'disowned'].concat(c.flights >= 1 ? ['house'] : []);
       ok(same(k, want), `[${label}] ${name}: Part 2 shows ${want.join(', ')} from the run itself (${c.flights} flights): ${JSON.stringify(k)}`);
       ok(!(await p.locator('.jr-entry.known', { hasText: '???' }).count()), 'no known entry reads ???');
       if (name === 'deadline-hard') ok(/cheap and sure/i.test(await p.locator('[data-key="journal-next"]').innerText()), 'no months left: what to do next says time is short, not "pick a contract"');

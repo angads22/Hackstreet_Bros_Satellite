@@ -11,11 +11,11 @@
   if (!UI) return;   // ui-design.js failed to load; nothing to draw with
   var el = UI.el, num = UI.num, money = UI.money;
 
-  var QUARTER = 0.25;             // the countdown turns to the accent colour with this share of the months left
   var PAY_SHARES = [0.25, 0.5, 0.75];   // PAY BACK buttons: these shares of the most that is safe to pay, rounded down
   var COMEBACK = { comeback: true };    // stands in for a design when the story is asked for Ajay's lines
-  var hub = { note: "", bad: false, fresh: false, debtFrom: null };   // the last payment's message, and the meter before it
+  var hub = { note: "", bad: false, fresh: false, debtFrom: null, whyOpen: false };   // the last payment's message, and the meter before it (whyOpen: the credit WHY list, credit 2.1)
 
+  function L0() { return window.StarlineLedger || null; }
   function info() {
     try { return typeof getComeback === "function" ? getComeback() : null; } catch (e) { return null; }
   }
@@ -55,7 +55,8 @@
     return el("article", { class: "cb-job" + (opts.brief ? " brief" : ""), "data-key": "job-" + k.topic }, [
       el("div", { class: "cb-job-top" }, [
         el("h3", null, [UI.icon(k.topic), String(k.topic_name).toUpperCase()]),
-        el("span", { class: "cb-tag", text: months(k.months_left) + " LEFT" })
+        el("span", { class: "cb-tag", text: months(k.months_left) + " LEFT" }),
+        opts.bestPay ? el("span", { class: "cb-best", "data-key": "best-pay", text: "BEST PAY" }) : null   // Easy only (getContractOrder)
       ]),
       opts.brief ? null : el("p", { class: "cb-client", text: k.client }),
       opts.brief ? null : el("p", { class: "cb-reason", text: k.reason }),
@@ -110,6 +111,7 @@
     var c = typeof newComeback === "function" ? newComeback(tierId) : null;
     if (!c) { showPicker(); return; }
     hub.note = ""; hub.debtFrom = null;
+    if (window.StarlineLedger) window.StarlineLedger.reset();   // a new run: no tile flashes for the old run's numbers
     if (typeof window.nextInterlude === "function" && window.nextInterlude({ fresh: true })) { window.showInterlude(showComebackHub); return; }   // js/ui-story.js
     UI.showBeats(line("intro"), kicker() + " · " + levelName(c.tier), showComebackHub, { doneLabel: "TO THE WORKSHOP" });
   }
@@ -200,8 +202,9 @@
 
   function takeLoan(amount) {
     var r = typeof borrow === "function" ? borrow(amount) : { ok: false, reason: "Borrowing is not available." };
+    var after = info();   // credit 2.1: the score and band the loan left, read from the back end
     hub.note = r && r.ok ? "Borrowed " + money(r.borrowed_musd) + " (fee " + money(r.fee_musd) + " added to the debt). Debt now " + money(r.debt_musd) +
-      ". Credit now " + num(r.credit, 0) + "." : (r && r.reason) || "That loan did not go through.";
+      ". Score now " + num(r.credit_score, 0) + (after && after.credit_band ? " " + after.credit_band : "") + "." : (r && r.reason) || "That loan did not go through.";
     hub.bad = !(r && r.ok);
     hub.fresh = true;
     hub.where = "borrow";
@@ -223,15 +226,40 @@
     ]);
   }
 
+  // credit 2.1: CREDIT 712 GOOD. The score and the band name (colour: POOR bad, FAIR warn, the rest good), the bar from 300 to 850 with
+  // the seize line, and the five factors folded under WHY. Every number is from getComeback(): nothing here works one out.
+  function creditTone(c) { return c.credit_band_id === "poor" ? "bad" : c.credit_band_id === "fair" ? "warn" : "good"; }
+  function creditFactorRows(c) {
+    return UI.list(c.credit_factors).map(function (f) {
+      var share = Math.max(0, Math.min(1, f.value)) * 100;
+      return el("li", { class: "cb-factor", "data-key": "factor-" + f.id }, [
+        el("span", { class: "cb-factor-name", text: f.name }),
+        el("span", { class: "cb-factor-weight", text: num(f.weight * 100, 0) + "%" }),
+        el("div", { class: "cb-factor-bar", role: "img", "aria-label": f.name + " " + num(f.value * 100, 0) + " of 100" }, [
+          el("div", { class: "cb-factor-fill", style: "width: " + share + "%" })])
+      ]);
+    });
+  }
   function creditStat(c) {
-    if (typeof c.credit !== "number") return null;
-    var danger = c.credit <= (c.seize_credit || 0) + 2 * (c.credit_per_loan || 8);
-    return el("div", { class: "cb-stat cb-credit" + (danger ? " warn" : ""), "data-key": "stat-credit" }, [
+    var range = config() && config().score;   // the score runs from min to max (data/campaign.js)
+    if (typeof c.credit_score !== "number" || !range) return null;
+    var tone = creditTone(c), danger = c.credit_band_id === "poor";
+    var why = el("details", { class: "cb-why", "data-key": "credit-why" }, [
+      el("summary", { text: "WHY" }),
+      el("ul", { class: "cb-factors" }, creditFactorRows(c))
+    ]);
+    why.open = !!hub.whyOpen;
+    why.addEventListener("toggle", function () { hub.whyOpen = why.open; });
+    return el("div", { class: "cb-stat cb-credit tone-" + tone + (danger ? " warn" : ""), "data-key": "stat-credit" }, [
       el("span", { class: "cb-stat-label", text: "CREDIT" }),
-      el("strong", { class: "cb-stat-value", id: "cb-credit", text: num(c.credit, 0) + " / 100" }),
-      bar(c.credit, 100, c.seize_credit, "Credit " + num(c.credit, 0) + " of 100; the lenders take everything at " + num(c.seize_credit, 0), "credit"),
+      el("div", { class: "cb-credit-row" }, [
+        el("strong", { class: "cb-stat-value", id: "cb-credit", text: num(c.credit_score, 0) }),
+        el("span", { class: "cb-band " + tone, id: "cb-band", text: c.credit_band })
+      ]),
+      bar(c.credit_score - range.min, range.max - range.min, c.seize_score - range.min, "Credit score " + num(c.credit_score, 0) + " of " + num(range.max, 0) + ", " + c.credit_band + "; the lenders take everything at " + num(c.seize_score, 0), "credit"),
       el("span", { class: "cb-note", role: danger ? "alert" : null,
-        text: danger ? "THE LENDERS TAKE EVERYTHING AT " + num(c.seize_credit, 0) : "BELOW " + num(c.seize_credit, 0) + " THEY TAKE EVERYTHING" })
+        text: danger ? "THE LENDERS TAKE EVERYTHING AT " + num(c.seize_score, 0) : "BELOW " + num(c.seize_score, 0) + " THEY TAKE EVERYTHING" }),
+      why
     ]);
   }
 
@@ -254,9 +282,9 @@
     var fee = Math.round((c.loan_fee || 0) * 100);
     return el("div", { class: "panel cb-pay cb-borrow", "data-key": "borrow-panel" }, [
       el("h2", { text: "BORROW" }),
-      el("p", { class: "cb-note", text: amounts.length
-        ? "Up to " + money(c.max_borrow_musd) + " now. A " + fee + "% fee goes on the debt, credit drops by " + num(c.credit_per_loan, 0) + " a loan, and low credit makes interest dearer."
-        : "The lenders will lend no more." }),
+      el("p", { class: "cb-note", "data-key": "credit-limit", text: amounts.length   // credit 2.1: the band's limit
+        ? c.credit_band + " lends up to " + money(c.max_borrow_musd) + ". A " + fee + "% fee goes on the debt, and a loan lowers your score."
+        : c.credit_band_id === "poor" ? c.credit_band + ": the lenders lend nothing." : c.credit_band + ": the lenders will lend no more." }),
       buttons.length ? el("div", { class: "cb-pay-row" }, buttons) : null,
       hub.note && hub.where === "borrow" ? el("p", { class: "cb-note" + (hub.bad ? " bad" : " good"), id: "borrow-note", tabindex: "-1", role: hub.bad ? "alert" : "status", text: hub.note }) : null
     ]);
@@ -294,39 +322,35 @@
     var borrowedNow = hub.fresh && hub.where === "borrow" && !hub.bad;   // the line after a loan
     if (!hub.fresh) { hub.note = ""; hub.debtFrom = null; }
     hub.fresh = false;
-    var late = c.months_left <= c.deadline_month * QUARTER;
+    var led = L0() ? L0().facts() : null;
+    var late = !!(led && led.deadline_near);
     var tooLate = noFlightInTime(c);
     var last = UI.list(c.missions)[UI.list(c.missions).length - 1];
     var from = hub.debtFrom; hub.debtFrom = null;
 
-    var stakes = el("div", { class: "cb-stakes" }, [
-      el("div", { class: "cb-stat cb-debt", "data-key": "stat-debt" }, [
-        el("span", { class: "cb-stat-label", text: "DEBT" }),
-        el("strong", { class: "cb-stat-value", id: "cb-debt", text: money(c.debt_musd) }),
-        meter({ debt: c.debt_musd, cash: c.cash_musd, start: c.start_debt_musd }, from,
-          "Debt " + money(c.debt_musd) + " of " + money(c.start_debt_musd) + " at the start; cash " + money(c.cash_musd)),
-        el("span", { class: "cb-note" }, "INTEREST " + num(c.interest_per_month * 100, 2) + "% A MONTH" +
-          (c.debt_paid_musd > 0 ? " · PAID BACK " + money(c.debt_paid_musd) : ""))
-      ]),
-      el("div", { class: "cb-stat", "data-key": "stat-cash" }, [
-        el("span", { class: "cb-stat-label", text: "CASH" }),
-        el("strong", { class: "cb-stat-value cash", id: "cb-cash", text: money(c.cash_musd) })
-      ]),
-      el("div", { class: "cb-stat" + (late || tooLate ? " warn" : ""), "data-key": "stat-months" }, [
-        el("span", { class: "cb-stat-label", text: "MONTHS LEFT" }),
-        el("strong", { class: "cb-stat-value", id: "cb-months", text: num(c.months_left, 0) }),
-        tooLate ? el("span", { class: "cb-note", role: "alert", text: "No flight can land before the deadline." })
-          : late ? el("span", { class: "cb-note", text: (line("hub", "late") || {}).text || "" }) : null
-      ])
-    ]);
+    // UI REVIEW (2.1, ledger-strip, interest-tick, deadline-cue): the three tiles are the ledger strip (js/ui-ledger.js); the debt
+    // meter and the "no flight" note ride inside their tiles. The cash, debt and months come from getLedger().
+    var L = L0();
+    var lateNote = tooLate ? el("span", { class: "cb-note", role: "alert", text: "No flight can land before the deadline." })
+      : late ? el("span", { class: "cb-note", text: (line("hub", "late") || {}).text || "" }) : null;
+    var stakes = L.strip({ ids: true, warn: tooLate,
+      debtExtra: [meter({ debt: c.debt_musd, cash: c.cash_musd, start: c.start_debt_musd }, from,
+        "Debt " + money(c.debt_musd) + " of " + money(c.start_debt_musd) + " at the start; cash " + money(c.cash_musd)),
+        c.debt_paid_musd > 0 ? el("span", { class: "cb-note" }, "PAID BACK " + money(c.debt_paid_musd)) : null],
+      monthsExtra: [lateNote] });
 
-    var lowCredit = typeof c.credit === "number" && c.credit <= (c.seize_credit || 0) + 2 * (c.credit_per_loan || 8);
+    var lowCredit = c.credit_band_id === "poor";   // credit 2.1: POOR is the warning
     var needName = typeof c.reputation === "number" && c.debt_musd <= 0 && c.reputation < c.reputation_goal;
     var situation = lowCredit ? line("hub", "credit") : needName ? line("hub", "name") : borrowedNow ? line("hub", "loaned")
       : !c.flights ? line("hub", "start") : c.debt_musd < c.start_debt_musd / 2 ? line("hub", "halfway")
       : last && last.payout_musd > 0 ? line("hub", "paid") : null;
-    var jobs = UI.list(c.contracts).map(function (k) {
-      return contractCard(k, { onFly: function () {
+    // UI REVIEW (2.1, contract-sort-best-pay): the back end orders the offers (Easy and Normal by net; Hard as they came)
+    // and names the best pay on Easy only.
+    var order = typeof getContractOrder === "function" ? getContractOrder() : null;
+    var offers = UI.list(c.contracts).slice();
+    if (order) offers.sort(function (a, b) { return order.ids.indexOf(a.id) - order.ids.indexOf(b.id); });
+    var jobs = offers.map(function (k) {
+      return contractCard(k, { bestPay: !!order && order.best_id === k.id, onFly: function () {
         var d = typeof newComebackDesign === "function" ? newComebackDesign(k.id) : null;
         hub.note = "";
         if (d) window.showDesignScreen("map", d); else showComebackHub();
@@ -336,7 +360,7 @@
     UI.mount("comeback", el("section", { class: "screen cb" }, [
       el("div", { class: "screen-head" }, [el("span", { class: "kicker", text: "PART 2 · " + levelName(c.tier) }), el("h1", { text: "THE WORKSHOP" })]),
       stakes,
-      c.credit !== undefined ? el("div", { class: "cb-stakes cb-stakes-2" }, [creditStat(c), nameStat(c)]) : null,
+      typeof c.credit_score === "number" ? el("div", { class: "cb-stakes cb-stakes-2" }, [creditStat(c), nameStat(c)]) : null,
       say(line("why", c.flights)),
       el("div", { class: "panel cb-board" }, [
         el("h2", { text: "CONTRACTS" }),

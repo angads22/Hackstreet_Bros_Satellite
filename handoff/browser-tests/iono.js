@@ -21,22 +21,37 @@ const { ok, done } = T.checker();
     ok(!!k && await p.locator('[data-key="job-ionosphere"]').count() === 1, 'Easy opens with an ionosphere contract on the job board');
     if (!k) { await b.close(); continue; }
     ok(k.orbit === T.CONTRACT.ionosphere.orbit, `the client wants it from ${k.orbit_name}`);
-    // The design costs more than Easy's starting cash: give the save enough cash for it.
-    await p.evaluate(() => { const c = JSON.parse(localStorage.getItem('smdg-campaign')); c.treasury_musd = 20; localStorage.setItem('smdg-campaign', JSON.stringify(c)); });
-    await p.evaluate(() => window.showComebackHub());
-    await p.click('[data-key="fly-ionosphere"]'); await T.waitHead(p, 'BASE MAP');
-    await p.click('[data-key="blip-orbit"]'); await T.waitHead(p, 'ORBIT');
-    const sso = await p.locator(`[data-key="orbit-${k.orbit}"] .nasa-line`).innerText(); console.log('     ' + sso);
-    ok(/In view: \d+% of Alouette's soundings \(Canadian Space Agency \d{4}\)/.test(sso), "orbit card: the share of Alouette's soundings in view");
-    ok(/Set by the contract/.test(await p.locator('#app').innerText()), 'the orbit is set by the contract');
-    await p.screenshot({ path: path.join(shots, `iono-${label}-2-orbit.png`), fullPage: true });
-    await p.click('.nav-row .btn.primary'); await T.waitHead(p, 'BUILD');
-    await T.addParts(p, T.CONTRACT.ionosphere.parts);
-    await p.click('.nav-row .btn.primary'); await T.waitHead(p, 'LAUNCH VEHICLE');
-    await p.click(`[data-key="rocket-${T.CONTRACT.ionosphere.launcher}"]`);
-    await p.click('.nav-row .btn.primary'); ok(await T.waitHead(p, 'READINESS'), 'readiness review');
-    ok(await p.locator('.btn.big').isEnabled(), 'it can launch: ' + (await p.locator('.verdict').innerText()));
-    await p.locator('.btn.big').click(); await T.waitHead(p, 'MISSION');
+    // A comeback flight rolls for a launch failure (SPEC.md, "Launch failures"). The roll is seeded by the run, the design and the flight
+    // number, so the same run replays the same way: with the seed lib.js fixes, this design's FIRST flight fails at launch, every time.
+    // That is the game working (it flies no month, so there is no soundings line). Each try starts again from the same save with the next
+    // flight number, which is a new roll; a try that fails is checked for what the debrief says, then the next one is made.
+    const fresh = await p.evaluate(() => localStorage.getItem('smdg-campaign'));
+    let launched = false;
+    for (let flight = 1; flight <= 5 && !launched; flight++) {
+      // The design costs more than Easy's starting cash: give the save enough cash for it.
+      await p.evaluate(([raw, n]) => { const c = JSON.parse(raw); c.treasury_musd = 20; c.flights = n; localStorage.setItem('smdg-campaign', JSON.stringify(c)); }, [fresh, flight - 1]);
+      await p.evaluate(() => window.showComebackHub());
+      await T.pastScenes(p);   // after a flight the workshop may open on a story scene first
+      await p.click('[data-key="fly-ionosphere"]'); await T.waitHead(p, 'BASE MAP');
+      await p.click('[data-key="blip-orbit"]'); await T.waitHead(p, 'ORBIT');
+      if (flight === 1) {
+        const sso = await p.locator(`[data-key="orbit-${k.orbit}"] .nasa-line`).innerText(); console.log('     ' + sso);
+        ok(/In view: \d+% of Alouette's soundings \(Canadian Space Agency \d{4}\)/.test(sso), "orbit card: the share of Alouette's soundings in view");
+        ok(/Set by the contract/.test(await p.locator('#app').innerText()), 'the orbit is set by the contract');
+        await p.screenshot({ path: path.join(shots, `iono-${label}-2-orbit.png`), fullPage: true });
+      }
+      await p.click('.nav-row .btn.primary'); await T.waitHead(p, 'BUILD');
+      await T.addParts(p, T.CONTRACT.ionosphere.parts);
+      await p.click('.nav-row .btn.primary'); await T.waitHead(p, 'LAUNCH VEHICLE');
+      await p.click(`[data-key="rocket-${T.CONTRACT.ionosphere.launcher}"]`);
+      await p.click('.nav-row .btn.primary'); const review = await T.waitHead(p, 'READINESS');
+      if (flight === 1) { ok(review, 'readiness review'); ok(await p.locator('.btn.big').isEnabled(), 'it can launch: ' + (await p.locator('.verdict').innerText())); }
+      await p.locator('.btn.big').click(); await T.waitHead(p, 'MISSION');   // the lift-off plays first
+      // A lost rocket goes on to the debrief within moments; a flight that launched takes much longer (no fast forward yet).
+      launched = !(await T.head(p, 'DEBRIEF').waitFor({ timeout: 4000 }).then(() => true, () => false));
+      if (!launched) ok(/The rocket failed at launch/.test(await p.locator('#app').innerText()), 'flight ' + flight + ': the rocket failed at launch, and the debrief says so');
+    }
+    ok(launched, 'a flight launched');
     await p.waitForFunction(() => /soundings/.test(document.body.innerText), null, { timeout: 8000 }).catch(() => {});
     const line = await p.locator('.nasa-line').first().innerText().catch(() => ''); console.log('     ' + line);
     ok(/Alouette heard [\d,]+ soundings \(Canadian Space Agency\)/.test(line), 'mission: the real soundings line each month');

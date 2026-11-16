@@ -49,6 +49,29 @@ In the game, on the **public** address, with two browsers (or one normal and one
 
 The repo's own checks, without a real server: `node tests/online.js` (the off table, the score formula, every server endpoint on a random port) and `handoff/browser-tests/v2-online.js` (a fake public address backed by the real server runs a leaderboard submit and a two-player duel end to end).
 
+## Hosted on Pitstop (the team's server)
+
+The team's server (Pitstop) serves the game from a clone of `main` and runs `server/server.js` beside it. This is what the game keeps doing so that keeps working; `handoff/browser-tests/v21-host.js` checks the first five.
+
+| Rule for the game | Why |
+| --- | --- |
+| **Relative URLs only** (`js/x.js`, never `/js/x.js`) | the game is served from `/hack/app/<token>/`, with a new token on every page load |
+| **Load nothing from another website** (fonts and libraries live in the repo) | a CSP allows scripts, styles, fonts, images and `fetch` only from the site itself. The live NASA and NOAA calls are blocked there, so the game shows SNAPSHOT, as it does offline |
+| **The footer reads `GRAVITRON v2.1`** (`v<digits>(.<digits>)*( beta|alpha|rc)?`) | the server reads the version from `index.html` |
+| **`server/server.js` exports `{ createServer }`**, takes `dataFile`, `trustProxy`, `rateLimit`, has no dependencies and listens only under `require.main === module` | the server's wrapper imports it. A new option: tell the server side |
+| **Saves stay small** (under 512 KB; a real comeback save is about 4 KB) | the server refuses anything bigger, silently |
+| **`ONLINE.endpoint` stays `""` in `data/online.js`** | the server fills it in on every request (the game calls `/hack/online/<link>/api/...`) |
+
+How it runs there: in a sandboxed frame with no cookies and no storage of its own. `localStorage` is replaced by one that saves per account on the server (a guest gets no save and a new player id each visit); there is no `sessionStorage`, so **"reload keeps your place" keeps the place with the saves there** (stamped with the time, forgotten after three hours). `main` goes live about three minutes after a push; open tabs get a "New version: reload" button.
+
+What the game shows for the server's own answers (`js/live-data.js`): **403** "Link expired. Reload the page.", **503** "Multiplayer is switched off.", **502** "The server is down. Try again soon.", **400** the reason the server sent (a filtered nickname), **404** the duel room is gone.
+
+For the server side:
+
+- **QUICK MODE is in the repo from version 2.1** (a third card on the home page; the duel and the leaderboard are inside its menu). The stylesheet that restyled the old home-page online buttons as a DUEL card with a LEADERBOARD bar can be deleted: those buttons (`.online-row`) no longer exist.
+- **Not yet done:** a full two-browser duel on the host. A duel between two guests ends if either reloads (a guest's player id is new on every visit); logged-in players keep theirs.
+- **Checked on 2.1:** the phone map label "MISSION CONTROL" is not clipped (the floating label only shows for the next stop, which is never Mission Control in the three modes); a font preload was tried for the late font swap and taken out again: a preloaded font needs `crossorigin`, and that is refused when the game is opened from a file (a console error for a judge who opens `index.html` directly). The fonts stay `font-display: swap`.
+
 ## The off switch (do not "fix" this)
 
 The online features turn themselves off, with **no network request at all**, when the page is opened from a file, from `localhost`, `127.0.0.1`, `[::1]`, `0.0.0.0`, a name ending `.local` or `.localhost`, a private address (10.x, 172.16 to 31.x, 192.168.x), or with `?offline=1`, and when `ONLINE.endpoint` is empty. That is on purpose: a judge or anyone who hosts the game themselves gets the plain offline game. The rule is one pure function, `LiveData.onlineStatus()` in `js/live-data.js`, and it explains itself in one line on the buttons ("Playing from a file.", "Running on this computer.", "Running on a private network.", "Offline mode is on (?offline=1).", "No server is set."). This also means you **cannot test the online screens from `localhost`**: test on the public address, or use the browser script above.

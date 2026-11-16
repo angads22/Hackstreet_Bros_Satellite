@@ -83,9 +83,16 @@ const CONTRACT = {
   ionosphere: { orbit: 'sso', launcher: 'small', parts: ['smallsat-bus', 'spin-stabilised', 'alouette-2-sounder', 'solar-small', 'mercury-battery', 'radio-uhf', 'obc-basic', 'prop-ion'] }
 };
 
+// Part 2 shows the first six cards of a bin; SHOW LATER PARTS (data-key later-<bin>) opens the rest (v2.1, cards-limit).
+async function openLater(page, part) {
+  if (await page.locator(`[data-key="part-${part}"]`).count()) return;
+  const more = page.locator('[data-key^="later-"][aria-expanded="false"]');
+  if (await more.count()) await more.first().click();
+}
 async function addParts(page, parts) {
   for (const part of parts) {
     await page.click(`[data-key="bin-${BIN[part]}"]`);
+    await openLater(page, part);
     await page.click(`[data-key="part-${part}"]`);
   }
 }
@@ -100,11 +107,16 @@ async function throughBeats(page) {
   return seen;
 }
 // Fly the mission at fast forward, answering every event with `choice` (first, or 'last'). Returns the event count.
-async function fly(page, choice) {
+// Version 2.1: the debrief folds everything but the verdict, what limited the flight and TRY THIS under DETAILS (a closed <details>
+// has no innerText), so fly() opens it for the tests that read the report; fly(page, choice, true) leaves it as the player sees it.
+async function fly(page, choice, keepFolded) {
   await page.click('button[aria-label="Fast forward"]');
   let events = 0;
   for (let i = 0; i < 600; i++) {
-    if (await head(page, 'DEBRIEF').count()) break;
+    if (await head(page, 'DEBRIEF').count()) {
+      if (!keepFolded) await page.evaluate(() => { const d = document.querySelector('[data-key="debrief-details"]'); if (d) d.open = true; });
+      break;
+    }
     if (await page.locator('[role="alertdialog"]').count()) {
       events++;
       const btns = page.locator('[role="alertdialog"] .choices .btn');
@@ -163,7 +175,7 @@ async function launchContract(page, topic, opts) {
 // A group that is already known, or that the part does not have, is skipped. Leaves the bin of the last part open.
 async function buyInfo(page, parts, groups) {
   for (const part of [].concat(parts)) {
-    if (BIN[part]) await page.click(`[data-key="bin-${BIN[part]}"]`);
+    if (BIN[part]) { await page.click(`[data-key="bin-${BIN[part]}"]`); await openLater(page, part); }
     for (const group of groups || ['sheet', 'performance', 'dossier']) {
       const ask = page.locator(`[data-key="ask-${part}-${group}"]`);
       if (!(await ask.count())) { await page.hover(`[data-key="part-${part}"]`); await page.waitForTimeout(60); }   // the dossier's ASK lives in the preview
@@ -187,5 +199,13 @@ async function stars(page) {
   return parseInt(label, 10);
 }
 
-module.exports = { args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
-  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, buyInfo, buyBin, cashNow, throughBeats, fly, stars, startComeback, launchContract };
+// v2.1: a reload keeps the place (js/ui-design.js, RESUME). For a test that means "a returning player sees the home page":
+// reload, and if the page came back to a screen (the workshop, a design), leave through HOME, what a new tab shows.
+async function reopen(page) {
+  await page.reload();
+  if (!(await page.locator('.big-title').count())) await page.evaluate(() => window.StarlineUI.home());
+  await page.locator('.big-title').waitFor({ timeout: 10000 });
+}
+
+module.exports = { reopen, args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
+  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, openLater, buyInfo, buyBin, cashNow, throughBeats, fly, stars, startComeback, launchContract };

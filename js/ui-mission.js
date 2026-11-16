@@ -58,6 +58,16 @@
     }, "mission-earth") : null;
     run.earth = earth ? earth.wrap : null;
 
+    // UI REVIEW (2.1, pace-line): a tick at the contract's minimum on the science bar, and on Easy and Normal a faint line at
+    // the expected finish. Hard gets the tick only: the back end (getPaceLine) leaves the forecast out there.
+    var pace = design.comeback && typeof getPaceLine === "function" ? getPaceLine(design) : null;
+    var pct = function (v) { return Math.round(v * 1000) / 10 + "%"; };
+    var paceNodes = pace ? [
+      el("div", { class: "pace-min" + (pace.min_share > 0.8 ? " late" : ""), "data-key": "pace-min", style: "left: " + pct(pace.min_share), title: "The contract's minimum" },
+        [el("span", { class: "pace-label", text: "MIN" })]),
+      pace.expected_share !== null ? el("div", { class: "pace-exp", "data-key": "pace-exp", style: "left: " + pct(pace.expected_share), title: "Expected finish" }) : null
+    ] : [];
+
     UI.mount("mission", el("section", { class: "screen" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "6 · MISSION" })]),
       UI.say ? UI.say("mission-start", null) : null,
@@ -72,7 +82,7 @@
       el("div", { class: "panel" }, [
         el("div", { class: "bar" }, [
           el("div", { class: "bar-top" }, [el("span", { text: "SCIENCE" }), n.sciText]),
-          el("div", { class: "bar-track", role: "presentation" }, [n.fill])
+          el("div", { class: "bar-track" + (pace ? " pace" : ""), role: "presentation" }, [n.fill].concat(paceNodes))
         ]),
         n.real
       ]),
@@ -320,8 +330,7 @@
       el("div", { class: "ledger-head" }, [
         el("h1", { text: "MISSION REPORT" }),
         starStamp(d.stars)
-      ]),
-      nextStarLine(d, PARTS_OF_SCORE)
+      ])
     ].concat(rows).concat([
       el("div", { class: "total" }, [el("span", { text: "SCORE" }), el("span", { text: num(d.score, 0) })])
     ]));
@@ -337,24 +346,10 @@
     // A win (3 stars, a Part 1 step passed, or a Part 2 contract PAID in full): the result moment above the report
     // shows the stars landing and the real discovery, open, so the side panel does not repeat it.
     var win = d.stars >= 3 || !!(walk && walk.passed) || outcome === "paid";
-    var side = el("div", { class: "panel limit" }, [
-      d.stars === 3 ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
-      comeback ? comebackBlock(done, d, result, landed, outcome) : null,
-      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
-        text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
-      // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them. A standalone
-      // flight that opens one gets a button that starts it (unlockButtons, under the advice).
-      el("h2", null, [UI.icon(limitIcon(d)) || UI.icon(d.limiting), limitingHeading(d)]),
-      d.paragraph ? el("p", { text: d.paragraph }) : null,
-      el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
-      campaignBlock(done.design, d, result),
-      d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
-        el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
-      segmentRows(d),
-      win && closestMoment(d) ? (d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null) : closestLine(d),
-      events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
-      events.length ? el("ul", { class: "log" }, events) : null,
-      walk ? walkButtons(walk, done.design, d)
+    // UI REVIEW (2.1, debrief-reorder): the verdict stamp and the money change as one big line, then what limited the
+    // flight, then TRY THIS and the buttons; a win's result moment (stars and the discovery) stays open under them; everything
+    // else is folded under DETAILS (open when the comeback is over, so the ending's money stays in sight). Every number is the back end's.
+    var buttons = walk ? walkButtons(walk, done.design, d)
       : comeback ? comebackButtons(result)
       : done.design.duel && UI.duelButtons ? UI.duelButtons(done, d)   // ONLINE-DUEL (js/ui-online.js): SEND RESULT and who won
       : done.design.campaign
@@ -366,20 +361,75 @@
               if (again) window.showDesignScreen("build", again); else window.showCampaignHub();
             })
           ])
-        : unlocks ? el("div", { class: "stack" }, [unlocks, standaloneButtons(done, d, false)]) : standaloneButtons(done, d, true)
+        : unlocks ? el("div", { class: "stack" }, [unlocks, standaloneButtons(done, d, false)]) : standaloneButtons(done, d, true);
+    var side = el("div", { class: "panel limit" }, [
+      d.stars === 3 ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
+      UI.quickScoreBlock ? UI.quickScoreBlock(done, d) : null,   // QUICK MODE (js/ui-online.js): the QUICK SCORE leads a quick flight's debrief
+      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
+        text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
+      // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them. A standalone
+      // flight that opens one gets a button that starts it (unlockButtons, under the advice).
+      el("h2", null, [UI.icon(limitIcon(d)) || UI.icon(d.limiting), limitingHeading(d)]),
+      d.paragraph ? el("p", { text: d.paragraph }) : null,
+      el("p", { class: "try", text: "TRY THIS: " + d.suggestion }),
+      nextStarLine(d, PARTS_OF_SCORE),   // what the next star needs: a few words, kept out of the fold with TRY THIS
+      buttons
+    ]);
+    var more = el("details", { class: "more debrief-details", "data-key": "debrief-details", open: !!(result && result.comeback_over) }, [
+      el("summary", { text: "DETAILS" }),
+      teamLine(done.design, d),
+      el("div", { class: "debrief-more-body" }, [
+        paper,
+        comeback ? comebackBlock(done, d, result, landed, outcome) : null,
+        campaignBlock(done.design, d, result),
+        d.real_world && d.real_world.text ? el("div", { class: "nasa-box" }, [
+          el("h2", { text: "AGAINST THE REAL EARTH" }), el("p", { text: d.real_world.text }), rightNowLine(d)]) : null,
+        segmentRows(d),
+        win && closestMoment(d) ? (d.real_mission ? UI.more(d.real_mission, "A real mission like this") : null) : closestLine(d),
+        events.length ? el("h2", { class: "divided", text: "WHAT HAPPENED" }) : null,
+        events.length ? el("ul", { class: "log" }, events) : null
+      ])
     ]);
 
-    UI.mount("debrief", el("section", { class: "screen" }, [
+    UI.mount("debrief", el("section", { class: "screen debrief" }, [
       el("div", { class: "screen-head" }, [el("h1", { text: "7 · DEBRIEF" })]),
-      teamLine(done.design, d),
-      win ? winMoment(d) : null,
+      debriefLead(done, d, result, outcome, walk),
       comeback ? profitBand(done) : null,
-      el("div", { class: "ledger" }, [paper, side]),
+      side,
+      win ? winMoment(d) : null,   // the stars landing and the real discovery: the result moment, open, under the way on
+      more,
+      // The client's (or the team's) last word stays the last line of the screen, as before.
       comeback ? contractLine(done, outcome) : UI.say ? UI.say("closing", storyView(d)) : null
     ]));
     // A passed step points on, not back at "what limited you".
     if (walk && walk.passed) objectiveLine(walk.last ? "On to the epilogue." : "On to the next step.");
     run = null;
+  }
+
+  // The debrief's first line: the verdict stamp and the money change as ONE big line ("PAID IN PART: +$7.4M, debt $33M").
+  // Part 2: the stamp is the contract's outcome; the money is what the flight was paid (flightProfit: with the 3-star
+  // bonus) and the debt now (recordResult). Part 1 has no money: the step's verdict and the stars.
+  function debriefLead(done, d, result, outcome, walk) {
+    var stamp, tail = "", kind = "pass";
+    if (done.design.comeback) {
+      var fp = typeof flightProfit === "function" ? flightProfit(done.mission) : null;
+      stamp = outcome === "paid" ? "PAID" : outcome === "part" ? "PAID IN PART" : "NOT PAID";
+      kind = outcome === "nothing" ? "fail" : "pass";
+      var bits = [];
+      if (outcome !== "nothing" && fp) bits.push("+" + UI.money(fp.paid_musd));
+      if (result && typeof result.debt_musd === "number") bits.push("debt " + UI.money(result.debt_musd));
+      tail = bits.join(", ");
+    } else if (walk) {
+      stamp = walk.kept ? "NOT THIS TIME" : walk.passed ? "STEP " + walk.step + " PASSED" : "STEP " + walk.step + ": NOT YET";
+      kind = walk.passed ? "pass" : "fail";
+      tail = UI.starsText(d.stars);
+    } else {
+      stamp = d.stars + (d.stars === 1 ? " STAR" : " STARS");
+      kind = d.stars > 0 ? "pass" : "fail";
+      tail = "SCORE " + num(d.score, 0);
+    }
+    return el("p", { class: "d-lead " + kind, role: "status", "data-key": "debrief-lead" }, [
+      el("span", { class: "d-lead-stamp", text: stamp }), tail ? el("span", { class: "d-lead-money", text: ": " + tail }) : null]);
   }
 
   // Standalone flights (not reached from the home page): REDESIGN, NEW MISSION, HOME. REDESIGN leads unless a tier or

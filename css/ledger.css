@@ -1,0 +1,109 @@
+/* css/ledger.css — the ledger strip (version 2.1): CASH, DEBT and MONTHS LEFT at the top of every Part 2 screen.
+   Flat: no gradient, no shadow. A tile that an action moved flashes for 0.6 s (js/ui-ledger.js removes the class). */
+.lstrip-host { margin: 0 0 10px; }
+.lstrip { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr); align-items: stretch; }
+.lstrip .lt { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 6px 12px 8px; background: var(--surface); border-left: 4px solid transparent; }
+.lt-label { font-size: 17px; letter-spacing: 2px; color: var(--text-dim); }
+.lt-value { font-family: var(--font-head); font-weight: 700; font-size: clamp(28px, 4.4vw, 38px); line-height: 1.05; color: var(--text); overflow-wrap: anywhere; }
+.lt-cash .lt-value { color: var(--info-ink); }
+.lt-debt .lt-value { color: var(--bad); }
+.lt-sub { font-size: 18px; line-height: 1.15; color: var(--text-dim); }
+.lt.warn { border-color: var(--accent); }
+.lt.warn .lt-value, .lt.warn .lt-sub, .lt.warn .cb-note { color: var(--accent-ink); }
+.lt-cue { display: flex; align-items: center; gap: 6px; font-family: var(--font-head); font-weight: 700; letter-spacing: 1px; }
+.lt-cue svg.icon { flex: none; width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 1.4; }
+.lstrip .cb-meter { height: 12px; margin-top: 2px; }
+.lstrip .cb-meter-cash { top: 3px; bottom: 3px; }
+.lstrip .cb-note { font-size: 18px; line-height: 1.15; }
+.lt-flash { background: var(--surface-3) !important; outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .lt-flash { animation: lt-flash 0.6s ease-out; }
+  @keyframes lt-flash { from { outline-color: var(--accent-ink); background: var(--surface-3); } to { outline-color: transparent; background: var(--surface); } }
+}
+@media (max-width: 480px) {
+  .lstrip { gap: 6px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr); }
+  .lstrip .lt { padding: 5px 7px 6px; border-left-width: 3px; }
+  .lt-label { font-size: 15px; letter-spacing: 1px; }
+  .lt-value { font-size: 26px; }
+  .lt-sub, .lstrip .cb-note { font-size: 16px; }
+}
+
+/* ---- the workshop fold (version 2.1, "workshop-fold"): the loans panel made the workshop 1.86 screens tall at 1366x768 and
+   the first FLY THIS was off screen. The same blocks, tighter: the tiles are one line, the contract card puts its button
+   beside the price. No data-key or id is removed. */
+.screen.cb { gap: 10px; }
+.screen.cb .screen-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 14px; }
+.screen.cb .lstrip .lt-debt { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: baseline; }
+.screen.cb .lstrip .lt-debt > .lt-label, .screen.cb .lstrip .lt-debt > .cb-meter, .screen.cb .lstrip .lt-debt > .cb-note { grid-column: 1 / -1; }
+.screen.cb .cb-stakes-2 { gap: 8px; }
+.screen.cb .cb-stakes-2 .cb-stat { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: baseline; gap: 2px 14px; padding: 6px 14px 8px; }
+.screen.cb .cb-stakes-2 .cb-stat > .cb-bar, .screen.cb .cb-stakes-2 .cb-stat > .cb-note { grid-column: 1 / -1; }
+.screen.cb .cb-stakes-2 .cb-stat-value { font-size: 32px; }
+.screen.cb .cb-stakes-2 .cb-bar { height: 12px; border-width: 2px; }
+.screen.cb .cb-stakes-2 .cb-note { font-size: 18px; line-height: 1.15; }
+.screen.cb .cb-board { gap: 8px; padding-top: 10px; padding-bottom: 12px; }
+.screen.cb .cb-jobs { gap: 10px; }
+.screen.cb .cb-job { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; row-gap: 3px; padding: 10px 14px; align-content: start; }
+.screen.cb .cb-job > * { grid-column: 1 / -1; }
+.screen.cb .cb-job > .cb-price { grid-column: 1; grid-row: 4; align-self: end; }
+.screen.cb .cb-job > .cb-terms { grid-column: 1; grid-row: 5; }
+.screen.cb .cb-job > .btn { grid-column: 2; grid-row: 4 / span 2; align-self: end; margin-top: 0; }
+.screen.cb .cb-job.brief > * { grid-column: 1 / -1; }
+.screen.cb .cb-job.brief > .cb-price, .screen.cb .cb-job.brief > .cb-terms { grid-row: auto; }
+.screen.cb .cb-price strong { font-size: 34px; }
+.screen.cb .cb-price span { font-size: 18px; }
+.screen.cb .cb-client { font-size: 20px; }
+.screen.cb .cb-reason { font-size: 19px; line-height: 1.15; }
+.screen.cb .cb-terms { font-size: 17px; letter-spacing: 0; }
+.cb-best { flex: none; padding: 0 8px; font-size: 16px; letter-spacing: 1px; white-space: nowrap; background: var(--ok-stamp); color: var(--paper); }
+@media (max-width: 760px) {
+  .screen.cb .cb-job { grid-template-columns: minmax(0, 1fr); }
+  .screen.cb .cb-job > .cb-price, .screen.cb .cb-job > .cb-terms, .screen.cb .cb-job > .btn { grid-column: 1; grid-row: auto; }
+  .screen.cb .cb-job > .btn { align-self: stretch; }
+}
+@media (max-width: 480px) {
+  .screen.cb .lstrip .lt-debt { grid-template-columns: minmax(0, 1fr); }
+}
+.screen.cb .cb-board { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.screen.cb .cb-board > .cb-complications, .screen.cb .cb-board > .cb-jobs { flex: 1 0 100%; }
+.screen.cb .cb-board > .cb-complications:empty { display: none; }
+.screen.cb .cb-board > h2 { margin: 0; }
+.screen.cb .cb-board > .cb-note { margin: 0; flex: 1 1 0; min-width: 0; }
+
+/* ---- the debrief (version 2.1, "debrief-reorder"): the verdict and the money as one big line, then what limited the
+   flight and TRY THIS, then DETAILS folded. */
+.d-lead { font-family: var(--font-head); font-weight: 700; font-size: clamp(28px, 5.4vw, 48px); line-height: 1.1; overflow-wrap: anywhere; margin: 0; }
+.d-lead.pass { color: var(--info-ink); }
+.d-lead.fail { color: var(--bad); }
+.d-lead .d-lead-money { color: var(--text); }
+.screen.debrief { gap: 10px; }
+.screen.debrief .limit .choices { margin-top: 6px; }
+.debrief-details { padding: 0; }
+.debrief-details > summary { font-size: 22px; padding: 6px 0; }
+.debrief-more-body { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; margin-top: 8px; }
+.debrief-more-body > .paper { grid-row: span 6; }
+.debrief-more-body > * { min-width: 0; }
+@media (max-width: 760px) { .debrief-more-body { grid-template-columns: minmax(0, 1fr); } .debrief-more-body > .paper { grid-row: auto; } }
+
+/* ---- the mission's pace line (version 2.1): a tick at the contract's minimum, a faint line at the expected finish */
+.bar-track.pace { position: relative; margin-top: 20px; }
+.pace-min { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1px; background: var(--text); }
+.pace-label { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); padding-bottom: 1px; font-size: 16px; line-height: 1; letter-spacing: 1px; color: var(--text-dim); }
+.pace-min.late .pace-label { left: auto; right: 0; transform: none; }
+.pace-exp { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text-dim); opacity: 0.55; }
+@media (max-width: 420px) {
+  .screen.cb .cb-stakes-2 { grid-template-columns: minmax(0, 1fr); }
+  .screen.cb .cb-stakes-2 .cb-stat { grid-template-columns: auto minmax(0, 1fr); }
+}
+
+/* ---- 2.1 fixes found by the theme check ---- */
+/* The credit score's WHY list takes the tile's full width (it shrank to its words, so the five bars were slivers and the
+   names stuck out of a 28px column). */
+.cb-why { grid-column: 1 / -1; align-self: stretch; width: 100%; min-width: 0; }
+.cb-factors { width: 100%; }
+.cb-factor { grid-template-columns: minmax(5.6em, 7em) 3em minmax(48px, 1fr); }
+.cb-factor-name { min-width: 0; white-space: nowrap; }
+@media (max-width: 720px) { .cb-factor { grid-template-columns: minmax(0, 1fr) auto; } }
+/* The mission bar's MIN label sits above its tick on the panel, in the panel's colours (it inherited the tick's light fill
+   as its background for contrast checks, and read as too faint). */
+.pace-label { color: var(--text); background: var(--surface); padding: 0 3px 1px; }

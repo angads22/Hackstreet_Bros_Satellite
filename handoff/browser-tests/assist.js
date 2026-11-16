@@ -60,9 +60,10 @@ function check(o) {
       await T.waitHead(p, 'BUILD');
       const inst = c.parts.find(x => T.BIN[x] === 'instrument');
       await p.click('[data-key="bin-instrument"]');
+      await T.openLater(p, inst);   // v2.1: Part 2 shows six cards a bin
       await p.hover('[data-key="part-' + inst + '"]');
       await p.waitForTimeout(250);
-      const prev = await p.locator('#preview, .part-picker').first().innerText().catch(() => '');
+      const prev = await p.locator('#preview').innerText().catch(() => '');   // the preview sits in the side column on a wide screen
       out.hover = { fixes: /Fixes:/.test(prev), causes: /Causes:/.test(prev), numbers: /ADD /.test(prev) };
       await T.addParts(p, c.parts);
       out.pay = (await p.locator('[data-key="contract-pay"]').innerText()).slice(0, 120);

@@ -131,9 +131,9 @@ async function tour(viewport, fontsLabel) {
   const lp2 = await p.evaluate(() => typeof LowPoly === 'object' ? LowPoly.colorOf('sea', document.body) : null);
   ok(lp2 === null || lp2 === '#2b5f8a', `p2: the 3D art keeps its crisp default palette (sea ${lp2})`);
   await p.click('[data-key="debrief-workshop"]'); await waitHead(p, 'WORKSHOP');
-  // a win: enough cash to pay it all, then the ending
-  await p.evaluate(key => { const c = JSON.parse(localStorage.getItem(key)); c.treasury_musd = c.debt_musd + 1; localStorage.setItem(key, JSON.stringify(c)); }, KEY);
-  await p.reload(); await p.waitForTimeout(300);
+  // a win: enough cash to pay it all and a name made (paying the debt alone no longer wins: SPEC.md, "Loans, credit and a name"), then the ending
+  await p.evaluate(key => { const c = JSON.parse(localStorage.getItem(key)); c.treasury_musd = c.debt_musd + 1; c.reputation = 999; localStorage.setItem(key, JSON.stringify(c)); }, KEY);
+  await T.reopen(p); await p.waitForTimeout(300);
   await p.click('[data-key="part2-go"]'); await waitHead(p, 'WORKSHOP');
   await p.click('[data-key="pay-all"]'); await waitHead(p, 'WORKSHOP IS YOURS'); await visit('p2 ending', 'today');
   await p.click('[data-key="end-home"]'); await p.locator('.title').waitFor({ timeout: 5000 }); await visit('home again', 'home');

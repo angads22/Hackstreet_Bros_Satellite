@@ -4,12 +4,50 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+## 2.1 (November 15, 2026)
+
+Version 2.1 makes the game quicker to pick up and harder to lose your place in. A third mode, QUICK MODE, sits on the home page; Part 2 shows your cash, debt and months on every screen, scores your credit the way a real lender does and sorts the contracts by pay; Build shows what a click did and whether the design meets the contract; a reload brings you back to where you were. Ajay's story now opens with what he has lost. Everything players already have is kept (an in-place upgrade, tested against real saves), and the game follows the rules of the team's host (relative addresses, nothing loaded from other websites, a sandboxed frame with no tab storage).
+
+### Added
+
+- **Credit is a real credit score** (300 to 850, POOR to EXCEPTIONAL): worked out from payments, debt, history, new loans and mix; the band sets the interest and the loan limit; a 2.0 save keeps its credit.
+- **Quick mode.** The home page has a third card, QUICK MODE · 1V1 DUEL, that opens a menu: QUICK FLIGHT (solo, works offline: one flight from a seeded job, a new one each time, never touching your stars, Part 1 or a comeback), 1V1 DUEL and LEADERBOARD (shown disabled with the reason when online is off). The debrief shows a QUICK SCORE, `getQuickScore(result)` = round(100 × science ÷ cost in $M, cost counted as at least 1), best kept in `gravitron-quick-v1`; the small LEADERBOARD and DUEL row on the home page is gone.
+- Adding a part has a moment of its own on Build: a tile flies from the card to the satellite (and back on a removal), the satellite thumps, the bars that changed flash and show a chip like +45 KG, and fitting a body makes CARRIES jump. Quick, never in the way, still under reduced motion.
+- Build (Easy and Normal): the satellite's stage carries the state: a red edge when there is too little power, a cross on a part that does not fit the body, broken waves when no data can reach the ground.
+- Build (Part 2): three gauges under the satellite, DATA against the contract's points, COST against the cash, TIME against the months left. Red with a cross only when the flight cannot work, amber with a triangle when thin. Easy adds the numbers, Hard gets the contract's terms and the design's amounts with no verdict.
+- **Contracts sorted by pay (Part 2).** The workshop lists contracts by net (the price less the cheapest cost to fly it); Easy marks the first BEST PAY, Normal sorts without a label, Hard keeps the order the offers came in. Back end: `getContractOrder()`.
+- **Ledger strip (Part 2).** CASH, DEBT and MONTHS LEFT sit at the top of every Part 2 screen; a tile flashes for 0.6 s when an action moves it (never counts up). Part 1 shows none. Back end: `getLedger()`.
+- **Interest tick.** The debt tile shows the interest the next month adds at today's rate (for example "+$0.15M INTEREST A MONTH"), real state only.
+- **Deadline cue.** With a quarter of the months left or less, the months tile turns to the warning colour with a warning icon and DEADLINE NEAR (no sound, no animation).
+- **Pace line on the mission's science bar.** A tick marks the contract's minimum; Easy and Normal also get a faint line at the expected finish (Hard only the tick). Back end: `getPaceLine()`.
+
+### Changed
+
+- **Ajay's story starts with a loss.** His girlfriend Mara leaves and both parents disown him; their letter after flight one is about the house and the deed.
+- **Debrief leads with the verdict and the money.** One big line ("PAID IN PART: +$7.4M, debt $33M"; in Part 1 the step's verdict and the stars), then what limited the flight, then TRY THIS and the way on; the report, the ledgers and the rest fold under DETAILS (open after a win).
+- **A shorter workshop.** The loans and credit tiles and the contract cards are tighter, so the first FLY THIS is on screen at 1366x768 (1.5 screens tall instead of 1.86).
 - **A launch you can feel.** The lift-off sound is rebuilt: an ignition thump, a roaring, crackling engine, a sub-bass you feel and a rising whine as the rocket climbs, much louder than any other sound (the music steps back). Off with the SOUNDS switch.
 - **A satellite the right size.** On the mission screen and in the launch finale your satellite is small next to the Earth, as it would be.
+- Build: one count beside the satellite ("4 of 6 needed", only the bins a design must fill) instead of "Needed" on every empty bin.
+- Build: the problem list puts every NO GO first and big (a cross, the name, an action word on Easy and Normal), then the warnings; no problems says "No problems".
+- Build (Part 2): a bin shows its first six parts and SHOW LATER PARTS opens the rest; parts that have been replaced are gone, not greyed. Part 1 keeps all its cards.
+- Build: a line beside the next button says how many NO GO are left ("2 NO GO to fix"); the button still works.
 
 ### Fixed
 
+- **Reloading keeps your place.** F5 no longer sends you back to the title: the map, Build, Rocket Yard, Readiness, the workshop or the Quick menu come back with the same design. A flight in the air returns to Readiness (its launch cost comes back once); a debrief returns to the map or the workshop. A new tab, or HOME, opens on the title.
 - **Music no longer drops out.** If the browser suspended or interrupted the audio (a hidden tab, a phone call, power saving), the music stayed silent until you toggled it. It now resumes by itself, at the next click or key at the latest, and recovers from a failed schedule or a stuck launch ducking.
+- **Ready for the team's host.** Reload keeps your place there too (the host's frame has no tab storage, so the place is kept with the saves and forgotten after three hours); the online screens say what the host means (link expired, multiplayer off, server down). A browser check serves the game from a token path inside a sandboxed frame.
+
+### Not in this version yet
+
+- **Borrowing from every screen** (the CASH tile opening a borrow panel) is specified and being built; in 2.1 you borrow in the workshop.
+- **The online features need the server.** The team's host runs it; when you run the game yourself (a file, localhost, a private address) the leaderboard and the duel are off and QUICK FLIGHT still plays. A full two-browser duel on the host has not been tested yet, and a duel between two guests ends if either reloads.
+- **A phone layout for Build** (it is about three screens tall on a phone) and the host's Lighthouse score (63 on its play page) are being worked on.
+- **Steps 3 to 6 of the real-world plan** (counting back from the launch slot, paying to expedite, test blocks, heritage). Lead time is shown, not yet a rule.
+- **Balance was not re-measured** with loans, the credit score, launch failures and the engineers' fees together (a simulator is being written).
+- A quick flight does not come back after a reload (the Quick menu does).
+- Pushing the git tags (`v1.0`, `v2.0`, `v2.1`) from a computer; cloud sessions cannot.
 
 ## 2.0 (November 15, 2026)
 

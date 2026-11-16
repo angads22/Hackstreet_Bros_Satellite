@@ -1,8 +1,16 @@
-/* css/online.css — the online screens (js/ui-online.js): the quiet home row, the leaderboard and the duel. Flat look, no
+/* css/online.css — the online screens (js/ui-online.js): the QUICK MODE card and menu, the leaderboard and the duel. Flat look, no
    gradients, no shadows. Colours come from the :root tokens in css/style.css only. */
-.online-row { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; width: fit-content; max-width: 100%; padding: 0 8px; background: var(--space); }
-.online-row .btn.quiet, .online-row .btn.quiet:not(:disabled):hover { min-height: 28px; padding: 0 8px; background: var(--space); clip-path: none; font-size: 18px; }
-.online-note { font-size: 18px; color: var(--text-dim); }
+/* QUICK MODE (js/ui-online.js). The card on the home page: one compact row (the kicker and the state line on top, the name
+   and the button below), so three cards fit the first screen. The menu: three plain buttons, the online two disabled with
+   one line of reason when online is off. */
+.mode-card.quick { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 0 16px; padding: 8px 22px 10px; }
+.mode-card.quick .mode-top { grid-column: 1 / -1; justify-content: flex-start; gap: 0 14px; }
+.mode-card.quick h2 { grid-column: 1; font-size: clamp(22px, 2.2vw, 30px); }
+.mode-card.quick .mode-foot { grid-column: 2; margin-top: 0; min-height: 0; }
+.mode-state { font-size: 18px; letter-spacing: 1px; color: var(--text-dim); }
+.quick-menu { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
+.quick-menu .btn { width: 100%; }
+.online .online-msg.fresh { color: var(--accent-ink); }
 .online .online-msg { margin: 6px 0; font-size: 20px; color: var(--text-dim); }
 .online .online-msg.bad { color: var(--accent-ink); }
 .online-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -21,3 +29,4 @@
 .lb-name { overflow-wrap: anywhere; }
 .online-verdict .lb-row { grid-template-columns: 1fr auto; }
 @media (max-width: 480px) { .lb-row { grid-template-columns: 44px 1fr auto; font-size: 20px; } .online-code { letter-spacing: 8px; } }
+@media (max-width: 480px) { .mode-card.quick { padding: 8px 16px 10px; } .mode-card.quick h2 { font-size: 22px; } .mode-state { font-size: 16px; } }

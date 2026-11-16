@@ -11,6 +11,13 @@ const { ok, done } = T.checker();
 const { waitHead } = T;
 const fixTargets = p => p.evaluate(() => Object.fromEntries([...document.querySelectorAll('.checks .check')].map(li =>
   [li.querySelector('strong').innerText, ((li.querySelector('button.fix') || { getAttribute: () => '' }).getAttribute('aria-label').match(/Fix on the (\w+) screen/) || [])[1] || null])));
+// The Help level is the tier's own `hints` value (SPEC.md, "Difficulty: how much help"): the readiness FIX links show on Easy ('training')
+// only; Normal ('standard') and Hard ('expert') keep the NO GO lines but hide the links. The same design is read at each level.
+async function reviewAt(p, tier) {
+  await p.evaluate(t => { window.__modernDesign.tier = t; window.showDesignScreen('review', window.__modernDesign); }, tier);
+  await waitHead(p, 'READINESS');
+  return fixTargets(p);
+}
 async function toMap(p) { if (!(await T.head(p, 'BASE MAP').count())) { await p.keyboard.press('m'); await waitHead(p, 'BASE MAP'); } }
 
 (async () => {
@@ -18,7 +25,7 @@ async function toMap(p) { if (!(await T.head(p, 'BASE MAP').count())) { await p.
   const errors = T.watchErrors(p);
   await T.noFonts(p);
   await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload();
-  await p.evaluate(() => { const d = newDesign('standard'); setEra(d, 'new-space'); window.showDesignScreen('map', d); });
+  await p.evaluate(() => { const d = newDesign('standard'); setEra(d, 'new-space'); window.__modernDesign = d; window.showDesignScreen('map', d); });
   ok(await waitHead(p, 'BASE MAP'), 'a 2026 design opens on the map');
   ok((await p.locator('#status').innerText()).startsWith('TRADE SPACE · 2026'), 'header: TRADE SPACE · 2026');
   ok(/PARTNER|CUSTOMER/.test(await p.locator('.say-name').first().innerText()), "a later tier speaks with Ajay's chapter (" + await p.locator('.say-name').first().innerText() + ')');
@@ -36,7 +43,12 @@ async function toMap(p) { if (!(await T.head(p, 'BASE MAP').count())) { await p.
   await p.click('[data-key="rocket-rideshare"]');
   await toMap(p); await p.click('[data-key="blip-review"]'); await waitHead(p, 'READINESS');
   const f1 = await fixTargets(p); console.log('     ' + JSON.stringify(f1));
-  ok(f1['TOO HEAVY'] === 'launcher', 'too heavy for the chosen rocket: FIX goes to the Rocket Yard');
+  ok(f1['TOO HEAVY'] === null && await p.locator('button.fix').count() === 0, 'Normal: the TOO HEAVY line stays, with no FIX link');
+  const e1 = await reviewAt(p, 'training'); console.log('     Easy: ' + JSON.stringify(e1));
+  ok(e1['TOO HEAVY'] === 'launcher', 'Easy: too heavy for the chosen rocket: FIX goes to the Rocket Yard');
+  const h1 = await reviewAt(p, 'expert');
+  ok(h1['TOO HEAVY'] === null && await p.locator('button.fix').count() === 0, 'Hard: the TOO HEAVY line stays, with no FIX link');
+  await reviewAt(p, 'standard');
   // An orbit the chosen rocket cannot reach, while another rocket can: fixed at the Rocket Yard, not the orbit
   await toMap(p); await p.click('[data-key="blip-launcher"]'); await waitHead(p, 'LAUNCH VEHICLE');
   await p.click('[data-key="rocket-small"]');
@@ -46,8 +58,11 @@ async function toMap(p) { if (!(await T.head(p, 'BASE MAP').count())) { await p.
   ok(!(await p.locator('.nav-row .btn.primary').isDisabled()), 'GO TO stays enabled (another rocket can reach it)');
   await toMap(p); await p.click('[data-key="blip-review"]'); await waitHead(p, 'READINESS');
   const f2 = await fixTargets(p); console.log('     ' + JSON.stringify(f2));
-  ok(f2['ROCKET CANNOT REACH'] === 'launcher', 'cannot reach: FIX goes to the Rocket Yard');
-  ok(f2['NOT ENOUGH THRUST'] === 'build', 'not enough thrust: FIX goes to the Workshop (thrusters exist in 2026)');
+  ok('ROCKET CANNOT REACH' in f2 && 'NOT ENOUGH THRUST' in f2 && await p.locator('button.fix').count() === 0, 'Normal: the cannot-reach and thrust lines stay, with no FIX link');
+  const e2 = await reviewAt(p, 'training'); console.log('     Easy: ' + JSON.stringify(e2));
+  ok(e2['ROCKET CANNOT REACH'] === 'launcher', 'Easy: cannot reach: FIX goes to the Rocket Yard');
+  ok(e2['NOT ENOUGH THRUST'] === 'build', 'Easy: not enough thrust: FIX goes to the Workshop (thrusters exist in 2026)');
+  await reviewAt(p, 'standard');
   await toMap(p); await p.click('[data-key="blip-orbit"]'); await waitHead(p, 'ORBIT'); await p.click('[data-key="orbit-sso"]');
   await toMap(p);
   ok(await p.locator('[data-key="blip-review"].next').count() === 1, 'fixed: the route points to the Launch Pad');
@@ -62,7 +77,7 @@ async function toMap(p) { if (!(await T.head(p, 'BASE MAP').count())) { await p.
   ok(/PARTNER|CUSTOMER/.test((await p.locator('.say-name').allInnerTexts()).join(' ')), "Ajay's chapter on the debrief");
   await p.screenshot({ path: path.join(shots, 'modern-debrief.png'), fullPage: true });
   await p.click('.limit .choices .btn >> text=HOME');
-  ok(await p.locator('.mode-card').count() === 2, 'HOME returns to the two modes');
+  ok(await p.locator('.mode-card').count() === 3, 'HOME returns to the three modes');
   ok(errors.length === 0, 'no errors' + (errors.length ? ': ' + errors.join(' / ') : ''));
   await b.close();
   done();

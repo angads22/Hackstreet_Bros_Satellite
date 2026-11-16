@@ -276,5 +276,52 @@ names.forEach(function (name) {
   check("10 a version 4 save code imports with the empty info map too", r.ok && Object.keys(JSON.parse(GI.run("localStorage.getItem('smdg-campaign')")).info).length === 0, r.reason);
 })();
 
+// ---- 11. Real credit scores (2.1): a 0.9 save starts at the start score; a 2.0 run keeps its 0 to 100 credit as its starting point.
+(function () {
+  var CB0 = load({ storage: load.memoryStorage() }).CAMPAIGN.comeback.score;
+  names.forEach(function (name) {
+    var fx = FX.saves[name], original = JSON.parse(fx.raw), store = storeWith(fx.raw), G = load({ storage: store }), h = G.getComeback(), now = JSON.parse(store.getItem("smdg-campaign"));
+    check("11 " + name + ": the 0.9 save (no credit) gets a score, writes no credit, and loses nothing",
+      !("credit" in original) && !("credit" in now) && h.credit_score >= CB0.min && h.credit_score <= CB0.max && typeof h.credit_band === "string" && h.credit_factors.length === 5 &&
+      now.treasury_musd === original.treasury_musd && now.debt_musd === original.debt_musd && same(now.missions, original.missions), name + " " + h.credit_score + " " + h.credit_band);
+  });
+  var fresh = load({ storage: storeWith(FX.saves["fresh-normal"].raw) }).getComeback();
+  check("11 a fresh 0.9 run starts at the start score, GOOD", fresh.credit_score === CB0.start && fresh.credit_band === "GOOD", fresh.credit_score);
+
+  // A 2.0 run: version 5, `credit` from 0 to 100, loans in the log.
+  function twoOh(credit, patch) {
+    var G0 = load({ storage: load.memoryStorage() }); G0.newComeback("standard", 5);
+    var c = JSON.parse(JSON.stringify(G0.getCampaign()));
+    c.credit = credit; c.borrowed_musd = 8; c.treasury_musd = 11; c.debt_musd = 50.4; c.month = 6;
+    c.log = [{ year: 2026, month: 2, kind: "loan", musd: 8, fee_musd: 0.4 }, { year: 2026, month: 4, kind: "payment", musd: 2 }];
+    Object.keys(patch || {}).forEach(function (k) { c[k] = patch[k]; });
+    return c;
+  }
+  var mapped = function (cr) { return Math.round(CB0.legacy_base + CB0.legacy_per_point * cr); };
+  [77, 100, 62.5, 45].forEach(function (cr) {
+    var old = twoOh(cr), raw = JSON.stringify(old), store = storeWith(raw), G = load({ storage: store }), h = G.getComeback(), now = JSON.parse(store.getItem("smdg-campaign"));
+    check("11 a 2.0 run with credit " + cr + " is shown on the new scale (300 + 5.5 a point) and the run goes on",
+      h.credit_score === mapped(cr) && !h.finished && now.credit > 100, cr + " -> " + h.credit_score + " (stored " + now.credit + ")");
+    check("11 credit " + cr + ": the loan, the payment, the cash, the debt and the borrowed total are all as they were",
+      same(now.log, old.log) && now.borrowed_musd === 8 && now.treasury_musd === 11 && now.debt_musd === 50.4 && now.month === 6 &&
+      Object.keys(old).every(function (k) { return k === "credit" || same(now[k], old[k]); }));
+    var G2 = load({ storage: store });
+    check("11 credit " + cr + ": a second load changes nothing (same text, same score)", store.getItem("smdg-campaign") === JSON.stringify(now) && G2.getComeback().credit_score === h.credit_score);
+  });
+  // The old seize line (30) is 465 on the new scale; a running run is not seized by the move.
+  var thin = twoOh(33), storeT = storeWith(JSON.stringify(thin)), GT = load({ storage: storeT }), hT = GT.getComeback();
+  check("11 a running run at credit 33 (below the new seize line) is kept just above it, not seized", hT.credit_score === CB0.seize + 1 && !hT.finished && GT.payDebt(0.5).ok && !GT.getComeback().finished, hT.credit_score);
+  var lost = twoOh(20, { finished: true, won: false, seized: true, seized_musd: 3, treasury_musd: 0 }), GL = load({ storage: storeWith(JSON.stringify(lost)) });
+  check("11 a run that was seized stays seized, at its own score", GL.getComeback().finished && GL.getComeback().lost_reason === "seized" && GL.getComeback().credit_score === mapped(20), GL.getComeback().credit_score);
+  // A save code from 2.0 (version 5) is converted on import too.
+  var body = JSON.stringify({ v: 5, campaign: twoOh(77), progress: { best_stars: { training: 3 }, best_score: {}, best_stars_by_era: {} } });
+  var GI = load({ storage: storeWith() }), r = GI.importSave("SMDG1." + Buffer.from(body).toString("base64") + "." + GI.checksum(body));
+  check("11 a 2.0 save code imports and is converted", r.ok && GI.getComeback().credit_score === mapped(77) && JSON.parse(GI.run("localStorage.getItem('smdg-campaign')")).credit > 100, r.reason);
+  // And it plays on: the next flight and the score are worked out from what the run has done, not from the old credit.
+  var G3 = load({ storage: storeWith(JSON.stringify(twoOh(77))) }), h3 = G3.getComeback(), d3 = findDesign(G3, h3);
+  if (d3) { var m3 = fly(G3, d3.d), rr = G3.recordResult(m3), h3b = G3.getComeback();
+    check("11 a converted run flies on: the debrief reports its score and the change in points", rr.credit_score === h3b.credit_score && Number.isInteger(rr.credit_change) && h3b.credit_score >= 300 && !h3b.finished, rr.credit_change + " " + h3b.credit_score); }
+})();
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 if (failed) process.exitCode = 1;

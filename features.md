@@ -14,7 +14,7 @@ Design a satellite, pick a rocket, pass a readiness review, watch the mission mo
 ## The story
 
 - **A dramatic opening:** October 1957, a workshop hears Sputnik, one launch window. *In*
-- **Story scenes between flights** (the lenders, his mum who co-signed, the rival Iron Eclipse, Austin's last notebook page, a last push). *In*
+- **Story scenes between flights** (the lenders, his girlfriend leaving, his parents who co-signed and disowned him, the rival Iron Eclipse, Austin's last notebook page, a last push). *In*
 - **A choice:** Iron Eclipse offers to clear the debt for the workshop, the patents and Austin's notebook. SELL or REFUSE. *In*
 - **Seven endings** counted on the home page. *In*
 - **Loans, credit and a name:** borrow more cash (with a fee), credit sets the interest and the loan cap, lenders seize at low credit, and to win you also need a reputation. *In (merged today; see the changelog)*
