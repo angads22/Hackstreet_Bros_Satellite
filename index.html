@@ -6,11 +6,11 @@
   <title>GRAVITRON: The Gravitronical Odyssey</title>
   <!-- Pixel fonts: self-hosted in css/fonts/ (@font-face in css/style.css), so there is no request to Google Fonts. A rel="preload" would log a CORS error when the game is opened as a file; it made no difference to the layout shift in the measurements (handoff/notes/v2-perf.md). -->
   <!-- Part 1 (1958) type (Courier Prime, Special Elite, Stardos Stencil): also in css/fonts/, fetched only when Part 1 uses it. -->
-  <link rel="stylesheet" href="css/style.css?v=2.0">
-  <link rel="stylesheet" href="css/story.css?v=2.0">
-  <link rel="stylesheet" href="css/build.css?v=2.0">
-  <link rel="stylesheet" href="css/online.css?v=2.0">
-  <link rel="stylesheet" href="css/ledger.css?v=2.0">
+  <link rel="stylesheet" href="css/style.css?v=2.1">
+  <link rel="stylesheet" href="css/story.css?v=2.1">
+  <link rel="stylesheet" href="css/build.css?v=2.1">
+  <link rel="stylesheet" href="css/online.css?v=2.1">
+  <link rel="stylesheet" href="css/ledger.css?v=2.1">
 </head>
 <body class="is-home">
   <div class="wrap">
@@ -33,58 +33,58 @@
     <main id="app" tabindex="-1"></main>
 
     <!-- The one place the game shows its version. See "Versions and changelog" in SPEC.md. -->
-    <footer class="foot">GRAVITRON v2.0</footer>
+    <footer class="foot">GRAVITRON v2.1</footer>
   </div>
 
   <!-- Every script is deferred: it downloads while the page is read and runs, in this order, once the page is parsed (a script without defer would run first, before the others). -->
   <!-- Data: one global per file -->
-  <script defer src="data/parts.js?v=2.0"></script>
-  <script defer src="data/launchers.js?v=2.0"></script>
-  <script defer src="data/orbits.js?v=2.0"></script>
-  <script defer src="data/objectives.js?v=2.0"></script>
-  <script defer src="data/campaign.js?v=2.0"></script>
-  <script defer src="data/contracts.js?v=2.0"></script>
-  <script defer src="data/research.js?v=2.0"></script>
-  <script defer src="data/tiers.js?v=2.0"></script>
-  <script defer src="data/events.js?v=2.0"></script>
-  <script defer src="data/debrief.js?v=2.0"></script>
-  <script defer src="data/missions.js?v=2.0"></script>
-  <script defer src="data/hints.js?v=2.0"></script>
-  <script defer src="data/eras.js?v=2.0"></script>
-  <script defer src="data/earth.js?v=2.0"></script>
-  <script defer src="data/online.js?v=2.0"></script>
+  <script defer src="data/parts.js?v=2.1"></script>
+  <script defer src="data/launchers.js?v=2.1"></script>
+  <script defer src="data/orbits.js?v=2.1"></script>
+  <script defer src="data/objectives.js?v=2.1"></script>
+  <script defer src="data/campaign.js?v=2.1"></script>
+  <script defer src="data/contracts.js?v=2.1"></script>
+  <script defer src="data/research.js?v=2.1"></script>
+  <script defer src="data/tiers.js?v=2.1"></script>
+  <script defer src="data/events.js?v=2.1"></script>
+  <script defer src="data/debrief.js?v=2.1"></script>
+  <script defer src="data/missions.js?v=2.1"></script>
+  <script defer src="data/hints.js?v=2.1"></script>
+  <script defer src="data/eras.js?v=2.1"></script>
+  <script defer src="data/earth.js?v=2.1"></script>
+  <script defer src="data/online.js?v=2.1"></script>
 
   <!-- Back end -->
-  <script defer src="js/game.js?v=2.0"></script>
-  <script defer src="js/mission.js?v=2.0"></script>
-  <script defer src="js/live-data.js?v=2.0"></script>
+  <script defer src="js/game.js?v=2.1"></script>
+  <script defer src="js/mission.js?v=2.1"></script>
+  <script defer src="js/live-data.js?v=2.1"></script>
 
   <!-- Low-poly art (the front end draws with it when it is there, and works without it) -->
-  <script defer src="js/lowpoly.js?v=2.0"></script>
-  <script defer src="js/lp-earth.js?v=2.0"></script>
-  <script defer src="js/lp-parts-body.js?v=2.0"></script>
-  <script defer src="js/lp-parts-instruments.js?v=2.0"></script>
-  <script defer src="js/lp-parts-systems.js?v=2.0"></script>
-  <script defer src="js/lp-satellite.js?v=2.0"></script>
-  <script defer src="js/lp-pad.js?v=2.0"></script>
-  <script defer src="js/lp-people.js?v=2.0"></script>
-  <script defer src="js/lp-base.js?v=2.0"></script>
+  <script defer src="js/lowpoly.js?v=2.1"></script>
+  <script defer src="js/lp-earth.js?v=2.1"></script>
+  <script defer src="js/lp-parts-body.js?v=2.1"></script>
+  <script defer src="js/lp-parts-instruments.js?v=2.1"></script>
+  <script defer src="js/lp-parts-systems.js?v=2.1"></script>
+  <script defer src="js/lp-satellite.js?v=2.1"></script>
+  <script defer src="js/lp-pad.js?v=2.1"></script>
+  <script defer src="js/lp-people.js?v=2.1"></script>
+  <script defer src="js/lp-base.js?v=2.1"></script>
 
   <!-- Front end -->
-  <script defer src="js/motion.js?v=2.0"></script>
-  <script defer src="js/audio.js?v=2.0"></script>
+  <script defer src="js/motion.js?v=2.1"></script>
+  <script defer src="js/audio.js?v=2.1"></script>
 
-  <script defer src="js/part-story.js?v=2.0"></script>
-  <script defer src="js/ui-parts.js?v=2.0"></script>
-  <script defer src="js/ui-design.js?v=2.0"></script>
-  <script defer src="js/ui-verdict.js?v=2.0"></script>
-  <script defer src="js/ui-mission.js?v=2.0"></script>
-  <script defer src="js/ui-tree.js?v=2.0"></script>
-  <script defer src="js/ui-campaign.js?v=2.0"></script>
-  <script defer src="js/ui-ledger.js?v=2.0"></script>
-  <script defer src="js/ui-comeback.js?v=2.0"></script>
-  <script defer src="js/ui-story.js?v=2.0"></script>
-  <script defer src="js/ui-online.js?v=2.0"></script>
-  <script defer src="js/ui-ending.js?v=2.0"></script>
+  <script defer src="js/part-story.js?v=2.1"></script>
+  <script defer src="js/ui-parts.js?v=2.1"></script>
+  <script defer src="js/ui-design.js?v=2.1"></script>
+  <script defer src="js/ui-verdict.js?v=2.1"></script>
+  <script defer src="js/ui-mission.js?v=2.1"></script>
+  <script defer src="js/ui-tree.js?v=2.1"></script>
+  <script defer src="js/ui-campaign.js?v=2.1"></script>
+  <script defer src="js/ui-ledger.js?v=2.1"></script>
+  <script defer src="js/ui-comeback.js?v=2.1"></script>
+  <script defer src="js/ui-story.js?v=2.1"></script>
+  <script defer src="js/ui-online.js?v=2.1"></script>
+  <script defer src="js/ui-ending.js?v=2.1"></script>
 </body>
 </html>
