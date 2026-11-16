@@ -365,7 +365,9 @@
     var side = el("div", { class: "panel limit" }, [
       d.stars === 3 ? el("p", { class: "banner", role: "status", text: "TARGET REACHED · FULL STARS" }) : null,
       UI.quickScoreBlock ? UI.quickScoreBlock(done, d) : null,   // QUICK MODE (js/ui-online.js): the QUICK SCORE leads a quick flight's debrief
-      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info"), role: "status",
+      // QA 2.1 (step-result-once): the big line above already says "STEP 1 PASSED" or "STEP 1: NOT YET"; the banner stays in
+      // the page (walk-dup: not drawn) and shows only when it adds something (NOT THIS TIME: STEP n STAYS PASSED).
+      walk ? el("p", { class: "banner walk-result" + (walk.passed ? "" : " info") + (walk.kept ? "" : " walk-dup"), role: "status",
         text: walk.kept ? "NOT THIS TIME: STEP " + walk.step + " STAYS PASSED" : "STEP " + walk.step + (walk.passed ? " PASSED" : ": NOT YET") }) : null,
       // Tiers and eras are no longer chosen on the home page, so a walkthrough step does not announce them. A standalone
       // flight that opens one gets a button that starts it (unlockButtons, under the advice).

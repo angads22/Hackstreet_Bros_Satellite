@@ -1623,3 +1623,15 @@ summary { min-width: 24px; padding: 0 4px; }
 
 /* QA 2.1 (header-repeat): while the ledger strip shows CASH and DEBT, the header's copy of them takes no room (it stays in the page for a screen reader). */
 body:has(#lstrip-host:not([hidden])) .status-money { font-size: 0; letter-spacing: 0; }
+/* QA 2.1 (next-star): the "Third star: ..." line moved from the paper report to the dark box under TRY THIS; the paper's muted ink was unreadable there. */
+.next-star { color: var(--text-dim); }
+.paper .next-star { color: var(--paper-muted); }
+/* QA 2.1 (step-result-once): Part 1's debrief said the step result twice, in the big line and in a banner right under it. */
+.walk-result.walk-dup { display: none; }
+/* QA 2.1 (bars-in-view): on a short wide screen (1366x768) the preview at the top of the side column pushed the DATA HOME and
+   CARRIES bars under the bottom row, so a fitted body's CARRIES chip had nothing to point at. The preview is shorter there and
+   drops its picture: the words and the change line get the full width. */
+@media (max-height: 820px) {
+  .stack > .preview { height: 176px; }
+  .stack > .preview .explainer.ex-compact .ex-svg { display: none; }
+}
