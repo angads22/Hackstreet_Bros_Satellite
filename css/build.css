@@ -1,0 +1,66 @@
+/* css/build.css — the Build screen's 2.1 additions (UI review): the progress count, the verdict strip, the ranked problem
+   list, the line beside the next button and "SHOW LATER PARTS". Flat: borders and solid fills, no gradient, no shadow.
+   Colour is never alone: every state also has an icon and a word. Motion only inside prefers-reduced-motion: no-preference. */
+
+/* progress count: "4 of 6 needed" beside the satellite */
+.progress-count { font-size: 22px; }
+.progress-count.need { color: var(--accent-ink); }
+.progress-count.done { color: var(--info-ink); }
+
+/* verdict gauges: DATA, COST, TIME under the satellite */
+.vstrip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.vgauge { min-width: 0; padding: 4px 8px 6px; background: var(--surface); border: 2px solid var(--line); color: var(--text); }
+.vg-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0 8px; font-size: 20px; line-height: 1.1; }
+.vg-name { letter-spacing: 1px; }
+.vg-state { display: inline-flex; align-items: center; gap: 4px; }
+.vg-track { height: 10px; margin-top: 4px; background: var(--line); }
+.vg-fill { height: 100%; width: 0; background: var(--info); }
+.vg-num { margin-top: 3px; font-size: 18px; line-height: 1.1; color: var(--text-dim); }
+.vg-num:empty { display: none; }
+.vg-have { color: var(--text); }
+/* thin: amber, a triangle */
+.vgauge.thin { border-color: var(--accent); }
+.vgauge.thin .vg-fill { background: var(--accent); }
+.vgauge.thin .vg-state { color: var(--accent-ink); }
+/* impossible: solid red, a cross */
+.vgauge.bad { background: var(--bad); border-color: var(--bad); color: var(--on-accent); }
+.vgauge.bad .vg-track { background: var(--stamp); }
+.vgauge.bad .vg-fill { background: var(--on-accent); }
+.vgauge.bad .vg-num, .vgauge.bad .vg-have { color: var(--on-accent); }
+/* Hard: facts, no verdict, nothing coloured */
+.vgauge.fact .vg-fill { background: var(--text-dim); }
+.vgauge.none .vg-fill { width: 0 !important; }
+
+/* problems: blockers first and big, warnings after and smaller */
+.checks.ranked { gap: 8px; }
+.checks.ranked .check { align-items: flex-start; }
+.checks.ranked .check-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.checks.ranked .check.bad { font-size: 26px; }
+.checks.ranked .check.bad strong { color: var(--bad); letter-spacing: 1px; }
+.checks.ranked .check.warn { font-size: 20px; }
+.checks.ranked .check.warn strong { color: var(--accent-ink); }
+.check-do { font-size: 20px; letter-spacing: 1px; color: var(--text-dim); }
+.check-do::before { content: "> "; }
+.no-problems { display: flex; align-items: center; gap: 6px; color: var(--info-ink); font-size: 22px; }
+
+/* the line beside the next button: what is blocking (the button is never disabled by it) */
+.nav-row .next-why { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 22px; color: var(--bad); text-align: right; }
+@media (max-width: 600px) {
+  .nav-row .next-why { order: -1; flex-basis: 100%; justify-content: center; font-size: 20px; }
+}
+
+/* "SHOW LATER PARTS": the rest of a bin */
+.later { display: block; width: 100%; margin-top: 8px; min-height: 40px; padding: 4px 12px; background: var(--bg); color: var(--accent-ink); border: 2px solid var(--accent-ink); font: inherit; font-size: 20px; cursor: pointer; }
+.later:hover { background: var(--surface-2); }
+
+@media (max-width: 480px) {
+  .vstrip { gap: 6px; }
+  .vgauge { padding: 4px 6px 6px; }
+  .vg-top, .vg-num { font-size: 18px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vg-fill { transition: width 0.35s ease-out; }
+  .vgauge.flash { animation: vg-flash 0.6s ease-out; }
+  @keyframes vg-flash { from { outline: 3px solid var(--text); outline-offset: 1px; } to { outline: 3px solid transparent; outline-offset: 1px; } }
+}

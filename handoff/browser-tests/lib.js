@@ -83,9 +83,16 @@ const CONTRACT = {
   ionosphere: { orbit: 'sso', launcher: 'small', parts: ['smallsat-bus', 'spin-stabilised', 'alouette-2-sounder', 'solar-small', 'mercury-battery', 'radio-uhf', 'obc-basic', 'prop-ion'] }
 };
 
+// Part 2 shows the first six cards of a bin; SHOW LATER PARTS (data-key later-<bin>) opens the rest (v2.1, cards-limit).
+async function openLater(page, part) {
+  if (await page.locator(`[data-key="part-${part}"]`).count()) return;
+  const more = page.locator('[data-key^="later-"][aria-expanded="false"]');
+  if (await more.count()) await more.first().click();
+}
 async function addParts(page, parts) {
   for (const part of parts) {
     await page.click(`[data-key="bin-${BIN[part]}"]`);
+    await openLater(page, part);
     await page.click(`[data-key="part-${part}"]`);
   }
 }
@@ -163,7 +170,7 @@ async function launchContract(page, topic, opts) {
 // A group that is already known, or that the part does not have, is skipped. Leaves the bin of the last part open.
 async function buyInfo(page, parts, groups) {
   for (const part of [].concat(parts)) {
-    if (BIN[part]) await page.click(`[data-key="bin-${BIN[part]}"]`);
+    if (BIN[part]) { await page.click(`[data-key="bin-${BIN[part]}"]`); await openLater(page, part); }
     for (const group of groups || ['sheet', 'performance', 'dossier']) {
       const ask = page.locator(`[data-key="ask-${part}-${group}"]`);
       if (!(await ask.count())) { await page.hover(`[data-key="part-${part}"]`); await page.waitForTimeout(60); }   // the dossier's ASK lives in the preview
@@ -188,4 +195,4 @@ async function stars(page) {
 }
 
 module.exports = { args, watchErrors, noFonts, checker, skipped, head, waitHead, noScroll, words, WALK, BATTERY_ONLY, BIN,
-  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, buyInfo, buyBin, cashNow, throughBeats, fly, stars, startComeback, launchContract };
+  CONTRACT, SEEDS, seedRuns, pastScenes, addParts, openLater, buyInfo, buyBin, cashNow, throughBeats, fly, stars, startComeback, launchContract };

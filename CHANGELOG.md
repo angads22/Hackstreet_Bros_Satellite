@@ -4,6 +4,12 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ## Unreleased
 
+- Build: one count beside the satellite ("4 of 6 needed", only the bins a design must fill) instead of "Needed" on every empty bin.
+- Build: the problem list puts every NO GO first and big (a cross, the name, an action word on Easy and Normal), then the warnings; no problems says "No problems".
+- Build (Part 2): a bin shows its first six parts and SHOW LATER PARTS opens the rest; parts that have been replaced are gone, not greyed. Part 1 keeps all its cards.
+- Build: a line beside the next button says how many NO GO are left ("2 NO GO to fix"); the button still works.
+- Build (Part 2): three gauges under the satellite, DATA against the contract's points, COST against the cash, TIME against the months left. Red with a cross only when the flight cannot work, amber with a triangle when thin. Easy adds the numbers, Hard gets the contract's terms and the design's amounts with no verdict.
+
 ## 2.0 (November 15, 2026)
 
 Version 2 turns the game into something you can play against other people, makes Normal and Hard cost real money to learn about, brings in what the two satellite engineers asked for, and adds music. The home page now opens as the home layout at once (desktop performance 94 to 99, from about 60). Everything players already have is kept: stars, Part 1 steps and a comeback in progress (an in-place upgrade, tested against real saves).
