@@ -1949,9 +1949,13 @@ var CREDIT_FACTORS = [   // the five FICO factors, in FICO's order; `name` is th
 ];
 
 // Months with the debt above the cash. The cash of each past month is not saved, so: every month of the run while the debt
-// is above the cash now; once the cash has caught up, the months up to the flight before the last one settled.
+// is above the cash now; once the cash has caught up, the months up to the flight before the last one settled; with the
+// debt paid, the months up to the last payment.
 function lateMonthsFor(c, debt, cash) {
   if (debt > cash) return c.month || 0;
+  if (!(debt > 0)) {   // nothing owed: the months stop counting at the last payment
+    return (c.log || []).reduce(function (m, e) { return e.kind === "payment" ? Math.max(m, e.month || 0) : m; }, 0);
+  }
   var ms = c.missions || [];
   return ms.length >= 2 ? (ms[ms.length - 2].month || 0) : 0;
 }
@@ -1976,7 +1980,7 @@ function scoreStart(c) {
 }
 // Each factor from 0 (worst) to 1 (best).
 function scoreFactorValues(st) {
-  var s = scoreConfig(), p = s.payment, onTime = p.grace_months + st.pays * p.payment_months, lateEq = st.late + st.lost * p.lost_months;
+  var s = scoreConfig(), p = s.payment, onTime = p.grace_months + st.pays * p.payment_months, lateEq = st.late + p.lost_months * Math.pow(st.lost, p.lost_power);
   return {
     payment: onTime / (onTime + lateEq),                                                                  // on-time months against late ones
     owed: 1 - clamp01((st.debt - s.owed.cash_share * Math.max(0, Math.min(st.cash, st.debt))) / st.limit),   // the debt (less some of the cash) against the debt owed at the start plus the loan cap

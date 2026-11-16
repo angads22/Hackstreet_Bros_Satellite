@@ -83,6 +83,18 @@ G.TIERS.forEach(function (t) {
   check("3 credit mix: paying back raises the factor", factor(h, "mix") > factor(m0, "mix") && factor(h, "mix") <= 1);
 })();
 
+(function () {
+  // A string of lost satellites costs more than the sum of single ones (the n-th counts n^power).
+  var h0 = start("standard"), h1 = edit(function (c) { lostSatellite(c); }), h2 = edit(function (c) { lostSatellite(c); }), h3 = edit(function (c) { lostSatellite(c); });
+  check("3 each further lost satellite costs more than the one before", h0.credit_score - h1.credit_score > 0 && h1.credit_score - h2.credit_score > h0.credit_score - h1.credit_score && h2.credit_score > 0,
+    [h0.credit_score, h1.credit_score, h2.credit_score, h3.credit_score].join(" > "));
+  // A debt-free player's payment history stops counting late months at the last payment: it does not shrink as the months go by.
+  start("training"); edit(function (c) { c.treasury_musd = c.debt_musd + 5; c.month = 8; G.makeOffers(c); });
+  var rp = G.payDebt(G.getComeback().debt_musd), clear = G.getComeback(), then = edit(function (c) { c.month = c.month + 12; });
+  check("3 with the debt paid, more months do not lower payment history", rp.ok && clear.debt_musd === 0 && factor(then, "payment") === factor(clear, "payment") && then.credit_score >= clear.credit_score,
+    factor(clear, "payment") + " -> " + factor(then, "payment"));
+})();
+
 // ---- 4. A loan never raises the score and a payment never lowers it, across many states.
 (function () {
   var bad = [];

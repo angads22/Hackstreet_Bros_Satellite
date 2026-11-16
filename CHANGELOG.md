@@ -6,7 +6,7 @@ What each version of the game holds, newest first. `SPEC.md` ("Versions and chan
 
 ### Added
 
-- **Credit is a real credit score.** Ajay's credit now runs 300 to 850 like a FICO score (POOR, FAIR, GOOD, VERY GOOD, EXCEPTIONAL), worked out from his payments, what he owes, how long the run has lasted, new loans and his mix of credit; the band sets the interest and how much the lenders lend, none in POOR. A run saved before 2.1 keeps its credit on the new scale (`getComeback()` gains `credit_score`, `credit_band`, `credit_band_id`, `credit_factors`, `seize_score`).
+- **Credit is a real credit score** (300 to 850, POOR to EXCEPTIONAL): worked out from payments, debt, history, new loans and mix; the band sets the interest and the loan limit; a 2.0 save keeps its credit.
 
 ### Fixed
 

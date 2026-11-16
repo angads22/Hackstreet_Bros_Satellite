@@ -239,7 +239,8 @@
     });
   }
   function creditStat(c) {
-    if (typeof c.credit_score !== "number") return null;
+    var range = config() && config().score;   // the score runs from min to max (data/campaign.js)
+    if (typeof c.credit_score !== "number" || !range) return null;
     var tone = creditTone(c), danger = c.credit_band_id === "poor";
     var why = el("details", { class: "cb-why", "data-key": "credit-why" }, [
       el("summary", { text: "WHY" }),
@@ -253,7 +254,7 @@
         el("strong", { class: "cb-stat-value", id: "cb-credit", text: num(c.credit_score, 0) }),
         el("span", { class: "cb-band " + tone, id: "cb-band", text: c.credit_band })
       ]),
-      bar(c.credit_score - 300, 550, c.seize_score - 300, "Credit score " + num(c.credit_score, 0) + " of 850, " + c.credit_band + "; the lenders take everything at " + num(c.seize_score, 0), "credit"),
+      bar(c.credit_score - range.min, range.max - range.min, c.seize_score - range.min, "Credit score " + num(c.credit_score, 0) + " of " + num(range.max, 0) + ", " + c.credit_band + "; the lenders take everything at " + num(c.seize_score, 0), "credit"),
       el("span", { class: "cb-note", role: danger ? "alert" : null,
         text: danger ? "THE LENDERS TAKE EVERYTHING AT " + num(c.seize_score, 0) : "BELOW " + num(c.seize_score, 0) + " THEY TAKE EVERYTHING" }),
       why

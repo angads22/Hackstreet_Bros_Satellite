@@ -58,8 +58,9 @@ const CAMPAIGN = {
       ],
       // Payment history: on-time months against late ones. `grace_months` of clean history to begin with; each real payment
       // adds `payment_months` on-time months; every month with the debt above the cash counts late; a lost satellite counts
-      // as `lost_months` late months.
-      payment: { grace_months: 30, payment_months: 6, lost_months: 15 },
+      // as `lost_months` late months, and each further one counts more (the n-th lost satellite brings the total to
+      // lost_months x n^lost_power): one failure is forgiven, a string of them is not.
+      payment: { grace_months: 36, payment_months: 6, lost_months: 15, lost_power: 2 },
       // Amounts owed: the debt, less `cash_share` of the cash, against the debt Ajay began with plus the loan cap.
       owed: { cash_share: 0.5 },
       // Length of history: the run's months, full at `full_months`.
