@@ -163,12 +163,12 @@ async function part2Build(p, topic) {
   await p.click(`[data-key="${bad.key}"]`); await p.waitForTimeout(200);
   ok(await p.locator(`[data-key="${bad.key}"]`).getAttribute('aria-pressed') === 'true', 'the part that does not count can still be placed');
   ok(await p.locator('#preview [data-key="why-' + badId + '"]').count() === 1, 'WHY: still shown in the preview after the part is placed');
-  ok(await p.locator('.stack [data-key="why-' + badId + '"]').count() === 1, 'WHY: listed with the science preview once the part is on board');
-  const sciText = (await p.locator('.stack [data-key="why-' + badId + '"]').innerText()).replace(/\s+/g, ' ');
+  ok(await p.locator('.stack > :not(#preview) [data-key="why-' + badId + '"]').count() === 1, 'WHY: listed with the science preview once the part is on board');
+  const sciText = (await p.locator('.stack > :not(#preview) [data-key="why-' + badId + '"]').innerText()).replace(/\s+/g, ' ');
   ok(sciText.includes(await p.evaluate(id => getPart(id).name, badId)), 'WHY (science panel): names the part (' + sciText + ')');
   await p.screenshot({ path: path.join(shots, 'clarity-p2-placed-1366.png') });
   await p.click(`[data-key="${bad.key}"]`); await p.waitForTimeout(200);   // take it off again: the flight below is the proof design
-  ok(await p.locator('.stack .part-why').count() === 0, 'WHY: gone from the science panel once the part is off the satellite');
+  ok(await p.locator('.stack > :not(#preview) .part-why').count() === 0, 'WHY: gone from the science panel once the part is off the satellite');
   await T.addParts(p, good2);
   line = await profitOf(p, '[data-key="profit-line"]');
   ok(/^PROFIT \+\$/.test(line.text) && /\bpos\b/.test(line.cls) && line.musd > 0, 'Build: a design that pays shows PROFIT +$ in the positive class (' + line.text + ')');

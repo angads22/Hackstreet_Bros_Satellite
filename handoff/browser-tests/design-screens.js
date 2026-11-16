@@ -52,7 +52,7 @@ const barText = (p, name) => p.evaluate(n => { const x = [...document.querySelec
   // The part's animated explainer (js/ui-parts.js) now tells the story, above the effect lines, and replaces the blurb line.
   ok(/^H2,H3,(part-why,)?explainer[^,]*(,preview-line( fix| cause| lead)?)+$/.test(order) && /cause/.test(order) && !/blurb/.test(order), 'the preview lists the explainer, then Fixes and Causes (the blurb is dropped): ' + order);
   const box = await p.locator('#preview').boundingBox();
-  await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 12 });
+  await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);   // one jump: on wide screens the preview is in the side column and a slow path would cross other cards
   const kept = await text(p, '#preview');
   ok(/ADD SYNTHETIC APERTURE RADAR/.test(kept), 'moving the pointer onto the preview keeps it: ' + kept.slice(0, 60));
   await p.mouse.wheel(0, 300); await p.waitForTimeout(150);
