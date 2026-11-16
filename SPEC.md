@@ -935,6 +935,9 @@ getComebackEnding()             // the ending: a short chronicle of the comeback
 getRunScore(c)                  // the leaderboard score of a finished comeback (the saved one if c is left out); null while it runs
 getDuelSetup(seed)              // the duel's shared setup: topic, orbit, era, tier and cash; null without a usable seed
 getQuickScore(result)           // Quick mode's score (a pure function): round(100 x science / cost in $M, cost counted as at least 1); 0 with no science or a bad figure; result = { science, cost_musd }
+getContractOrder()              // the workshop's contracts in display order: sorted by price minus the cheapest known cost on Easy and Normal (best_id named on Easy only), the offers' own order on Hard
+getLedger()                     // the Part 2 ledger strip: cash, debt, months left, interest_month_musd, deadline_near; computed, nothing stored
+getPaceLine(design)             // the mission science bar's ticks: min_share (the contract's minimum) and expected_share (null on Hard)
 newDuelDesign(seed)             // a fresh standalone design for one duel flight; it never joins the comeback or the stars record
 ```
 
