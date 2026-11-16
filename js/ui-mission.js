@@ -54,7 +54,7 @@
         flat = typeof L.scenes.satellite === "function" && typeof L.scenes.satellite.flat === "function" ?
           L.scenes.satellite.flat({ parts: UI.list(design.parts), data: UI.data("PARTS") }) : null;
       } catch (e) { flat = null; }
-      return L.scenes.earth({ orbitId: design.orbit, objectiveId: design.objective, spin: 5, mesh: flat ? flat.mesh : null, size: 1.5 });
+      return L.scenes.earth({ orbitId: design.orbit, objectiveId: design.objective, spin: 5, mesh: flat ? flat.mesh : null, size: 0.8 });
     }, "mission-earth") : null;
     run.earth = earth ? earth.wrap : null;
 
