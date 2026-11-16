@@ -5,7 +5,7 @@ Everything here was checked against the repository for version 2.1 (see `CHECKLI
 
 - Text in square brackets that starts with `TEAM:` is a blank only a person can fill. Search this file for `[TEAM` before you submit: none may be left in the form.
 - The form's field names follow `SPEC.md` ("Submission checklist"): eight fields. If the live form splits or renames one, the section says what to paste where.
-- Field length limits are not known (`SPEC.md` says so; `deck/briefs.md` notes 50 to 200 words for the summary). The summary below is 98 words and the description 622.
+- Field length limits are not known (`SPEC.md` says so; `deck/briefs.md` notes 50 to 200 words for the summary). The summary below is 98 words and the description 598.
 
 ## 1. Project Name
 
@@ -49,22 +49,22 @@ The headings in capitals are plain text, so they survive a field with no formatt
 WHAT IT DOES
 GRAVITRON is a game about designing a satellite mission under hard limits. Every flight is one loop: pick a science job, one of three orbits, parts (41 in seven groups) and one of seven rockets; pass a go or no-go review; fly month by month through events that ask for a decision; read a debrief that names the one thing that limited the flight and one change to try.
 
-Three modes. Part 1 is a guided 1958 walkthrough: Austin Albert builds a first satellite in three steps. Part 2 is his grandson Ajay's comeback: fly contracts to clear a debt before a deadline, with loans, a credit score from 300 to 850, rockets that can fail, a buyout offer and seven endings. Quick mode is one scored flight. Easy, Normal and Hard hide answers, never facts; on Normal and Hard the player pays engineers for information about a part.
+Part 1 is a guided 1958 walkthrough: Austin Albert builds a first satellite in three steps. Part 2 is his grandson Ajay's comeback: fly contracts to clear a debt before a deadline, with loans, a credit score from 300 to 850, rockets that can fail, a buyout offer and seven endings. Quick mode is one scored flight. Easy, Normal and Hard hide answers, never facts; on Normal and Hard the player pays engineers for information about a part.
 
 HOW IT WORKS
-Eight formulas (rocket equation, orbital period, solar power, eclipse, battery size, image resolution, data budget, margins) decide whether a design can fly. The mission then runs month by month on the real records listed under NASA Data. It is one web page: no install, no account. It plays offline from a data snapshot stored in the game; online, three public feeds add a "right now" line to the debrief.
+Eight formulas (rocket equation, orbital period, solar power, eclipse, battery size, image resolution, data budget, margins) decide whether a design can fly. The mission runs month by month on the real records listed under NASA Data. One web page, no install, no account. It plays offline from a data snapshot stored in the game; online, three public feeds add a "right now" line to the debrief.
 
 BENEFITS (IMPACT)
-Anyone with a browser can learn why a spacecraft is a chain of trade-offs: each part fixes one problem and creates the next. The debrief ties the result to a real problem, such as wildfire or Arctic sea ice, and to one of 14 real missions.
+Anyone with a browser can learn why a spacecraft is a chain of trade-offs: each part fixes one problem and creates the next. The debrief ties the result to a real problem and to one of 14 real missions.
 
 WHAT IS NEW (CREATIVITY)
-History is part of the game: Part 1 flies the parts and rockets of 1958. In Part 2 money is the teacher: margins become cash, interest and a deadline. Two satellite engineers who visited our table said the slowest part sets the schedule, so the game names it (the long pole) and shows every part's lead time. All pictures are drawn by code and all sound is made in the browser.
+History is part of the game: Part 1 flies the parts and rockets of 1958. In Part 2 money is the teacher: margins become cash, interest and a deadline. Two visiting satellite engineers said the slowest part sets the schedule, so the game names it (the long pole) and shows every part's lead time. All pictures are drawn by code and all sound is made in the browser.
 
 WHY IT IS SOUND (VALIDITY)
-Part figures come from NASA's Small Spacecraft Technology State of the Art report, CubeSat 101 and NSSDCA records; the rest is labelled ESTIMATE or GAME VALUE in the data files. Prices, interest, the credit score and lead times are game values. A fire detection is one hot pixel, not one fire. More than 900 automated checks pass, among them hand-worked tests of the eight formulas.
+Part figures come from NASA's Small Spacecraft Technology State of the Art report, CubeSat 101 and NSSDCA records; the rest is labelled ESTIMATE or GAME VALUE in the data files. Prices, interest, the credit score and lead times are game values. A fire detection is one hot pixel, not one fire. More than 900 automated checks pass, including hand-worked tests of the formulas.
 
 NASA DATA AT THE CORE (RELEVANCE)
-The data is the simulation, not decoration. The NASA FIRMS files for 2025 hold 3,693,555 MODIS fire detections; a low orbit can see 92% of them, a polar orbit all, one geostationary slot 69%. The sea-ice debrief uses the NSIDC Sea Ice Index: 4.75 million square kilometres in September 2025, 26% below the 1981 to 2010 average. SILSO sunspot numbers and the Canadian Space Agency's Alouette-1 soundings drive two more topics.
+The NASA FIRMS files for 2025 hold 3,693,555 MODIS fire detections; a low orbit can see 92% of them, a polar orbit all, one geostationary slot 69%. The sea-ice debrief uses the NSIDC Sea Ice Index: 4.75 million square kilometres in September 2025, 26% below the 1981 to 2010 average. SILSO sunspot numbers and the Canadian Space Agency's Alouette-1 soundings drive two more topics.
 
 THE STORY (PRESENTATION)
 A notebook ties the modes together: Austin writes it in 1958, Ajay opens it decades later. Screens carry few words and the debrief leads with the verdict.
@@ -131,9 +131,9 @@ GOES-R series (NOAA and NASA). https://www.goes-r.gov/ How used: the real missio
 
 NASA Safety Standard 1740.14 (1995), orbital debris guidelines. https://orbitaldebris.jsc.nasa.gov/ How used: in the game, polar orbits need disposal fuel only from 1995.
 
-NASA mission records for the debrief's real-mission comparison (Explorer 1 and 3, Vanguard 2, TIROS-1, SOLRAD 1, SDO, GOES-R, Terra, Seasat). Each record in the game names its source. How used: the debrief compares the player's design with a real mission.
+NASA records for the debrief's real-mission comparison: NSSDCA records for Explorer 3, Vanguard 2, TIROS-1 and SOLRAD 1, the SDO mission page (https://science.nasa.gov/mission/sdo/), the Terra mission page (https://terra.nasa.gov/) and the NASA JPL Seasat mission page. How used: the debrief compares the player's design with a real mission. Each record in the game names its source, and a mass that a person has not yet confirmed is marked so in the data.
 
-From the challenge's Resources tab, used as references and not as data: Design and Develop Science Missions (NASA), whose four mission segments (launch, space, ground, user) label the debrief. https://www.nasa.gov/wp-content/uploads/2025/04/250323-design-and-develop-science-mission.pdf Mission Design Lab (NASA Goddard), whose discipline names label what limited a flight. https://etd.gsfc.nasa.gov/capabilities/integrated-design-center/mission-design-lab/ Concept Maturity Levels (NASA JPL), which name the three levels Initial Feasibility, Trade Space and Point Design. https://dataverse.jpl.nasa.gov/dataset.xhtml?persistentId=hdl:2014/44299 A Learning Game About Telescopes (NASA), a design reference only; no code or art was reused. https://science.nasa.gov/mission/webb/game-build-it-yourself/
+From the challenge's Resources tab, used as references and not as data: Design and Develop Science Missions (NASA), whose four mission segments (launch, space, ground, user) label the debrief. https://www.nasa.gov/wp-content/uploads/2025/04/250323-design-and-develop-science-mission.pdf Mission Design Lab (NASA Goddard), whose discipline names label what limited a flight. https://etd.gsfc.nasa.gov/capabilities/integrated-design-center/mission-design-lab/ Concept Maturity Levels (NASA JPL), which give the game's three levels their names in the data: Initial Feasibility, Trade Space and Point Design. https://dataverse.jpl.nasa.gov/dataset.xhtml?persistentId=hdl:2014/44299 A Learning Game About Telescopes (NASA), a design reference only; no code or art was reused. https://science.nasa.gov/mission/webb/game-build-it-yourself/
 ```
 
 ## 8. Space Agency Partner Data and Other References
@@ -159,7 +159,7 @@ Natural Resources Canada, Canadian Wildland Fire Information System, satellite h
 
 ESA eoPortal: ICEYE constellation, PlanetScope and Rocket Lab. https://www.eoportal.org/satellite-missions/iceye-constellation https://www.eoportal.org/satellite-missions/planetscope https://www.eoportal.org/other-space-activities/rocket-lab How used: the radar part, the optical camera's aperture and the small launcher.
 
-Two satellite engineers who visited our table (spoken, not published). How used: the lead time of each part and the idea that the slowest part sets the schedule. The lead times in the game are game values rounded from what they said.
+Two satellite engineers who visited our table (spoken, not published). How used: the lead time of each part and the idea that the slowest part sets the schedule. The lead times in the game are game values rounded from what they said and from the two web explainers listed under the other references.
 ```
 
 Other references (every other outside resource: text, fonts, tools):
@@ -171,9 +171,11 @@ NewSpace Economy, SpaceX rideshare pricing, February 2026 (third party). https:/
 
 Secondary sources named in the source field of each part in data/parts.js: Starfish Prime (1962) damage to satellite solar cells and n-on-p cells; Explorer 1, Vanguard 1 and Sputnik 1 figures (mass, batteries, transmitters, operating days), checked against NSSDCA.
 
-Mission pages of Planet, ICEYE and OroraTech, named in the source field of each record in data/missions.js. Used for the debrief's real-mission comparison.
-
 Sputnik 1 (it orbited in October 1957 and its radio beeps were heard around the world). [TEAM: the link to the NASA history page that was opened] Used for the opening lines of Part 1. Voss, Austin, Ajay, Priya, Mara and Iron Eclipse are invented.
+
+Lead times, two commercial explainers (not primary data) used with the engineers' quote to round the lead-time ranges: Space Nexus, The schedule is set by the slowest part, https://spacenexus.us/learn/supply-chain/space-supply-chain-fundamentals/lead-times-and-the-long-pole and New Space Economy, Where are the real bottlenecks in the small-satellite supply chain? https://newspaceeconomy.ca/2026/09/26/where-are-the-real-bottlenecks-in-the-small-satellite-supply-chain.md These pages were found by the SI and have not yet been opened by a team member.
+
+Read for planning only, not used in the game: Aviation Week, SES secures long-lead items, https://aviationweek.com/space/satellites/ses-secures-long-lead-items-c-band-clearing-eyes-iris2-milestone and Breaking Defense, The space supply chain is getting stretched, https://breakingdefense.com/2026/02/the-space-supply-chain-is-getting-stretched-heres-how-it-could-impact-the-pentagons-plans/ These pages were found by the SI and have not yet been opened by a team member.
 
 Fonts: Pixelify Sans, VT323, Courier Prime, Special Elite and Stardos Stencil, Google Fonts families as packaged by Fontsource, version 5.3.0. SIL Open Font License 1.1, except Special Elite (Apache License 2.0). https://fonts.google.com/ and https://fontsource.org/ The font files are stored in the game.
 
