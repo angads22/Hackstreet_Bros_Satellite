@@ -297,7 +297,8 @@ async function reduced() {
   await T.noFonts(p);
   await p.goto(url); await p.evaluate(() => localStorage.clear()); await p.reload(); await T.seedRuns(p);
   await T.startComeback(p, 'training');
-  await editSave(p, 'c.treasury_musd = c.debt_musd + 1;');
+  // Paying the debt only wins with a name too (SPEC.md, "Loans, credit and a name"): the same save edit as the won ending above.
+  await editSave(p, 'c.treasury_musd = c.debt_musd + 1; c.reputation = 999;');
   await p.evaluate(() => window.showComebackHub());
   const tr = await p.locator('.cb-meter-debt').evaluate(n => getComputedStyle(n).transitionDuration);
   ok(tr === '0s', 'reduced motion: the meter does not slide (' + tr + ')');
